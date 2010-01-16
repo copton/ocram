@@ -8,7 +8,7 @@ import xtc.parser.{Result,SemanticValue,ParseError}
 class ParseException(what: String) extends Exception(what)
 
 object Parser {
-	def apply(in: java.io.BufferedReader): GNode = {
+	def apply(in: java.io.Reader): GNode = {
 		val cparser = new CParser(in, "unknown")
 		val result = cparser.pTranslationUnit(0)
 		if (result.hasValue()) {
