@@ -1,9 +1,0 @@
-package tc.ast
-import xtc.tree.GNode
-
-implicit def gnode2snode(n: Gnode): SNode = new SNode(n)
-
-class SNode(val gnode: GNode) {
-	def isFunctionDefinition = gnode.hasName("FunctionDefinition")
-	def isFunctionCall = gnode.hasName("FunctionCall")
-}
