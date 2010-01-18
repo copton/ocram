@@ -1,0 +1,11 @@
+#!/bin/bash
+
+input=${1:-minimal}
+file=`pwd`/../../../example/${input}.c
+
+if [ ! -e $file ]; then
+	echo "file $file does not exist" >&2
+	exit 1
+fi
+
+(cd ../../../target/ && scala test.ast.main < $file)
