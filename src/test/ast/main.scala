@@ -6,13 +6,16 @@ object main {
 		val out = new java.io.OutputStreamWriter(Console.out)
 
 		val gnode = tc.Parser(in)
-		println(gnode)
+		println("in:")
+		println(format(gnode.toString))
 
 		val node = tc.Transform.encode(gnode)
-		println(node)
+		println("intermediate:")
+		println(format(node.toString))
 
 		val gnode2 = tc.Transform.decode(node)
-		println(gnode2)
+		println("out:")
+		println(format(gnode2.toString))
 
 		tc.Printer(gnode2, out)
 

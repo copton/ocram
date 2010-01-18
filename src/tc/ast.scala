@@ -86,7 +86,7 @@ object Transform {
 									_encode(node.children.last)
 								  )
 		case "Declaration" => Declaration(
-									node.children(0) == null, 
+									node.children(0) != null, 
 									_encode(node.children(1)).asInstanceOf[DeclarationSpecifiers],
 									null //XXX
 								)
