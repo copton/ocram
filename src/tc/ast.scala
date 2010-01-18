@@ -1,3 +1,5 @@
+package tc
+
 import xtc.tree.GNode
 
 class RichNode(val name: String, val children: List[Any])
@@ -31,7 +33,7 @@ case class TranslationUnit(externalDeclarations: List[ExternalDeclaration], anno
 }
 
 abstract case class ExternalDeclaration() extends Node
-case class Declaration(extension: boolean, declarationSpecifiers: DeclarationSpecifiers, initializedDeclaratorList: InitializedDeclaratorList) extends ExternalDeclaration {
+case class Declaration(extension: Boolean, declarationSpecifiers: DeclarationSpecifiers, initializedDeclaratorList: InitializedDeclaratorList) extends ExternalDeclaration {
 	def children = List(declarationSpecifiers, initializedDeclaratorList)
 }
 // FunctionDefinition extends ExternalDeclaration
@@ -70,7 +72,7 @@ case class SimpleDeclerator(id: String) extends DirectDeclarator {
 // PointerDeclarator extends Declarator
 
 object Transform {
-	def encode(any: Any): Node = any match {
+	private def _encode(any: Any): Node = any match {
 		case null => null
 		case node: GNode => encode(node)
 	}
@@ -78,30 +80,35 @@ object Transform {
 	def encode(node: RichNode): Node = node.name match {
 		case "TranslationUnit" => TranslationUnit(
 									node.children
-									.map(encode)
+									.map(_encode)
 									.map(n=>n.asInstanceOf[ExternalDeclaration])
 									.init,
-									encode(node.children.last)
+									_encode(node.children.last)
 								  )
 		case "Declaration" => Declaration(
 									node.children(0) == null, 
-									encode(node.children(1)).asInstanceOf[DeclarationSpecifiers],
-									null, //XXX
+									_encode(node.children(1)).asInstanceOf[DeclarationSpecifiers],
+									null //XXX
 								)
-
+		case "DeclarationSpecifiers" => DeclarationSpecifiers(
+								node.children
+								.map(_encode)
+								.map(n=>n.asInstanceOf[DeclarationSpecifier])
+									)
+		
 		case "VoidTypeSpecifier" => VoidTypeSpecifier()
 		case "InitializedDeclaratorList" => InitializedDeclaratorList(
 												node.children
-												.map(encode)
+												.map(_encode)
 												.map(n=>n.asInstanceOf[InitializedDeclarator])
 											)
 		case "InitializedDeclarator" => {  
-			val c = node.children.map(encode)
+			val c = node.children.map(_encode)
 			InitializedDeclarator(c(0), c(1).asInstanceOf[Declarator], c(2), c(3), c(4))
 		}
 		case "FunctionDeclarator" => FunctionDeclarator(
-				encode(node.children(0)).asInstanceOf[DirectDeclarator], 
-				null, // XXX encode(node.children(1)).asInstanceOf[ParameterTypeList]
+				_encode(node.children(0)).asInstanceOf[DirectDeclarator], 
+				null // XXX _encode(node.children(1)).asInstanceOf[ParameterTypeList]
 			)
 		case "SimpleDeclerator" => SimpleDeclerator(node.children(0).asInstanceOf[String])
 	}
@@ -118,6 +125,7 @@ object Transform {
 				decode(declarationSpecifiers),
 				decode(initializedDeclaratorList)
 			))
+		case DeclarationSpecifiers(children) => new RichNode("DeclarationSpecifiers", children.map(decode))
 		case VoidTypeSpecifier() => new RichNode("VoidTypeSpecifier", Nil)
 		case InitializedDeclaratorList(c) => new RichNode("InitializedDeclaratorList", c.map(decode))
 		case InitializedDeclarator(c0, c1, c2, c3, c4) => new RichNode("InitializedDeclarator", List(c0, c1, c2, c3, c4).map(decode))
