@@ -1,5 +1,7 @@
 package test.ast
 
+import tc.ast.Ast
+
 object main {
 	def main(args: Array[String]) {
 		val in = Console.in
@@ -9,11 +11,11 @@ object main {
 		println("in:")
 		println(format(gnode.toString))
 
-		val node = tc.Transform.encode(gnode)
+		val node = Ast.encode(gnode)
 		println("intermediate:")
 		println(format(node.toString))
 
-		val gnode2 = tc.Transform.decode(node)
+		val gnode2 = Ast.decode(node)
 		println("out:")
 		println(format(gnode2.toString))
 
