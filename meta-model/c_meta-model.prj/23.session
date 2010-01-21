@@ -1,0 +1,15 @@
+window_sizes 1920 1140 237 1677 946 120
+diagrams
+  active  classdiagram_ref 128023 // class diagram
+    1677 946 100 0 60 46
+end
+show_stereotypes
+selected attribute_ref 128151 // identifier
+open
+  class_ref 128023 // TranslationUnit
+  class_ref 128151 // ExternalDeclaration
+  class_ref 128407 // Declaration
+  class_ref 130967 // FunctionDeclarator
+  class_ref 131351 // SimpleDeclarator
+end
+end
