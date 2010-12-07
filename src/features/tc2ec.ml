@@ -1,5 +1,5 @@
 open Cil
-open Callgraph
+open Cg
 
 let feature : featureDescr = 
   { fd_name = "tc2ec";
