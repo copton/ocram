@@ -1,17 +1,13 @@
 open Cil
-open Cg
 
 let api: string list ref = ref []
 
 let doit(f:file) = begin
-  Printf.fprintf stdout "api " ;
-  List.iter (function s ->  (Printf.fprintf stdout "%s, " s)) !api;
-  Printf.fprintf stdout "\n" ;
-
-  Cfg.computeFileCFG(f);
-  let graph:callgraph = computeGraph f in
-  
-  printGraph stdout graph;
+  Cfg.computeFileCFG f ;
+  let graph = CallGraph.compute f in
+  let ef = EntryFunctions.analyze f in
+  List.iter (function vi -> Printf.fprintf stdout "%s\n" vi.vname) ef
+(*  CallGraph.print stdout graph; *)
 end
 
 let parseApiOpt(opt:string): unit = 

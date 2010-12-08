@@ -150,19 +150,14 @@ class cgComputer (graph: callgraph) = object(self)
     DoChildren
 end
 
-let computeGraph (f:file) : callgraph = begin
+let compute (f:file) : callgraph = begin
   let graph = H.create 37 in 
-  let obj:cgComputer = new cgComputer graph in
-
-  (* visit the whole file, computing the graph *)
-  visitCilFileSameGlobals (obj :> cilVisitor) f;
-
-
-  (* return the computed graph *)
+  let obj = new cgComputer graph in
+  visitCilFileSameGlobals obj f;
   graph
 end
     
-let printGraph (out:out_channel) (g:callgraph) : unit = begin 
+let print (out:out_channel) (g:callgraph) : unit = begin 
   let printEntry _ (n:callnode) : unit =
     let name = nodeName n.cnInfo in
     (Printf.fprintf out " %s" name) 
