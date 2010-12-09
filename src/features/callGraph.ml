@@ -1,190 +1,117 @@
-(* callgraph.ml *)
-(* code for callgraph.mli *)
-
-(* see copyright notice at end of this file *)
-
 open Cil
 open Trace
 open Printf
 module P = Pretty
-module IH = Inthash
 module H = Hashtbl
 module E = Errormsg
 
-type nodeinfo = 
-    NIVar of Cil.varinfo * bool ref 
-                         (* Node corresponding to a function. If the boolean 
-                          * is true, then the function is defined, otherwise 
-                          * it is external *)
+type call = { loc: location; func: string }
 
-  | NIIndirect of string (* Indirect nodes have a string associated to them. 
-                          * These strings must be invalid function names *)
-               * Cil.varinfo list ref 
-                         (* A list of functions that this indirect node might 
-                          * denote *)
-
-type callnode = {
-  (* An id *)
-  cnid: int;
-  
-  (* the function this node describes *)
-  cnInfo: nodeinfo;
-
-  (* set of functions this one calls, indexed by the node id *)
-  cnCallees: callnode Inthash.t;
-
-  (* set of functions that call this one , indexed by the node id *)
-  cnCallers: callnode Inthash.t;
+type func = {
+  info: Cil.varinfo; 
+  defined: bool ref; 
+  critical: bool ref;
+  callees: call list ref;
+  callers: call list ref;
 }
 
-type callgraph = (string, callnode) Hashtbl.t
+let funcName (f:func):string = f.info.vname
+let funcNew(i:varinfo):func = {
+	info=i;
+	defined = ref false;
+	critical = ref false;
+	callees = ref [];
+	callers = ref [];
+}	
 
-let nodeName (n: nodeinfo) : string =
-  match n with
-    NIVar (v, _) -> v.vname
-  | NIIndirect (n, _) -> n
+let addEdge (caller: func) (callee: func) (loc: location):unit = 
+	caller.callees := {loc = loc; func = funcName callee} :: !(caller.callees);
+	callee.callers := {loc = loc; func = funcName caller} :: !(callee.callers)
 
-(* a call graph is a hashtable, mapping a function name to
- * the node which describes that function's call structure *)
+class virtual callgraph = object
+	method virtual get: string -> func option
+	method virtual print: out_channel -> unit
+end
 
-(* given the name of a function, retrieve its callnode; this will create a 
- * node if one doesn't already exist. Will use the given nodeinfo only when 
- * creating nodes. *)
-let nodeId = ref 0
-let getNodeByName (cg: callgraph) (ni: nodeinfo) : callnode =
-  let name = nodeName ni in
-  try
-    H.find cg name
-  with Not_found -> (
-    (* make a new node *)
-    let ret:callnode = {
-      cnInfo = ni;
-      cnid   = !nodeId;
-      cnCallees = IH.create 5;
-      cnCallers = IH.create 5;
-    }  
-    in
-    incr nodeId;
-    (* add it to the table, then return it *)
-    H.add cg name ret;
-    ret
-   )
+class callgraphImpl = object
+	inherit callgraph
 
-(* Get the node for a variable *)
-let getNodeForVar (cg: callgraph) (v: varinfo) : callnode = 
-  getNodeByName cg (NIVar (v, ref false))
+	val functions: (string, func) H.t = H.create 20
 
-let getNodeForIndirect (cg: callgraph) (e: exp) : callnode = 
-  getNodeByName cg (NIIndirect ("<indirect>", ref []))
+	method get(name:string):func option =
+		try
+			let f = H.find functions name in
+			Some f
+		with Not_found ->
+			None
 
-(* Find the name of an indirect node that a function whose address is taken 
- * belongs *)
-let markFunctionAddrTaken (cg: callgraph) (f: varinfo) : unit = 
-  (*
-  ignore (E.log "markFunctionAddrTaken %s\n" f.vname);
-   *)
-  let n = getNodeForIndirect cg (AddrOf (Var f, NoOffset)) in 
-  match n.cnInfo with 
-    NIIndirect (_, r) -> r := f :: !r
-  | _ -> assert false
+	method getFunction (i: varinfo):func =
+		try
+			let f = H.find functions i.vname in
+			assert (f.info = i);
+			f
+		with Not_found ->
+			let f = funcNew i in
+			H.add functions (funcName f) f;
+			f
 
-class cgComputer (graph: callgraph) = object(self)
+	method print(out:out_channel) : unit = begin 
+		let printItem (c:call) : unit =
+			(fprintf out " %s" c.func)
+		in
+		
+		let printCalls (f:func) : unit =
+			(fprintf out "  calls:");
+			(List.iter printItem !(f.callees));
+			(fprintf out "\n  is called by:");
+			(List.iter printItem !(f.callers));
+			(fprintf out "\n")
+		in
+
+		let printEntry (name:string) (f:func): unit =
+			fprintf out "%s (%s):\n" name (if !(f.defined) then "defined" else "external");
+			printCalls f
+		in
+
+		H.iter printEntry functions
+
+		end
+end
+
+class computer (graph: callgraphImpl) = object
   inherit nopCilVisitor
 
   (* the current function we're in, so when we visit a call node
    * we know who is the caller *)
-  val mutable curFunc: callnode option = None
+  val mutable curFunc: func option = None
 
-
-  (* begin visiting a function definition *)
   method vfunc (f:fundec) : fundec visitAction = begin 
-    (trace "callgraph" (P.dprintf "entering function %s\n" f.svar.vname));
-   let node =  getNodeForVar graph f.svar in 
-   (match node.cnInfo with 
-     NIVar (v, r) -> r := true
-   | _ -> assert false);
-   curFunc <- (Some node);
-   DoChildren
+(*    (trace "callgraph" (P.dprintf "entering function %s\n" f.svar.vname)); *)
+  	let f = graph#getFunction f.svar in 
+		f.defined := true;
+   	curFunc <- (Some f);
+		DoChildren
   end
 
-  (* visit an instruction; we're only interested in calls *)
-  method vinst (i:instr) : instr list visitAction = begin 
-    (*(trace "callgraph" (P.dprintf "visiting instruction: %a\n" dn_instr i));*)
-    let caller : callnode = 
+  method vinst (i:instr) : instr list visitAction = begin
+    let caller : func = 
       match curFunc with 
         None -> assert false
       | Some c -> c
-    in
-    let callerName: string = nodeName caller.cnInfo in
-    (match i with
-      Call(_,f,_,_) -> (
-        let callee: callnode = 
-          match f with 
-          | Lval(Var(vi),NoOffset) -> 
-              (trace "callgraph" (P.dprintf "I see a call by %s to %s\n"
-                                    callerName vi.vname));
-              getNodeForVar graph vi
-
-          | _ -> 
-              (trace "callgraph" (P.dprintf "indirect call: %a\n"
-                                  dn_instr i));
-              getNodeForIndirect graph f
-        in
-        
-        (* add one entry to each node's appropriate list *)
-        IH.replace caller.cnCallees callee.cnid callee;
-        IH.replace callee.cnCallers caller.cnid caller
-       )    
-
-    | _ -> ());     (* ignore other kinds instructions *)
-
-    DoChildren
-  end
-      
-  method vexpr (e: exp) = 
-    (match e with 
-      AddrOf (Var fv, NoOffset) when isFunctionType fv.vtype -> 
-        markFunctionAddrTaken graph fv
-    | _ -> ());
-    
-    DoChildren
+    in match i with
+      Call(_,Lval(Var(vi),NoOffset),_,loc) ->
+(*		  (trace "callgraph" (P.dprintf "I see a call by %s to %s\n" caller.meta.info.vname vi.vname)); *)
+				let callee = graph#getFunction vi in
+				addEdge caller callee loc;
+				DoChildren
+			| _ -> 
+				DoChildren
+	end
 end
 
 let compute (f:file) : callgraph = begin
-  let graph = H.create 37 in 
-  let obj = new cgComputer graph in
+  let graph = new callgraphImpl in
+  let obj = new computer graph in
   visitCilFileSameGlobals obj f;
-  graph
+  (graph :> callgraph)
 end
-    
-let print (out:out_channel) (g:callgraph) : unit = begin 
-  let printEntry _ (n:callnode) : unit =
-    let name = nodeName n.cnInfo in
-    (Printf.fprintf out " %s" name) 
-  in
-  
-  let printCalls (node:callnode) : unit =
-    (fprintf out "  calls:");
-    (IH.iter printEntry node.cnCallees);
-    (fprintf out "\n  is called by:");
-    (IH.iter printEntry node.cnCallers);
-    (fprintf out "\n")
-  in
-
-  H.iter (fun (name: string) (node: callnode) -> 
-    match node.cnInfo with 
-      NIVar (v, def) -> 
-        (fprintf out "%s (%s):\n" 
-           v.vname (if !def then "defined" else "external"));
-        printCalls node
-
-    | NIIndirect (n, funcs) -> 
-        fprintf out "Indirect %s:\n" n;
-        fprintf out "   possible aliases: ";
-        List.iter (fun a -> fprintf out "%s " a.vname) !funcs;
-        fprintf out "\n"
-
-         )
-
-  g 
-  end
