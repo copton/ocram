@@ -1,16 +1,15 @@
-type call = { loc: Cil.location; func: string }
+type call = { loc: Cil.location; name: string }
 
-type func = {
+and func = {
   info: Cil.varinfo; 
-  defined: bool ref; 
-  critical: bool ref;
-  callees: call list ref;
-  callers: call list ref;
+  mutable defined: bool; 
+  mutable critical: bool;
+  mutable callees: call list;
+  mutable callers: call list;
 }
 
-class type virtual callgraph = object
-	method virtual get: string -> func option
-	method virtual print: out_channel -> unit
-end
+and callgraph
 
 val compute: Cil.file -> callgraph
+val getFunction: callgraph -> string -> func option
+val print: callgraph -> out_channel -> unit

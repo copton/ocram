@@ -6,8 +6,9 @@ let doit(f:file) = begin
   Cfg.computeFileCFG f ;
   let graph = CallGraph.compute f in
   let ef = EntryFunctions.analyze f in
+  CriticalFunctions.determine !api graph;
   List.iter (function vi -> Printf.fprintf stdout "%s\n" vi.vname) ef;
-  graph#print stdout
+  CallGraph.print graph stdout
 end
 
 let parseApiOpt(opt:string): unit = 

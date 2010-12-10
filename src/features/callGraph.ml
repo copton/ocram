@@ -5,80 +5,72 @@ module P = Pretty
 module H = Hashtbl
 module E = Errormsg
 
-type call = { loc: location; func: string }
+type call = { loc: location; name: string }
 
 type func = {
   info: Cil.varinfo; 
-  defined: bool ref; 
-  critical: bool ref;
-  callees: call list ref;
-  callers: call list ref;
+  mutable defined: bool; 
+  mutable critical: bool;
+  mutable callees: call list;
+  mutable callers: call list;
 }
 
 let funcName (f:func):string = f.info.vname
-let funcNew(i:varinfo):func = {
-	info=i;
-	defined = ref false;
-	critical = ref false;
-	callees = ref [];
-	callers = ref [];
+let newFunc (i:varinfo):func = {
+	info = i;
+	defined = false;
+	critical = false;
+	callees = [];
+	callers = [];
 }	
 
 let addEdge (caller: func) (callee: func) (loc: location):unit = 
-	caller.callees := {loc = loc; func = funcName callee} :: !(caller.callees);
-	callee.callers := {loc = loc; func = funcName caller} :: !(callee.callers)
+	caller.callees <- {loc = loc; name = funcName callee} :: caller.callees;
+	callee.callers <- {loc = loc; name = funcName caller} :: callee.callers
 
-class virtual callgraph = object
-	method virtual get: string -> func option
-	method virtual print: out_channel -> unit
+type callgraph = (string, func) H.t
+
+let newCallgraph = H.create 20
+
+let getFunction (cg:callgraph) (name:string):func option =
+	try
+		let f = H.find cg name in
+		Some f
+	with Not_found ->
+		None
+
+let getOrCreateFunction (cg:callgraph) (i: varinfo):func =
+	try
+		let f = H.find cg i.vname in
+		assert (f.info = i);
+		f
+	with Not_found ->
+		let f = newFunc i in
+		H.add cg (funcName f) f;
+		f
+
+let print(cg:callgraph)(out:out_channel) : unit = begin 
+	let printItem (c:call) : unit =
+		(fprintf out " %s" c.name)
+	in
+	
+	let printCalls (f:func) : unit =
+		(fprintf out "  calls:");
+		(List.iter printItem f.callees);
+		(fprintf out "\n  is called by:");
+		(List.iter printItem f.callers);
+		(fprintf out "\n")
+	in
+
+	let printEntry (name:string) (f:func): unit =
+		fprintf out "%s (%s, %s):\n" name (if f.defined then "defined" else "external") (if f.critical then "critical" else "non-critical");
+		printCalls f
+	in
+
+	H.iter printEntry cg
 end
 
-class callgraphImpl = object
-	inherit callgraph
-
-	val functions: (string, func) H.t = H.create 20
-
-	method get(name:string):func option =
-		try
-			let f = H.find functions name in
-			Some f
-		with Not_found ->
-			None
-
-	method getFunction (i: varinfo):func =
-		try
-			let f = H.find functions i.vname in
-			assert (f.info = i);
-			f
-		with Not_found ->
-			let f = funcNew i in
-			H.add functions (funcName f) f;
-			f
-
-	method print(out:out_channel) : unit = begin 
-		let printItem (c:call) : unit =
-			(fprintf out " %s" c.func)
-		in
-		
-		let printCalls (f:func) : unit =
-			(fprintf out "  calls:");
-			(List.iter printItem !(f.callees));
-			(fprintf out "\n  is called by:");
-			(List.iter printItem !(f.callers));
-			(fprintf out "\n")
-		in
-
-		let printEntry (name:string) (f:func): unit =
-			fprintf out "%s (%s):\n" name (if !(f.defined) then "defined" else "external");
-			printCalls f
-		in
-
-		H.iter printEntry functions
-
-		end
-end
-
-class computer (graph: callgraphImpl) = object
+class computer (cg: callgraph) = object
   inherit nopCilVisitor
 
   (* the current function we're in, so when we visit a call node
@@ -87,8 +79,8 @@ class computer (graph: callgraphImpl) = object
 
   method vfunc (f:fundec) : fundec visitAction = begin 
 (*    (trace "callgraph" (P.dprintf "entering function %s\n" f.svar.vname)); *)
-  	let f = graph#getFunction f.svar in 
-		f.defined := true;
+  	let f = getOrCreateFunction cg f.svar in 
+		f.defined <- true;
    	curFunc <- (Some f);
 		DoChildren
   end
@@ -101,7 +93,7 @@ class computer (graph: callgraphImpl) = object
     in match i with
       Call(_,Lval(Var(vi),NoOffset),_,loc) ->
 (*		  (trace "callgraph" (P.dprintf "I see a call by %s to %s\n" caller.meta.info.vname vi.vname)); *)
-				let callee = graph#getFunction vi in
+				let callee = getOrCreateFunction cg vi in
 				addEdge caller callee loc;
 				DoChildren
 			| _ -> 
@@ -110,8 +102,8 @@ class computer (graph: callgraphImpl) = object
 end
 
 let compute (f:file) : callgraph = begin
-  let graph = new callgraphImpl in
-  let obj = new computer graph in
+  let cg = newCallgraph in
+  let obj = new computer cg in
   visitCilFileSameGlobals obj f;
-  (graph :> callgraph)
+  cg
 end
