@@ -5,7 +5,7 @@ module P = Pretty
 module H = Hashtbl
 module E = Errormsg
 
-type call = { loc: location; name: string }
+type call = { location: location; name: string }
 
 type func = {
   info: Cil.varinfo; 
@@ -24,9 +24,9 @@ let newFunc (i:varinfo):func = {
 	callers = [];
 }	
 
-let addEdge (caller: func) (callee: func) (loc: location):unit = 
-	caller.callees <- {loc = loc; name = funcName callee} :: caller.callees;
-	callee.callers <- {loc = loc; name = funcName caller} :: callee.callers
+let addEdge (caller: func) (callee: func) (location: location):unit = 
+	caller.callees <- {location = location; name = funcName callee} :: caller.callees;
+	callee.callers <- {location = location; name = funcName caller} :: callee.callers
 
 type callgraph = (string, func) H.t
 
@@ -51,7 +51,7 @@ let getOrCreateFunction (cg:callgraph) (i: varinfo):func =
 
 let print(cg:callgraph)(out:out_channel) : unit = begin 
 	let printItem (c:call) : unit =
-		(fprintf out " %s" c.name)
+		(fprintf out " %s %d" c.name c.location.line)
 	in
 	
 	let printCalls (f:func) : unit =
@@ -91,10 +91,10 @@ class computer (cg: callgraph) = object
         None -> assert false
       | Some c -> c
     in match i with
-      Call(_,Lval(Var(vi),NoOffset),_,loc) ->
+      Call(_,Lval(Var(vi),NoOffset),_,location) ->
 (*		  (trace "callgraph" (P.dprintf "I see a call by %s to %s\n" caller.meta.info.vname vi.vname)); *)
 				let callee = getOrCreateFunction cg vi in
-				addEdge caller callee loc;
+				addEdge caller callee location;
 				DoChildren
 			| _ -> 
 				DoChildren

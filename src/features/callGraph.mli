@@ -1,4 +1,4 @@
-type call = { loc: Cil.location; name: string }
+type call = { location: Cil.location; name: string }
 
 and func = {
   info: Cil.varinfo; 
