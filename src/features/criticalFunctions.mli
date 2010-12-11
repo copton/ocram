@@ -1,1 +1,1 @@
-val determine: string list -> CallGraph.callgraph -> unit
+val determine: Ctx.context -> unit

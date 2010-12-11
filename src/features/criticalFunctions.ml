@@ -1,19 +1,15 @@
-open CallGraph
+open Ctx
 
-let determine (api: string list) (cg: callgraph): unit = 
-	let rec procUserFunction (c: call): unit =
-		match (getFunction cg c.name) with
+let determine (ctx: context): unit =
+	let rec procUserFunction (call:call): unit =
+		match (getFunction ctx call.fctName) with
 			None -> assert false		
-			| Some(f) ->
-				if (f.critical = false) then
-					f.critical <- true;
-					List.iter procUserFunction f.callers
+			| Some(func) ->
+				func.critical <- true;
+				List.iter procUserFunction func.callers
 	in
-	let procApiFunction (name: string): unit =
-		match (getFunction cg name) with
-   			None -> ()
-			| Some(f) -> 
-				f.critical <- true;				
-				List.iter procUserFunction f.callers
+	let procApiFunction (func: func): unit =
+		func.critical <- true;
+		List.iter procUserFunction func.callers
 	in
-	List.iter procApiFunction api
+	List.iter procApiFunction (getApiFunctions ctx)

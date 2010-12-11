@@ -1,1 +1,1 @@
-val analyze: Cil.file -> Cil.varinfo list
+val determine: Ctx.context -> unit
