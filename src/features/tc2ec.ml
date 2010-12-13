@@ -11,6 +11,7 @@ let doit(f:file) = begin
 	ApiFunctions.determine ctx !apiOpt;
 	EntryFunctions.determine ctx;
 	CriticalFunctions.determine ctx;
+	GotoProgram.translate ctx;
   Ctx.print ctx stdout
 
 (*
