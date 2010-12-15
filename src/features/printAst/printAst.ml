@@ -1,271 +1,316 @@
 open Cil
 
-let (%) = Printf.sprintf
-
-let pBool(value:bool): string = if (value) then "true" else "false"
-
-let pOption(print:'a->string)(value: 'a option):string =
-	match value with
-		Some(x) -> ("Some(%s)" % (print x))
-	| None -> "None"
-
-let pList(print:'a->string)(values: 'a list): string =
-	"[" ^ (String.concat "; " (List.map print values)) ^ "]"
-
-let pString(s:string):string = "\"" ^ s ^ "\""
-
-let pInt = string_of_int
-
-let pInt64 = Int64.to_string
-
-let pFloat = string_of_float
-
-let pChar(char:char) = "'" ^ (String.make 1 char) ^ "'"
-
-let pTuple(printa:'a->string)(printb:'b->string)(tuple:('a * 'b)):string =
-	("(%s, %s)" % (printa (fst tuple))) (printb (snd tuple))
-
-let pTriple(printa:'a->string)(printb:'b->string)(printc:'c->string)(triple:('a*'b*'c)):string =
-	match triple with
-		(a,b,c) -> ("(%s, %s, %s)" % (printa a))(printb b)(printc c)
-
-let rec pAttributes(attributes:attributes):string = 
-	pList pAttribute attributes
-
-and pAttribute(attribute:attribute):string = "_" (* TODO *)
-
-and pIkind(ikind:ikind):string =
-	match ikind with
-	 	IChar 	-> "IChar"
-	|	ISChar 	-> "ISChar"
-	|	IUChar 	-> "IUChar"
-	|	IBool 	-> "IBool"
-	|	IInt 	-> "IInt"
-	|	IUInt 	-> "IUInt"
-	|	IShort 	-> "IShort"
-	|	IUShort 	-> "IUShort"
-	|	ILong 	-> "ILong"
-	|	IULong 	-> "IULong"
-	|	ILongLong 	-> "ILongLong"
-	|	IULongLong 	-> "IULongLong"
-
-and pFkind(fkind:fkind):string = 
-	match fkind with
-		FFloat -> "FFloat"
-	| FDouble -> "FDouble"
-	| FLongDouble -> "FLongDouble"
-
-and pBinop(binop:binop):string =
-	match binop with
-		PlusA 	-> "PlusA"
-	|	PlusPI 	-> "PlusPI"
-	|	IndexPI 	-> "IndexPI"
-	|	MinusA 	-> "MinusA"
-	|	MinusPI 	-> "MinusPI"
-	|	MinusPP 	-> "MinusPP"
-	|	Mult -> "Mult"
-	|	Div 	-> "Div"
-	|	Mod 	-> "Mod"
-	|	Shiftlt 	-> "Shiftlt"
-	|	Shiftrt 	-> "Shiftrt"
-	|	Lt 	-> "Lt"
-	|	Gt 	-> "Gt"
-	|	Le 	-> "Le"
-	|	Ge 	-> "Ge"
-	|	Eq 	-> "Eq"
-	|	Ne 	-> "Ne"
-	|	BAnd 	-> "BAnd"
-	|	BXor 	-> "BXor"
-	|	BOr 	-> "BOr"
-	|	LAnd 	-> "LAnd"
-	|	LOr 	-> "LOr"
-
-and pUnop(unop:unop):string = 
-	match unop with
-		Neg -> "Neg"
-	| BNot -> "BNot"
-	| LNot -> "LNot"
-
-and pConstant(constant:constant):string = 
-	match constant with
-		CInt64(int64, ikind, string) -> ("CInt64(%s, %s, %s)" % (pInt64 int64)) (pIkind ikind) (pOption pString string)
-	| CStr(string) -> "CStr(%s)" % (pString string)
-	| CWStr(int64s) -> "CWStr(%s)" % (pList pInt64 int64s)
-	| CChr(char) -> "CChr(%s)" % (pChar char)
-	| CReal(float, fkind, string) -> ("CReal(%s, %s, %s)" % (pFloat float)) (pFkind fkind) (pOption pString string)
-	| CEnum(exp, string, enuminfo) -> ("CEnum(%s, %s, %s)" % (pExp exp)) (pString string) (pEnuminfo enuminfo)
-
-and pExp(exp:exp):string = 
-	match exp with
-		Const(constant) -> "Const(%s)" % (pConstant constant)
-	| Lval(lval) -> "Lval(%s)" % (pLval lval)
-	| SizeOf(typ) -> "SizeOf(%s)" % (pTyp typ)
-	| SizeOfE(exp) -> "SizeOfE(%s)" % (pExp exp)
-	| SizeOfStr(str) -> "SizeOfStr(%s)" % (pString str)
-	| AlignOf(typ) -> "AlignOf(%s)" % (pTyp typ)
-	| AlignOfE(exp) -> "AlignOfE(%s)" % (pExp exp)
-	| UnOp(unop, exp, typ) -> ("UnOp(%s, %s %s)" % (pUnop unop)) (pExp exp) (pTyp typ)
-	| BinOp(binop, exp1, exp2, typ) -> ("BinOp(%s, %s, %s, %s)" % (pBinop binop)) (pExp exp1) (pExp exp2) (pTyp typ)
-	| CastE(typ, exp) -> ("CastE(%s, %s)" % (pTyp typ)) (pExp exp)
-	| AddrOf(lval) -> "AddrOf(%s)" % (pLval lval)
-	| StartOf(lval) -> "StartOf(%s)" % (pLval lval)
-
-and pCompinfo(compinfo:compinfo):string =
-	("{cstruct=%s; cname=%s; ckey=%s; cfields=%s; cattr=%s; cdefined=%s; creferenced=%s}" %
-		(pBool compinfo.cstruct))
-		(pString compinfo.cname)
-		(pInt compinfo.ckey)
-		(pList pFieldinfo compinfo.cfields)
-		(pAttributes compinfo.cattr)
-		(pBool compinfo.cdefined)
-		(pBool compinfo.creferenced)
-
-and pEnuminfo(enuminfo:enuminfo): string =
-	("{ename=%s; eitems=%s; eattr=%s; ereferenced=%s; ekind=%s}" %
-		(pString enuminfo.ename))
-		(pList (pTriple pString pExp pLocation) enuminfo.eitems)
-		(pAttributes enuminfo.eattr)
-		(pBool enuminfo.ereferenced)
-		(pIkind enuminfo.ekind)
-
-and pStorage(storage:storage): string = 
-	match storage with
-		NoStorage -> "NoStorage"
-	| Static -> "Static"
-	| Register -> "Register"
-	| Extern -> "Extern"
-
-and pVarinfo(varinfo:varinfo):string = 
-	("{vname=%s; vtype=%s; vattr=%s; vstorage=%s; vglob=%s; vinline=%s; vdecl=%s; vid=%s; vaddrof=%s; vreferenced=%s; vdescr=%s; vdescrpure=%s}" %
-		(pString varinfo.vname))
-		(pTyp varinfo.vtype)
-		(pAttributes varinfo.vattr)
-		(pStorage varinfo.vstorage)
-		(pBool varinfo.vglob)
-		(pBool varinfo.vinline)
-		(pLocation varinfo.vdecl)
-		(pInt varinfo.vid)
-		(pBool varinfo.vaddrof)
-		(pBool varinfo.vreferenced)
-		("_") (* no support for Pretty.doc parts *)
-		(pBool varinfo.vdescrpure)
-
-and pInit(init:init):string = 
-	match init with
-		SingleInit(exp) -> "SingleInit(%s)" % (pExp exp)
-	| CompoundInit(typ, inits) -> ("CompoundInit(%s, %s)" % (pTyp typ)) (pList (pTuple pOffset pInit) inits)
-
-and pInitinfo(initinfo:initinfo):string = 
-	"{init=%s}" % (pOption pInit initinfo.init)
-
-and pFieldinfo(fieldinfo:fieldinfo):string =
-	("{fcomp=%s; fname=%s; ftype=%s; fbitfield=%s; fattr=%s; floc=%s}" %
-		(pCompinfo fieldinfo.fcomp))
-		(pString fieldinfo.fname)
-		(pTyp fieldinfo.ftype)
-		(pOption pInt fieldinfo.fbitfield)
-		(pAttributes fieldinfo.fattr)
-		(pLocation fieldinfo.floc)
-
-and pOffset(offset:offset):string = 
-	match offset with
-		NoOffset -> "NoOffset"
-	| Field(fieldinfo, offset) -> ("Field(%s, %s)" % (pFieldinfo fieldinfo)) (pOffset offset)
-	| Index(exp, offset) -> ("Index(%s, %s)" % (pExp exp)) (pOffset offset)
-
-and pLhost(lhost:lhost):string = 
-	match lhost with
-		Var(varinfo) -> "Var(%s)" % (pVarinfo varinfo)
-	| Mem(exp) -> "Mem(%s)" % (pExp exp)
-
-and pLval(lval:lval) = pTuple pLhost pOffset lval
-
-and pInstr(instr:instr):string = 
-	match instr with
-		Set(lval, exp, location) -> ("Set(%s, %s, %s" % (pLval lval)) (pExp exp) (pLocation location)
-	| Call(lval, exp, exps, location) -> ("Call(%s, %s, %s, %s)" % (pOption pLval lval)) (pExp exp) (pList pExp exps) (pLocation location)
-	| Asm _ -> "" (* no support for assembler *)
-
-and pStmtkind(stmtkind:stmtkind):string = 
-	match stmtkind with
-		Instr(instr) -> "Instr(%s)" % (pList pInstr instr)
-	| Return(exp, location) -> ("Return(%s, %s)" % (pOption pExp exp)) (pLocation location)
-	| Goto(stmt, location) -> ("Goto(stmt, %s)(* %s *)" % (pLocation location)) (pList pLabel (!stmt).labels)
-  | Break(location) -> "Break(%s)" % (pLocation location)
-  | Continue(location) -> "Continue(%s)" % (pLocation location)
-	| If(exp, block1, block2, location) -> ("If(%s, %s, %s, %s)" % (pExp exp)) (pBlock block1) (pBlock block2) (pLocation location)
-	| Switch(exp, block, stmts, location) -> ("Switch(%s, %s, %s, %s)" % (pExp exp)) (pBlock block) (pList pStmt stmts) (pLocation location)
-	| Loop(block, location, stmt1, stmt2) -> ("Loop(%s, %s, %s, %s)" % (pBlock block)) (pLocation location) (pOption pStmt stmt1) (pOption pStmt stmt2)
-	| Block(block) -> "Block(%s)" % (pBlock block)
-	| TryFinally _  -> "" (* not supporting C++ *)
-	| TryExcept _ -> "" (* not supporting C++ *)
-
-and pLabel(label:label):string = 
-	match label with
-		Label(name, location, flag) -> ("Label(%s, %s, %s)" % (pString name)) (pLocation location) (pBool flag)
-	| Case(exp, location) -> ("Case(%s, %s)" % (pExp exp)) (pLocation location)
-	| Default(location) -> "Default(%s)" % (pLocation location)
-
-and pBlock(block:block):string = 
-	("{battrs=%s; bstmts=%s}" % (pAttributes block.battrs)) (pList pStmt block.bstmts)
-
-and pStmt(stmt:stmt): string = 
-	("{labels=%s; skind=%s; sid=%s; succs=_; pred=_}" % (* pred and succs could lead to infinite recuresion (?) *)
-		(pList pLabel stmt.labels))
-		(pStmtkind stmt.skind)
-		(pInt stmt.sid)
-
-and pTyp(typ:typ):string = 
-	match typ with
-		TVoid (attributes) -> "TVoid(%s)" % (pAttributes attributes)
-	| TInt (ikind, attributes) -> ("TInt(%s, %s)" % (pIkind ikind)) (pAttributes attributes)
-	| TFloat (fkind, attributes) -> ("TFloat(%s, %s)" % (pFkind fkind)) (pAttributes attributes)
-	| TPtr (typ, attributes) -> ("TPtr(%s, %s" % (pTyp typ)) (pAttributes attributes)
-	| TArray (typ, exp, attributes) -> ("TArray(%s, %s, %s)" % (pTyp typ)) (pOption pExp exp) (pAttributes attributes)
-	| TFun (typ, params, variadic, attributes) -> ("TFun(%s, %s, %s, %s)" % (pTyp typ)) (pOption (pList (pTriple pString pTyp pAttributes)) params) (pBool variadic) (pAttributes attributes)
-	| TNamed (typeinfo, attributes) -> ("TNamed(%s, %s)" % (pTypeinfo typeinfo)) (pAttributes attributes)
-	| TComp (compinfo, attributes) -> ("TComp(%s, %s)" % (pCompinfo compinfo)) (pAttributes attributes)
-	| TEnum (enuminfo, attributes) -> ("TEnum(%s, %s)" % (pEnuminfo enuminfo)) (pAttributes attributes)
-	| TBuiltin_va_list (attributes) -> ("TBuiltin_va_list(%s)" % (pAttributes attributes))
-
-and pTypeinfo(typeinfo:typeinfo):string = 
-	("{tname=\"%s\"; ttype=%s; treferenced=%s}" % typeinfo.tname) (pTyp typeinfo.ttype) (pBool typeinfo.treferenced)
-
-and pLocation(location:location):string = 
-	("{line=%s; file=%s; byte=%s}" % (pInt location.line)) (pString location.file) (pInt location.byte)
-
-and pGlobal(global:global):string = 
-	match global with
-	  GType(typeinfo, location) -> ("GType(%s, %s)" % (pTypeinfo typeinfo)) (pLocation location)
-	| GCompTag(compinfo, location) -> ("TCompTag(%s, %s)" % (pCompinfo compinfo)) (pLocation location)
-	| GCompTagDecl(compinfo, location) -> ("GCompTagDecl(%s, %s)" % (pCompinfo compinfo)) (pLocation location)
-	| GEnumTag(enuminfo, location) -> ("GEnumTag(%s, %s)" % (pEnuminfo enuminfo)) (pLocation location)
-	| GEnumTagDecl(enuminfo, location) -> ("GEnumTagDecl(%s, %s)" % (pEnuminfo enuminfo)) (pLocation location)
-	| GVarDecl(varinfo, location) -> ("GVarDecl(%s, %s)" % (pVarinfo varinfo)) (pLocation location)
-	| GVar(varinfo, initinfo, location) -> ("GVar(%s, %s %s)" % (pVarinfo varinfo)) (pInitinfo initinfo) (pLocation location)
-	| GFun(fundec, location) -> ("GFun(%s, %s)" % (pFundec fundec)) (pLocation location)
-	| GAsm(string, location) -> ("GAsm(%s, %s)" % (pString string)) (pLocation location)
-	| GPragma(attribute, location) -> ("GPragma(%s, %s)" % (pAttribute attribute)) (pLocation location)
-	| GText(string) -> ("GText(%s)" % (pString string))
-
-and pFundec(fundec:fundec):string = 
-	("{svar=%s; sformals=%s; slocals=%s; smaxid=%s; sbody=%s; smaxstmtid=%s; sallstmts=%s}" % 
-		(pVarinfo fundec.svar))
-		(pList pVarinfo fundec.sformals)
-		(pList pVarinfo fundec.slocals)
-		(pInt fundec.smaxid)
-		(pBlock fundec.sbody)
-		(pOption pInt fundec.smaxstmtid)
-		(pList pStmt fundec.sallstmts)
-
-and pFile(file:file):string =
-	("{fileName=\"%s\"; globals=%s; globinit=%s, globinitcalled=%s}" % file.fileName) 
-			(pList pGlobal file.globals)
-			(pOption pFundec file.globinit) 
-			(pBool file.globinitcalled)
-
-	
 let doit(file:file) = 
+	let buf: Buffer.t = Buffer.create 1024 in
+	let out(string: string): unit =
+		Buffer.add_string buf string
+	in
+
+	let comma = out ", "
+	and semicolon = out "; "
+	and pOpen = out "("
+	and pClose = out ")"
+	and sOpen = out "["
+	and sClose = out "]"
+	and cOpen = out "{"
+	and cClose = out "}"
+	in
+
+	let rec pBool(value:bool): unit= if (value) then (out "true") else (out "false")
+
+(*	and pOption(print:'a->unit)(value: 'a option):unit =*)
+	and pOption print value =
+		match value with
+			Some(x) -> out "Some("; print x; pClose
+		| None -> out "None"
+
+(*	and pList(print:'a->unit)(values: 'a list): unit= *)
+	and pList print values = 
+		match values with
+			[] -> out "[]"
+		| xs -> sOpen; List.iter (fun x -> out "; "; print x) xs; sClose
+
+	and pString(s:string):unit = out "\""; out s; out "\""
+
+	and pInt(i:int):unit = out (string_of_int i)
+
+	and pInt64(i:int64):unit = out (Int64.to_string i)
+
+	and pFloat(f:float):unit = out (string_of_float f)
+
+	and pChar(char:char):unit = out "'"; out (String.make 1 char); out "'"
+
+	and pTuple(printa:'a->unit)(printb:'b->unit)(tuple:('a * 'b)):unit =
+		pOpen; printa (fst tuple); comma ; printb (snd tuple); pClose
+
+	and pTriple(printa:'a->unit)(printb:'b->unit)(printc:'c->unit)(triple:('a*'b*'c)):unit =
+		match triple with
+			(a,b,c) -> pOpen; printa a; comma; printb b; comma; printc c; pClose
+
+	and pAttributes(attributes:attributes):unit= 
+		pList pAttribute attributes
+
+	and pAttribute(attribute:attribute):unit= out "_" (* TODO *)
+
+	and pIkind(ikind:ikind):unit = out (
+		match ikind with
+			IChar 	-> "IChar"
+		|	ISChar 	-> "ISChar"
+		|	IUChar 	-> "IUChar"
+		|	IBool 	-> "IBool"
+		|	IInt 	-> "IInt"
+		|	IUInt 	-> "IUInt"
+		|	IShort 	-> "IShort"
+		|	IUShort 	-> "IUShort"
+		|	ILong 	-> "ILong"
+		|	IULong 	-> "IULong"
+		|	ILongLong 	-> "ILongLong"
+		|	IULongLong 	-> "IULongLong"
+	)
+
+	and pFkind(fkind:fkind):unit = out (
+		match fkind with
+			FFloat -> "FFloat"
+		| FDouble -> "FDouble"
+		| FLongDouble -> "FLongDouble"
+	)
+
+	and pBinop(binop:binop):unit = out (
+		match binop with
+			PlusA 	-> "PlusA"
+		|	PlusPI 	-> "PlusPI"
+		|	IndexPI 	-> "IndexPI"
+		|	MinusA 	-> "MinusA"
+		|	MinusPI 	-> "MinusPI"
+		|	MinusPP 	-> "MinusPP"
+		|	Mult -> "Mult"
+		|	Div 	-> "Div"
+		|	Mod 	-> "Mod"
+		|	Shiftlt 	-> "Shiftlt"
+		|	Shiftrt 	-> "Shiftrt"
+		|	Lt 	-> "Lt"
+		|	Gt 	-> "Gt"
+		|	Le 	-> "Le"
+		|	Ge 	-> "Ge"
+		|	Eq 	-> "Eq"
+		|	Ne 	-> "Ne"
+		|	BAnd 	-> "BAnd"
+		|	BXor 	-> "BXor"
+		|	BOr 	-> "BOr"
+		|	LAnd 	-> "LAnd"
+		|	LOr 	-> "LOr"
+	)
+
+	and pUnop(unop:unop):unit = out (
+		match unop with
+			Neg -> "Neg"
+		| BNot -> "BNot"
+		| LNot -> "LNot"
+	)
+
+	and pConstant(constant:constant):unit =
+		match constant with
+			CInt64(int64, ikind, string) -> out "CInt64("; pInt64 int64; comma; pIkind ikind; comma; pOption pString string; pClose
+		| CStr(string) -> out "CStr("; pString string; pClose
+		| CWStr(int64s) -> out "CWStr("; pList pInt64 int64s; pClose
+		| CChr(char) -> out "CChr("; pChar char; pClose
+		| CReal(float, fkind, string) -> out "CReal("; pFloat float; comma; pFkind fkind; comma; pOption pString string; pClose
+		| CEnum(exp, string, enuminfo) -> out "CEnum("; pExp exp; comma; pString string; comma; pEnuminfo enuminfo; pClose
+
+	and pExp(exp:exp):unit = 
+		match exp with
+			Const(constant) -> out "Const("; pConstant constant; pClose
+		| Lval(lval) -> out "Lval("; pLval lval; pClose
+		| SizeOf(typ) -> out "SizeOf("; pTyp typ; pClose
+		| SizeOfE(exp) -> out "SizeOfE("; pExp exp; pClose
+		| SizeOfStr(str) -> out "SizeOfStr("; pString str; pClose
+		| AlignOf(typ) -> out "AlignOf("; pTyp typ; pClose
+		| AlignOfE(exp) -> out "AlignOfE("; pExp exp; pClose
+		| UnOp(unop, exp, typ) -> out "UnOp("; pUnop unop; comma; pExp exp; comma; pTyp typ; pClose
+		| BinOp(binop, exp1, exp2, typ) -> out "BinOp("; comma; pBinop binop; comma; pExp exp1; comma; pExp exp2; pTyp typ; pClose
+		| CastE(typ, exp) -> out "CastE(", pTyp typ; comma; pExp exp; pClose
+		| AddrOf(lval) -> out "AddrOf("; pLval lval; pClose
+		| StartOf(lval) -> out "StartOf("; pLval lval; pClose
+
+	and pCompinfo(compinfo:compinfo):unit =
+		cOpen;
+		out "cstruct="; pBool compinfo.cstruct; semicolon;
+		out "cname="; pBool compinfo.cstruct; semicolon;
+		out "ckey="; pInt compinfo.ckey; semicolon;
+		out "cfields="; pList pFieldinfo compinfo.cfields; semicolon;
+		out "cattr="; pAttributes compinfo.cattr; semicolon;
+		out "cdefined="; pBool compinfo.cdefined; semicolon;
+		out "creferenced="; pBool compinfo.creferenced;
+		cClose
+
+	and pEnuminfo(enuminfo:enuminfo):unit =
+		cOpen
+		("{ename=%s; eitems=%s; eattr=%s; ereferenced=%s; ekind=%s}" %
+		out "ename="; pString enuminfo.ename); semicolon;
+		out "eitems="; pList (pTriple pString pExp pLocation) enuminfo.eitems; semicolon;
+		out "eattr="; pAttributes enuminfo.eattr; semicolon;
+		out "ereferenced="; pBool enuminfo.ereferenced; semicolon;
+		out "ekind="; pIkind enuminfo.ekind;
+		cClose
+
+	and pStorage(storage:storage):unit = out(
+		match storage with
+			NoStorage -> "NoStorage"
+		| Static -> "Static"
+		| Register -> "Register"
+		| Extern -> "Extern"
+	)
+
+	and pVarinfo(varinfo:varinfo):unit = 
+		cOpen;
+		out "vname="; pString varinfo.vname; semicolon;
+		out "vtype="; pTyp varinfo.vtype; semicolon;
+		out "vattr="; pAttributes varinfo.vattr; semicolon;
+		out "vstorage="; pStorage varinfo.vstorage; semicolon;
+		out "vglob="; pBool varinfo.vglob; semicolon;
+		out "vinline="; pBool varinfo.vinline; semicolon;
+		out "vdecl="; pLocation varinfo.vdecl; semicolon;
+		out "vid="; pInt varinfo.vid; semicolon;
+		out "vaddrof="; pBool varinfo.vaddrof; semicolon;
+		out "vreferenced="; pBool varinfo.vreferenced; semicolon;
+		out "_" (* no support for Pretty.doc parts *); semicolon;
+		out "vdescrpure="; pBool varinfo.vdescrpure;
+		cClose
+
+	and pInit(init:init):unit = 
+		match init with
+			SingleInit(exp) -> out "SingleInit("; pExp exp; pClose
+		| CompoundInit(typ, inits) -> out "CompoundInit("; pTyp typ; comma; pList (pTuple pOffset pInit) inits; pClose
+
+	and pInitinfo(initinfo:initinfo):unit = 
+		cOpen;
+		out "init="; pOption pInit initinfo.init;
+		pClose
+
+	and pFieldinfo(fieldinfo:fieldinfo):unit =
+		cOpen;
+		out "fcomp="; pCompinfo fieldinfo.fcomp; semicolon;
+		out "fname="; pString fieldinfo.fname; semicolon;
+		out "ftype="; pTyp fieldinfo.ftype; semicolon;
+		out "fbitfield="; pOption pInt fieldinfo.fbitfield; semicolon;
+		out "fattr="; pAttributes fieldinfo.fattr; semicolon;
+		out "floc="; pLocation fieldinfo.floc;
+		cClose
+
+	and pOffset(offset:offset):unit = 
+		match offset with
+			NoOffset -> out "NoOffset"
+		| Field(fieldinfo, offset) -> out "Field("; pFieldinfo fieldinfo; comma; pOffset offset; pClose
+		| Index(exp, offset) -> out "Index("; pExp exp; comma; pOffset offset; pClose
+
+	and pLhost(lhost:lhost):unit = 
+		match lhost with
+			Var(varinfo) -> out "Var("; pVarinfo varinfo; pClose
+		| Mem(exp) -> out "Mem("; pExp exp; pClose
+
+	and pLval(lval:lval) = pTuple pLhost pOffset lval
+
+	and pInstr(instr:instr):unit = 
+		match instr with
+			Set(lval, exp, location) -> out "Set("; pLval lval; comma; pExp exp; comma; pLocation location; pClose
+		| Call(lval, exp, exps, location) -> out "Call("; pOption pLval lval; comma; pExp exp; comma; pList pExp exps; comma; pLocation location; pClose
+		| Asm _ -> out "Asm(_)" (* no support for assembler *)
+
+	and pStmtkind(stmtkind:stmtkind):unit = 
+		match stmtkind with
+			Instr(instr) -> out "Instr("; pList pInstr instr; pClose
+		| Return(exp, location) -> out "Return("; pOption pExp exp; comma; pLocation location; pClose
+		| Goto(stmt, location) -> out "Goto("; pLocation location; comma; pList pLabel (!stmt).labels; pClose
+		| Break(location) -> out "Break("; pLocation location; pClose
+		| Continue(location) -> out "Continue(";  pLocation location; pClose
+		| If(exp, block1, block2, location) -> out "If("; pExp exp; comma; pBlock block1; comma; pBlock block2; comma; pLocation location; pClose
+		| Switch(exp, block, stmts, location) -> out "Switch("; pExp exp; comma; pBlock block; comma; pList pStmt stmts; comma; pLocation location; pClose
+		| Loop(block, location, stmt1, stmt2) -> out "Loop("; pBlock block; comma; pLocation location; comma; pOption pStmt stmt1; comma; pOption pStmt stmt2; pClose
+		| Block(block) -> out "Block("; pBlock block; pClose
+		| TryFinally _  -> out "TryFinally(_)" (* not supporting C++ *)
+		| TryExcept _ -> out "TryExcept(_)" (* not supporting C++ *)
+
+	and pLabel(label:label):unit = 
+		match label with
+			Label(name, location, flag) -> out "Label("; pString name; comma; pLocation location; comma; pBool flag; pClose
+		| Case(exp, location) -> out "Case("; pExp exp; comma; pLocation location; pClose
+		| Default(location) -> out "Default("; pLocation location; pClose
+
+	and pBlock(block:block):unit = 
+		cOpen;
+		out "battrs="; pAttributes block.battrs; semicolon;
+		out	"bstmts="; pList pStmt block.bstmts; semicolon;
+		cClose
+
+	and pStmt(stmt:stmt):unit = 
+		cOpen;
+		out "labels="; pList pLabel stmt.labels; semicolon;
+		out "skind="; pStmtkind stmt.skind; semicolon;
+		out "sid="; pInt stmt.sid; semicolon;
+		out "succs=_"; semicolon;
+		out "pred=_";  (* pred and succs could lead to infinite recuresion (?) *)
+		cClose
+
+	and pTyp(typ:typ):unit = 
+		match typ with
+			TVoid (attributes) -> out "TVoid("; pAttributes attributes; pClose
+		| TInt (ikind, attributes) -> out "TInt("; comma; pIkind ikind; comma; pAttributes attributes; pClose
+		| TFloat (fkind, attributes) -> out "TFloat("; comma; pFkind fkind; comma; pAttributes attributes; pClose
+		| TPtr (typ, attributes) -> out "TPtr("; pTyp typ; comma; pAttributes attributes; pClose
+		| TArray (typ, exp, attributes) -> out "TArray("; pTyp typ; comma; pOption pExp exp; comma; pAttributes attributes; pClose
+		| TFun (typ, params, variadic, attributes) -> out "TFun("; pTyp typ; comma; pOption (pList (pTriple pString pTyp pAttributes)) params; comma; pBool variadic;comma; pAttributes attributes; pClose
+		| TNamed (typeinfo, attributes) -> out "TNamed("; pTypeinfo typeinfo; comma; pAttributes attributes; pClose
+		| TComp (compinfo, attributes) -> out "TComp("; pCompinfo compinfo; comma; pAttributes attributes; pClose
+		| TEnum (enuminfo, attributes) -> out "TEnum("; pEnuminfo enuminfo; comma; pAttributes attributes; pClose
+		| TBuiltin_va_list (attributes) -> out "TBuiltin_va_list("; pAttributes attributes; pClose
+
+	and pTypeinfo(typeinfo:typeinfo):unit = 
+		cOpen;
+		out "tname="; typeinfo.tname; semicolon;
+		out "ttype="; pTyp typeinfo.ttype; semicolon;
+		out "treferenced="; pBool typeinfo.treferenced;
+		cClose
+
+	and pLocation(location:location):unit =
+		cOpen;
+		out "line="; pInt location.line; semicolon;
+		out "file="; pString location.file; semicolon;
+		out "byte="; pInt location.byte;
+		cClose
+
+	and pGlobal(global:global):unit = 
+		match global with
+			GType(typeinfo, location) -> out "GType("; pTypeinfo typeinfo; comma; pLocation location; pClose
+		| GCompTag(compinfo, location) -> out "TCompTag("; pCompinfo compinfo; comma; pLocation location; pClose
+		| GCompTagDecl(compinfo, location) -> out "GCompTagDecl("; pCompinfo compinfo; comma; pLocation location; pClose
+		| GEnumTag(enuminfo, location) -> out "GEnumTag("; pEnuminfo enuminfo; comma; pLocation location; pClose
+		| GEnumTagDecl(enuminfo, location) -> out "GEnumTagDecl("; pEnuminfo enuminfo; comma; pLocation location; pClose
+		| GVarDecl(varinfo, location) -> out "GVarDecl("; pVarinfo varinfo; comma; pLocation location; pClose
+		| GVar(varinfo, initinfo, location) -> out "GVar("; pVarinfo varinfo; comma; pInitinfo initinfo; comma; pLocation location; pClose
+		| GFun(fundec, location) -> out "GFun("; pFundec fundec; comma; pLocation location; pClose
+		| GAsm(string, location) -> out "GAsm("; pString string; comma; pLocation location; pClose
+		| GPragma(attribute, location) -> out "GPragma("; pAttribute attribute; comma; pLocation location; pClose
+		| GText(string) -> out "GText("; pString string; pClose
+
+	and pFundec(fundec:fundec):unit = 
+		cOpen;
+		out "svar="; pVarinfo fundec.svar; semicolon;
+		out "sformals="; pList pVarinfo fundec.sformals; semicolon;
+		out "slocals="; pList pVarinfo fundec.slocals; semicolon;
+		out "smaxid="; pInt fundec.smaxid; semicolon;
+		out "sbody="; pBlock fundec.sbody; semicolon;
+		out "smaxstmtid="; pOption pInt fundec.smaxstmtid; semicolon;
+		out "sallstmts="; pList pStmt fundec.sallstmts;
+		cClose
+
+	and pFile(file:file):unit =
+		cOpen;
+		out "globals	="; pList pGlobal file.globals; semicolon;
+		out "globinit	="; pOption pFundec file.globinit; semicolon;
+		out "globinitcalled	="; pBool file.globinitcalled;
+		cClose
+	
+	in
 	let s:string = pFile file
 	in Printf.printf "%s\n" s
 
