@@ -9,6 +9,7 @@ import Language.C (parseCFile, pretty)
 import Language.C.System.GCC (newGCC)
 
 import Analysis (findStartRoutines)
+import Analysis.CallGraph (determineCallGraph)
 import Util.Names (functionName)
 
 usageMsg :: String -> String
@@ -25,6 +26,7 @@ main = do
 
     ast <- errorOnLeftM "Parse Error" $ parseCFile (newGCC "gcc") Nothing opts input_file
     let sr = findStartRoutines ast
+    let cg = determineCallGraph ast
     putStrLn $ show $ map functionName sr
 --    print $ pretty ast
 
