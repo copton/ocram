@@ -9,20 +9,23 @@ example = TranslUnit([
  , FunDef 2 (NestedStmt [Call 1])
     ])
 
+class Visitor a where
+    handleFunctionDefinition :: FunDef -> a -> a
+
 data UserState = UserState {
     fbCount :: Int,
     stmtCount :: Int
 } deriving Show
 
-funCb :: FunDef -> UserState -> UserState
-funCb fd (UserState c c') = UserState (c+1) c'
+instance Visitor UserState where 
+    handleFunctionDefinition fd (UserState c c') = UserState (c+1) c'
 
-travTranslUnit :: TranslUnit -> State UserState ()
+travTranslUnit :: Visitor v => TranslUnit -> State v ()
 travTranslUnit (TranslUnit fds) = mapM_ travFunDef fds
 
-travFunDef :: FunDef -> State UserState ()
+travFunDef :: Visitor v => FunDef -> State v ()
 travFunDef fd@(FunDef id stmt) = do
-    modify $ funCb fd
+    modify $ handleFunctionDefinition fd
 --    travStmt stmt
     return ()
 
