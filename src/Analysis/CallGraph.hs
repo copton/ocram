@@ -5,20 +5,23 @@ module Analysis.CallGraph (
 
 import Language.C.Syntax.AST
 import Language.C.Data.Ident
-import Data.Map (Map, fromList)
+import Data.Map as Map
 import Util.Names (functionName)
 import Util.Filter (funDefs)
+import Visitor
 
 type Callers = [CFunDef]
 type Callees = [CFunDef]
 data Entry = Entry {funDef :: CFunDef, callers :: Callers, callees :: Callees}
-type CallGraph = Map String Entry
+type CallGraph = Map.Map String Entry
+
+data State = State {
+    stCg :: CallGraph
+}
+
+instance Visitor State where
+    handleCExpr (CCall _ _ _) = undefined
+    handleCExpr _ = id 
 
 determineCallGraph :: CTranslUnit -> CallGraph
-determineCallGraph ctu = fromList $ zip keys values
-  where 
-    fdefs = funDefs ctu
-    keys = map functionName fdefs 
-    values = map createEntry fdefs 
-    createEntry fdef = Entry decl (callers fdef) []
-    callers fdef = []
+determineCallGraph ctu = stCg $ execTrav traverseCTranslUnit ctu $ State Map.empty
