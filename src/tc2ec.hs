@@ -28,6 +28,7 @@ main = do
     let sr = findStartRoutines ast
     let cg = determineCallGraph ast
     putStrLn $ show $ map functionName sr
+    putStrLn $ show $ cg
 --    print $ pretty ast
 
 errorOnLeft :: (Show a) => String -> (Either a b) -> IO b

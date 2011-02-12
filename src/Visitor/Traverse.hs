@@ -5,6 +5,7 @@ module Visitor.Traverse (
 
 
 import Language.C.Syntax.AST
+import Language.C.Data.Ident (Ident)
 import Control.Monad.State
 import Visitor.Visitor
 
@@ -30,6 +31,7 @@ traverseCDecl cd@(CDecl _ decls _) = modify (handleCDecl cd) >> hDecls decls
             >> maybeTraverse traverseCExpr expr
             >> hDecls ds
 
+traverseCFunDef :: Visitor v => CFunDef -> State v ()
 traverseCFunDef cfd@(CFunDef _ cdr cds cst _) = modify (handleCFunDef cfd)
     >> traverseCDeclr cdr 
     >> hCds cds 
@@ -37,19 +39,29 @@ traverseCFunDef cfd@(CFunDef _ cdr cds cst _) = modify (handleCFunDef cfd)
     where hCds [] = return ()
           hCds (cd:cds) = traverseCDecl cd >> hCds cds
 
+traverseCDeclr :: Visitor v => CDeclr -> State v ()
 traverseCDeclr cdr@(CDeclr id cdds _ _ _) = modify (handleCDeclr cdr)
     >> maybeTraverse traverseIdent id 
     >> hCdds cdds 
     where hCdds [] = return ()
           hCdds (cdd:cdds) = modify (handleCDerivedDeclr cdd) >> hCdds cdds
 
+traverseCInit :: Visitor v => CInit -> State v ()
 traverseCInit ci@(CInitExpr ce _) = modify (handleCInit ci) >> traverseCExpr ce
 traverseCInit ci@(CInitList cis _) = modify (handleCInit ci) >> traverseCInitList cis
 
+traverseCInitList :: Visitor v => CInitList -> State v ()
 traverseCInitList cis = mapM_  (modify . handleCInit . snd) cis
 
+traverseIdent :: Visitor v => Ident -> State v ()
 traverseIdent id = modify $ handleIdent id
 
+traverseCBlockItem :: Visitor v => CBlockItem -> State v ()
+traverseCBlockItem (CBlockStmt cs1) = traverseCStat cs1
+traverseCBlockItem (CBlockDecl cd) = traverseCDecl cd
+traverseCBlockItem (CNestedFunDef cfd) = traverseCFunDef cfd
+
+traverseCExpr :: Visitor v => CExpr -> State v ()
 traverseCExpr ce@(CComma ces _) = modify (handleCExpr ce) 
     >> mapM_ traverseCExpr ces
 traverseCExpr ce@(CAssign _ ce1 ce2 _) = modify (handleCExpr ce) 
@@ -100,4 +112,47 @@ traverseCExpr ce@(CLabAddrExpr id _) = modify (handleCExpr ce)
     >> traverseIdent id
 traverseCExpr ce@(CBuiltinExpr _) = modify (handleCExpr ce)
 
-traverseCStat = undefined
+traverseCStat :: Visitor v => CStat -> State v ()
+traverseCStat cs@(CLabel _ cs1 _ _) = modify (handleCStat cs)
+    >> traverseCStat cs1
+traverseCStat cs@(CCase ce1 cs1 _) = modify (handleCStat cs)
+    >> traverseCExpr ce1
+    >> traverseCStat cs1
+traverseCStat cs@(CCases ce1 ce2 cs1 _) = modify (handleCStat cs)
+    >> traverseCExpr ce1
+    >> traverseCExpr ce2
+    >> traverseCStat cs1
+traverseCStat cs@(CDefault cs1 _) = modify (handleCStat cs)
+    >> traverseCStat cs1
+traverseCStat cs@(CExpr ce1 _) = modify (handleCStat cs)
+    >> maybeTraverse traverseCExpr ce1 
+traverseCStat cs@(CCompound _ ccbis _) = modify (handleCStat cs)
+    >> mapM_ traverseCBlockItem ccbis
+traverseCStat cs@(CIf ce1 cs1 cs2 _) = modify (handleCStat cs)
+    >> traverseCExpr ce1
+    >> traverseCStat cs1
+    >> maybeTraverse traverseCStat cs2
+traverseCStat cs@(CSwitch ce1 cs1 _) = modify (handleCStat cs)
+    >> traverseCExpr ce1
+    >> traverseCStat cs1
+traverseCStat cs@(CWhile ce1 cs1 _ _) = modify (handleCStat cs)
+    >> traverseCExpr ce1
+    >> traverseCStat cs1
+traverseCStat cs@(CFor (Left ce1) ce2 ce3 cs1 _) = modify (handleCStat cs)
+    >> maybeTraverse traverseCExpr ce1
+    >> maybeTraverse traverseCExpr ce2
+    >> maybeTraverse traverseCExpr ce3
+    >> traverseCStat cs1
+traverseCStat cs@(CFor (Right cd1) ce1 ce2 cs1 _) = modify (handleCStat cs)
+    >> traverseCDecl cd1
+    >> maybeTraverse traverseCExpr ce1
+    >> maybeTraverse traverseCExpr ce2
+    >> traverseCStat cs1
+traverseCStat cs@(CGoto _ _) = modify (handleCStat cs)
+traverseCStat cs@(CGotoPtr ce1 _) = modify (handleCStat cs)
+    >> traverseCExpr ce1
+traverseCStat cs@(CCont _) = modify (handleCStat cs)
+traverseCStat cs@(CBreak _) = modify (handleCStat cs)
+traverseCStat cs@(CReturn ce1 _) = modify (handleCStat cs)
+    >> maybeTraverse traverseCExpr ce1
+traverseCStat cs@(CAsm _ _) = modify (handleCStat cs)

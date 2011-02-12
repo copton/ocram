@@ -12,16 +12,21 @@ import Visitor
 
 type Callers = [CFunDef]
 type Callees = [CFunDef]
-data Entry = Entry {funDef :: CFunDef, callers :: Callers, callees :: Callees}
+data Entry = Entry {funDef :: CFunDef, callers :: Callers, callees :: Callees} deriving Show
 type CallGraph = Map.Map String Entry
 
 data State = State {
+    stCaller :: Maybe CFunDef, 
     stCg :: CallGraph
 }
 
+emptyState = State Nothing Map.empty
+
 instance Visitor State where
-    handleCExpr (CCall _ _ _) = undefined
+    handleCFunDef fd st = st { stCaller = Just fd }
+
+--    handleCExpr (CCall (CVar (Ident name _ _))  _ _) = undefined
     handleCExpr _ = id 
 
 determineCallGraph :: CTranslUnit -> CallGraph
-determineCallGraph ctu = stCg $ execTrav traverseCTranslUnit ctu $ State Map.empty
+determineCallGraph ctu = stCg $ execTrav traverseCTranslUnit ctu emptyState
