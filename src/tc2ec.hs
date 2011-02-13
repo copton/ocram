@@ -11,6 +11,8 @@ import Language.C.System.GCC (newGCC)
 import Context
 import Analysis
 
+import Data.Map (toList)
+
 usageMsg :: String -> String
 usageMsg prg = render $
   text "Usage:" <+> text prg <+> hsep (map text ["CPP_OPTIONS","input_file.c"])
@@ -25,7 +27,7 @@ main = do
 
     ast <- errorOnLeftM "Parse Error" $ parseCFile (newGCC "gcc") Nothing opts input_file
     let ctx = createContext ast
-    putStrLn $ show $ length $ ctxStartRoutines ctx
+    putStrLn $ show $ map fst $ toList $ ctxCallGraph ctx
 
 errorOnLeft :: (Show a) => String -> (Either a b) -> IO b
 errorOnLeft msg = either (error . ((msg ++ ": ")++).show) return
