@@ -1,7 +1,7 @@
 module Analysis (
-    findStartRoutines
-    , module Analysis.CallGraph
+      module Analysis.Algorithms
+    , module Analysis.Types
 ) where
 
-import Analysis.StartRoutine (findStartRoutines)
-import Analysis.CallGraph (determineCallGraph)
+import Analysis.Algorithms
+import Analysis.Types

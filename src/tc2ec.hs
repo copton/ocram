@@ -8,9 +8,8 @@ import Text.PrettyPrint.HughesPJ (text, render, (<+>), hsep)
 import Language.C (parseCFile, pretty)
 import Language.C.System.GCC (newGCC)
 
-import Analysis (findStartRoutines)
-import Analysis.CallGraph (determineCallGraph)
-import Util.Names (functionName)
+import Context
+import Analysis
 
 usageMsg :: String -> String
 usageMsg prg = render $
@@ -25,13 +24,16 @@ main = do
     let (opts,input_file) = (init args, last args)
 
     ast <- errorOnLeftM "Parse Error" $ parseCFile (newGCC "gcc") Nothing opts input_file
-    let sr = findStartRoutines ast
-    let cg = determineCallGraph ast
-    putStrLn $ show $ map functionName sr
-    putStrLn $ show $ cg
---    print $ pretty ast
+    let ctx = createContext ast
+    putStrLn $ show $ length $ ctxStartRoutines ctx
 
 errorOnLeft :: (Show a) => String -> (Either a b) -> IO b
 errorOnLeft msg = either (error . ((msg ++ ": ")++).show) return
 errorOnLeftM :: (Show a) => String -> IO (Either a b) -> IO b
 errorOnLeftM msg action = action >>= errorOnLeft msg
+
+createContext ast = ctx
+    where ctx = Context ast fm sr cg
+          fm = getFunctions ctx
+          sr = findStartRoutines ctx
+          cg = determineCallGraph ctx

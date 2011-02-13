@@ -1,19 +1,14 @@
-module Analysis.CallGraph (
+module Analysis.Algorithms.CallGraph (
      determineCallGraph
-    , Callers, Callees, Entry, CallGraph
 ) where
 
 import Language.C.Syntax.AST
 import Language.C.Data.Ident
 import Data.Map as Map
 import Util.Names (functionName)
-import Util.Filter (funDefs)
 import Visitor
-
-type Callers = [CFunDef]
-type Callees = [CFunDef]
-data Entry = Entry {funDef :: CFunDef, callers :: Callers, callees :: Callees} deriving Show
-type CallGraph = Map.Map String Entry
+import Analysis.Types.CallGraph
+import Context
 
 data State = State {
     stCaller :: Maybe CFunDef, 
@@ -28,5 +23,5 @@ instance Visitor State where
 --    handleCExpr (CCall (CVar (Ident name _ _))  _ _) = undefined
     handleCExpr _ = id 
 
-determineCallGraph :: CTranslUnit -> CallGraph
-determineCallGraph ctu = stCg $ execTrav traverseCTranslUnit ctu emptyState
+determineCallGraph :: Context -> CallGraph
+determineCallGraph ctx = stCg $ execTrav traverseCTranslUnit (ctxAst ctx) emptyState
