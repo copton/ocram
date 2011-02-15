@@ -9,8 +9,7 @@ import Language.C (parseCFile, pretty)
 import Language.C.System.GCC (newGCC)
 import Language.C.Syntax.AST (CTranslUnit)
 
-import Context
-import Analysis
+import CreateContext
 import Util.Names (functionName)
 
 import Data.Map (toList)
@@ -39,8 +38,3 @@ errorOnLeftM msg action = action >>= errorOnLeft msg
 printMyAST :: CTranslUnit -> IO ()
 printMyAST ctu = (print . pretty) ctu
 
-createContext ast = ctx
-    where ctx = Context ast fm sr cg
-          fm = getFunctions ctx
-          sr = findStartRoutines ctx
-          cg = determineCallGraph ctx

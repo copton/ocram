@@ -6,11 +6,11 @@ import Language.C.Syntax.AST
 import Language.C.Data.Ident 
 import Context
 import Analysis.Types.StartRoutines
-import Data.Map (toList)
+import Data.Map (elems)
+import Analysis.Types.FunctionMap (functionId')
 
 findStartRoutines :: Context -> StartRoutines
-findStartRoutines ctx = filter isStartRoutine $ functions $ ctxFunctionMap ctx
-    where functions m = map snd $ toList m 
+findStartRoutines ctx = map functionId' $ filter isStartRoutine $ elems $ ctxFunctionMap ctx
 
 isStartRoutine :: CFunDef -> Bool
 isStartRoutine (CFunDef specs _ _ _ _) = any checkAttr specs 

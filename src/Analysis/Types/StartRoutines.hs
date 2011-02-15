@@ -2,6 +2,6 @@ module Analysis.Types.StartRoutines (
     StartRoutines
 ) where
 
-import Language.C.Syntax.AST (CFunDef)
+import Analysis.Types.FunctionMap (FunctionId)
 
-type StartRoutines = [CFunDef]
+type StartRoutines = [FunctionId]

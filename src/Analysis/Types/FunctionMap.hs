@@ -1,5 +1,5 @@
 module Analysis.Types.FunctionMap (
-    FunctionMap, FunctionId, functionId, functionId'
+    FunctionMap, FunctionId(..), functionId, functionId'
 ) where
 
 import Data.Map as Map
