@@ -1,4 +1,3 @@
-#! /usr/bin/runhaskell
 module Main where
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
@@ -8,6 +7,7 @@ import Text.PrettyPrint.HughesPJ (text, render, (<+>), hsep)
 
 import Language.C (parseCFile, pretty)
 import Language.C.System.GCC (newGCC)
+import Language.C.Syntax.AST (CTranslUnit)
 
 import Context
 import Analysis
@@ -29,12 +29,15 @@ main = do
 
     ast <- errorOnLeftM "Parse Error" $ parseCFile (newGCC "gcc") Nothing opts input_file
     let ctx = createContext ast
-    putStrLn $ unlines $ map functionName $ ctxStartRoutines ctx
+    printMyAST ast
 
 errorOnLeft :: (Show a) => String -> (Either a b) -> IO b
 errorOnLeft msg = either (error . ((msg ++ ": ")++).show) return
 errorOnLeftM :: (Show a) => String -> IO (Either a b) -> IO b
 errorOnLeftM msg action = action >>= errorOnLeft msg
+
+printMyAST :: CTranslUnit -> IO ()
+printMyAST ctu = (print . pretty) ctu
 
 createContext ast = ctx
     where ctx = Context ast fm sr cg
