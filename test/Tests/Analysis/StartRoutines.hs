@@ -2,19 +2,16 @@ module Tests.Analysis.StartRoutines (
     tests
 ) where 
 
-import Test.HUnit
+import Tests.Analysis.Utils (runTests)
+
 import Context (ctxStartRoutines)
-import Tests.Analysis.Utils (runTest)
 import Analysis.Types.FunctionMap (funId)
 
-tests = TestLabel "StartRoutines" $ TestList $ map runTest' $ zip [1..] test_list
+reduce = (map funId).ctxStartRoutines
 
-test_list = [
+tests = runTests "StartRoutines" reduce [
     ("__attribute__((tc_run_thread)) void foo() { }", ["foo"])
    ,("void __attribute__((tc_run_thread)) foo() { }", ["foo"])
    ,("", [])
    ,("void foo() {}", [])
     ]
-
-
-runTest' = runTest $ (map funId).ctxStartRoutines
