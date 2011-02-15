@@ -4,8 +4,9 @@ module Analysis.Types.CallGraph (
 
 import Language.C.Syntax.AST
 import Data.Map as Map
+import Analysis.Types.FunctionMap (FunctionId)
 
-type Callers = [CFunDef]
-type Callees = [CFunDef]
-data Entry = Entry {cgFunDef :: CFunDef, cgCallers :: Callers, cgCallees :: Callees} deriving Show
-type CallGraph = Map.Map String Entry
+type Callers = [FunctionId]
+type Callees = [FunctionId]
+data Entry = Entry {cgCallers :: Callers, cgCallees :: Callees} deriving Show
+type CallGraph = Map.Map FunctionId Entry

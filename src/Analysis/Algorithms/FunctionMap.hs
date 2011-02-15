@@ -15,7 +15,7 @@ data State = State {
 emptyState = State $ Map.empty
 
 instance Visitor State where
-    handleCFunDef fd st = st { stMap = Map.insert (functionName fd) fd (stMap st)}
+    handleCFunDef fd st = st { stMap = Map.insert (functionId' fd) fd (stMap st)}
 
 getFunctions :: Context -> FunctionMap
 getFunctions ctx = stMap $ execTrav traverseCTranslUnit (ctxAst ctx) emptyState
