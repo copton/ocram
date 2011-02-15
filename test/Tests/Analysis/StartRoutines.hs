@@ -4,14 +4,17 @@ module Tests.Analysis.StartRoutines (
 
 import Test.HUnit
 import Context (ctxStartRoutines)
-import Tests.Analysis.Utils (createContext)
+import Tests.Analysis.Utils (runTest)
 import Analysis.Types.FunctionMap (funId)
 
-tests = TestLabel "StartRoutines" $ TestList [TestCase test1]
+tests = TestLabel "StartRoutines" $ TestList $ map runTest' $ zip [1..] test_list
 
-test1 = assertEqual "test1" expected result
-    where
-    code = "__attribute__((tc_run_thread)) void foo() { }"
-    expected = ["foo"]
-    result' = ctxStartRoutines $ createContext code
-    result = map funId result'
+test_list = [
+    ("__attribute__((tc_run_thread)) void foo() { }", ["foo"])
+   ,("void __attribute__((tc_run_thread)) foo() { }", ["foo"])
+   ,("", [])
+   ,("void foo() {}", [])
+    ]
+
+
+runTest' = runTest $ (map funId).ctxStartRoutines
