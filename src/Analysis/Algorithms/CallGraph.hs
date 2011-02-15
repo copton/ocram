@@ -10,11 +10,11 @@ import Data.Maybe (fromJust)
 import Util.Names (functionName)
 import Visitor
 import Analysis.Types.CallGraph
-import Analysis.Types.FunctionMap (functionId, functionId', FunctionMap)
+import Analysis.Types.FunctionMap (functionId, functionId', FunctionMap, FunctionId)
 import Context (Context, ctxAst, ctxFunctionMap)
 
 data State = State {
-    stCaller :: Maybe CFunDef, 
+    stCaller :: Maybe FunctionId, 
     stCg :: CallGraph,
     stFunctions :: FunctionMap
 }
@@ -26,15 +26,15 @@ emptyState ctx = State Nothing cg fm
         convert _ = Just $ Entry [] []
 
 instance Visitor State where
-    handleCFunDef fd st = st { stCaller = Just fd }
+    handleCFunDef fd st = st { stCaller = Just $ functionId' fd }
 
     handleCExpr (CCall (CVar (Ident name _ _) _)  _ _) st 
         | member (functionId name) (stFunctions st) = st {stCg = update update' caller (stCg st)}
         | otherwise = st
           where 
             update' entry = Just $ newEntry entry
-            caller = functionId' $ fromJust $ (stCaller st)
-            callee = functionId' $ fromJust $ lookup (functionId name) (stFunctions st)
+            caller = fromJust $ (stCaller st)
+            callee = functionId name
             newEntry entry = entry {cgCallees = callee : (cgCallees entry) }
 
     handleCExpr _ st = st
