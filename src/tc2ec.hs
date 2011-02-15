@@ -11,6 +11,7 @@ import Language.C.System.GCC (newGCC)
 
 import Context
 import Analysis
+import Util.Names (functionName)
 
 import Data.Map (toList)
 
@@ -28,7 +29,7 @@ main = do
 
     ast <- errorOnLeftM "Parse Error" $ parseCFile (newGCC "gcc") Nothing opts input_file
     let ctx = createContext ast
-    putStrLn $ show $ ctxCallGraph ctx
+    putStrLn $ unlines $ map functionName $ ctxStartRoutines ctx
 
 errorOnLeft :: (Show a) => String -> (Either a b) -> IO b
 errorOnLeft msg = either (error . ((msg ++ ": ")++).show) return
