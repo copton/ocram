@@ -1,3 +1,4 @@
+#! /usr/bin/runhaskell
 module Main where
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))

@@ -4,7 +4,8 @@ module Analysis.Algorithms.CallGraph (
 
 import Language.C.Syntax.AST
 import Language.C.Data.Ident
-import Data.Map (update, fromList, toList, findWithDefault, member)
+import Data.Map (update, lookup, member, mapMaybe)
+import Prelude hiding (lookup)
 import Data.Maybe (fromJust)
 import Util.Names (functionName)
 import Visitor
@@ -21,8 +22,8 @@ data State = State {
 emptyState ctx = State Nothing cg fm
     where
         fm = ctxFunctionMap ctx
-        cg = fromList $ map convert (toList fm)
-        convert (k, fd) = (k, Entry fd [] [])
+        cg = mapMaybe convert fm
+        convert fd = Just $ Entry fd [] []
 
 instance Visitor State where
     handleCFunDef fd st = st { stCaller = Just fd }
@@ -33,8 +34,7 @@ instance Visitor State where
           where 
             update' entry = Just $ newEntry entry
             caller = functionName $ fromJust $ (stCaller st)
-            callee = findWithDefault err name (stFunctions st)
-            err = error $ "could not find definition of function " ++ name
+            callee = fromJust $ lookup name (stFunctions st)
             newEntry entry = entry {cgCallees = callee : (cgCallees entry) }
 
     handleCExpr _ st = st
