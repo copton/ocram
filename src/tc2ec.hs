@@ -28,7 +28,7 @@ main = do
 
     ast <- errorOnLeftM "Parse Error" $ parseCFile (newGCC "gcc") Nothing opts input_file
     let ctx = createContext ast
-    putStrLn $ show $ map fst $ toList $ ctxCallGraph ctx
+    putStrLn $ show $ ctxCallGraph ctx
 
 errorOnLeft :: (Show a) => String -> (Either a b) -> IO b
 errorOnLeft msg = either (error . ((msg ++ ": ")++).show) return

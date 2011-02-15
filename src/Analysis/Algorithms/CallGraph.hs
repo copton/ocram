@@ -5,6 +5,7 @@ module Analysis.Algorithms.CallGraph (
 import Language.C.Syntax.AST
 import Language.C.Data.Ident
 import Data.Map (update, lookup, member, mapMaybe)
+import Data.Set (insert, empty)
 import Prelude hiding (lookup)
 import Data.Maybe (fromJust)
 import Util.Names (functionName)
@@ -23,19 +24,20 @@ emptyState ctx = State Nothing cg fm
     where
         fm = ctxFunctionMap ctx
         cg = mapMaybe convert fm
-        convert _ = Just $ Entry [] []
+        convert _ = Just $ Entry empty empty
 
 instance Visitor State where
     handleCFunDef fd st = st { stCaller = Just $ functionId' fd }
 
     handleCExpr (CCall (CVar (Ident name _ _) _)  _ _) st 
-        | member (functionId name) (stFunctions st) = st {stCg = update update' caller (stCg st)}
+        | member (functionId name) (stFunctions st) = st {stCg = update' (stCg st)}
         | otherwise = st
           where 
-            update' entry = Just $ newEntry entry
+            update' cg = update updateCaller callee $ update updateCallee caller cg
+            updateCallee entry = Just $ entry { cgCallees = insert callee (cgCallees entry) }
+            updateCaller entry = Just $ entry { cgCallers = insert caller (cgCallers entry) }
             caller = fromJust $ (stCaller st)
             callee = functionId name
-            newEntry entry = entry {cgCallees = callee : (cgCallees entry) }
 
     handleCExpr _ st = st
 
