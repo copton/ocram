@@ -1,6 +1,3 @@
-module Main where
+module Main(main) where
 
-import Tests
-import Test.HUnit
-
-main = runTestTT Tests.tests >> return ()
+import Ocram.Test.Main (main)
