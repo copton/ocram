@@ -21,15 +21,15 @@ usageMsg prg = render $
 
 main :: IO ()
 main = do
-    progName <- getProgName
-    args <- getArgs
-    let usageErr = (hPutStrLn stderr (usageMsg progName) >> exitWith (ExitFailure 1))
-    when (length args < 1) usageErr
-    let (opts,input_file) = (init args, last args)
+	progName <- getProgName
+	args <- getArgs
+	let usageErr = (hPutStrLn stderr (usageMsg progName) >> exitWith (ExitFailure 1))
+	when (length args < 1) usageErr
+	let (opts,input_file) = (init args, last args)
 
-    ast <- errorOnLeftM "Parse Error" $ parseCFile (newGCC "gcc") Nothing opts input_file
-    let ctx = createContext ast
-    printMyAST ast
+	ast <- errorOnLeftM "Parse Error" $ parseCFile (newGCC "gcc") Nothing opts input_file
+	let ctx = createContext ast
+	printMyAST ast
 
 errorOnLeft :: (Show a) => String -> (Either a b) -> IO b
 errorOnLeft msg = either (error . ((msg ++ ": ")++).show) return

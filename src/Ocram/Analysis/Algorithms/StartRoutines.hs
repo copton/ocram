@@ -1,5 +1,5 @@
 module Ocram.Analysis.Algorithms.StartRoutines (
-    findStartRoutines
+	findStartRoutines
 ) where
 
 import Language.C.Syntax.AST

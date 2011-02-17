@@ -1,5 +1,5 @@
 module Ocram.Test.Lib (
-    parse
+	parse
 ) where
 
 import Ocram.Test.Lib.Parser (parse)

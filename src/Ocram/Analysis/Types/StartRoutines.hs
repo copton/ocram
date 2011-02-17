@@ -1,5 +1,5 @@
 module Ocram.Analysis.Types.StartRoutines (
-    StartRoutines
+	StartRoutines
 ) where
 
 import Ocram.Analysis.Types.FunctionMap (FunctionId)

@@ -1,5 +1,5 @@
 module Ocram.Test.Lib.Parser (
-    parse
+	parse
 ) where
 
 import qualified Data.ByteString.Char8 as B
@@ -12,6 +12,6 @@ errorOnLeft msg = either (error . ((msg ++ ": ")++).show) id
 
 parse :: String -> CTranslUnit
 parse code = errorOnLeft "parse error" $ parseC code' pos
-    where
-    code' = B.pack code
-    pos = position 0 "<<test>>" 0 0
+	where
+	code' = B.pack code
+	pos = position 0 "<<test>>" 0 0

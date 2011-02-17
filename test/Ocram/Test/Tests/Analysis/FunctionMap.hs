@@ -1,5 +1,5 @@
 module Ocram.Test.Tests.Analysis.FunctionMap (
-    tests
+	tests
 ) where
 
 import Ocram.Test.Tests.Analysis.Utils (runTests)
@@ -11,8 +11,8 @@ import Data.Map (keys)
 reduce = (map funId).keys.ctxFunctionMap
 
 tests = runTests "FunctionMap" reduce [
-     ("void foo() { }", ["foo"])
-    ,("", [])
-    ,("int foo() {}", ["foo"])
-    ,("void foo();", [])
-    ]
+	 ("void foo() { }", ["foo"])
+	,("", [])
+	,("int foo() {}", ["foo"])
+	,("void foo();", [])
+	]

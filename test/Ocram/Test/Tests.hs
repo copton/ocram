@@ -1,5 +1,5 @@
 module Ocram.Test.Tests (
-    tests
+	tests
 ) where
 
 import qualified Ocram.Test.Tests.Analysis as A

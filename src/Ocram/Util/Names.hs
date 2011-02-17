@@ -1,5 +1,5 @@
 module Ocram.Util.Names (
-    functionName
+	functionName
 ) where
 
 import Language.C.Syntax.AST

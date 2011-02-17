@@ -1,5 +1,5 @@
 module Ocram.Test.Tests.Analysis (
-    tests
+	tests
 ) where
 
 import qualified Ocram.Test.Tests.Analysis.StartRoutines as A
