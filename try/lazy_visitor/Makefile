@@ -1,2 +1,2 @@
 all:
-	runhaskell callgraph.hs
+	runhaskell -XMultiParamTypeClasses ignore.hs
