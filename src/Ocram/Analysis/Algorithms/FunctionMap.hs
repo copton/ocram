@@ -1,4 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Ocram.Analysis.Algorithms.FunctionMap (
 	getFunctions
@@ -12,16 +14,10 @@ import Ocram.Analysis.Types.FunctionMap
 import Data.Monoid (Monoid, mempty, mappend)
 import Language.C.Syntax.AST (CFunDef)
 
-newtype UpState = UpState {
-	stFunctions :: [(FunctionId, CFunDef)]
-}
-
-instance Monoid UpState where
-	mempty = UpState []
-	(UpState m) `mappend` (UpState m') = UpState $ m ++ m'
+type UpState = [(FunctionId, CFunDef)]
 
 instance UpVisitor EmptyDownState UpState where
-	upCFunDef fd _ _ = UpState $ [((functionId' fd), fd)]
+	upCFunDef fd _ _ = [((functionId' fd), fd)]
 
 getFunctions :: Context -> FunctionMap
-getFunctions ctx = fromList $ stFunctions $ traverseCTranslUnit (ctxAst ctx) emptyDownState
+getFunctions ctx = fromList $ traverseCTranslUnit (ctxAst ctx) emptyDownState
