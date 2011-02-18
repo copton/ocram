@@ -1,45 +1,49 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
 module Ocram.Analysis.Algorithms.CallGraph (
 	 determineCallGraph
 ) where
 
-import Language.C.Syntax.AST
-import Language.C.Data.Ident
-import Data.Map (update, lookup, member, mapMaybe)
-import Data.Set (insert, empty)
-import Prelude hiding (lookup)
-import Data.Maybe (fromJust)
-import Ocram.Util.Names (functionName)
-import Ocram.Visitor
-import Ocram.Analysis.Types.CallGraph
-import Ocram.Analysis.Types.FunctionMap (functionId, functionId', FunctionMap, FunctionId)
+import Ocram.Analysis.Types.CallGraph (CallGraph, Entry(Entry), cgCallees, cgCallers)
+import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit)
+import Ocram.Analysis.Types.FunctionMap (FunctionId, functionId', functionId, FunctionMap)
 import Ocram.Context (Context, ctxAst, ctxFunctionMap)
+import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
+import Language.C.Data.Ident (Ident(Ident))
 
-data State = State {
-	stCaller :: Maybe FunctionId, 
-	stCg :: CallGraph,
-	stFunctions :: FunctionMap
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+
+newtype DownState = DownState {
+	stCaller :: Maybe CFunDef
 }
 
-emptyState ctx = State Nothing cg fm
-	where
-		fm = ctxFunctionMap ctx
-		cg = mapMaybe convert fm
-		convert _ = Just $ Entry empty empty
+initDownState :: DownState
+initDownState = DownState Nothing
 
-instance Visitor State where
-	handleCFunDef fd st = st { stCaller = Just $ functionId' fd }
+type Calls = [(CFunDef, String)]
 
-	handleCExpr (CCall (CVar (Ident name _ _) _)  _ _) st 
-		| member (functionId name) (stFunctions st) = st {stCg = update' (stCg st)}
-		| otherwise = st
-		  where 
-			update' cg = update updateCaller callee $ update updateCallee caller cg
-			updateCallee entry = Just $ entry { cgCallees = insert callee (cgCallees entry) }
-			updateCaller entry = Just $ entry { cgCallers = insert caller (cgCallers entry) }
-			caller = fromJust $ (stCaller st)
-			callee = functionId name
+instance DownVisitor DownState where
+	downCFunDef fd _ = DownState $ Just fd
 
-	handleCExpr _ st = st
+instance UpVisitor DownState Calls where
+	upCExpr (CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller)) _ = [(caller, callee)]
+	upCExpr _ _ _ = []
 
+createCallGraph :: Calls -> CallGraph
+createCallGraph calls = foldl addCall Map.empty calls
+
+addCall :: CallGraph -> (CFunDef, String) -> CallGraph
+addCall cg (fd, name) = Map.alter addCallee caller $ Map.alter addCaller callee cg
+	where 
+		caller = functionId' fd
+		callee = functionId name
+		addCaller Nothing = Just $ Entry (Set.singleton caller) Set.empty
+		addCaller (Just entry) = Just $ entry { cgCallers = caller `Set.insert` (cgCallers entry) }
+		addCallee Nothing = Just $ Entry Set.empty (Set.singleton callee)
+		addCallee (Just entry) = Just $ entry { cgCallees = callee `Set.insert` (cgCallees entry) }
+	
 determineCallGraph :: Context -> CallGraph
-determineCallGraph ctx = stCg $ execTrav traverseCTranslUnit (ctxAst ctx) (emptyState ctx)
+determineCallGraph ctx = createCallGraph $ traverseCTranslUnit (ctxAst ctx) initDownState
