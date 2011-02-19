@@ -1,0 +1,1838 @@
+Thu Jan 20 18:06:40 CET 2011  Alexander Bernauer <bernauer@inf.ethz.ch>
+  * DumpAst
+
+New patches:
+
+[DumpAst
+Alexander Bernauer <bernauer@inf.ethz.ch>**20110120170640
+ Ignore-this: db1718beb0c6e1f55affba080e55dea
+] {
+addfile ./examples/DumpAst.hs
+hunk ./examples/DumpAst.hs 1
++-- Minimal example: parse a file, and print its AST
++module Main where
++import System.Environment
++import System.FilePath
++import System.Exit
++import System.IO
++import Control.Arrow      hiding ((<+>))
++import Control.Monad
++import Debug.Trace
++import Text.PrettyPrint.HughesPJ
++import Data.List
++
++import Language.C              -- simple API
++import Language.C.System.GCC   -- preprocessor used
++
++usageMsg :: String -> String
++usageMsg prg = render $
++  text "Usage:" <+> text prg <+> hsep (map text ["CPP_OPTIONS","input_file.c"])
++
++main :: IO ()
++main = do
++    let usageErr = (hPutStrLn stderr (usageMsg "./ParseAndPrint") >> exitWith (ExitFailure 1))
++    args <- getArgs
++    when (length args < 1) usageErr
++    let (opts,input_file) = (init args, last args)
++
++    -- parse
++    ast <- errorOnLeftM "Parse Error" $
++      parseCFile (newGCC "gcc") Nothing opts input_file
++    -- dump
++    putStrLn $ show ast
++
++errorOnLeft :: (Show a) => String -> (Either a b) -> IO b
++errorOnLeft msg = either (error . ((msg ++ ": ")++).show) return
++errorOnLeftM :: (Show a) => String -> IO (Either a b) -> IO b
++errorOnLeftM msg action = action >>= errorOnLeft msg
+hunk ./src/Language/C/Data.hs 26
+      initPos, nopos,builtinPos,internalPos,
+      isSourcePos,isBuiltinPos,isInternalPos,
+      -- * Syntax tree nodes
+-     NodeInfo(..),CNode(..),
++     NodeInfo(..),CNode(..),NodeInfoS(..),
+      fileOfNode,posOfNode,nameOfNode,
+      undefNode,mkNodeInfoOnlyPos,mkNodeInfo,
+      internalNode, -- DEPRECATED
+hunk ./src/Language/C/Data/Node.hs 15
+ -- source position and unqiue name
+ -----------------------------------------------------------------------------
+ module Language.C.Data.Node (
+-   NodeInfo(..), undefNode, isUndefNode,
++   NodeInfo(..), undefNode, isUndefNode, NodeInfoS(..),
+    mkNodeInfoOnlyPos,mkNodeInfoPosLen, mkNodeInfo,mkNodeInfo',
+    internalNode, -- deprecated, use undefNode
+    CNode(nodeInfo), fileOfNode,
+hunk ./src/Language/C/Data/Node.hs 29
+ -- | Parsed entity attribute
+ data NodeInfo = OnlyPos  Position {-# UNPACK #-} !PosLength        -- only pos and last token (for internal stuff only)
+               | NodeInfo Position {-# UNPACK #-} !PosLength !Name  -- pos, last token and unique name
+-           deriving (Show,Data,Typeable)
++           deriving (Data,Typeable)
++
++instance Show NodeInfo where
++    show _ = "_"
++
++newtype NodeInfoS = NodeInfoS NodeInfo
++
++instance Show NodeInfoS where
++    showsPrec d (NodeInfoS (OnlyPos p l)) = (showString "(OnlyPos ") . (showsPrec d p) . (showString " ") . (showsPrec d l) . (showString ")")
++    showsPrec d (NodeInfoS (NodeInfo p l n)) = (showString "(OnlyPos ") . (showsPrec d p) . (showString " ") . (showsPrec d l) . (showString " ") . (showsPrec d n) . (showString ")")
+ 
+ -- name equality of attributes, used to define (name) equality of objects
+ instance Eq NodeInfo where
+hunk ./src/Language/C/Syntax/AST.hs 72
+ type CTranslUnit = CTranslationUnit NodeInfo
+ data CTranslationUnit a
+   = CTranslUnit [CExternalDeclaration a] a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | External C declaration (C99 6.9, K&R A10)
+ --
+hunk ./src/Language/C/Syntax/AST.hs 82
+   = CDeclExt (CDeclaration a)
+   | CFDefExt (CFunctionDef a)
+   | CAsmExt  (CStringLiteral a) a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | C function definition (C99 6.9.1, K&R A10.1)
+ --
+hunk ./src/Language/C/Syntax/AST.hs 105
+     [CDeclaration a]          -- optional declaration list
+     (CStatement a)            -- compound statement
+     a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | C declarations (K&R A8, C99 6.7), including structure declarations, parameter
+ --   declarations and type names.
+hunk ./src/Language/C/Syntax/AST.hs 157
+       Maybe (CInitializer a), -- optional initialize
+       Maybe (CExpression a))] -- optional size (const expr)
+     a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | C declarator (K&R A8.5, C99 6.7.5) and abstract declarator (K&R A8.8, C99 6.7.6)
+ --
+hunk ./src/Language/C/Syntax/AST.hs 206
+ type CDeclr = CDeclarator NodeInfo
+ data CDeclarator a
+   = CDeclr (Maybe Ident) [CDerivedDeclarator a] (Maybe (CStringLiteral a)) [CAttribute a] a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | Derived declarators, see 'CDeclr'
+ --
+hunk ./src/Language/C/Syntax/AST.hs 226
+   -- ^ Array declarator @CArrDeclr declr tyquals size-expr?@
+   | CFunDeclr (Either [Ident] ([CDeclaration a],Bool)) [CAttribute a] a
+     -- ^ Function declarator @CFunDeclr declr (old-style-params | new-style-params) c-attrs@
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | Size of an array
+ type CArrSize = CArraySize NodeInfo
+hunk ./src/Language/C/Syntax/AST.hs 233
+ data CArraySize a
+   = CNoArrSize Bool               -- ^ @CUnknownSize isCompleteType@
+   | CArrSize Bool (CExpression a) -- ^ @CArrSize isStatic expr@
+-    deriving (Data,Typeable)
++    deriving (Show, Data,Typeable)
+ 
+ -- | C statement (K&R A9, C99 6.8)
+ --
+hunk ./src/Language/C/Syntax/AST.hs 279
+   | CReturn (Maybe (CExpression a)) a
+   -- | assembly statement
+   | CAsm CAsmStmt a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | GNU Assembler statement
+ --
+hunk ./src/Language/C/Syntax/AST.hs 299
+     [CAsmOperand]              -- input operands
+     [CStringLiteral a]         -- Clobbers
+     a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ -- | Assembler operand
+ --
+ -- @CAsmOperand argName? constraintExpr arg@ specifies an operand for an assembler
+hunk ./src/Language/C/Syntax/AST.hs 311
+     (CStringLiteral a)  -- constraint expr
+     (CExpression a)     -- argument
+     a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ -- | C99 Block items
+ --
+ --  Things that may appear in compound statements: either statements, declarations
+hunk ./src/Language/C/Syntax/AST.hs 321
+   = CBlockStmt    (CStatement a)    -- ^ A statement
+   | CBlockDecl    (CDeclaration a)  -- ^ A local declaration
+   | CNestedFunDef (CFunctionDef a)  -- ^ A nested function (GNU C)
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ -- | C declaration specifiers and qualifiers
+ --
+ -- Declaration specifiers include at most one storage-class specifier (C99 6.7.1),
+hunk ./src/Language/C/Syntax/AST.hs 331
+   = CStorageSpec (CStorageSpecifier a) -- ^ storage-class specifier or typedef
+   | CTypeSpec    (CTypeSpecifier a)    -- ^ type name
+   | CTypeQual    (CTypeQualifier a)    -- ^ type qualifier
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | Seperate the declaration specifiers
+ --
+hunk ./src/Language/C/Syntax/AST.hs 357
+   | CExtern   a     -- ^ extern
+   | CTypedef  a     -- ^ typedef
+   | CThread   a     -- ^ GNUC thread local storage
+-    deriving (Eq,Ord,Data,Typeable {-! CNode !-})
++    deriving (Show, Eq,Ord,Data,Typeable {-! CNode !-})
+ 
+ -- | C type specifier (K&R A8.2, C99 6.7.2)
+ --
+hunk ./src/Language/C/Syntax/AST.hs 383
+   | CTypeDef     Ident        a      -- ^ Typedef name
+   | CTypeOfExpr  (CExpression a)  a  -- ^ @typeof(expr)@
+   | CTypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | returns @True@ if the given typespec is a struct, union or enum /definition/
+ isSUEDef :: CTypeSpec -> Bool
+hunk ./src/Language/C/Syntax/AST.hs 402
+   | CRestrQual a
+   | CInlineQual a
+   | CAttrQual  (CAttribute a)
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | C structure or union specifiers (K&R A8.3, C99 6.7.2.1)
+ --
+hunk ./src/Language/C/Syntax/AST.hs 422
+     (Maybe [CDeclaration a])  -- member declarations
+     [CAttribute a]            -- __attribute__s
+     a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | A tag to determine wheter we refer to a @struct@ or @union@, see 'CStructUnion'.
+ data CStructTag = CStructTag
+hunk ./src/Language/C/Syntax/AST.hs 427
+                 | CUnionTag
+-                deriving (Eq,Data,Typeable)
++                deriving (Show, Eq,Data,Typeable)
+ 
+ -- | C enumeration specifier (K&R A8.4, C99 6.7.2.2)
+ --
+hunk ./src/Language/C/Syntax/AST.hs 449
+              Maybe (CExpression a))]) -- explicit variant value
+     [CAttribute a]                    -- __attribute__s
+     a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ 
+ -- | C initialization (K&R A8.7, C99 6.7.8)
+hunk ./src/Language/C/Syntax/AST.hs 463
+   = CInitExpr (CExpression a) a
+   -- | initialization list (see 'CInitList')
+   | CInitList (CInitializerList a) a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | Initializer List
+ --
+hunk ./src/Language/C/Syntax/AST.hs 506
+   | CMemberDesig  Ident a
+   -- | array range designator @CRangeDesig from to _@ (GNU C)
+   | CRangeDesig (CExpression a) (CExpression a) a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | @__attribute__@ annotations
+ --
+hunk ./src/Language/C/Syntax/AST.hs 514
+ -- and serve as generic properties of some syntax tree elements.
+ type CAttr = CAttribute NodeInfo
+ data CAttribute a = CAttr Ident [CExpression a] a
+-                    deriving (Data,Typeable {-! CNode !-})
++                    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | C expression (K&R A7)
+ --
+hunk ./src/Language/C/Syntax/AST.hs 576
+   | CStatExpr    (CStatement a) a        -- ^ GNU C compound statement as expr
+   | CLabAddrExpr Ident a                 -- ^ GNU C address of label
+   | CBuiltinExpr (CBuiltinThing a)       -- ^ builtin expressions, see 'CBuiltin'
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ 
+ -- | GNU Builtins, which cannot be typed in C99
+hunk ./src/Language/C/Syntax/AST.hs 585
+   = CBuiltinVaArg (CExpression a) (CDeclaration a) a            -- ^ @(expr, type)@
+   | CBuiltinOffsetOf (CDeclaration a) [CDesignator] a -- ^ @(type, designator-list)@
+   | CBuiltinTypesCompatible (CDeclaration a) (CDeclaration a) a  -- ^ @(type,type)@
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | C constant (K&R A2.5 & A7.2)
+ type CConst = CConstant NodeInfo
+hunk ./src/Language/C/Syntax/AST.hs 594
+   | CCharConst  CChar a
+   | CFloatConst CFloat a
+   | CStrConst   CString a
+-    deriving (Data,Typeable {-! CNode !-})
++    deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ -- | Attributed string literals
+ type CStrLit = CStringLiteral NodeInfo
+hunk ./src/Language/C/Syntax/AST.hs 599
+ data CStringLiteral a = CStrLit CString a
+-            deriving (Data,Typeable {-! CNode !-})
++            deriving (Show, Data,Typeable {-! CNode !-})
+ 
+ cstringOfLit :: CStrLit -> CString
+ cstringOfLit (CStrLit cstr _) = cstr
+}
+
+Context:
+
+[Improve pretty printing of if-then-else statements
+benedikt.huber@gmail.com**20101216110909
+ Ignore-this: 220a2dacbf8a1d15b0cf90ced7fbd5ea
+] 
+[Remove useless UNPACK pragmas (GHC7 warnings)
+benedikt.huber@gmail.com**20101216104025
+ Ignore-this: c741569d400be3342af8a6d35c92d0f7
+] 
+[Fix for GHC 7: Do not import Data.Generics.empty
+David Leuschner <david@loisch.de>**20101215224803
+ Ignore-this: 78e3375bdf3804ee4a2278affe9d045d
+] 
+[Disable custom Monad Either instance for GHC 7
+benedikt.huber@gmail.com**20101215224355
+ Ignore-this: c9c3834df5bfee7abb3ac28bce41c2a5
+] 
+[test-framework: Normalize if-statements to avoid spurious (parse-prettyprint-parse) mismatches for nested if-then-elses
+benedikt.huber@gmail.com**20100721133531
+ Ignore-this: 55e5db82a3ca04ccbc7df9a51c9be300
+] 
+[Add another test for pretty printing if-then-else
+benedikt.huber@gmail.com**20100720212917
+ Ignore-this: c0cab673ec9d716deb4154ae5599ed74
+] 
+[examples: Use matching version of language-c
+benedikt.huber@gmail.com**20100719135907
+ Ignore-this: df14d97e62a075c9c10b0544252b6b99
+] 
+[test/harness: Call Makefile in parent directory
+benedikt.huber@gmail.com**20100719135708
+ Ignore-this: 557f27fc83ae5fa9fe33824475e999b7
+] 
+[Fix signedness bug in constant folding.
+Aaron Tomb <aarontomb@gmail.com>**20101210225335
+ Ignore-this: 9ff9f2e4cc27fde2997902fd7d540c35
+] 
+[Fix bug comparing void pointers to others.
+Aaron Tomb <aarontomb@gmail.com>**20100830000549
+ 
+ Void pointers are now compatible, in the sense of composite types, with
+ all other pointers.
+] 
+[Temporarily disable a type error message.
+Aaron Tomb <aarontomb@gmail.com>**20100827203839
+ 
+ It's currently not quite correct. It will be re-enabled once it works
+ properly.
+] 
+[Add another builtin function (__builtin_strcspn)
+Aaron Tomb <aarontomb@gmail.com>**20100821224347] 
+[Array types can be composited with integral types.
+Aaron Tomb <aarontomb@gmail.com>**20100821210957] 
+[Error message when mergeOldStyle fails.
+Aaron Tomb <aarontomb@gmail.com>**20100821210814
+ 
+ The mergeOldStyle function seems to be aimed to remove all old-style
+ parameters from the argument list of a function. However, its result
+ sometimes includes old-style parameters, causing the previous
+ irrefutable pattern to fail. Now, instead of a pattern match failure,
+ you get an error message in this case.
+] 
+[Remove some type error messages.
+Aaron Tomb <aarontomb@gmail.com>**20100821210658
+ 
+ The type checker was being overly restrictive in its type checks in some
+ places, so a few type error messages are disabled until they work
+ correctly again.
+] 
+[Add a couple of builtin functions.
+Aaron Tomb <aarontomb@gmail.com>**20100820221021] 
+[Add optional \r before \n (DOS newline) when lexing line pragmas 
+benedikt.huber@gmail.com**20100713230011
+ Ignore-this: 4f8dc3973926b89e37f7e506a3d6710
+] 
+[Add test.expect for bug31_pp_if_else
+benedikt.huber@gmail.com**20100713220843
+ Ignore-this: e5cd2f3d1e0d613a47939438f1059cc0
+] 
+[Add test for bug 5: Lexer chokes on DOS newlines
+benedikt.huber@gmail.com**20100713220142
+ Ignore-this: bcac16c711b44c9f6b3b6444450a2253
+] 
+[Update tExpr to cache node types.
+Aaron Tomb <aarontomb@gmail.com>**20100627164528] 
+[Constant-fold casts.
+Aaron Tomb <aarontomb@gmail.com>**20100523223654] 
+[The size of a function type is the size of a pointer.
+Aaron Tomb <aarontomb@gmail.com>**20100523223626] 
+[Add a few more builtin declarations.
+Aaron Tomb <aarontomb@gmail.com>**20100523223558] 
+[Remove broken canonicalName and canonicalIdent functions.
+Aaron Tomb <aarontomb@gmail.com>**20100306195724
+ 
+ I don't think anyone else was using them, and they don't seem to be
+ correct.
+] 
+[Fix examples to include additional typequal/attribute fields of SemRep.Type 
+benedikt.huber@gmail.com**20100223220612
+ Ignore-this: 606d591e7512226a7fc36173147b261c
+] 
+[Add type qualifiers and attributes to SemRep.Type
+Benedikt Huber **20100223180554
+ Ignore-this: 4ac2ed84b60b9edd5523a1446e1e5926
+ 
+ aaron:
+ >> For instance, language-c will accept the following code already:
+ >>
+ >> typedef int foo;
+ >> const foo y;
+ >>
+ >> though it's not immediately obvious to me where the const qualifier gets recorded.
+ benedikt:
+ > Oh, that's a [bug] in the analysis:
+ > a) type qualifiers are dropped for typedefs (tDirectType) [FIXED]
+ > b) type qualifiers are not allowed for typedefs (mergeTypeAttributes) [FIXED]
+ > c) attributes are dropped for direct types altogether [FIXED]
+ 
+ Other than that, the changes were mostly straightforward, still I hope no new bugs have been introduced.
+] 
+[Fix infinite loop in enumeration constant folding.
+Aaron Tomb <aarontomb@gmail.com>**20100210045301] 
+[Add test for bug 31
+benedikt.huber@gmail.com**20100204095654
+ Ignore-this: ac96c7279e53d5775adeae2c787cad27
+] 
+[Fix recently introduced bug with dangling else in pretty-printer
+benedikt.huber@gmail.com**20100204092743
+ Ignore-this: fc32765b13ec57bb8906b954c60ac58
+] 
+[Export 'exportDeclr' in Analysis/Export.hs
+benedikt.huber@gmail.com**20100128104344
+ Ignore-this: 65a61348e5e21086cc3aa63ee60d86ab
+] 
+[Fix type checking bug for function pointer parameters.
+Aaron Tomb <aarontomb@gmail.com>**20100127172548
+ 
+ The previous patch to add support for transparent unions broke type
+ checking of paramters to functions passed via function pointers. If a
+ function was defined to take a parameter that was a typedef name, and
+ you passed in a function in which the matching parameter was the raw
+ type referred to by that typedef, the two would not match because the
+ type checker was failing to dereference typedef names in this one case.
+] 
+[Support a bunch of additional GCC builtins.
+Aaron Tomb <aarontomb@gmail.com>**20100118051615] 
+[Support transparent union parameters.
+Aaron Tomb <aarontomb@gmail.com>**20100118051536] 
+[Simplify TypeCheck example program.
+Aaron Tomb <aarontomb@gmail.com>**20100118051450] 
+[Support type checking of transparent unions.
+Aaron Tomb <aarontomb@gmail.com>**20100111181324] 
+[Improve type error reporting for function calls.
+Aaron Tomb <aarontomb@gmail.com>**20100111171616] 
+[Improve constant folding for sizeof/alignof.
+Aaron Tomb <aarontomb@gmail.com>**20100111042438] 
+[Define sizeofType for UnknownArraySize
+Aaron Tomb <aarontomb@gmail.com>**20091222182612
+ 
+ An array of unknown size is just a pointer.
+] 
+[Parametric AST types.
+Aaron Tomb <aarontomb@gmail.com>**20091222182008
+ 
+ Modify the types in Language.C.Syntax.AST to be parameterized by an
+ annotation type. The parser returns ASTs annotated with NodeInfo, but
+ other analysis code can replace the annotations.
+ 
+ The parametric AST types have longer, less abbreviated names. For
+ instance, statements are now
+ 
+   data CStatement a = ...
+ 
+ with a type synonym
+ 
+   type CStat = CStatement NodeInfo
+ 
+ 
+] 
+[Extend NodeDerive.hs to deal with parametric AST
+benedikt.huber@gmail.com**20091220235521
+ Ignore-this: b9783b5f32e559597151eb96b3d5ff2c
+] 
+[.cabal: recognize separate syb
+marco-oweber@gmx.de**20091130231738
+ Ignore-this: 9e0ec55119d163b9d4e439e8d3ee16de
+] 
+[Arrays can participate in subtraction.
+Aaron Tomb <aarontomb@gmail.com>**20091112193809
+ 
+ Previously, subtraction was allowed on pointers but not arrays. This
+ might be better implemented by coercing arrays to pointers beforehand,
+ but this works, and is easier at the moment.
+ 
+ Eventually, it might be best to refactor the type checker a bit to
+ support array->pointer coercion in the right places.
+] 
+[Export isTypeDef
+Aaron Tomb <aarontomb@gmail.com>**20091112193721] 
+[Add __builtin_clz
+Aaron Tomb <aarontomb@gmail.com>**20091112193654] 
+[Change pretty-printing of the else branch, s.t. the braces get on a new line
+benedikt.huber@gmail.com**20091101230141
+ Ignore-this: a9946733e17d2fefcee4c0bcb46d42b6
+] 
+[Fix awkward array type checking.
+Aaron Tomb <aarontomb@gmail.com>**20090927200632
+ 
+ Array type checking was somewhat broken before. During a moment of
+ frustration (because some key type checking code was incorrect), I
+ decided to convert array types to pointer types immediately after
+ getting them out of the symbol table, to simplify type checking.
+ 
+ Unfortunately, this meant that the types returned by tExpr were never
+ array types, even when they should be.
+ 
+ The other bits of the type checker are in much better shape now, so this
+ egregious hack isn't necessary.
+] 
+[Use pattern matching instead of partial function
+Aaron Tomb <aarontomb@gmail.com>**20090816213828
+ 
+ Some type checking code used the partial identOfName function in a case
+ expression that was already pattern matching on the structure of
+ VarName. It's shorter and safer to extract the field directly in this
+ case.
+] 
+[Remove unused, buggy fieldOffset function.
+Aaron Tomb <aarontomb@gmail.com>**20090816213737] 
+[Replace CStorageSpec Show instance with Pretty instance
+Aaron Tomb <aarontomb@gmail.com>**20090816185348
+ 
+ CStorageSpec had a Show instance specified in L.C.Syntax.AST, but no
+ other data type did. This Show instance was only used in one place, and
+ it seemed somewhat inconsistent with the rest of the code. So I removed
+ the Show instance from L.C.Syntax.AST, added a Pretty instance in
+ L.C.Pretty, and changed the one place that used the Show instance to use
+ the Pretty instance instead.
+ 
+ This could potentially cause incompatibilities with client code, but
+ it's unlikely: how often does code need to render storage specifications
+ as text but nothing else? Any broken code can be fixed with minimal
+ effort.
+] 
+[Add constant expression evaluation.
+Aaron Tomb <aarontomb@gmail.com>**20090802235355
+ 
+ This patch adds basic support for constant expression evaluation. Not
+ all cases are handled yet: alignof is not implemented, and the values
+ from the initializers for const globals are not yet used.
+ 
+ This patch also enables proper type checking of the GCC extension
+ __builtin_choose_expr, which depends on constant expression evaluation.
+] 
+[Tighten a bunch of class contexts.
+Aaron Tomb <aarontomb@gmail.com>**20090725044519
+ 
+ The separation of MonadTrav into several smaller monads makes it
+ possible to give more precise types to a number of functions. Many
+ functions that previously included the MonadTrav class constrain now
+ have one or both of MonadCError and MonadSymtab. They never need to
+ generate fresh names or call 'handleDecl'.
+] 
+[Split MonadTrav into several monads
+Aaron Tomb <aarontomb@gmail.com>**20090724011254
+ 
+ The MonadTrav class serves several purposes, and some useful functions
+ only need some of its available methods. This patch splits it into
+ several monads:
+ 
+ * MonadName, for fresh name generation.
+ * MonadSymtab, for symbol table operations.
+ * MonadCError, for C-specific error handling.
+ * MonadTrav, combining all of the above, plus a callback function.
+ 
+] 
+[Refactor type checking a bit.
+Aaron Tomb <aarontomb@gmail.com>**20090723012504
+ 
+ Now many of the utility functions in the type checker are pure
+ functions, returning Left on error. Clients in the MonadTrav monad can
+ use typeErrorOnLeft to turn these into "real" errors.
+] 
+[Export getUserState and tDesignator
+Aaron Tomb <aarontomb@gmail.com>**20090716234346
+ 
+ The former is necessary for user state to be at all useful. The latter
+ is usable outside of the core type checker, and I found it useful in at
+ least one project, so it seems worth exporting.
+] 
+[Fix bug #29 for real now! And remove typeof from SemRep.
+Aaron Tomb <aarontomb@gmail.com>**20090714035021
+ 
+ This patch fixes bug #29 for real, without the various breakage the
+ previous patch caused. In addition, it allows the third example listed
+ in my last patch to typecheck properly.
+ 
+ This change makes it no longer necessary to have a representation for
+ 'typeof' in SemRep, so this patch removes that, as well.
+] 
+[ Fix derive.sh and DeclEvent CNode instance (reported by Denis Bueno)
+benedikt.huber@gmail.com**20090712213037
+ Ignore-this: c601523dba6649a97bb927c452f80e13
+] 
+[Further progress on bug #29
+Aaron Tomb <aarontomb@gmail.com>**20090620201202
+ Ignore-this: d2b78ed617dbd4c3d70df5a92e1e9e4e
+ 
+ It's now possible to correctly type check this:
+ 
+     typedef int ax25_dev;
+     int f() {
+         ax25_dev *ax25_dev, *ax25_dev_old;
+     }
+ 
+ and this:
+ 
+     typedef int ax25_dev;
+     int f() {
+         typeof(ax25_dev) *ax25_dev, *ax25_dev_old;
+     }
+ 
+ but not this:
+ 
+     typedef int ax25_dev;
+     int f() {
+         typeof(ax25_dev) *ax25_dev, *ax25_dev_old;
+         typeof(ax25_dev_old) foo;
+     }
+ 
+ The second line resolves to ax25_dev, which now is an object, not a
+ type. Is this valid ANSI C? GCC accepts it.
+ 
+] 
+[Add tests for bug #29.
+Aaron Tomb <aarontomb@gmail.com>**20090228184609] 
+[Record use/def link between names.
+Aaron Tomb <aarontomb@gmail.com>**20090222200922
+ 
+ The DefTable type included a refTable field to record links between use
+ and definition Names, but it was unused. Now, whenever analysis code
+ calls lookupTypeDef or lookupObject, the link between use and definition
+ is store in the refTable. Type checking should fully populate this
+ table, because it needs to lookup all uses to ensure that their use is
+ well-typed.
+ 
+] 
+[Only analyse TypeSpecs once. Fixes #29.
+Aaron Tomb <aarontomb@gmail.com>**20090222183955
+ 
+ Previously, the type specifiers of declarations with multiple
+ declarators were analyzed multiple times. However, when declaring a
+ variable with the same name as a type, this causes problems.
+ 
+ Consider:
+ 
+   foo *foo, *bar;
+ 
+ The analysis of "foo *foo" results in a symbol table where the innermost
+ definition of "foo" refers to an object, not a typedef name.
+ Therefore, when analyzing "foo *bar", the type checker tries to look up
+ "foo" and gets an object declaration, which is a type error.
+ 
+ Code like the above example does actually occur, and is valid C. The
+ seemingly equivalent:
+ 
+   foo *foo;
+   foo *bar;
+ 
+ is not valid C, and is rejected as it should be. The second line is seen
+ as an expression statement, multiplying foo and bar, and fails because
+ bar is not in scope.
+ 
+] 
+[Change examples to work with the new fileOfNode type sig.
+benedikt.huber@gmail.com**20090223113358
+ Ignore-this: 5659ff98882f2808062bc0f1927788f
+ 
+ This change is somewhat preliminary, as the patch to Data.Position needs to be
+ cleaned up.
+] 
+[Change fileOfNode to return (Maybe FilePath) instead of FilePath
+benedikt.huber@gmail.com**20090223113342
+ Ignore-this: 2577930de0523d87de2d54cf674c5de9
+] 
+[Bump version number
+benedikt.huber@gmail.com**20090223113326
+ Ignore-this: eeb0bc1e75401e74993da85ead1e6954
+] 
+[Better and (hopefully) correct examples for initializer list
+benedikt.huber@gmail.com**20090212123709
+ Ignore-this: a97ad65cf2a643ae9d5db8cf6789d4f3
+] 
+[Improve README in test/harness
+benedikt.huber@gmail.com**20090126170411
+ Ignore-this: debc7f4d7c7215ecca631e1506aa5024
+] 
+[Docuementation for 'position' and 'type PosLength'
+benedikt.huber@gmail.com**20090126164856
+ Ignore-this: 1b97e03544f85c929ef9b25e8bed039
+] 
+[Documentation for Position selectors
+benedikt.huber@gmail.com**20090126164833
+ Ignore-this: d7f58d4fed2a7f994f4f854498d3c381
+] 
+[[Lexer] use incOffset
+joe.thornber@gmail.com**20090126152422] 
+[[Position] add incOffset
+joe.thornber@gmail.com**20090126152403] 
+[[Position, Lexer] resolve conflicts
+joe.thornber@gmail.com**20090126151257] 
+[[Position] documentation
+joe.thornber@gmail.com**20090126095411] 
+[[Position, Lexer] Don't export any constructors for Position
+joe.thornber@gmail.com**20090126094323
+ 
+ Instead use the provided operators to query/update a position.  Only
+ the lexer was effected by this.  I hope this doesn't impact
+ performance too much.
+ 
+] 
+[[Position] Use record syntax
+joe.thornber@gmail.com**20090126143542] 
+[[Ident] Replace an UNBOXED pragma with UNPACK
+joe.thornber@gmail.com**20090126095104
+ 
+ UNBOXED isn't recognised on 6.10.  When did this pragma get renamed ?
+ Do we need to go back and check 6.8 ?
+] 
+[[Position] Use record syntax when defining Position
+joe.thornber@gmail.com**20090126091403
+ 
+ That way we get pos{Row,File,Offset,Column} defined for free.
+] 
+[[Position] Use a summation type for the various position types.
+joe.thornber@gmail.com**20090126085013
+ 
+ Rather than using magic values for the row and column field I
+ think it's cleaner to just define some new constructors for
+ <builtin position> etc.  The only reason I can see for the way
+ it was is performance/memory.  But if that was the case Position
+ would have been defined with newtype.
+] 
+[Add extra files (README etc.), remove trailing whitespace
+benedikt.huber@gmail.com**20090126101012
+ Ignore-this: 7166460f5c6e4f278ed6abf31db337c0
+] 
+[Add bug-reports field to cabal file
+benedikt.huber@gmail.com**20090126100302
+ Ignore-this: daa837cee90f4b63fb66f4fe7a452b0a
+] 
+[Data.Position: add adjustPos, fix documentation
+benedikt.huber@gmail.com**20090126094425
+ Ignore-this: 4fa481b37e55b54aa2090be768a6e2ee
+] 
+[Rollback the changes to Data.Position.
+benedikt.huber@gmail.com**20090125142419
+ Ignore-this: 7985e131c3d6b7fd2f7973f9e8188e90
+ Joe Thoerner noted that the column field actually is useful sometimes and that it is used in one of his projects.
+ Maybe we should change Position to
+ > Position origFile origLine preLine preCol
+ ? This seems more consistent than the currently used
+ > Position preOffset origFile origLine preColumn
+ Need to think about this a little bit.
+ 
+ rolling back:
+ 
+ Sat Jan 24 21:15:33 CET 2009  benedikt.huber@gmail.com
+   * Simplify representation of Position.
+ 
+     M ./src/Language/C/Data/Position.hs -24 +26
+     M ./src/Language/C/Parser/Lexer.x -6 +4
+] 
+[Simplify representation of Position.
+benedikt.huber@gmail.com**20090124201533
+ Ignore-this: f1bdb854d8cabd882c08e296bc0f50f5
+] 
+[Fixed bug #30: 0x0 should have hexadecimal representation
+benedikt.huber@gmail.com**20090113164137] 
+[Add test for bug #30
+benedikt.huber@gmail.com**20090113144520] 
+[Add ParseAndPrint example to /examples (useful for harness tests)
+benedikt.huber@gmail.com**20090113143148] 
+[Add typecheck test to test/src/CRoundTrip
+benedikt.huber@gmail.com**20090113143059] 
+[Fix test-framework's runCPP to work with preprocessed files as well
+benedikt.huber@gmail.com**20090113142931] 
+[Remove ref to non-existant file from Makefile.
+Aaron Tomb <aarontomb@gmail.com>**20081231225601] 
+[Pass statement context into tExpr
+Aaron Tomb <aarontomb@gmail.com>**20081230190851
+ 
+ Since expressions can contain statements, correct checking requires
+ knowledge of the statement context (for instance, the return type of
+ the enclosing function, if a statement expression contains a return
+ statement).
+] 
+[Add example type checking wrapper program.
+Aaron Tomb <aarontomb@gmail.com>**20081230182230] 
+[Add __PRETTY_FUNCTION__ builtin.
+Aaron Tomb <aarontomb@gmail.com>**20081230182005] 
+[Initial support for __builtin_choose_expr
+Aaron Tomb <aarontomb@gmail.com>**20081230181920] 
+[Allow '&' applied to compound literals.
+Aaron Tomb <aarontomb@gmail.com>**20081230181841] 
+[More robustness to occurrence of NoName
+Aaron Tomb <aarontomb@gmail.com>**20081230181725] 
+[Expose language dialect options
+Aaron Tomb <aarontomb@gmail.com>**20081230181624] 
+[Proper error instead of pattern match failure.
+Aaron Tomb <aarontomb@gmail.com>**20081220001942
+ 
+ When attempting to access a field of a non-composite type, give a real
+ type error, rather than a pattern match failure. This was in here
+ before, I think, but must have been messed up during refactoring.
+] 
+[Separate module for much of the type checker.
+Aaron Tomb <aarontomb@gmail.com>**20081219195144] 
+[Add more type construction utility functions.
+Aaron Tomb <aarontomb@gmail.com>**20081219193412] 
+[Better position info for string constant type.
+Aaron Tomb <aarontomb@gmail.com>**20081219191521] 
+[Move type conversions into separate module.
+Aaron Tomb <aarontomb@gmail.com>**20081219191250] 
+[Add stopping criteria to mapSubStmts
+Aaron Tomb <aarontomb@gmail.com>**20081217233833] 
+[Add (unenforced) options for C language subset.
+Aaron Tomb <aarontomb@gmail.com>**20081216174157] 
+[Move builtins to a separate module.
+Aaron Tomb <aarontomb@gmail.com>**20081215234146] 
+[Improve type normalization.
+Aaron Tomb <aarontomb@gmail.com>**20081212224522] 
+[Improve error messages in type checker.
+Aaron Tomb <aarontomb@gmail.com>**20081212224334] 
+[Fix treatment of & when applied to array name.
+Aaron Tomb <aarontomb@gmail.com>**20081212224223] 
+[Pretty-print chained fields in initializers.
+Aaron Tomb <aarontomb@gmail.com>**20081212001828] 
+[Inline functions can appear before register globals.
+Aaron Tomb <aarontomb@gmail.com>**20081211234309] 
+[Add support for global register variables.
+Aaron Tomb <aarontomb@gmail.com>**20081211194010] 
+[Add expected output for type checking tests.
+Aaron Tomb <aarontomb@gmail.com>**20081211193835] 
+[Remove redundant cast compatibility check.
+Aaron Tomb <aarontomb@gmail.com>**20081211004159] 
+[Fill in missing case in type export code.
+Aaron Tomb <aarontomb@gmail.com>**20081211004138] 
+[One more builtin!
+Aaron Tomb <aarontomb@gmail.com>**20081211004108] 
+[More builtins
+Aaron Tomb <aarontomb@gmail.com>**20081211003714
+ 
+ Now runTrav populates the symbol table with all of the builtins used by
+ Linux (as of 2.6.24.3).
+] 
+[Code to merge name spaces and definition tables
+Aaron Tomb <aarontomb@gmail.com>**20081211003525
+ 
+ It can be useful to merge symbol tables on occasion. It doesn't make any
+ sense to do this if they disagree about the values associated with their
+ respective keys, but there are many cases when you can guarantee that
+ they will agree.
+] 
+[Add __builtin_expect to builtins
+Aaron Tomb <aarontomb@gmail.com>**20081210223952] 
+[Add some test cases for type checking
+Aaron Tomb <aarontomb@gmail.com>**20081209003856] 
+[Typedefs can be block scoped
+Aaron Tomb <aarontomb@gmail.com>**20081209003218
+ 
+ Under certain circumstances, the standard says that typedefs have block
+ scope. GCC seems even more liberal, treating typedefs just like any
+ other identifier, with scope extending to the end of the innermost
+ block. To handle code such as Linux, we now do the same.
+] 
+[Fix corner cases in compound initializer checking
+Aaron Tomb <aarontomb@gmail.com>**20081209002952
+ 
+ Compound array and structure initializer lists with complex combinations of
+ designated and undesignated elements now type check. The bulk of Linux
+ 2.6.24.3 now goes through with only one error.
+ 
+] 
+[New code for canonical types
+Aaron Tomb <aarontomb@gmail.com>**20081209002819] 
+[Another attempt at structure type checking.
+Aaron Tomb <aarontomb@gmail.com>**20081206022456] 
+[Fix fiddly bits of structure and union checking
+Aaron Tomb <aarontomb@gmail.com>**20081206000054
+ 
+ Nested structures and unions weren't being handled correctly, especially
+ in initializers. Now we can check members of anonymous union members as
+ if they were direct members, and we can initialize nested structures.
+ 
+ For example, we now accept:
+ 
+ struct baz { int a; union { int b; int c; }; } v = { .a = 0, .b = 1 };
+ 
+ and
+ 
+ struct foo { int x; struct bar { int y; } inner; } z = { .x = 0, .inner.y = 1 };
+] 
+[Allow void functions to return void expressions
+Aaron Tomb <aarontomb@gmail.com>**20081205235436
+ 
+ There really is code (in Linux) that looks like this:
+ 
+ void g();
+ void f() { return g(); }
+ 
+ The standard doesn't allow it (6.8.6.4.1) but GCC does, so it seems
+ useful to allow it ourselves, too.
+ 
+ Eventually, it would make sense to have some configuration settings that
+ describe exactly which variant of the language to accept. In strict C99
+ mode, we'd reject this.
+ 
+] 
+[Include anonymous structure members in analysis
+Aaron Tomb <aarontomb@gmail.com>**20081205235158
+ 
+ When typechecking structure declarations, we previously skipped
+ anonymous members. Now anonymouse structure and union members are
+ included in the symbol table (and anonymous members of non-composite
+ type are rejected).
+] 
+[Update linkage rules for redefinition
+Aaron Tomb <aarontomb@gmail.com>**20081205230750
+ 
+ From my reading of the standard, it seems as though, if the original
+ declaration (or definition) of a function has internal linkage, then a
+ later declaration (or definition) can have either internal or external
+ linkage. GCC seems to agree with this.
+ 
+] 
+[Allow calls to unknown functions in type checker.
+Aaron Tomb <aarontomb@gmail.com>**20081204235538] 
+[Remove redundant code from type checker
+Aaron Tomb <aarontomb@gmail.com>**20081204230358] 
+[Export a few more things from AstAnalysis
+Aaron Tomb <aarontomb@gmail.com>**20081204225815] 
+[Improve error message formatting
+Aaron Tomb <aarontomb@gmail.com>**20081204225758] 
+[Move generally-useful functions to separate module
+Aaron Tomb <aarontomb@gmail.com>**20081204225416
+ 
+ There is now a Language.C.Syntax.Utils module that contains useful
+ functions for dealing with ASTs. Right now, these include a
+ manually-written traversal to extract sub-statements and one to apply a
+ function to all sub-statements. These might be better written with some
+ sort of generic programming framework in the future.
+] 
+[Export tStmt
+Aaron Tomb <aarontomb@gmail.com>**20081203205009] 
+[Remove typeof as early as possible
+Aaron Tomb <aarontomb@gmail.com>**20081202182528
+ 
+ Remove typeof when translating from C types to Types. This requires
+ DeclAnalysis to have the ability to typecheck expressions. I've decided
+ that making AstAnalysis and DeclAnalysis mutually recursive is the
+ simplest and cleanest way to do this for now.
+] 
+[Typecheck initializers later (fixes #25)
+Aaron Tomb <aarontomb@gmail.com>**20081202181725
+ 
+ Typecheck initializers after entering the variable they initialize into
+ the symbol table. For the moment, this works, but it will break if
+ Initializer becomes different from CInit.
+ 
+] 
+[Add local labels in block scope.
+Aaron Tomb <aarontomb@gmail.com>**20081202175734
+ 
+ This patch undoes my previous "fix" of getSubStmts and does things
+ properly inside getLabels, instead. Now, function-scope labels are all
+ added before we start type checking the function, and local labels are
+ added when entering the block they live in.
+ 
+ Ultimately, the utility functions getSubStmts, compoundSubStmts, and
+ getLabels probably belong somewhere in the Language.C.Syntax.*
+ hierarchy.
+] 
+[Change block scopes to create new label scope, too.
+Aaron Tomb <aarontomb@gmail.com>**20081202175442
+ 
+ This makes local labels work out properly. We should scan a function body
+ for non-local labels and add them all inside the initial function scope,
+ anyway, since labels can jump backward, so this shouldn't cause any
+ problems.
+] 
+[Remove typeof from field types.
+Aaron Tomb <aarontomb@gmail.com>**20081202002921] 
+[Handle initializers on variables with typeof types.
+Aaron Tomb <aarontomb@gmail.com>**20081202000143] 
+[Export TypeOfExpr, because we can.
+Aaron Tomb <aarontomb@gmail.com>**20081201233716
+ 
+ This is useful for debugging, primarily, so we can print typeof types.
+ Ultimately, it may not be necessary if we get rid of them entirely.
+] 
+[Initial import of type checker.
+Aaron Tomb <aarontomb@gmail.com>**20081201230325
+ 
+ This patch adds a type checker for expressions and statements. It is
+ almost certainly incomplete at this point, but passes some tests.
+] 
+[Add a module of type utility functions
+Aaron Tomb <aarontomb@gmail.com>**20081201190109
+ 
+ These are all simple, pure functions for operating on types that are
+ certainly useful in type checking, but may be useful in other contexts,
+ as well.
+] 
+[Add a number of C operator utility functions
+Aaron Tomb <aarontomb@gmail.com>**20081201185545] 
+[examples/ScanFile: improve guessing of 'interesting declarations'
+benedikt.huber@gmail.com**20081130115603] 
+[Add sanity check to AST analysis - we should be in file scope afterwards
+benedikt.huber@gmail.com**20081130115510] 
+[Declare params of prototype in prototype-scope; remove unneccessary enterBlockScope after enterFunctionScope
+benedikt.huber@gmail.com**20081130113349
+ 
+ Parameters of prototypes must not be declared in global scope of course.
+ enterFunctionScope also introduces a local scope, so we don't have to call enterBlockScope afterwards
+] 
+[Cleanup test/harness, add test for local variable declarations
+benedikt.huber@gmail.com**20081129171215] 
+[Use Analysis.Debug when tracing in examples/ScanFile
+benedikt.huber@gmail.com**20081129170804] 
+[Fix scopes for parameters and local variable declarations
+benedikt.huber@gmail.com**20081129170538
+ 
+ 1) The parameters of a function have to be declared in the scope of the outermost block of the function
+ 2) We have to search for local declarations in all statements (for,while, etc.)
+ 3) handleParamDecl is called in AstAnalysis not tParam
+] 
+[Improve check for redeclarations
+benedikt.huber@gmail.com**20081129170341
+ 
+ We now check if the old identifier has been declared with the same linkage (and if it has linkage).
+ Appropriate error constructors have been added to SemError.
+] 
+[Add (Static NoLinkage _) for local declarations with static specifier
+benedikt.huber@gmail.com**20081129170312] 
+[Add tracing for ParamEvent/LocalEvent to examples/ScanFile
+benedikt.huber@gmail.com**20081127111248] 
+[First leave function scope, then add function definition
+benedikt.huber@gmail.com**20081127111207] 
+[Fix/cleanup storage computation for global and local variables
+benedikt.huber@gmail.com**20081127110518] 
+[Export travErrors
+Aaron Tomb <aarontomb@gmail.com>**20081126003005] 
+[Builtin return and frame addresses
+Aaron Tomb <aarontomb@gmail.com>**20081125230201] 
+[Add some more builtins
+Aaron Tomb <aarontomb@gmail.com>**20081125223538] 
+[Local variables can have external linkage
+Aaron Tomb <aarontomb@gmail.com>**20081125223500] 
+[Add some GCC builtins
+Aaron Tomb <aarontomb@gmail.com>**20081124210541
+ 
+ Start AST traversals with a symbol table pre-populated with common
+ builtin functions including some math routines and varargs handlers.
+] 
+[Handle merge conflict related to bug #21
+Aaron Tomb <aarontomb@gmail.com>**20081122211125] 
+[Add labels to symbol table
+Aaron Tomb <aarontomb@gmail.com>**20081121232244] 
+[Better (working) code for function-scope symbols
+Aaron Tomb <aarontomb@gmail.com>**20081121005020
+ 
+ The patch from 11/18 purported to record local variables in the symbol
+ table, but it was broken in various ways. Now it should work.
+] 
+[Resolve merge conflict
+Aaron Tomb <aarontomb@gmail.com>**20081122210354] 
+[Add local variables to symbol table
+Aaron Tomb <aarontomb@gmail.com>**20081118212831
+ 
+ This patch adds local variables to the symbol table, and introduces two
+ new event types, one for parameter declarations and one for local
+ variable declarations.
+] 
+[More informative error message about unbound typedefs
+Aaron Tomb <aarontomb@gmail.com>**20081120224556] 
+[Add DefTable pretty-printing to L.C.A.Debug
+Aaron Tomb <aarontomb@gmail.com>**20081119223851] 
+[Fix cabal file for compilation with GHC 6.10.1
+Aaron Tomb <aarontomb@gmail.com>**20081117214250
+ 
+ This should be backward-compatible. It just adds an upper bound to the
+ version of base required, and 6.10.1 comes with base3.
+] 
+[Pretty-print abstract parameter declarations.
+Aaron Tomb <aarontomb@gmail.com>**20081117214157] 
+[Handle typedefs in mergeTypeAttributes
+Aaron Tomb <aarontomb@gmail.com>**20081117214036] 
+[test/harness: regression test for bug #21, bug #22
+benedikt.huber@gmail.com**20081122122124] 
+[Update AUTHORS
+benedikt.huber@gmail.com**20081122121858] 
+[Fix bug #22: Set file permission after copying input
+kcharter@gmail.com**20081122121617] 
+[Updated SourceView
+benedikt.huber@gmail.com**20081120103351] 
+[Fix bug in lexer: recursive lexToken
+benedikt.huber@gmail.com**20081120103318] 
+[Fix bug #21: typedef can have more than one declarator
+benedikt.huber@gmail.com**20081120100715] 
+[Improvments to examples/sourceview
+benedikt.huber@gmail.com**20081005210053
+ 
+ The sourceview example can now be used for debugging large ASTs as well.
+ It isn't finished yet, though.
+] 
+[Fixing bugs in recording the location of AST nodes
+benedikt.huber@gmail.com**20081005205846
+ 
+ For computing the last token of an AST node, we safed
+ the previous token and the one before that. Recursively
+ invoking lexToken (line pragmas) has to take this into account.
+ Additionally, fixed some wrong withNodeInfo calls in the Parser.
+] 
+[examples/sourceview: A (preprocessed) C soure code / AST browser
+benedikt.huber@gmail.com**20081001154619] 
+[[EXPERIMENTAL] Source code annotations: add absolute offset to Position and last token position and length to NodeInfo
+benedikt.huber@gmail.com**20081001153016
+ 
+ We safe the absolute offset (in the preprocessed file) in Data.Position and the position and length of the last token of each AST node in Data.NodeInfo.This allows source code annotations of preprocessed code, and should allow interaction with custom preprocessors.
+] 
+[test-suite/bugs: empty.c (an empty file, caused troubles with positional information)
+benedikt.huber@gmail.com**20081001124618] 
+[examples: Use initPos and undefNode
+benedikt.huber@gmail.com**20081001102105] 
+[Use initPos instead of the explicit Position data constructor (test/src)
+benedikt.huber@gmail.com**20081001101255] 
+[add 'parseCFilePre' to Language.C
+benedikt.huber@gmail.com**20080930160311] 
+[bin/cc-wrapper: Surround shell argument with double quotes
+benedikt.huber@gmail.com**20080919141649] 
+[Bump version number (so it is different from the one released on hackage)
+benedikt.huber@gmail.com**20080917091947] 
+[adjustPos (change to line of another file) should set column offset to one (fixes bug #18)
+benedikt.huber@gmail.com**20080917091753] 
+[TAG 0.3.1
+benedikt.huber@gmail.com**20080821123218] 
+[Update ChangeLog for 0.3.1
+benedikt.huber@gmail.com**20080821123017] 
+[add aliases for exposed parsers, in order to document them
+benedikt.huber@gmail.com**20080821122747] 
+[language-c.cabal: change category to Language (this was done before uploading to hackage)
+benedikt.huber@gmail.com**20080815175326] 
+[ChangeLog: strip the ChangeLog, focus on changes of interest to the library user
+benedikt.huber@gmail.com**20080815173325] 
+[Remove NameMap from Data.Name; this should be done right (e.g. in its own module, same API as containers:Data.IntMap), or not at all.
+benedikt.huber@gmail.com**20080815170144] 
+[CTest: use the exposed parsers expressionP, statementP etc. for parsing single expressions, statements etc.
+benedikt.huber@gmail.com**20080815143708] 
+[Parser public API: expose parsers and Parser Monad
+benedikt.huber@gmail.com**20080815143455
+ 
+ Exposing additional parsers seems useful to me (Bug #).
+ We also have to expose the Parser Monad (a parser is of type 'P ast_ty') and
+ execParser.
+] 
+[ParserMonad: Return updated name supply when executing parser
+benedikt.huber@gmail.com**20080815143416] 
+[Parser: Expose expression, statement, declaration and file parsers
+benedikt.huber@gmail.com**20080815143344] 
+[Data: Use newNameSupply instead of (namesStartingFrom 0)
+benedikt.huber@gmail.com**20080815143235] 
+[Add a utility function to create a "blank" set of cpp arguments.
+iavor.diatchki@gmail.com**20080814151329] 
+[Make that analysis traversal monad abstract.
+iavor.diatchki@gmail.com**20080814143415] 
+[Export the type synonym "Register" (and bump version)
+iavor.diatchki@gmail.com**20080814141742] 
+[Fix haddock 'Module' label for Data.InputStream
+benedikt.huber@gmail.com**20080813100057] 
+[Add description field to .cabal
+benedikt.huber@gmail.com**20080813094554] 
+[Mirror wiki docs in repo
+benedikt.huber@gmail.com**20080813092639] 
+[add Data.Position: internalIdentAt
+benedikt.huber@gmail.com**20080813092554
+ 
+ I've just ported c2hs to use language.c, and this turned out to be useful.
+] 
+[Add iavor to AUTHORS
+benedikt.huber@gmail.com**20080813092540] 
+[Fix haddock: stability, portability and maintainer field
+benedikt.huber@gmail.com**20080813092415] 
+[Shorter synopsis
+benedikt.huber@gmail.com**20080812165622] 
+[TAG 0.3
+benedikt.huber@gmail.com**20080812163405] 
+[language-c.cabal: 0.2.9 -> 0.3
+benedikt.huber@gmail.com**20080812161831] 
+[Trim regression test to smoke and bugs only (gcc.dg takes 15 mins)
+benedikt.huber@gmail.com**20080812161427] 
+[make bugs/gnu_complex.c compile with gcc
+benedikt.huber@gmail.com**20080812160738] 
+[remove typedef_non_compile (ok if the parser accepts it)
+benedikt.huber@gmail.com**20080812160218] 
+[make bugs/pp_assign_prec.c a valid C source
+benedikt.huber@gmail.com**20080812160153] 
+[add smoke/test1.c
+benedikt.huber@gmail.com**20080812155728] 
+[Add run-bugs.sh
+benedikt.huber@gmail.com**20080812155449] 
+[Fix arg handling in ScanFile
+benedikt.huber@gmail.com**20080812155305] 
+[Fix examples. (though ComputeSize produces warnings on gtk)
+benedikt.huber@gmail.com**20080812151727] 
+[Fix lexer bug (does not distinguish 0 and 00) by case distinction in Constants.hs
+benedikt.huber@gmail.com**20080812145852] 
+[Add export for EnumType
+benedikt.huber@gmail.com**20080812145839] 
+[Fix struct definition
+benedikt.huber@gmail.com**20080812145806] 
+[Add status docs to Analysis.hs
+benedikt.huber@gmail.com**20080812145727] 
+[Documentation Cleanup: System
+benedikt.huber@gmail.com**20080812123152] 
+[Documentation cleanup: C.hs
+benedikt.huber@gmail.com**20080812123102] 
+[simpleCppArgs -> rawCppArgs (Language.C.System)
+benedikt.huber@gmail.com**20080812123030] 
+[Move C.InputStream -> C.Data.InputStream
+benedikt.huber@gmail.com**20080812122853] 
+[Fix bug #6
+benedikt.huber@gmail.com**20080812121117] 
+[examples/ScanFile: better handling of file name extensions
+benedikt.huber@gmail.com**20080812111447] 
+[Language.C.parseFile -> Language.C.parseCFile
+benedikt.huber@gmail.com**20080812111414] 
+[Analysis.Export: export declr attributes, -Wall clean
+benedikt.huber@gmail.com**20080812090858] 
+[Semantic Analysis: tag fwd decl, param decl improvements
+benedikt.huber@gmail.com**20080812090701
+ 
+ * Record tag forward declarations, as they might change the semantics.
+ * Distinguish abstract and named parameter declarations in SemRep
+ * Check for duplicate names in parameter declaration
+] 
+[Bump version: 2.8 -> 2.9
+benedikt.huber@gmail.com**20080811162415] 
+[Cleanup of analysis: Better handling of function prototypes
+benedikt.huber@gmail.com**20080811162332] 
+[Remove c2hs test from the main repo, as it isn't finished yet.
+benedikt.huber@gmail.com**20080811162104] 
+[Some regression tests
+benedikt.huber@gmail.com**20080811161859] 
+[Note test/harness in README
+benedikt.huber@gmail.com**20080811161827] 
+[Semantic analysis regression tests based on diff
+benedikt.huber@gmail.com**20080811160622] 
+[Fix storage computation for function definitions
+benedikt.huber@gmail.com**20080811153409] 
+[Fix examples (-> 0.2.9)
+benedikt.huber@gmail.com**20080811150604] 
+[Remove trailing whitespaces
+benedikt.huber@gmail.com**20080811150456] 
+[Data.Position: CamelCase isNoPos
+benedikt.huber@gmail.com**20080811150432] 
+[Semantic Analysis: Enumerator datatype, better representations of storage, small bug fixes
+benedikt.huber@gmail.com**20080811150131
+ 
+ Couple of improvments for the analysis modules:
+ Enumerators are now represented using an Enumerator datatype.
+ Improved splitIdentDecls.
+ Improved representation of Storage.
+ Bug fixes in DeclAnalysis and Export.
+ Debug now uses Export for types. 
+] 
+[Docs: A function without storage specifier is the same as a function with storage specifier extern (C99 6.2.2 / 5)
+benedikt.huber@gmail.com**20080811145111] 
+[examples: remove QuickTest (integrated into ScanFile). Update ScanFile
+benedikt.huber@gmail.com**20080811134256] 
+[Doc cleanup: Pretty
+benedikt.huber@gmail.com**20080811114927] 
+[Doc cleanup: Parser
+benedikt.huber@gmail.com**20080811114917] 
+[Syntax: Doc cleanup
+benedikt.huber@gmail.com**20080811113647] 
+[Doc: InputStream.hs
+benedikt.huber@gmail.com**20080811112933] 
+[Code/Doc cleanup: Data.{Error,Name,Node,Position}
+benedikt.huber@gmail.com**20080811112417] 
+[Doc Cleanup: Analysis.hs
+benedikt.huber@gmail.com**20080811111349] 
+[Add type signatures, documentation cleanup: TravMonad
+benedikt.huber@gmail.com**20080811111251] 
+[Remove useless translations of Expr and CStringLit (Analysis)
+benedikt.huber@gmail.com**20080811111047] 
+[Doc and Code cleanup: Data.hs, Data.Ident.hs
+benedikt.huber@gmail.com**20080811110950] 
+[Syntax: removed redundant NodeInfo from CConst, camel-case constant constructors
+benedikt.huber@gmail.com**20080811110859] 
+[SemRep improvements (Enumerator DT, Declaration, splitIdentDecls)
+benedikt.huber@gmail.com**20080810163558
+ 
+ More consistent handling of definitions and declarations. Everthing Declaration-a like now is instance of Declaration,
+ providing getVarDecl. 
+ Added an Enumerator datatype; enumerators now have to have a value (expression) assigned.
+ splitIdentDecls is more consistent now - it returns a map of ALL declarations, and seperate maps for enumerator, object and function definitions.
+ Documentation cleanup.
+] 
+[Better module documentation (SemRep)
+benedikt.huber@gmail.com**20080810163501] 
+[Remove dependecy on MTL (builds but untested)
+iavor.diatchki@gmail.com**20080809221942] 
+[Add blank lines at the end of files to avoid warnings.
+iavor.diatchki@gmail.com**20080809214645] 
+[Update README and wiki docs
+benedikt.huber@gmail.com**20080807105520] 
+[Fix import in test/src/CTest
+benedikt.huber@gmail.com**20080807100351] 
+[Haddock fixes
+benedikt.huber@gmail.com**20080807095958] 
+[Bump version number
+benedikt.huber@gmail.com**20080807095004] 
+[Examples: 2.7 -> 2.8
+benedikt.huber@gmail.com**20080807094850] 
+[Clean up: typedef is now always named TypeDef in haskell (reverting parts of a previous change)
+benedikt.huber@gmail.com**20080807094334] 
+[Rename {Comp,Enum}TypeDecl to {Comp,Enum}TypeRef
+benedikt.huber@gmail.com**20080807092635] 
+[rename Analysis/Pretty to Analysis/Debug
+benedikt.huber@gmail.com**20080807092403] 
+[Export list and documentation for SemRep
+benedikt.huber@gmail.com**20080807092215] 
+[Remove trailing whitespace (in src)
+benedikt.huber@gmail.com**20080807091042] 
+[Refactoring of SemRep/DefTable
+benedikt.huber@gmail.com**20080807074323
+ 
+ We've split typedefs and other `ordinary' identifiers in the Definition Table (using Either),
+ so typedefs are removed from IdentDecl, which now comprises functions,objects and enumerators only.
+ In return, the global declaration table now only has one Map for functions, objects and enumerators
+ (IdentDecls), which makes more sense, as all of them e.g. are valid expressions.
+] 
+[Remove __attribute__ field from DirectType
+benedikt.huber@gmail.com**20080807073834] 
+[Instead of using a `complex' qualifier for floating types, use a Complex type own its own
+benedikt.huber@gmail.com**20080807073519] 
+[replace storage by declStorage
+benedikt.huber@gmail.com**20080807072547] 
+[Attach attributes preceeding declarators to the corresponding declaration (not the declaration's type)
+benedikt.huber@gmail.com**20080807072231] 
+[Analysis/typedefs: Consistently do not captialize the d, add export for typedefs, add event for typedefs
+benedikt.huber@gmail.com**20080806225335] 
+[add Pos and CNode instances for NodeInfo
+benedikt.huber@gmail.com**20080806225309] 
+[Add isAnonymousType to Data.Ident
+benedikt.huber@gmail.com**20080806225218] 
+[Add mkErrorInfo to Data.Error
+benedikt.huber@gmail.com**20080806225136] 
+[Add Show instance for operators, and use it in the pretty printer
+benedikt.huber@gmail.com**20080806225039] 
+[Fix a precedence in the pretty printer
+benedikt.huber@gmail.com**20080806225001] 
+[Add getCCharAsInt to Syntax.Constants
+benedikt.huber@gmail.com**20080806224929] 
+[when partioning declaration specifiers, partition attributes in to a group of their own, as they (usually) do not belong to the type of the declared object, but to the declared object itself.
+benedikt.huber@gmail.com**20080806224650] 
+[Renaming in SemRep (inconsistent choices): type: CompTag -> CompTyKind; ctors -> CompTag -> CompDef; EnumTag -> EnumDef
+benedikt.huber@gmail.com**20080801110511] 
+[Add newlines at the end of files to remove warnings
+iavor.diatchki@gmail.com**20080806133505] 
+[Renme Gcc.hs to GCC.hs to compile on case sensitive systems.
+iavor.diatchki@gmail.com**20080806132320] 
+[Use sh to invoke the compile_log.sh script (test harness)
+benedikt.huber@gmail.com**20080731151449] 
+[test harness Makefile
+benedikt.huber@gmail.com**20080731151202] 
+[New examples (not completed)
+benedikt.huber@gmail.com**20080731150714] 
+[small fix to pass regression test
+benedikt.huber@gmail.com**20080731125834] 
+[rename mkUndefNodeInfo -> internalNode
+benedikt.huber@gmail.com**20080731125601] 
+[Improvements to SemRep, Export, TravMonad
+benedikt.huber@gmail.com**20080731125529] 
+[Updated examples
+benedikt.huber@gmail.com**20080729131246] 
+[Add a new test script (compile_log.sh)
+benedikt.huber@gmail.com**20080729131147] 
+[Add directory `harness' for manually crafted regression tests
+benedikt.huber@gmail.com**20080729131103] 
+[Add compile test to Roundtrip, new features for simple test (CTest.hs)
+benedikt.huber@gmail.com**20080729130936] 
+[Add a 'compile test' to the test suite
+benedikt.huber@gmail.com**20080729130910] 
+[Take new CArraySize type into account (Analysis)
+benedikt.huber@gmail.com**20080729130838] 
+[Various fixes to parser,AST and pretty (__attribute__ annotations, array size)
+benedikt.huber@gmail.com**20080729130751] 
+[Remove trailing whitespaces in the parser (I should have checked that earlier I'm afraid)
+benedikt.huber@gmail.com**20080724180131] 
+[More fixes for __attribute__s in the Parser
+benedikt.huber@gmail.com**20080724180048] 
+[More tests for tricky __attribute__ annotations
+benedikt.huber@gmail.com**20080724143931] 
+[Fix recording of attributes for struct members
+benedikt.huber@gmail.com**20080724133155] 
+[Move partitionDeclSpecs to Syntaax
+benedikt.huber@gmail.com**20080724124707] 
+[Fix handling of attributes following closing sue def braces, fixing #12
+benedikt.huber@gmail.com**20080724110319] 
+[Some more attribute tests
+benedikt.huber@gmail.com**20080724110152] 
+[Test for ticket #12: attributes directly following the closing brace of a sue definition belong to that definition
+benedikt.huber@gmail.com**20080724110004
+ 
+ This is also the first bug I found in CIL :)
+] 
+[Add a performance regression test (bugs/concat.c)
+benedikt.huber@gmail.com**20080724105927] 
+[Add a heuristic such that the preprocessor doesn't fail on already preprocessed files
+benedikt.huber@gmail.com**20080724092324] 
+[Allow $ in identifier names
+benedikt.huber@gmail.com**20080724092250] 
+[Remove spuriuos warning when declaration is entered twice
+benedikt.huber@gmail.com**20080724010458] 
+[Add script for regression test
+benedikt.huber@gmail.com**20080723224616] 
+[Fix show (CThread _), spotted by regression tests
+benedikt.huber@gmail.com**20080723223811] 
+[Fix .cabal (forgot to export a few modules)
+benedikt.huber@gmail.com**20080723220609] 
+[Updates to the ComputeSize example
+benedikt.huber@gmail.com**20080723220517] 
+[Analysis: Cleanup of TravMonad, Better error messages
+benedikt.huber@gmail.com**20080723213541] 
+[Type Errors for semantic analysis
+benedikt.huber@gmail.com**20080723213339] 
+[Language.C.hs, top level facades: change exports to reflect the new Data directory
+benedikt.huber@gmail.com**20080723185448] 
+[C.Analysis: use the new error types
+benedikt.huber@gmail.com**20080723185429] 
+[Improvements for Data.Error
+benedikt.huber@gmail.com**20080723185256] 
+[Fix imports in Parser and AST
+benedikt.huber@gmail.com**20080723185148] 
+[Add Language.C.Data.hs 
+benedikt.huber@gmail.com**20080723171427] 
+[Script for moving around modules painlessly using darcs and rpl
+benedikt.huber@gmail.com**20080723170528] 
+[Syntax.Position -> Data.Position
+benedikt.huber@gmail.com**20080723154326] 
+[Syntax.Node -> Data.Node (because it is used both in Syntax and Analysis)
+benedikt.huber@gmail.com**20080723153959] 
+[Syntax.RList -> Data.RList
+benedikt.huber@gmail.com**20080723151825] 
+[Synatx.Name -> Data.Name
+benedikt.huber@gmail.com**20080723151719] 
+[Move Syntax.Ident -> Data.Ident (following c2hs)
+benedikt.huber@gmail.com**20080723151410] 
+[New general Error types, for use in all modules
+benedikt.huber@gmail.com**20080723144922
+ 
+ As we want to have typed errors, and error handling should be available everywhere, 
+ I've added a stub for a extensinsble extension mechanism following Simon Marlow's paper,
+ and put it in Data (the new 'Common' : Looking at the source code of c2hs, I think we should 
+ follow the naming Duncan chose and put the common modules to Data.
+] 
+[export builtinPos and internalPos
+benedikt.huber@gmail.com**20080723144858] 
+[Regression Test failure: Fix haddock
+benedikt.huber@gmail.com**20080722234726] 
+[language-c.cabal: 2.6 -> 2.7, add alpha stability Analysis.Export and Analysis.Pretty
+benedikt.huber@gmail.com**20080722234059] 
+[Add ComputeSize example (little hackish, but quite complex)
+benedikt.huber@gmail.com**20080722233858] 
+[Cleanup of ScanFile.hs example
+benedikt.huber@gmail.com**20080722233744] 
+[Initial stub for exporting SemRep to AST
+benedikt.huber@gmail.com**20080722233720] 
+[Cleanup SemRep, move nodeFile (sounds strange) -> fileOfNode, similar for nodePos, nodeName (for consistency)
+benedikt.huber@gmail.com**20080722233550] 
+[SemRep Pretty Printer improvements
+benedikt.huber@gmail.com**20080722233520] 
+[Small fixes in the analysis
+benedikt.huber@gmail.com**20080722233425] 
+[Fix pretty printing bug (function declarator attributes)
+benedikt.huber@gmail.com**20080722161616] 
+[Improve public API for syntax, documentation fixes
+benedikt.huber@gmail.com**20080722152529] 
+[Fix documentation and haddock errors
+benedikt.huber@gmail.com**20080722151238] 
+[examples (ScanFile.hs,example.c)
+benedikt.huber@gmail.com**20080722143916] 
+[Add declaration analysis to cabal file
+benedikt.huber@gmail.com**20080722143830] 
+[Add Semantic analysis to CTest
+benedikt.huber@gmail.com**20080722143759] 
+[Add declaration analysis
+benedikt.huber@gmail.com**20080722143708] 
+[Analyzing declarations (initial import)
+benedikt.huber@gmail.com**20080722143616] 
+[Fixed bug in parser discarding attribute annotations
+benedikt.huber@gmail.com**20080722143509] 
+[some additional documentation
+benedikt.huber@gmail.com**20080722115936] 
+[Propagate changes in Analysis.Error and System to test framework
+benedikt.huber@gmail.com**20080722115258] 
+[C.System: Create a class for preprocessors, improved option handling, simple parseFile wrapper
+benedikt.huber@gmail.com**20080722112739] 
+[Improving names in DefTable (use Ident for ordinary identifiers, instead of object)
+benedikt.huber@gmail.com**20080722112651] 
+[Moving the Error module to Analysis, adding ParseError (preparing for typed analysis errors)
+benedikt.huber@gmail.com**20080722112451] 
+[Fix haddock error
+benedikt.huber@gmail.com**20080722011145] 
+[Language.C.Analysis.hs: SymbolTable -> DefTable
+benedikt.huber@gmail.com**20080722004858] 
+[Add fileOfNode function to Node
+benedikt.huber@gmail.com**20080722004450] 
+[Propagate renamings to NodeDerive.hs and derive.sh
+benedikt.huber@gmail.com**20080722004328] 
+[Small additions to the Analysis framework modules
+benedikt.huber@gmail.com**20080722004240] 
+[Fix Parser and Language.C imports
+benedikt.huber@gmail.com**20080722004042] 
+[Test framework: Strip and change language.c import statements
+benedikt.huber@gmail.com**20080721222743] 
+[Test drivers: Common.Position -> Syntax.Position
+benedikt.huber@gmail.com**20080721222606] 
+[Cleanup AUTHORS file, add dons
+benedikt.huber@gmail.com**20080721221128] 
+[0.2.5 -> 0.2.6
+benedikt.huber@gmail.com**20080721220522] 
+[Language.C facade: stripped public API
+benedikt.huber@gmail.com**20080721215722] 
+[Parser.Pretty -> Pretty
+benedikt.huber@gmail.com**20080721215637] 
+[Parser.InputStream -> InputStream
+benedikt.huber@gmail.com**20080721215541] 
+[Refactoring: Common+AST -> Syntax (public API)
+benedikt.huber@gmail.com**20080721215450] 
+[Analysis Framework: Rewrite of TravMonad, next iteration of SemRep
+benedikt.huber@gmail.com**20080721215313] 
+[SymbolTable -> DefTable (old name, seems better)
+benedikt.huber@gmail.com**20080721215244] 
+[Refactoring: Common+AST -> Syntax (in Parser)
+benedikt.huber@gmail.com**20080721215214] 
+[Refactoring: Common+AST -> Syntax
+benedikt.huber@gmail.com**20080721215133] 
+[add Show instance for SUERef
+benedikt.huber@gmail.com**20080721194739] 
+[Add Language.C.System to cabal file
+benedikt.huber@gmail.com**20080721103447] 
+[Add Show instance for CStorageSpec
+benedikt.huber@gmail.com**20080721102741] 
+[Add nodeName function and RList type alias to Common
+benedikt.huber@gmail.com**20080721102707] 
+[Rename SueRef to SUERef (reference to a struct,union,enum)
+benedikt.huber@gmail.com**20080721102632] 
+[Rename: Common.Error: Level.Warning -> Level.Warn
+benedikt.huber@gmail.com**20080721102522] 
+[Add wrappers for preprocessing
+benedikt.huber@gmail.com**20080721102408] 
+[Update Makefile for test suite
+benedikt.huber@gmail.com**20080716182624] 
+[language-c.cabal: Next version
+benedikt.huber@gmail.com**20080716182557] 
+[test drivers: module renamings for 0.3
+benedikt.huber@gmail.com**20080716181453] 
+[test-framework: module renaming
+benedikt.huber@gmail.com**20080716181145] 
+[Change Data.Derive script
+benedikt.huber@gmail.com**20080716180704] 
+[rm Language.C.AST, add Language.C.Analysis
+benedikt.huber@gmail.com**20080716180627] 
+[Add Draft for Semantic Representation
+benedikt.huber@gmail.com**20080716180452] 
+[Add SymbolTable, TravMonad
+benedikt.huber@gmail.com**20080716180427] 
+[remove Standalong deriving Data,Typeable (not properly supported by ghc 6.8.3)
+benedikt.huber@gmail.com**20080716180259] 
+[Common.NameSpaceMap -> Analysis.NameSpaceMap
+benedikt.huber@gmail.com**20080716180222] 
+[C/Parser: Doc cleanup, factor Reversed lists out to common
+benedikt.huber@gmail.com**20080716180024] 
+[C/Common: Doc cleanup, isWarning, isHardError
+benedikt.huber@gmail.com**20080716175835] 
+[C.Parser: 0.3 refactoring changes
+benedikt.huber@gmail.com**20080711105635] 
+[give type signature to skipTokens, in order to avoid 'defaulting to Integer'
+benedikt.huber@gmail.com**20080709154150] 
+[AST.Constants -> Common.Constants
+benedikt.huber@gmail.com**20080709153052] 
+[Factor out C operators
+benedikt.huber@gmail.com**20080709152926] 
+[Language.C.Common : cleanup
+benedikt.huber@gmail.com**20080709152915] 
+[Language.C.Common.Ident : cleanup
+benedikt.huber@gmail.com**20080709122846] 
+[Language.C.Toolkit.Error : Cleanup
+benedikt.huber@gmail.com**20080709122703] 
+[Language.C.Common.Position: cleanup
+benedikt.huber@gmail.com**20080709122633] 
+[Toolkit -> Common
+benedikt.huber@gmail.com**20080709122448] 
+[Rename Attributes -> Node, in order to avoid confusion with C __attribute__ annotations
+benedikt.huber@gmail.com**20080703200405] 
+[Rename Attrs providing SrcLoc and Unique Name to NodeInfo, as Attrs collides with C's __attribute__ annotations
+benedikt.huber@gmail.com**20080703194141] 
+[Script for standalone deriving Data,Typeable using Data.Derive
+benedikt.huber@gmail.com**20080703194024
+ 
+ I've added this due to a bug in GHC.
+ At least until June 08 versions, you need a patch for Data.Derive:
+ http://code.google.com/p/ndmitchell/issues/detail?id=14
+] 
+[add Language.C.AST
+benedikt.huber@gmail.com**20080702153239] 
+[fix RenderTests (new location of res/)
+benedikt.huber@gmail.com**20080701183238] 
+[Move html resources down to test dir
+benedikt.huber@gmail.com**20080701161433] 
+[Add support for different InputStreams (String, ByteString)
+benedikt.huber@gmail.com**20080701161237] 
+[CHeader -> CTranslUnit
+benedikt.huber@gmail.com**20080701145343] 
+[Test suite: fix typo, make removing files faster using xargs
+benedikt.huber@gmail.com**20080701145249] 
+[Fixed .cabal file
+benedikt.huber@gmail.com**20080701145215] 
+[Small Haddock bugfix for Language.C.hs
+benedikt.huber@gmail.com**20080701144008] 
+[New AST representation of Declarators (Parser)
+benedikt.huber@gmail.com**20080701143921] 
+[New representation of Declarators. Generics switched to Offline-Deriving
+benedikt.huber@gmail.com**20080701143806] 
+[Toolkit facade
+benedikt.huber@gmail.com**20080701143745] 
+[AST documentation fixes
+benedikt.huber@gmail.com**20080630140608] 
+[Rename CHeader -> CTranslUnit, wrap enum list in Maybe
+benedikt.huber@gmail.com**20080630131819] 
+[Adapt .cabal to module renamings
+benedikt.huber@gmail.com**20080630102818] 
+[Fix definitions of attribute-based equality
+benedikt.huber@gmail.com**20080630092837] 
+[remove Language.C.AST.Attrs - this will be merged into Langauage.C.Analysis.DefTable
+benedikt.huber@gmail.com**20080630091315] 
+[Language.C.AST: Haddock 0.8 fixes
+benedikt.huber@gmail.com**20080630091248] 
+[Add Summary datatypes (CObj, CTag, ...) to AST
+benedikt.huber@gmail.com**20080630091107] 
+[rename 'range' to 'scope' in NameSpaceMap
+benedikt.huber@gmail.com**20080630090729] 
+[Remove most functionality from Language.C.Toolkit.Attributes (AttrTable isnt used anymore)
+benedikt.huber@gmail.com**20080630090642] 
+[move ParserMonad into Language.C.Parser
+benedikt.huber@gmail.com**20080630090543] 
+[UNames -> Names, removed NameSupply stuff
+benedikt.huber@gmail.com**20080630090456] 
+[Add switch for surpressing gcc invocation in cc-wrapper
+benedikt.huber@gmail.com**20080630085108] 
+[Parser+AST: Incorporate Toolkit changes
+benedikt.huber@gmail.com**20080627103222] 
+[ParserMonad, Idents: Rename UNames, -Wall clean
+benedikt.huber@gmail.com**20080627101843] 
+[NameSpaces -> NameSpaceMap, fix and haddockify documentation, make -Wall clean
+benedikt.huber@gmail.com**20080627095907] 
+[Test stuff reorg: split lib and executables
+benedikt.huber@gmail.com**20080620094042] 
+[Derive Typeable and Data, if possible
+benedikt.huber@gmail.com**20080618185323] 
+[Another Makefile patch
+benedikt.huber@gmail.com**20080618175117] 
+[Better support for constants
+benedikt.huber@gmail.com**20080618183006
+   
+   We now have datatypes on their own for C characters, strings, integers and floats.
+   Code has ben moved to Language.C.AST.Constants.
+   We save type flags of constants now (e.g. `long' in 5L).
+   Performance seems to stay roughly the same.
+] 
+[run dg tests selectively
+benedikt.huber@gmail.com**20080618180939] 
+[Make cc-wrapper more flexible
+benedikt.huber@gmail.com**20080618175138] 
+[rename cstrConst to liftStrLit, more consistent `external declaration'
+benedikt.huber@gmail.com**20080618174510] 
+[Remove old debug stmts confusing haddock
+benedikt.huber@gmail.com**20080617135253] 
+[AST Documentation
+benedikt.huber@gmail.com**20080617134602
+ 
+ Haddock-compatible documentation for the AST. Not yet complete, but should be helpful.
+] 
+[bump version number (0.2)
+benedikt.huber@gmail.com**20080616091037] 
+[Changelog update (0.2)
+benedikt.huber@gmail.com**20080616091017] 
+[Record and pretty print local label declarations
+benedikt.huber@gmail.com**20080616083023] 
+[Update test suites
+benedikt.huber@gmail.com**20080616074302] 
+[Test Suite: Parse cmd-line-expr/decl for CTest, minor fixes
+benedikt.huber@gmail.com**20080616074027] 
+[Support for GNU __complex__ extension
+benedikt.huber@gmail.com**20080616073930] 
+[Parser: doc update
+benedikt.huber@gmail.com**20080616073859] 
+[AST and pretty printer support for __attribute__
+benedikt.huber@gmail.com**20080616073355] 
+[empty_struct AST design bug
+benedikt.huber@gmail.com**20080614070017] 
+[Examples for the __attribute__ extension
+benedikt.huber@gmail.com**20080613155449] 
+[gcc.dg bug documentation
+benedikt.huber@gmail.com**20080613155417] 
+[pretty printer (- - x) bug
+benedikt.huber@gmail.com**20080612170841] 
+[bug docu (align_of, offset_of, typedef, attribute)
+benedikt.huber@gmail.com**20080612080347] 
+[cabal license field
+benedikt.huber@gmail.com**20080611165421] 
+[AST and PP support for special form GNU builtin functions.
+benedikt.huber@gmail.com**20080611163456] 
+[offsetof parser bug
+benedikt.huber@gmail.com**20080611160524] 
+[More pretty-printer bug documentation
+benedikt.huber@gmail.com**20080611123912] 
+[Fix Compound-expression pretty printing
+benedikt.huber@gmail.com**20080611122240] 
+[Parser Doc
+benedikt.huber@gmail.com**20080611073434] 
+[Improve Old-Style function declarations
+benedikt.huber@gmail.com**20080611071524] 
+[Adding support for assembler statements
+benedikt.huber@gmail.com**20080611071408] 
+[Tabs to spaces
+benedikt.huber@gmail.com**20080610074954] 
+[License switched to 3-clause BSD
+benedikt.huber@gmail.com**20080609211246
+ 
+ In accordance with the original authors, Language.C is now licensed as BSD-3.
+ See:
+ http://haskell.org/pipermail/c2hs/2008-June/000833.html
+ http://haskell.org/pipermail/c2hs/2008-June/000834.html
+ http://haskell.org/pipermail/c2hs/2008-June/000835.html
+] 
+[Test Framework: More test drivers.
+benedikt.huber@gmail.com**20080609162629] 
+[Test framework: Parse and Equiv test executables
+benedikt.huber@gmail.com**20080609161306] 
+[Test Framework: TestMonad, Docs, Cleanup
+benedikt.huber@gmail.com**20080609161146] 
+[Documenting pretty printer bugs
+benedikt.huber@gmail.com**20080609154809] 
+[Pretty Printer fixes
+benedikt.huber@gmail.com**20080609154353
+ 
+ Fixes some of the pretty printer bugs: 
+ 
+ bugs/pp_assign_prec.c 
+ bugs/qualifier_pretty.c 
+ bugs/empty_enum.c 
+ bugs/builtin_typedefs.c 
+] 
+[Improved test scripts.
+benedikt.huber@gmail.com**20080608093339] 
+[Remove autogenerated alex and happy source files
+benedikt.huber@gmail.com**20080608091341] 
+[Lexer: Cleanup, Doc, hexadecimal floating point constants, fixed bug float_non_compile.c, better error messages.
+benedikt.huber@gmail.com**20080608090029
+ 
+ The lexer now supports hexadecimal floating point constants (C99), and produces better error messages when faced with
+ unsupported features or some common, hard to track errors.
+] 
+[Correct pretty printing of chars and strings. Fix elseif bug.
+benedikt.huber@gmail.com**20080608085208] 
+[Test suite: documenting lexer bugs
+benedikt.huber@gmail.com**20080606161846
+ 
+ The bugs testsuite documents bugs found in the parser, lexer and pretty printer (but not unsupported features, such as
+ universal character names). 
+] 
+[Fix constant export bugs in pretty printer. Delayed asm and builtin errors to have more meaningfull test results.
+benedikt.huber@gmail.com**20080606152329] 
+[Stylesheet for rendering test results.
+benedikt.huber@gmail.com**20080606113947
+ 
+ The stylesheet has support for tablesorter, a JQuery plugin which is also used for displaying the result tables.
+ The color of result cells is no determined using css classes, instead of the bgcolor attribute.
+] 
+[Test suite: Improved error reports and rendering.
+benedikt.huber@gmail.com**20080606113833] 
+[Testsuite: Makefile and script fixes
+benedikt.huber@gmail.com**20080606113757] 
+[Some docs and fixes to ensure others can use the test suite
+benedikt.huber@gmail.com**20080605142629] 
+[directory for test results
+benedikt.huber@gmail.com**20080605140605] 
+[simple smoke tests
+benedikt.huber@gmail.com**20080605140449] 
+[Scripting test runs (config, template)
+benedikt.huber@gmail.com**20080605140410] 
+[Test framework (scripts) initial import
+benedikt.huber@gmail.com**20080605135840] 
+[Test framework (haskell), initial import
+benedikt.huber@gmail.com**20080605135723] 
+[Standalone deriving Data and Typeable
+benedikt.huber@gmail.com**20080605134635
+ Note that the Data instance of Attr isn't complete yet.
+ CAVEAT: Compiling with 6.8.2 sometimes failes, compiling with 6.9 HEAD from end of May always fails,
+ works fine with the 6.8.3 RC.
+] 
+[README, AUTHORS
+benedikt.huber@gmail.com**20080603091618] 
+[Initial Version of the Parser / Pretty printer
+benedikt.huber@gmail.com**20080603084545] 
+[TAG 0.1
+benedikt.huber@gmail.com**20080603084536] 
+[Removed unneccessary module dep in CTest
+benedikt.huber@gmail.com**20080603084318] 
+[Simple Parse-And-Print test
+benedikt.huber@gmail.com**20080603083955] 
+[Fix .cabal, add alex and happy files
+benedikt.huber@gmail.com**20080603081845] 
+[Initial Import
+benedikt.huber@gmail.com**20080602163242] 
+Patch bundle hash:
+e680413876e797c61f3b239eb9c47600422cf0f0
