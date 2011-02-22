@@ -82,3 +82,39 @@ class (DownVisitor downState, Monoid upState) => UpVisitor downState upState whe
 
 	upCInit :: CInit -> downState -> [upState] -> upState
 	upCInit _ _ = mconcat
+
+	mapCTranslUnit :: CTranslUnit -> downState -> [upState] -> (Maybe CTranslUnit, upState)
+	mapCTranslUnit x d s = (Nothing, upCTranslUnit x d s)
+
+	mapCExtDecl :: CExtDecl -> downState -> [upState] -> (Maybe CExtDecl, upState)
+	mapCExtDecl x d s = (Nothing, upCExtDecl x d s)
+
+	mapCFunDef :: CFunDef -> downState -> [upState] -> (Maybe CFunDef, upState)
+	mapCFunDef x d s = (Nothing, upCFunDef x d s)
+
+	mapCDecl :: CDecl -> downState -> [upState] -> (Maybe CDecl, upState)
+	mapCDecl x d s = (Nothing, upCDecl x d s)
+
+	mapCStructUnion :: CStructUnion -> downState -> [upState] -> (Maybe CStructUnion, upState)
+	mapCStructUnion x d s = (Nothing, upCStructUnion x d s)
+	
+	mapCEnum :: CEnum -> downState -> [upState] -> (Maybe CEnum, upState)
+	mapCEnum x d s = (Nothing, upCEnum x d s)
+
+	mapCDeclr :: CDeclr -> downState -> [upState] -> (Maybe CDeclr, upState)
+	mapCDeclr x d s = (Nothing, upCDeclr x d s)
+
+	mapCStat :: CStat -> downState -> [upState] -> (Maybe CStat, upState)
+	mapCStat x d s = (Nothing, upCStat x d s)
+
+	mapCExpr :: CExpr -> downState -> [upState] -> (Maybe CExpr, upState)
+	mapCExpr x d s = (Nothing, upCExpr x d s)
+
+	mapIdent :: Ident -> downState -> [upState] -> (Maybe Ident, upState)
+	mapIdent x d s = (Nothing, upIdent x d s)
+
+	mapCDerivedDeclr :: CDerivedDeclr -> downState -> [upState] -> (Maybe CDerivedDeclr, upState)
+	mapCDerivedDeclr x d s = (Nothing, upCDerivedDeclr x d s)
+
+	mapCInit :: CInit -> downState -> [upState] -> (Maybe CInit, upState)
+	mapCInit x d s = (Nothing, upCInit x d s)
