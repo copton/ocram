@@ -39,7 +39,6 @@ recurse downHandler upHandler outerObject create traverse innerObjects downState
 				(Nothing, upState) -> (Just outerObject', upState)
 				res -> res
 
-
 traverseCTranslUnit :: (DownVisitor d, UpVisitor d u) => CTranslUnit -> d -> (Maybe CTranslUnit, u)
 traverseCTranslUnit ctu@(CTranslUnit decls _) = recurse downCTranslUnit mapCTranslUnit ctu create traverse decls
 	where 
@@ -379,7 +378,10 @@ recTrav f os d =
 
 maybeTrav :: (o->d->(Maybe o, u)) -> Maybe o -> d -> (Maybe (Maybe o), [u])
 maybeTrav _ Nothing _ = (Nothing, [])
-maybeTrav f (Just o) d = let (maybeo,us) = trav f o d in (Just maybeo, us)
+maybeTrav f (Just o) d = 
+	case trav f o d of
+		(Nothing, us) -> (Nothing, us)
+		(Just os, us) -> (Just $ Just os, us)
 
 merge2 :: (a,b) -> (Maybe a, [u]) -> (Maybe b, [u]) -> (Maybe (a,b), [u])
 merge2 (a,b) (Nothing, u1) (Nothing, u2) = (Nothing, u1 ++ u2)
