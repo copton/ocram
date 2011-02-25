@@ -46,4 +46,4 @@ addCall cg (fd, name) = Map.alter addCallee caller $ Map.alter addCaller callee 
 		addCallee (Just entry) = Just $ entry { cgCallees = callee `Set.insert` (cgCallees entry) }
 	
 determineCallGraph :: Context -> CallGraph
-determineCallGraph ctx = createCallGraph $ traverseCTranslUnit (ctxAst ctx) initDownState
+determineCallGraph ctx = createCallGraph $ snd $ traverseCTranslUnit (ctxAst ctx) initDownState

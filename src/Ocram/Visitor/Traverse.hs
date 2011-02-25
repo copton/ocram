@@ -14,112 +14,131 @@ module Ocram.Visitor.Traverse (
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident)
 import Ocram.Visitor.Visitor
-import Data.Typeable (Typeable, cast)
-import Data.Maybe (fromJust, isJust, fromMaybe)
+import Data.Maybe (isJust, fromMaybe)
 
-cast' :: (Typeable a, Typeable b) => a -> b
-cast' x = fromJust.cast $ x
-
-recurse :: (Typeable t) =>
-     (o -> d -> d) -- down handler
-  -> (o -> d -> [u] -> (Maybe o, u)) -- up handler
-  -> o -- outer object
-  -> (o -> [t] -> o) -- create
-  -> ([t] -> d -> [(Maybe t, u)]) -- traverse
-  -> [t] -- inner objects
+recurse :: 
+	   (o -> d -> d) -- down handler
+	-> (o -> d -> [u] -> (Maybe o, u)) -- up handler
+	-> o -- outer object
+	-> (o -> i -> o) -- create
+	-> (i -> d -> (Maybe i, [u])) -- traverse
+	-> i -- inner object tuple
 	-> d -- down state
-  -> (Maybe o, u) -- (maybe new outer object, up state)
+	-> (Maybe o, u) -- (maybe new outer object, up state)
 recurse downHandler upHandler outerObject create traverse innerObjects downState =
   let downState' = downHandler outerObject downState in
-  let (maybeInnerObjects, upStates) = unzip $ traverse innerObjects downState' in
-  if any isJust maybeInnerObjects
-  then
-    let innerObjects' = map (uncurry fromMaybe) $ zip innerObjects maybeInnerObjects in
-    let outerObject' = create outerObject innerObjects' in
-    case upHandler outerObject' downState' upStates of
-      (Nothing, upState) -> (Just outerObject', upState)
-      res -> res
-  else
-    case upHandler outerObject downState' upStates of
-      (Nothing, upState) -> (Nothing, upState)
-      res -> res
+	case traverse innerObjects downState' of
+		(Nothing, upStates) -> 
+			case upHandler outerObject downState' upStates of
+				(Nothing, upState) -> (Nothing, upState)
+				res -> res
+		(Just innerObjects', upStates) ->
+			let outerObject' = create outerObject innerObjects' in
+			case upHandler outerObject' downState' upStates of
+				(Nothing, upState) -> (Just outerObject', upState)
+				res -> res
 
-maybeTrav :: (Typeable t, Typeable o) => (o -> d -> (Maybe o, u)) -> Maybe t -> d -> [(Maybe o, u)]
-maybeTrav _ Nothing _ = []
-maybeTrav f (Just t) d = [f (cast' t) d]
+noCreate :: a -> () -> a
+noCreate _ _ = error "function was not supposed to be called"
 
-mapTrav :: (Typeable t, Typeable o) => (o -> d -> (Maybe o, u)) -> [t] -> d -> [(Maybe o, u)]
-mapTrav f ts d = map (\t -> f (cast' t) d) ts
+noTrav :: () -> d -> (Maybe (), [u]) 
+noTrav _ _ = (Nothing, [])
 
-trav :: (Typeable t, Typeable o) => (o -> d -> (Maybe o, u)) -> t -> d -> [(Maybe o, u)]
-trav f t d = [f (cast' t) d]
+noChildren = ()
 
-noCreate :: a -> b -> c
-noCreate _ _ = undefined
+mapTrav :: (o->d->(Maybe o, u)) -> [o] -> d -> (Maybe [o], [u])
+mapTrav f os d = 
+	let (maybeos, us) = unzip $ map (\o -> f o d) os in
+	if any isJust maybeos
+	then
+		let os' = map (uncurry fromMaybe) $ zip os maybeos in
+		(Just os', us)
+	else
+		(Nothing, us)
 
-noTrav :: a -> b -> [(Maybe c, d)]
-noTrav _ _ = []
+trav :: (o->d->(Maybe o, u)) -> o -> d -> (Maybe o, [u])
+trav f o d =
+	let (maybeo, u) = f o d in
+	(maybeo, [u])
 
-noChildren :: [()]
-noChildren = []
+maybeTrav :: (o->d->(Maybe o, u)) -> Maybe o -> d -> (Maybe (Maybe o), [u])
+maybeTrav _ Nothing _ = (Nothing, [])
+maybeTrav f (Just o) d = let (maybeo,us) = trav f o d in (Just maybeo, us)
+
+merge2 :: (a,b) -> (Maybe a, [u]) -> (Maybe b, [u]) -> (Maybe (a,b), [u])
+merge2 (a,b) (Nothing, u1) (Nothing, u2) = (Nothing, u1 ++ u2)
+merge2 (a,b) (Just a', u1) (Nothing, u2) = (Just (a', b), u1 ++ u2)
+merge2 (a,b) (Nothing, u1) (Just b', u2) = (Just (a, b'), u1 ++ u2)
+merge2 (a,b) (Just a', u1) (Just b', u2) = (Just (a', b'), u1 ++ u2)
+
+merge3 :: (a,b,c) -> (Maybe a, [u]) -> (Maybe b, [u]) -> (Maybe c, [u]) -> (Maybe (a,b,c), [u])
+merge3 (a,b,c) (Nothing, u1) (Nothing, u2) (Nothing, u3) = (Nothing, u1 ++ u2 ++ u3)
+merge3 (a,b,c) (Just a', u1) (Nothing, u2) (Nothing, u3) = (Just (a', b, c), u1 ++ u2 ++ u3)
+merge3 (a,b,c) (Nothing, u1) (Just b', u2) (Nothing, u3) = (Just (a, b', c), u1 ++ u2 ++ u3)
+merge3 (a,b,c) (Just a', u1) (Just b', u2) (Nothing, u3) = (Just (a', b', c), u1 ++ u2 ++ u3)
+merge3 (a,b,c) (Nothing, u1) (Nothing, u2) (Just c', u3) = (Just (a, b, c'), u1 ++ u2 ++ u3)
+merge3 (a,b,c) (Just a', u1) (Nothing, u2) (Just c', u3) = (Just (a', b, c'), u1 ++ u2 ++ u3)
+merge3 (a,b,c) (Nothing, u1) (Just b', u2) (Just c', u3) = (Just (a, b', c'), u1 ++ u2 ++ u3)
+merge3 (a,b,c) (Just a', u1) (Just b', u2) (Just c', u3) = (Just (a', b', c'), u1 ++ u2 ++ u3)
 
 traverseCTranslUnit :: (DownVisitor d, UpVisitor d u) => CTranslUnit -> d -> (Maybe CTranslUnit, u)
 traverseCTranslUnit ctu@(CTranslUnit decls _) = recurse downCTranslUnit mapCTranslUnit ctu create traverse decls
 	where 
 		traverse = mapTrav traverseCExtDecl
-		create (CTranslUnit _ ni) ts = CTranslUnit (map cast' ts) ni
+		create (CTranslUnit _ ni) decls = CTranslUnit decls ni
 
-traverseCDeclr _ _ = undefined
-traverseCDerivedDeclr _ _ = undefined
-traverseCExpr _ _ = undefined
-traverseCFunDef _ _ = undefined
-traverseCInit _ _ = undefined
-traverseCStat _ _ = undefined
-traverseIdent _ _ = undefined
+traverseCFunDef = undefined
+traverseCDeclr = undefined
+traverseCExpr = undefined
+traverseCInit = undefined
+traverseCStat = undefined
+traverseIdent = undefined
 
 traverseCExtDecl :: (DownVisitor d, UpVisitor d u) => CExtDecl -> d -> (Maybe CExtDecl, u)
-traverseCExtDecl ced@(CDeclExt cd) = recurse downCExtDecl mapCExtDecl ced create traverse [cd]
+traverseCExtDecl ced@(CDeclExt cd) = recurse downCExtDecl mapCExtDecl ced create traverse cd
 	where 
-		traverse [t] = trav traverseCDecl t
-		create _ [t] = CDeclExt (cast' t)
+		traverse = trav traverseCDecl
+		create _  cd = CDeclExt cd
 
-traverseCExtDecl ced@(CFDefExt cfd) = recurse downCExtDecl mapCExtDecl ced create traverse [cfd]
+traverseCExtDecl ced@(CFDefExt cfd) = recurse downCExtDecl mapCExtDecl ced create traverse cfd
 	where 
-		traverse [t] = trav traverseCFunDef t
-		create _ [t] = CFDefExt (cast' t)
+		traverse = trav traverseCFunDef
+		create _ cfd = CFDefExt cfd
 
 traverseCExtDecl ced@(CAsmExt _ _) = recurse downCExtDecl mapCExtDecl ced noCreate noTrav noChildren
 
 traverseCDecl :: (DownVisitor d, UpVisitor d u) => CDecl -> d -> (Maybe CDecl, u)
 traverseCDecl cd@(CDecl _ decls _) = recurse downCDecl mapCDecl cd create traverse decls
 	where 
-		traverse :: Typeable t => [t] -> d -> [(Maybe o, u)]
-		traverse tr d = concatMap ((traverse' d).cast') tr
-		traverse' :: (Typeable t1, Typeable t2, Typeable t3) => (t1, t2, t3) -> [(Maybe o, u)]
-		traverse' d (t1, t2, t3) = 
-				 maybeTrav traverseCDeclr t1 d 
-			++ maybeTrav traverseCInit t2 d 
-			++ maybeTrav traverseCExpr t3 d
-		create (CDecl dss _ ni) ts = CDecl dss (map (create'.cast') ts) ni
-		create' (t1, t2, t3) = (cast' t1, cast' t2, cast' t3)
-			
+		traverse decls d = let (a,b) = mapTrav traverse' decls d in (a, concat b)
+		traverse' all@(cd, ci, ce) d = merge3 all
+			(maybeTrav traverseCDeclr cd d)
+			(maybeTrav traverseCInit ci d)
+			(maybeTrav traverseCExpr ce d)
+		create (CDecl dss _ ni) decls = CDecl dss decls ni
 
--- traverseCDerivedDeclr :: (DownVisitor d, UpVisitor d u) => CDerivedDeclr -> d -> u
--- traverseCDerivedDeclr cdd@(CFunDeclr (Left id) _ _) = recurse downCDerivedDeclr upCDerivedDeclr traverse cdd id
---   where traverse = mapTrav traverseIdent
+traverseCDerivedDeclr :: (DownVisitor d, UpVisitor d u) => CDerivedDeclr -> d -> (Maybe CDerivedDeclr, u)
+traverseCDerivedDeclr cdd@(CFunDeclr (Left ids) _ _) = recurse downCDerivedDeclr mapCDerivedDeclr cdd create traverse ids
+	where
+		traverse = mapTrav traverseIdent
+		create (CFunDeclr _ as ni) ids = CFunDeclr (Left ids) as ni
 
--- traverseCDerivedDeclr cdd@(CFunDeclr (Right (cds, _)) _ _) = recurse downCDerivedDeclr upCDerivedDeclr traverse cdd cds
---   where traverse = mapTrav traverseCDecl
+-- traverseCDerivedDeclr cdd@(CFunDeclr (Right (cds, _)) _ _) = recurse downCDerivedDeclr mapCDerivedDeclr cdd create traverse cds
+--   where 
+--     traverse = mapTrav traverseCDecl
+--     create (CFunDeclr (Right (_, flag)) as ni) ts = CFunDeclr (Right ((map cast' ts), flag)) as ni
 
--- traverseCDerivedDeclr cdd = recurse downCDerivedDeclr upCDerivedDeclr noTrav cdd Nothing
+-- traverseCDerivedDeclr cdd = recurse downCDerivedDeclr mapCDerivedDeclr cdd noCreate noTrav noChildren
 
-
--- traverseCFunDef :: (DownVisitor d, UpVisitor d u) => CFunDef -> d -> u
--- traverseCFunDef cfd@(CFunDef _ cdr cds cst _) = recurse downCFunDef upCFunDef traverse cfd (cdr, cds, cst)
---   where traverse (cdr, cds, cst) d = 
---              trav traverseCDeclr cdr d 
---           ++ mapTrav traverseCDecl cds d 
---           ++ trav traverseCStat cst d
+-- traverseCFunDef :: (DownVisitor d, UpVisitor d u) => CFunDef -> d -> (Maybe CFunDef, u)
+-- traverseCFunDef cfd@(CFunDef _ cdr cds cst _) = recurse downCFunDef mapCFunDef cfd create traverse [(cdr, cds, cst)]
+--   where 
+--     traverse tr d = concatMap (traverse' d) tr
+--     traverse' d (t1, t2, t3) =
+--              trav traverseCDeclr t1 d 
+--           ++ mapTrav traverseCDecl t2 d 
+--           ++ trav traverseCStat t3 d
+--     create (CFunDef dss _ _ _ ni) [cdr, cds, cst] = CFunDef dss (cast' cdr) (map cast' cds) (cast' cst) ni
 
 -- traverseCDeclr :: (DownVisitor d, UpVisitor d u) => CDeclr -> d -> u
 -- traverseCDeclr cdr@(CDeclr id cdds _ _ _) = recurse downCDeclr upCDeclr traverse cdr (id, cdds)

@@ -20,4 +20,4 @@ instance UpVisitor EmptyDownState UpState where
 	upCFunDef fd _ _ = [((functionId' fd), fd)]
 
 getFunctions :: Context -> FunctionMap
-getFunctions ctx = fromList $ traverseCTranslUnit (ctxAst ctx) emptyDownState
+getFunctions ctx = fromList $ snd $ traverseCTranslUnit (ctxAst ctx) emptyDownState
