@@ -3,6 +3,7 @@ module Ocram.Test.Tests (
 ) where
 
 import qualified Ocram.Test.Tests.Analysis as A
+import qualified Ocram.Test.Tests.Visitor as B
 import Test.HUnit
 
-tests = TestList [A.tests]
+tests = TestList [A.tests, B.tests]
