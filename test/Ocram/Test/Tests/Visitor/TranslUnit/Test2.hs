@@ -10,7 +10,7 @@ import Ocram.Visitor.Traverse (traverseCTranslUnit)
 import Ocram.Analysis.Types.FunctionMap (FunctionId, functionId', functionId)
 import Language.C.Syntax.AST (CFunDef, CExternalDeclaration(CFDefExt), CTranslUnit, CTranslationUnit(CTranslUnit))
 import Data.Maybe (fromJust)
-import Data.Monoid (Monoid, mempty, mappend, mconcat)
+import Data.Monoid (mempty, mconcat)
 
 type DownState = FunctionId
 type UpState = [CFunDef]
@@ -44,4 +44,4 @@ transform ctu = fromJust $ fst result
 		result :: (Maybe CTranslUnit, UpState)
 		result = traverseCTranslUnit ctu $ functionId "bar"
 
-test = (input, transform, output)
+test = [(input, transform, output)]

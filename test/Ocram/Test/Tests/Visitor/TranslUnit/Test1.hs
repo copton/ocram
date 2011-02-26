@@ -17,4 +17,4 @@ output = [
 
 translate = id
 
-test = (input, translate, output)
+test = [(input, translate, output)]
