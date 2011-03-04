@@ -23,7 +23,7 @@ typedef struct {
     struct etimer et;
 } frame_sleep;
 
-void sleep(frame_sleep*, int seconds);
+void timer_sleep(frame_sleep*, int seconds);
 
 int get_threadid();
 

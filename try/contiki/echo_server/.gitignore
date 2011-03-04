@@ -1,6 +1,9 @@
-COOJA.log
+*.log
 symbols.c
 symbols.h
 echo-server.cooja
-obj_cooja/
+obj_*/
 se/
+*.a
+*.sky
+*.map

@@ -1,6 +1,7 @@
 #include "pal.h"
 #include "app.h"
 #include <string.h>
+#include <stdio.h>
 
 typedef struct {
     char buffer[512];
@@ -16,6 +17,7 @@ frame_task_1 stack1;
 
 void userland(void* frame, void* label)
 {
+	printf("userland(%p, %p)\n", frame, label);
     if (frame == NULL) {
         switch (get_threadid()) {
         case 0:
@@ -31,14 +33,16 @@ start: printf("hallo\n");
         FRAME->frames.receive.ec_cont_label = &&receive;
         serial_receive(&FRAME->frames.receive);
         return;
-receive: strcpy(FRAME->buffer, FRAME->frames.receive.ec_result);
+receive: strncpy(FRAME->buffer, FRAME->frames.receive.ec_result, 512);
         printf("XXX %s\n", FRAME->buffer);
         FRAME->frames.sleep.ec_cont_frame = frame;
         FRAME->frames.sleep.ec_cont_label = &&wakeup;
-        sleep(&FRAME->frames.sleep, 5);
+		timer_sleep(&FRAME->frames.sleep, 5);
+		return;
 wakeup: printf("XXX %s\n", FRAME->buffer);
         goto start;
 }
+
 #include "contiki.h"
 #include "app.h"
 #include "dev/serial-line.h"
@@ -61,30 +65,36 @@ int get_threadid()
 		return 1;
 	}
 	printf ("DEBUG 1: something is wrong...\n");
+	return -1;
 }
 
-inline void* load_frame()
+void* load_frame()
 {
-	return frames[get_threadid()];
+	const int id = get_threadid();
+	void*const frame = frames[id];
+	printf("load frame %d %p\n", id, frame);
+	return frame;
 }
 
-inline void store_frame(void* frame)
+void store_frame(void* frame)
 {
-	frames[get_threadid()] = frame;
+	const int id = get_threadid();
+	printf("store frame %d %p\n", id, frame);
+	frames[id]= frame;
 }
 
 void serial_receive(frame_serial_receive* frame)
 {
+	printf("TRACE 1: serial receive\n");
 	frame->waiting = 1;
 	store_frame(frame);
-	printf("TRACE 1: serial receive\n");
 }
 
-void sleep(frame_sleep* frame, int seconds)
+void timer_sleep(frame_sleep* frame, int seconds)
 {
+	printf("TRACE 2: sleep\n");
 	etimer_set(&frame->et, CLOCK_SECOND * seconds);
 	store_frame(frame);
-	printf("TRACE 2: sleep\n");
 }
 
 PROCESS_THREAD(echo_server, ev, data)
@@ -97,22 +107,22 @@ PROCESS_THREAD(echo_server, ev, data)
 	userland(NULL, NULL);
 	while(1) {
 		printf("TRACE 3: waiting...\n");
-  		PROCESS_WAIT_EVENT_UNTIL((ev == serial_line_event_message && data != NULL) || (ev == PROCESS_EVENT_TIMER));
+  		PROCESS_WAIT_EVENT();
 		printf("TRACE 4: wakeup\n");
 		if (ev == serial_line_event_message && data != NULL) {
 			printf("TRACE 5: it's serial\n");
 			frame_serial_receive* frame = (frame_serial_receive*) load_frame();
-            if (frame->waiting) {
-                frame->ec_result = data;	
-                userland(frame->ec_cont_frame, frame->ec_cont_label);
-                frame->waiting = 0;
-            }
+			if (frame->waiting) {
+				frame->ec_result = data;	
+				userland(frame->ec_cont_frame, frame->ec_cont_label);
+				frame->waiting = 0;
+			}
 		} else if (ev == PROCESS_EVENT_TIMER) {
-			printf("TRACE 6: it's timer\n");
+			printf("TRACE 6: it's a timer\n");
 			frame_sleep* frame = (frame_sleep*)load_frame();
 			userland(frame->ec_cont_frame, frame->ec_cont_label);
 		} else {
-			printf("TRACE 7: it's an asshole :-( %d\n", ev);
+			printf("TRACE 7: it's something unknown :-( %d\n", ev);
 			continue;
 		}
 	}
