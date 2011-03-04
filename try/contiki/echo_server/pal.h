@@ -9,8 +9,6 @@ typedef struct {
     void* ec_cont_frame;
     void* ec_cont_label;
     char* ec_result;
-// internal
-    int waiting;
 } frame_serial_receive;
 
 void serial_receive(frame_serial_receive*);
@@ -24,7 +22,5 @@ typedef struct {
 } frame_sleep;
 
 void timer_sleep(frame_sleep*, int seconds);
-
-int get_threadid();
 
 #endif

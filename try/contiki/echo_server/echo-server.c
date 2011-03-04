@@ -19,7 +19,8 @@ void userland(void* frame, void* label)
 {
 	printf("userland(%p, %p)\n", frame, label);
     if (frame == NULL) {
-        switch (get_threadid()) {
+		const int tid = *((int*)label);
+        switch (tid) {
         case 0:
             frame = &stack1;
             label = &&start;
@@ -52,78 +53,65 @@ AUTOSTART_PROCESSES(&echo_server);
 
 PROCESS(echo_server, "echo server");
 
-struct process* thread1;
-struct process* thread2;
-void* frames[2];
+#define JOB_SERIAL 1
+#define JOB_TIMER 2
 
-int get_threadid()
-{
-	if (PROCESS_CURRENT() == thread1) {
-		return 0;
-	}
-	if (PROCESS_CURRENT() == thread2) {
-		return 1;
-	}
-	printf ("DEBUG 1: something is wrong...\n");
-	return -1;
-}
+typedef struct {
+	int select;
+	void* frame;
+	union {
+		int timer_seconds;
+	} info;
+} job_t;
 
-void* load_frame()
-{
-	const int id = get_threadid();
-	void*const frame = frames[id];
-	printf("load frame %d %p\n", id, frame);
-	return frame;
-}
-
-void store_frame(void* frame)
-{
-	const int id = get_threadid();
-	printf("store frame %d %p\n", id, frame);
-	frames[id]= frame;
-}
+job_t jobs[2]; // generic
+job_t* job;
 
 void serial_receive(frame_serial_receive* frame)
 {
-	printf("TRACE 1: serial receive\n");
-	frame->waiting = 1;
-	store_frame(frame);
+	printf("TRACE 1: receive\n");
+	job->select = JOB_SERIAL;
+	job->frame = frame;
 }
 
 void timer_sleep(frame_sleep* frame, int seconds)
 {
 	printf("TRACE 2: sleep\n");
-	etimer_set(&frame->et, CLOCK_SECOND * seconds);
-	store_frame(frame);
+	job->select = JOB_TIMER;
+	job->frame = frame;
+	job->info.timer_seconds = seconds;
 }
 
-PROCESS_THREAD(echo_server, ev, data)
+PROCESS_THREAD(echo_server, ev, data) // generic
 {
 	printf("TRACE 0: I am back!\n");
 	PROCESS_BEGIN();
 
-	thread1 = PROCESS_CURRENT();
+	static int tid = 0; // generic
+	job = jobs + tid;
+	userland(NULL, &tid);
 
-	userland(NULL, NULL);
 	while(1) {
-		printf("TRACE 3: waiting...\n");
-  		PROCESS_WAIT_EVENT();
-		printf("TRACE 4: wakeup\n");
-		if (ev == serial_line_event_message && data != NULL) {
-			printf("TRACE 5: it's serial\n");
-			frame_serial_receive* frame = (frame_serial_receive*) load_frame();
-			if (frame->waiting) {
-				frame->ec_result = data;	
-				userland(frame->ec_cont_frame, frame->ec_cont_label);
-				frame->waiting = 0;
-			}
-		} else if (ev == PROCESS_EVENT_TIMER) {
-			printf("TRACE 6: it's a timer\n");
-			frame_sleep* frame = (frame_sleep*)load_frame();
+		if (job->select == JOB_SERIAL) {
+			printf("TRACE: reading from serial\n");
+			PROCESS_WAIT_EVENT_UNTIL(ev == serial_line_event_message && data != NULL);
+			printf("TRACE: received something\n");
+			job = jobs + tid;
+			frame_serial_receive* frame = (frame_serial_receive*) job->frame;
+			frame->ec_result = data;	
+			userland(frame->ec_cont_frame, frame->ec_cont_label);
+		} else if (job->select == JOB_TIMER) {
+			printf("TRACE: going to sleep\n");
+			frame_sleep* frame = NULL;
+			frame = (frame_sleep*) job->frame;
+			etimer_set(&frame->et, CLOCK_SECOND * job->info.timer_seconds);
+			PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&frame->et));	
+			printf("TRACE: wake up\n");
+			job = jobs + tid;
+			frame = (frame_sleep*) job->frame;
 			userland(frame->ec_cont_frame, frame->ec_cont_label);
 		} else {
-			printf("TRACE 7: it's something unknown :-( %d\n", ev);
-			continue;
+			printf("öhm... nothing to do?\n");
 		}
 	}
 	
