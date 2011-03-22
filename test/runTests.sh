@@ -1,3 +1,3 @@
 #!/bin/bash
 
-exec runhaskell -i../src main.hs
+exec runhaskell -XMultiParamTypeClasses -XTypeSynonymInstances -i../src main.hs
