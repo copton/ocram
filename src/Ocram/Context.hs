@@ -11,6 +11,7 @@ data Context = Context {
 	, ctxStartRoutines :: Ocram.Analysis.Types.StartRoutines
 	, ctxCallGraph :: Ocram.Analysis.Types.CallGraph
 	, ctxBlockingFunctions :: Ocram.Analysis.Types.BlockingFunctions
+	, ctxCriticalFunctions :: Ocram.Analysis.Types.CriticalFunctions
 	, ctxOutputAst :: CTranslUnit
 }
 
