@@ -10,6 +10,7 @@ data Context = Context {
 	, ctxFunctionMap :: Ocram.Analysis.Types.FunctionMap
 	, ctxStartRoutines :: Ocram.Analysis.Types.StartRoutines
 	, ctxCallGraph :: Ocram.Analysis.Types.CallGraph
+	, ctxBlockingFunctions :: Ocram.Analysis.Types.BlockingFunctions
 	, ctxOutputAst :: CTranslUnit
 }
 

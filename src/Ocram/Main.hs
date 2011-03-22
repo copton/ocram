@@ -7,6 +7,7 @@ import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.CreateContext (createContext)
 import Ocram.Context (Context(ctxOutputAst))
 import Ocram.Options (getOptions, Options(..))
+import Ocram.Debug (debug)
 import Ocram.Output (writeAst)
 
 main :: IO ()
@@ -17,6 +18,7 @@ main = do
 	let oup = optOutput options
 	ast <- errorOnLeftM (Just "Error when parsing input file") (parseCFile (newGCC "gcc") Nothing cpp inp)
 	let ctx = createContext ast
+	debug ctx
 	writeAst (ctxOutputAst ctx) oup
 
 errorOnLeftM :: (Show a) => Maybe String -> IO (Either a b) -> IO b
