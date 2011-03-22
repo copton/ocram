@@ -6,8 +6,8 @@ import System.Environment (getArgs, getProgName)
 import System.Console.GetOpt
 
 data Options = Options { 
-	  optApiHeader :: String
-	, optApplication :: String
+	  optInput :: String
+	, optOutput :: String
 	, optCppOptions :: String
 	, optHelp :: Bool
 } deriving Show
@@ -20,23 +20,23 @@ instance Show Exit where
 
 options :: [OptDescr (Options -> Options)]
 options = [
-	  Option ['a'] ["api"] (ReqArg (\ x opts -> opts { optApiHeader = x }) "api") "api header file (required)"
-	, Option ['i'] ["input"] (ReqArg (\ x opts -> opts {optApplication = x}) "input") "input c file (required)"
+	  Option ['i'] ["input"] (ReqArg (\ x opts -> opts {optInput = x}) "input") "input tc file (required)"
+	, Option ['o'] ["output"] (ReqArg (\ x opts -> opts {optOutput = x}) "output") "output ec file (required)"
 	, Option ['c'] ["cpp"] (ReqArg (\ x opts -> opts {optCppOptions = x}) "cpp") "cpp options (default=\"\")"
 	, Option ['h'] ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
 	]
 
 defaultOptions = Options { 
-	  optApiHeader = ""
-	, optApplication = ""
+	  optInput = ""
+	, optOutput = ""
 	, optCppOptions = ""
 	, optHelp = False
 }
 
 checkOptions :: Options -> Bool
 checkOptions opts
-	| (optApiHeader opts) == (optApiHeader defaultOptions) = False
-	| (optApplication opts) == (optApplication defaultOptions) = False
+	| (optInput opts) == (optInput defaultOptions) = False
+	| (optOutput opts) == (optOutput defaultOptions) = False
 	| otherwise = True
 
 usage :: String -> String
