@@ -9,24 +9,28 @@ data Options = Options {
 	  optApiHeader :: String
 	, optApplication :: String
 	, optCppOptions :: String
+	, optHelp :: Bool
 } deriving Show
 
-newtype Error = Error [String]
+data Exit = Error [String] | Help [String]
 
-instance Show Error where
-	show (Error ss) = unlines ss
+instance Show Exit where
+	show (Error ss) = unlines $ "Error in command line options" : ss
+	show (Help ss) = unlines $ "Printing usage" : ss
 
 options :: [OptDescr (Options -> Options)]
 options = [
 	  Option ['a'] ["api"] (ReqArg (\ x opts -> opts { optApiHeader = x }) "api") "api header file (required)"
 	, Option ['i'] ["input"] (ReqArg (\ x opts -> opts {optApplication = x}) "input") "input c file (required)"
 	, Option ['c'] ["cpp"] (ReqArg (\ x opts -> opts {optCppOptions = x}) "cpp") "cpp options (default=\"\")"
+	, Option ['h'] ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
 	]
 
 defaultOptions = Options { 
 	  optApiHeader = ""
 	, optApplication = ""
 	, optCppOptions = ""
+	, optHelp = False
 }
 
 checkOptions :: Options -> Bool
@@ -38,16 +42,20 @@ checkOptions opts
 usage :: String -> String
 usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") options
 	
-getOptions :: IO (Either Error Options)
+getOptions :: IO (Either Exit Options)
 getOptions = do
 	argv <- getArgs
 	prg <- getProgName
+	let use = usage prg
 	case getOpt Permute options argv of
 		(o,[],[]) -> 
 			let opts = foldl (flip id) defaultOptions o in
-			if checkOptions opts then
-				return $ Right opts
+			if (optHelp opts) then
+					return $ Left $ Help [use]
 			else
-				return $ Left $ Error ["missing required option(s)", usage prg]
-		(_,n,[]) -> return $ Left $ Error ["unknown options '" ++ unwords n ++ "'", (usage prg)]
-		(_,_,e) -> return $ Left $ Error $ e ++ [usage prg]
+				if checkOptions opts then
+					return $ Right opts
+				else
+					return $ Left $ Error ["missing required option(s)", use]
+		(_,n,[]) -> return $ Left $ Error ["unknown options '" ++ unwords n ++ "'", use]
+		(_,_,e) -> return $ Left $ Error $ e ++ [use]
