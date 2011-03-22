@@ -1,7 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-
 module Ocram.Analysis.Algorithms.CallGraph (
 	 determineCallGraph
 ) where

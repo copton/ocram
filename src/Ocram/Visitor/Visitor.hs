@@ -1,5 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 module Ocram.Visitor.Visitor (
 	DownVisitor(..),
 	UpVisitor(..)

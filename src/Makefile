@@ -1,7 +1,7 @@
 .PHONY: all clean
 
 all:
-	ghc -outputdir ../bin --make main.hs
+	ghc -XMultiParamTypeClasses -XFlexibleInstances -XTypeSynonymInstances -outputdir ../bin --make main.hs
 
 clean:
 	git clean -d -X -f
