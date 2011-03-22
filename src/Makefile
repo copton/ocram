@@ -1,7 +1,7 @@
 .PHONY: all clean
 
 all:
-	ghc --make main.hs
+	ghc -outputdir ../bin --make main.hs
 
 clean:
 	git clean -d -X -f
