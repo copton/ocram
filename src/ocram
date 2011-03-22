@@ -1,4 +1,1 @@
-#!/bin/bash
-
-dir=`dirname $BASH_SOURCE`
-$dir/tc2ec $*
+main
