@@ -9,7 +9,7 @@ module Ocram.Analysis.Algorithms.CallGraph (
 import Ocram.Analysis.Types.CallGraph (CallGraph, Entry(Entry), cgCallees, cgCallers)
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit)
 import Ocram.Analysis.Types.FunctionMap (FunctionId, functionId', functionId, FunctionMap)
-import Ocram.Context (Context, ctxAst, ctxFunctionMap)
+import Ocram.Context (Context, ctxInputAst, ctxFunctionMap)
 import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
 import Language.C.Data.Ident (Ident(Ident))
 
@@ -46,4 +46,4 @@ addCall cg (fd, name) = Map.alter addCallee caller $ Map.alter addCaller callee 
 		addCallee (Just entry) = Just $ entry { cgCallees = callee `Set.insert` (cgCallees entry) }
 	
 determineCallGraph :: Context -> CallGraph
-determineCallGraph ctx = createCallGraph $ snd $ traverseCTranslUnit (ctxAst ctx) initDownState
+determineCallGraph ctx = createCallGraph $ snd $ traverseCTranslUnit (ctxInputAst ctx) initDownState
