@@ -5,9 +5,9 @@ module Ocram.Test.Tests.Analysis.StartRoutines (
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 
 import Ocram.Context (ctxStartRoutines)
-import Ocram.Analysis.Types.FunctionMap (funId)
+import Ocram.Symbols (symbol)
 
-reduce = (map funId).ctxStartRoutines
+reduce = (map symbol).ctxStartRoutines
 
 tests = runTests "StartRoutines" reduce
 	[("__attribute__((tc_run_thread)) void foo() { }", ["foo"])

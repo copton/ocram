@@ -2,10 +2,10 @@ module Ocram.Analysis.Algorithms.CriticalFunctions (
 	determineCriticalFunctions
 ) where
 
-import Ocram.Analysis.Types.FunctionMap (functionId)
 import Ocram.Analysis.Types.CriticalFunctions (CriticalFunctions)
 import Ocram.Analysis.Types.CallGraph (CallGraph, Entry(Entry))
 import Ocram.Context(Context(Context, ctxBlockingFunctions, ctxCallGraph))
+import Ocram.Symbols (symbol)
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 
@@ -16,7 +16,7 @@ travCaller cg cfs caller =
 	travEntry cg newCfs $ cg Map.! caller
 
 travBlocking cg cfs name = 
-	let fid = functionId name in
+	let fid = symbol name in
 	let newCfs = Set.insert fid cfs in
 	case Map.lookup fid cg of
 		Nothing -> newCfs

@@ -5,7 +5,6 @@ module Ocram.Test.Tests.Analysis.BlockingFunctions (
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 
 import Ocram.Context (ctxBlockingFunctions)
-import Ocram.Analysis.Types.FunctionMap (funId)
 import Data.Map (keys)
 
 reduce = keys.ctxBlockingFunctions

@@ -4,8 +4,9 @@ module Ocram.Analysis.Algorithms.CallGraph (
 
 import Ocram.Analysis.Types.CallGraph (CallGraph, Entry(Entry), cgCallees, cgCallers)
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit)
-import Ocram.Analysis.Types.FunctionMap (FunctionId, functionId', functionId, FunctionMap)
+import Ocram.Analysis.Types.FunctionMap (FunctionMap)
 import Ocram.Context (Context, ctxInputAst, ctxFunctionMap)
+import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
 import Language.C.Data.Ident (Ident(Ident))
 
@@ -34,8 +35,8 @@ createCallGraph calls = foldl addCall Map.empty calls
 addCall :: CallGraph -> (CFunDef, String) -> CallGraph
 addCall cg (fd, name) = Map.alter addCallee caller $ Map.alter addCaller callee cg
 	where 
-		caller = functionId' fd
-		callee = functionId name
+		caller = symbol fd
+		callee = symbol name
 		addCaller Nothing = Just $ Entry (Set.singleton caller) Set.empty
 		addCaller (Just entry) = Just $ entry { cgCallers = caller `Set.insert` (cgCallers entry) }
 		addCallee Nothing = Just $ Entry Set.empty (Set.singleton callee)

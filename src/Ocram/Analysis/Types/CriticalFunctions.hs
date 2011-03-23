@@ -3,6 +3,6 @@ module Ocram.Analysis.Types.CriticalFunctions (
 ) where
 
 import qualified Data.Set as Set
-import Ocram.Analysis.Types.FunctionMap (FunctionId)
+import Ocram.Symbols (Symbol)
 
-type CriticalFunctions = Set.Set FunctionId
+type CriticalFunctions = Set.Set Symbol

@@ -5,7 +5,7 @@ module Ocram.Test.Tests.Analysis.CriticalFunctions (
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 
 import Ocram.Context (ctxCriticalFunctions)
-import Ocram.Analysis.Types.FunctionMap (funId)
+import Ocram.Symbols (symbol)
 import Data.Set (elems)
 import Data.List (sort)
 
@@ -15,7 +15,7 @@ instance Eq L where
 instance Show L where
 	show (L ss) = show ss
 
-reduce = L.(map funId).elems.ctxCriticalFunctions
+reduce = L.(map symbol).elems.ctxCriticalFunctions
 
 tests = runTests "CriticalFunctions" reduce [
 	 ("void foo() { }", L [])

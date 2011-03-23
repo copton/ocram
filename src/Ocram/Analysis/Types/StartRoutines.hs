@@ -2,6 +2,6 @@ module Ocram.Analysis.Types.StartRoutines (
 	StartRoutines
 ) where
 
-import Ocram.Analysis.Types.FunctionMap (FunctionId)
+import Ocram.Symbols (Symbol)
 
-type StartRoutines = [FunctionId]
+type StartRoutines = [Symbol]

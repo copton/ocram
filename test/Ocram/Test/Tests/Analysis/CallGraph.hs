@@ -6,7 +6,7 @@ import Ocram.Test.Tests.Analysis.Utils (runTests)
 
 import Ocram.Analysis.Types.CallGraph (Entry(Entry))
 import Ocram.Context (ctxCallGraph)
-import Ocram.Analysis.Types.FunctionMap (funId)
+import Ocram.Symbols (symbol)
 import Data.Map (toList)
 import Data.Set (elems)
 import Data.List (sort)
@@ -33,8 +33,8 @@ instance Show L where
 
 reduce = L.(map reduce_entry).toList.ctxCallGraph
 	where
-	reduce_entry (fid, (Entry callers callees)) = E (funId fid) (reduce_set callers) (reduce_set callees)
-	reduce_set set = map funId $ elems set
+	reduce_entry (fid, (Entry callers callees)) = E (symbol fid) (reduce_set callers) (reduce_set callees)
+	reduce_set set = map symbol $ elems set
 
 tests = runTests "CallGraph" reduce [
 	("void foo() { bar(); } void bar() { }", L [E "foo" [] ["bar"], E "bar" ["foo"] []])

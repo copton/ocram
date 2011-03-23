@@ -7,10 +7,10 @@ import Language.C.Data.Ident
 import Ocram.Context
 import Ocram.Analysis.Types.StartRoutines
 import Data.Map (elems)
-import Ocram.Analysis.Types.FunctionMap (functionId')
+import Ocram.Symbols (symbol)
 
 findStartRoutines :: Context -> StartRoutines
-findStartRoutines ctx = map functionId' $ filter isStartRoutine $ elems $ ctxFunctionMap ctx
+findStartRoutines ctx = map symbol $ filter isStartRoutine $ elems $ ctxFunctionMap ctx
 
 isStartRoutine :: CFunDef -> Bool
 isStartRoutine (CFunDef specs _ _ _ _) = any checkAttr specs 
