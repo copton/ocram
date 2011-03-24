@@ -37,5 +37,6 @@ reduce = L.(map reduce_entry).toList.ctxCallGraph
 	reduce_set set = map symbol $ elems set
 
 tests = runTests "CallGraph" reduce [
-	("void foo() { bar(); } void bar() { }", L [E "foo" [] ["bar"], E "bar" ["foo"] []])
+	("void foo() { bar();        } void bar() { }",              L [E "foo" [] ["bar"], E "bar" ["foo"] []]),
+	("void foo() { bar(); baz(); } void bar() { }; void baz();", L [E "foo" [] ["bar"], E "bar" ["foo"] []])
 	]

@@ -5,7 +5,8 @@ module Ocram.Analysis.Algorithms.CallGraph (
 import Ocram.Analysis.Types.CallGraph (CallGraph, Entry(Entry), cgCallees, cgCallers)
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit)
 import Ocram.Analysis.Types.FunctionMap (FunctionMap)
-import Ocram.Context (Context, ctxInputAst, ctxFunctionMap)
+import Ocram.Analysis.Types.BlockingFunctions (BlockingFunctions)
+import Ocram.Context (Context, ctxInputAst, ctxFunctionMap, ctxBlockingFunctions)
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
 import Language.C.Data.Ident (Ident(Ident))
@@ -13,20 +14,25 @@ import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-newtype DownState = DownState {
+data DownState = DownState {
 	stCaller :: Maybe CFunDef
+, stFunctionMap :: FunctionMap
+, stBlockingFunctions :: BlockingFunctions
 }
 
-initDownState :: DownState
-initDownState = DownState Nothing
+initDownState :: Context -> DownState
+initDownState ctx = DownState Nothing (ctxFunctionMap ctx) (ctxBlockingFunctions ctx)
 
 type Calls = [(CFunDef, String)]
 
 instance DownVisitor DownState where
-	downCFunDef fd _ = DownState $ Just fd
+	downCFunDef fd d = d {stCaller = Just fd}
 
 instance UpVisitor DownState Calls where
-	upCExpr (CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller)) _ = [(caller, callee)]
+	upCExpr (CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller) fm bf) _ 
+		| Map.member callee fm = [(caller, callee)]
+		| Map.member callee bf = [(caller, callee)]
+		| otherwise = []
 	upCExpr _ _ _ = []
 
 createCallGraph :: Calls -> CallGraph
@@ -43,4 +49,4 @@ addCall cg (fd, name) = Map.alter addCallee caller $ Map.alter addCaller callee 
 		addCallee (Just entry) = Just $ entry { cgCallees = callee `Set.insert` (cgCallees entry) }
 	
 determineCallGraph :: Context -> CallGraph
-determineCallGraph ctx = createCallGraph $ snd $ traverseCTranslUnit (ctxInputAst ctx) initDownState
+determineCallGraph ctx = createCallGraph $ snd $ traverseCTranslUnit (ctxInputAst ctx) (initDownState ctx)

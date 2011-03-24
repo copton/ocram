@@ -1,8 +1,12 @@
 module Ocram.Analysis.Types.CriticalFunctions (
-	CriticalFunctions
+	CriticalFunctions, Signature(Signature)
 ) where
 
-import qualified Data.Set as Set
+import qualified Data.Map as Map
 import Ocram.Symbols (Symbol)
+import Language.C.Syntax.AST (CTypeSpec)
 
-type CriticalFunctions = Set.Set Symbol
+data Signature = Signature CTypeSpec [(CTypeSpec, Symbol)]
+
+-- map of all critical function signatures
+type CriticalFunctions = Map.Map Symbol Signature
