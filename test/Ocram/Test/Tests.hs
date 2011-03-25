@@ -4,6 +4,7 @@ module Ocram.Test.Tests (
 
 import qualified Ocram.Test.Tests.Analysis as A
 import qualified Ocram.Test.Tests.Visitor as B
+import qualified Ocram.Test.Tests.Sanity as C
 import Test.HUnit
 
-tests = TestList [A.tests, B.tests]
+tests = TestList [A.tests, B.tests, C.tests]
