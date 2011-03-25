@@ -17,7 +17,7 @@ import Ocram.Symbols (Symbol)
 type BlockingFunctions = Map.Map String CExtDecl
 
 -- Call Graph
--- call graph of all critical functions
+-- caller: any function definition, callee: any function definition or any blocking function declaration
 
 type Callers = Set.Set Symbol
 type Callees = Set.Set Symbol

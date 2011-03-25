@@ -3,7 +3,6 @@ module Ocram.Test.Tests.Analysis.CallGraph (
 ) where
 
 import Ocram.Test.Tests.Analysis.Utils (runTests)
-
 import Ocram.Analysis.Types (Entry(Entry))
 import Ocram.Context (ctxCallGraph)
 import Ocram.Symbols (symbol)

@@ -42,7 +42,7 @@ tests = runTests "CriticalFunctions" reduce [
 	,("void foo();", L [])
 	,("__attribute__((tc_blocking)) void foo();", L [F "foo" "void" []])
 	,("__attribute__((tc_blocking)) void foo(); void bar() { foo(); }", L [F "foo" "void" [], F "bar" "void" []])
-	,("__attribute__((tc_blocking)) void foo(); void bar(); void baz { bar(); foo(); }", L [F "baz" "void" [], F "foo" "void" []])
+	,("__attribute__((tc_blocking)) void foo(); void bar(); void baz() { bar(); foo(); }", L [F "baz" "void" [], F "foo" "void" []])
 	,("__attribute__((tc_blocking)) void D(); void B() {D();} void C() {D();} void A() {B();C();}", L [
 		F "A" "void" [],
 		F "B" "void" [],

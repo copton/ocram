@@ -9,7 +9,6 @@ import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import Debug.Trace (trace)
 
 travEntry (fm, cg) cfs (Entry callers _) = foldl (travCaller (fm, cg)) cfs (Set.elems callers)
 
@@ -34,7 +33,6 @@ determineCriticalFunctions ctx =
 
 def2sig :: CFunDef -> Signature
 def2sig (CFunDef tss (CDeclr _ [cfd] Nothing _ _) [] _ _) = Signature (extractTypeSpec tss) (extractParams cfd)
-def2sig f = trace (show f) undefined
 
 decl2sig :: CExtDecl -> Signature
 decl2sig (CDeclExt (CDecl tss [(Just (CDeclr _ [cfd] Nothing _ _), Nothing, Nothing)]_)) = Signature (extractTypeSpec tss) (extractParams cfd)

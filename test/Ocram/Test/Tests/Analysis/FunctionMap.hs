@@ -14,6 +14,7 @@ tests = runTests "FunctionMap" reduce [
 	 ("void foo() { }", ["foo"])
 	,("", [])
 	,("int foo() {}", ["foo"])
+	,("__attribute__((bar)) int foo() {}", ["foo"])
 	,("void foo();", [])
 	,("void foo(); void bar() { }", ["bar"])
 	,("void foo() { } void bar() { }", ["bar", "foo"])
