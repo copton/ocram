@@ -3,7 +3,7 @@ module Ocram.Test.Tests.Analysis.CriticalFunctions (
 ) where
 
 import Ocram.Test.Tests.Analysis.Utils (runTests)
-import Ocram.Analysis.Types.CriticalFunctions (Signature(Signature))
+import Ocram.Analysis.Types (Signature(Signature))
 import Ocram.Context (ctxCriticalFunctions)
 import Data.Map (toList)
 import Data.List (sort)

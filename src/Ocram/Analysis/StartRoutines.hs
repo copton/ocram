@@ -1,11 +1,11 @@
-module Ocram.Analysis.Algorithms.StartRoutines (
+module Ocram.Analysis.StartRoutines (
 	findStartRoutines
 ) where
 
 import Language.C.Syntax.AST
-import Language.C.Data.Ident 
-import Ocram.Context
-import Ocram.Analysis.Types.StartRoutines
+import Language.C.Data.Ident (Ident(Ident))
+import Ocram.Context (Context, ctxFunctionMap)
+import Ocram.Analysis.Types (StartRoutines)
 import Data.Map (elems)
 import Ocram.Symbols (symbol)
 

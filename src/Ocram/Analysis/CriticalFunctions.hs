@@ -1,9 +1,8 @@
-module Ocram.Analysis.Algorithms.CriticalFunctions (
+module Ocram.Analysis.CriticalFunctions (
 	determineCriticalFunctions
 ) where
 
-import Ocram.Analysis.Types.CriticalFunctions (CriticalFunctions, Signature(Signature))
-import Ocram.Analysis.Types.CallGraph (CallGraph, Entry(Entry))
+import Ocram.Analysis.Types (CriticalFunctions, Signature(Signature), CallGraph, Entry(Entry))
 import Ocram.Context(Context(Context, ctxBlockingFunctions, ctxCallGraph, ctxFunctionMap))
 import Ocram.Symbols (symbol, Symbol)
 import Language.C.Syntax.AST 

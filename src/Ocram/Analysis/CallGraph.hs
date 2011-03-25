@@ -1,11 +1,9 @@
-module Ocram.Analysis.Algorithms.CallGraph (
+module Ocram.Analysis.CallGraph (
 	 determineCallGraph
 ) where
 
-import Ocram.Analysis.Types.CallGraph (CallGraph, Entry(Entry), cgCallees, cgCallers)
+import Ocram.Analysis.Types (CallGraph, Entry(Entry), cgCallees, cgCallers, FunctionMap, BlockingFunctions)
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit)
-import Ocram.Analysis.Types.FunctionMap (FunctionMap)
-import Ocram.Analysis.Types.BlockingFunctions (BlockingFunctions)
 import Ocram.Context (Context, ctxInputAst, ctxFunctionMap, ctxBlockingFunctions)
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))

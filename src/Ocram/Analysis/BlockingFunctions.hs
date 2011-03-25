@@ -1,8 +1,8 @@
-module Ocram.Analysis.Algorithms.BlockingFunctions (
+module Ocram.Analysis.BlockingFunctions (
 	determineBlockingFunctions
 ) where
 
-import Ocram.Analysis.Types.BlockingFunctions (BlockingFunctions)
+import Ocram.Analysis.Types (BlockingFunctions)
 import Language.C.Data.Ident (Ident(Ident))
 import Data.Map as Map
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit)

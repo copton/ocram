@@ -1,13 +1,41 @@
 module Ocram.Analysis.Types (
-	  module Ocram.Analysis.Types.CallGraph
-	, module Ocram.Analysis.Types.StartRoutines
-	, module Ocram.Analysis.Types.FunctionMap
-	, module Ocram.Analysis.Types.BlockingFunctions
-	, module Ocram.Analysis.Types.CriticalFunctions
+	BlockingFunctions, 
+	Callers, Callees, Entry(..), CallGraph,
+	Signature(Signature), CriticalFunctions,
+	FunctionMap,
+	StartRoutines
 ) where
 
-import Ocram.Analysis.Types.CallGraph
-import Ocram.Analysis.Types.StartRoutines
-import Ocram.Analysis.Types.FunctionMap
-import Ocram.Analysis.Types.BlockingFunctions
-import Ocram.Analysis.Types.CriticalFunctions
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+
+import Language.C.Syntax.AST (CExtDecl, CTypeSpec, CFunDef)
+import Ocram.Symbols (Symbol)
+
+-- Blocking Functions
+-- map of all blocking function declarations
+type BlockingFunctions = Map.Map String CExtDecl
+
+-- Call Graph
+-- call graph of all critical functions
+
+type Callers = Set.Set Symbol
+type Callees = Set.Set Symbol
+data Entry = Entry {cgCallers :: Callers, cgCallees :: Callees} deriving Show
+
+type CallGraph = Map.Map Symbol Entry
+
+-- Critical Functions
+-- map of all critical function signatures
+data Signature = Signature CTypeSpec [(CTypeSpec, Symbol)]
+
+type CriticalFunctions = Map.Map Symbol Signature
+
+-- Function Map
+-- map of all function definitions
+type FunctionMap = Map.Map String CFunDef
+
+-- Start Routines
+-- list of all start routine names
+
+type StartRoutines = [Symbol]

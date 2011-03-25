@@ -4,7 +4,7 @@ module Ocram.Test.Tests.Analysis.CallGraph (
 
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 
-import Ocram.Analysis.Types.CallGraph (Entry(Entry))
+import Ocram.Analysis.Types (Entry(Entry))
 import Ocram.Context (ctxCallGraph)
 import Ocram.Symbols (symbol)
 import Data.Map (toList)
