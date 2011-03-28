@@ -1,6 +1,3 @@
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-
 module Ocram.Test.Tests.Visitor.Stat.Test1 (
 	test
 ) where
