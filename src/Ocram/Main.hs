@@ -13,11 +13,12 @@ import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
 
 process :: IO (Result ())
-process = runErrorT $ ErrorT getOptions >>= (\options -> 
-		ErrorT (parse options) >>= (\raw_ast ->
-		ErrorT (return (process' options raw_ast)) >>= (\output_ast ->
-		ErrorT (writeAst options output_ast)
-		)))
+process = runErrorT $ do
+	options <- ErrorT $ getOptions
+	raw_ast <- ErrorT $ parse options
+	output_ast <- ErrorT $ return $ process' options raw_ast
+	result <- ErrorT $ writeAst options output_ast
+	return result
 
 process' :: Options -> AST -> Result AST
 process' options raw_ast = do
