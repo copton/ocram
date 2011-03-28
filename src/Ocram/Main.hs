@@ -24,6 +24,7 @@ process' options raw_ast = do
 	input_ast <- checkSanity raw_ast
 	blocking_functions <- determineBlockingFunctions input_ast
 	function_map <- getFunctions input_ast
+	start_routines <- findStartRoutines function_map
 	call_graph <- determineCallGraph input_ast function_map blocking_functions
 	critical_functions <- determineCriticalFunctions call_graph function_map blocking_functions
 	output_ast <- tc2ec input_ast

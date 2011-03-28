@@ -2,13 +2,16 @@ module Ocram.Test.Tests.Analysis.FunctionMap (
 	tests
 ) where
 
+import Ocram.Test.Lib (parse)
+import Ocram.Analysis (getFunctions)
 import Ocram.Test.Tests.Analysis.Utils (runTests)
-
-import Ocram.Context (ctxFunctionMap)
 import Ocram.Symbols (symbol)
 import Data.Map (keys)
 
-reduce = (map symbol).keys.ctxFunctionMap
+reduce code = do
+	ast <- parse code
+	fm <- getFunctions ast
+	return $ (map symbol).keys $ fm
 
 tests = runTests "FunctionMap" reduce [
 	 ("void foo() { }", ["foo"])

@@ -1,5 +1,5 @@
 module Ocram.Sanity (
-	checkSanity
+	checkSanity, getErrorIds
 ) where
 
 import Ocram.Types (Result, AST)
@@ -10,11 +10,19 @@ import Language.C.Data.Position (posFile, posRow)
 import Data.Monoid (mconcat)
 
 checkSanity :: AST -> Result AST
-checkSanity ast = case traverseCTranslUnit ast emptyDownState of
-	(_, []) -> return ast
-	(_, es) -> fail $ showErrors es
+checkSanity ast = case check ast of
+	[] -> return ast
+	es -> fail $ showErrors es
 
-newtype ErrorId = ErrorId {getErrorId :: Int}
+getErrorIds :: AST -> [Int]
+getErrorIds ast = map unpackError $ check ast
+	where
+		unpackError (Error (ErrorId id) _) = id
+
+check :: AST -> [Error]
+check ast = snd $ traverseCTranslUnit ast emptyDownState
+
+newtype ErrorId = ErrorId Int
 instance Show ErrorId where
 	show (ErrorId 1) = "function without parameter list"
 	show (ErrorId id) = error $ "unknown error id " ++ show id

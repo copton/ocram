@@ -2,13 +2,17 @@ module Ocram.Test.Tests.Analysis.BlockingFunctions (
 	tests
 ) where
 
+import Ocram.Test.Lib (parse)
 import Ocram.Test.Tests.Analysis.Utils (runTests)
+import Ocram.Analysis (determineBlockingFunctions)
 
-import Ocram.Context (ctxBlockingFunctions)
 import Data.Map (keys)
 
-reduce = keys.ctxBlockingFunctions
-
+reduce code = do
+	ast <- parse code
+	bf <- determineBlockingFunctions ast
+	return $ keys bf
+	
 tests = runTests "BlockingFunctions" reduce [
 	 ("void foo() { }", [])
 	,("", [])

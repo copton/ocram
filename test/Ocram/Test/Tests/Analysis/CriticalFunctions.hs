@@ -3,8 +3,9 @@ module Ocram.Test.Tests.Analysis.CriticalFunctions (
 ) where
 
 import Ocram.Test.Tests.Analysis.Utils (runTests)
+import Ocram.Test.Lib (parse)
+import Ocram.Analysis (getFunctions, determineBlockingFunctions, determineCallGraph, determineCriticalFunctions)
 import Ocram.Analysis.Types (Signature(Signature))
-import Ocram.Context (ctxCriticalFunctions)
 import Data.Map (toList)
 import Data.List (sort)
 import Language.C.Syntax.AST
@@ -34,7 +35,13 @@ procParam (ts, symbol) = (procTypeSpec ts, symbol)
 procFunction :: (Symbol, Signature) -> F
 procFunction (symbol, (Signature r ps)) = F symbol (procTypeSpec r) (map procParam ps)
 
-reduce = L.(map procFunction).toList.ctxCriticalFunctions
+reduce code = do
+	ast <- parse code
+	fm <- getFunctions ast
+	bf <- determineBlockingFunctions ast
+	cg <- determineCallGraph ast fm bf
+	cf <- determineCriticalFunctions cg fm bf	
+	return $ L.(map procFunction).toList $ cf
 
 tests = runTests "CriticalFunctions" reduce [
 	 ("void foo() { }", L [])
