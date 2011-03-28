@@ -2,13 +2,17 @@ module Ocram.Analysis.CriticalFunctions (
 	determineCriticalFunctions
 ) where
 
-import Ocram.Analysis.Types (CriticalFunctions, Signature(Signature), CallGraph, Entry(Entry))
-import Ocram.Context(Context(Context, ctxBlockingFunctions, ctxCallGraph, ctxFunctionMap))
+import Ocram.Analysis.Types (CriticalFunctions, FunctionMap, BlockingFunctions, Signature(Signature), CallGraph, Entry(Entry))
+import Ocram.Types (Result)
 import Ocram.Symbols (symbol, Symbol)
 import Language.C.Syntax.AST 
 import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+
+determineCriticalFunctions :: CallGraph -> FunctionMap -> BlockingFunctions -> Result CriticalFunctions
+determineCriticalFunctions cg fm bfs = return $ 
+	foldl (travBlocking (fm, cg)) Map.empty (Map.assocs bfs)
 
 travEntry (fm, cg) cfs (Entry callers _) = foldl (travCaller (fm, cg)) cfs (Set.elems callers)
 
@@ -24,12 +28,6 @@ travBlocking (fm, cg) cfs (name, decl) =
 		Nothing -> newCfs
 		(Just entry) -> travEntry (fm, cg) newCfs entry
 
-determineCriticalFunctions :: Context -> CriticalFunctions
-determineCriticalFunctions ctx = 
-	let bfs = ctxBlockingFunctions ctx in
-	let cg = ctxCallGraph ctx in
-	let fm = ctxFunctionMap ctx in
-	foldl (travBlocking (fm, cg)) Map.empty (Map.assocs bfs)
 
 def2sig :: CFunDef -> Signature
 def2sig (CFunDef tss (CDeclr _ [cfd] Nothing _ _) [] _ _) = Signature (extractTypeSpec tss) (extractParams cfd)

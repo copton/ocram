@@ -2,15 +2,15 @@ module Ocram.Analysis.StartRoutines (
 	findStartRoutines
 ) where
 
+import Ocram.Types (Result)
+import Ocram.Analysis.Types (FunctionMap, StartRoutines)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
-import Ocram.Context (Context, ctxFunctionMap)
-import Ocram.Analysis.Types (StartRoutines)
 import Data.Map (elems)
 import Ocram.Symbols (symbol)
 
-findStartRoutines :: Context -> StartRoutines
-findStartRoutines ctx = map symbol $ filter isStartRoutine $ elems $ ctxFunctionMap ctx
+findStartRoutines :: FunctionMap -> Result StartRoutines
+findStartRoutines fm = return $ map symbol $ filter isStartRoutine $ elems fm
 
 isStartRoutine :: CFunDef -> Bool
 isStartRoutine (CFunDef specs _ _ _ _) = any checkAttr specs 

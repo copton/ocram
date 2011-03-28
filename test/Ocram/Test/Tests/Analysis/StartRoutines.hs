@@ -2,12 +2,16 @@ module Ocram.Test.Tests.Analysis.StartRoutines (
 	tests
 ) where 
 
+import Ocram.Analysis (getFunctions, findStartRoutines)
+import Ocram.Test.Lib (parse)
 import Ocram.Test.Tests.Analysis.Utils (runTests)
-
-import Ocram.Context (ctxStartRoutines)
 import Ocram.Symbols (symbol)
 
-reduce = (map symbol).ctxStartRoutines
+reduce code = do
+	ast <- parse code
+	fm <- getFunctions ast
+	sr <- findStartRoutines fm
+	return $ (map symbol) sr
 
 tests = runTests "StartRoutines" reduce
 	[("__attribute__((tc_run_thread)) void foo() { }", ["foo"])

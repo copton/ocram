@@ -1,41 +1,58 @@
 module Ocram.Sanity (
-	checkSanity, outputErrors
+	checkSanity, getErrorIds
 ) where
 
+import Ocram.Types (Result, AST)
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit)
 import Language.C.Syntax.AST 
 import Language.C.Data.Node (NodeInfo(NodeInfo, OnlyPos))
 import Language.C.Data.Position (posFile, posRow)
 import Data.Monoid (mconcat)
 
-type Error = (Int, NodeInfo)
+checkSanity :: AST -> Result AST
+checkSanity ast = case check ast of
+	[] -> return ast
+	es -> fail $ showErrors es
 
-outputErrors :: [Error] -> IO ()
-outputErrors [] = putStrLn "input program passed all sanity checks"
-outputErrors es = do
-	putStrLn "input program failed the following sanity checks"
-	output $ zip [1..] es
+getErrorIds :: AST -> [Int]
+getErrorIds ast = map unpackError $ check ast
+	where
+		unpackError (Error (ErrorId id) _) = id
 
-printNodeInfo (OnlyPos p _) = printPosition p
-printNodeInfo (NodeInfo p _ _) = printPosition p
+check :: AST -> [Error]
+check ast = snd $ traverseCTranslUnit ast emptyDownState
 
-printPosition p = "row: " ++ (show $ posRow p) ++ " in file: " ++ (posFile p)
+newtype ErrorId = ErrorId Int
+instance Show ErrorId where
+	show (ErrorId 1) = "function without parameter list"
+	show (ErrorId id) = error $ "unknown error id " ++ show id
 
-output [] = return ()
-output ((idx, (id, ni)):es) = do
-	putStrLn $ show idx ++ ") error id: " ++ show id ++ ": " ++ printError id
-	putStrLn $ printNodeInfo ni
-	putStrLn ""
-	output es
+newtype Location = Location NodeInfo
+instance Show Location where
+	show (Location (OnlyPos p _)) = showPosition p
+	show (Location (NodeInfo p _ _ )) = showPosition p
+showPosition p = "row: " ++ (show $ posRow p) ++ " in file: " ++ (posFile p)
 
-printError :: Int -> String
-printError 1 = "function without parameter list"
+data Error = Error ErrorId Location
+instance Show Error where
+	show (Error eid@(ErrorId id) location) = show eid ++ " (" ++ show id ++ ")\n" ++ show location
 
-checkSanity :: CTranslUnit -> [Error]
-checkSanity ctu = snd $ traverseCTranslUnit ctu emptyDownState
+showEnum :: [(Int, Error)] -> String
+showEnum [] = ""
+showEnum ((idx, e):es) = show  idx ++ ") " ++ show e ++ "\n\n" ++ showEnum es
+
+showErrors :: [Error] -> String
+showErrors es = "input program failed the following sanity checks" ++ "\n" ++ (showEnum $ zip [1..] es)
+
 
 type UpState = [Error]
 
+append :: [[Error]] -> Int -> NodeInfo -> [Error]
+append es id location = Error (ErrorId id) (Location location) : pass es
+
+pass :: [[Error]] -> [Error]
+pass es = mconcat es
+
 instance UpVisitor EmptyDownState UpState where
-	upCExtDecl (CFDefExt (CFunDef _ (CDeclr _ [] _ _ _) _ _ ni)) _ us = (1, ni) : mconcat us
- 
+	upCExtDecl (CFDefExt (CFunDef _ (CDeclr _ [] _ _ _) _ _ ni)) _ us = append us 1 ni
+	upCExtDecl _ _ us = pass us

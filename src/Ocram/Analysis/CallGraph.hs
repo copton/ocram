@@ -3,14 +3,16 @@ module Ocram.Analysis.CallGraph (
 ) where
 
 import Ocram.Analysis.Types (CallGraph, Entry(Entry), cgCallees, cgCallers, FunctionMap, BlockingFunctions)
+import Ocram.Types (Result, AST)
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit)
-import Ocram.Context (Context, ctxInputAst, ctxFunctionMap, ctxBlockingFunctions)
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
 import Language.C.Data.Ident (Ident(Ident))
-
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+
+determineCallGraph :: AST -> FunctionMap -> BlockingFunctions -> Result CallGraph
+determineCallGraph ast fm bf = return $ createCallGraph $ snd $ traverseCTranslUnit ast (initDownState fm bf)
 
 data DownState = DownState {
 	stCaller :: Maybe CFunDef
@@ -18,8 +20,7 @@ data DownState = DownState {
 , stBlockingFunctions :: BlockingFunctions
 }
 
-initDownState :: Context -> DownState
-initDownState ctx = DownState Nothing (ctxFunctionMap ctx) (ctxBlockingFunctions ctx)
+initDownState fm bf = DownState Nothing fm bf
 
 type Calls = [(CFunDef, String)]
 
@@ -46,5 +47,3 @@ addCall cg (fd, name) = Map.alter addCallee caller $ Map.alter addCaller callee 
 		addCallee Nothing = Just $ Entry Set.empty (Set.singleton callee)
 		addCallee (Just entry) = Just $ entry { cgCallees = callee `Set.insert` (cgCallees entry) }
 	
-determineCallGraph :: Context -> CallGraph
-determineCallGraph ctx = createCallGraph $ snd $ traverseCTranslUnit (ctxInputAst ctx) (initDownState ctx)

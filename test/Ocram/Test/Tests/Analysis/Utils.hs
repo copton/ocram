@@ -1,20 +1,18 @@
 module Ocram.Test.Tests.Analysis.Utils (
-	createContext, runTest, runTests
+	runTest, runTests
 ) where
 
-import Ocram.Context (Context)
-import qualified Ocram.CreateContext as CC
+import Ocram.Types (Result)
 import Ocram.Test.Lib (parse)
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
-createContext :: String -> Context
-createContext code = CC.createContext $ parse code
-
-runTest :: (Eq a, Show a) => (Context -> a) -> (Int, (String, a)) -> Test
-runTest reduce (number, (code, expected)) = TestCase $ assertEqual name expected $ reduce result
+runTest :: (Eq a, Show a) => (String -> Result a) -> (Int, (String, a)) -> Test
+runTest reduce (number, (code, expected)) = TestCase $ assertEqual name expected result
 	where
-	name = "test" ++ show number
-	result = createContext code
+		name = "test" ++ show number
+		result = case reduce code of
+			Left e -> error e
+			Right r -> r
 
-runTests :: (Eq a, Show a) => String -> (Context -> a) -> [(String, a)] -> Test
+runTests :: (Eq a, Show a) => String -> (String -> Result a) -> [(String, a)] -> Test
 runTests label reduce tests = TestLabel label $ TestList $ map (runTest reduce) $ zip [1..] tests
