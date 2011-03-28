@@ -2,7 +2,9 @@ module Ocram.Options (
 	Options(..), getOptions
 ) where
 
+import Ocram.Types (Result)
 import System.Environment (getArgs, getProgName)
+import Data.List (intersperse)
 import System.Console.GetOpt
 
 data Options = Options { 
@@ -12,11 +14,32 @@ data Options = Options {
 	, optHelp :: Bool
 } deriving Show
 
-data Exit = Error [String] | Help [String]
+getOptions :: IO (Result Options)
+getOptions = do
+	argv <- getArgs
+	prg <- getProgName
+	let use = usage prg
+	case getOpt Permute options argv of
+		(o,[],[]) -> 
+			let opts = foldl (flip id) defaultOptions o in
+			if (optHelp opts) then
+					return $ fail $ help use
+			else
+				if checkOptions opts then
+					return $ return opts
+				else
+					return $ fail $ err use "missing required option(s)"
+		(_,n,[]) -> return $ fail $ err use ("unknown options '" ++ unwords n ++ "'")
+		(_,_,es) -> return $ fail $ err use $ concat $ intersperse "\n" es
 
-instance Show Exit where
-	show (Error ss) = unlines $ "Error in command line options" : ss
-	show (Help ss) = unlines $ "Printing usage" : ss
+help :: String -> String
+help use = "Printing usage:\n" ++ use
+
+err :: String -> String -> String
+err use msg = "Error in command line options\n" ++ msg ++ "\n" ++ use
+
+usage :: String -> String
+usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") options
 
 options :: [OptDescr (Options -> Options)]
 options = [
@@ -39,23 +62,3 @@ checkOptions opts
 	| (optOutput opts) == (optOutput defaultOptions) = False
 	| otherwise = True
 
-usage :: String -> String
-usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") options
-	
-getOptions :: IO (Either Exit Options)
-getOptions = do
-	argv <- getArgs
-	prg <- getProgName
-	let use = usage prg
-	case getOpt Permute options argv of
-		(o,[],[]) -> 
-			let opts = foldl (flip id) defaultOptions o in
-			if (optHelp opts) then
-					return $ Left $ Help [use]
-			else
-				if checkOptions opts then
-					return $ Right opts
-				else
-					return $ Left $ Error ["missing required option(s)", use]
-		(_,n,[]) -> return $ Left $ Error ["unknown options '" ++ unwords n ++ "'", use]
-		(_,_,e) -> return $ Left $ Error $ e ++ [use]

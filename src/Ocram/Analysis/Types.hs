@@ -9,8 +9,10 @@ module Ocram.Analysis.Types (
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-import Language.C.Syntax.AST (CExtDecl, CTypeSpec, CFunDef)
+import Language.C.Syntax.AST (CTranslUnit, CExtDecl, CTypeSpec, CFunDef)
 import Ocram.Symbols (Symbol)
+
+type AST = CTranslUnit
 
 -- Blocking Functions
 -- map of all blocking function declarations

@@ -1,37 +1,39 @@
 module Ocram.Main (main) where
 
-import Language.C (parseCFile)
-import Language.C.System.GCC (newGCC)
-import Language.C.Syntax.AST (CTranslUnit)
-
-import Ocram.CreateContext (createContext)
-import Ocram.Context (Context(ctxInputAst, ctxOutputAst))
-import Ocram.Options (getOptions, Options(..))
-import Ocram.Debug (debug)
+import Control.Monad.Error
+import Ocram.Types (Result, AST)
+import Ocram.Options (getOptions, Options)
 import Ocram.Output (writeAst)
-import Ocram.Sanity (checkSanity, outputErrors)
+import Ocram.Sanity (checkSanity)
+import Ocram.Parser (parse)
+import Ocram.Analysis (determineBlockingFunctions, getFunctions, findStartRoutines, determineCallGraph, determineCriticalFunctions)
+import Ocram.Transformation (tc2ec)
 
 import System.Exit (exitWith, ExitCode(ExitFailure))
+import System.IO (stderr, hPutStrLn)
+
+process :: IO (Result ())
+process = runErrorT $ ErrorT getOptions >>= (\options -> 
+		ErrorT (parse options) >>= (\raw_ast ->
+		ErrorT (return (process' options raw_ast)) >>= (\output_ast ->
+		ErrorT (writeAst options output_ast)
+		)))
+
+process' :: Options -> AST -> Result AST
+process' options raw_ast = do
+	input_ast <- checkSanity raw_ast
+	blocking_functions <- determineBlockingFunctions input_ast
+	function_map <- getFunctions input_ast
+	call_graph <- determineCallGraph input_ast function_map blocking_functions
+	critical_functions <- determineCriticalFunctions call_graph function_map blocking_functions
+	output_ast <- tc2ec input_ast
+	return output_ast
 
 main :: IO ()
 main = do
-	options <- errorOnLeftM Nothing $ getOptions
-	let cpp = "-DOCRAM_MODE" : words (optCppOptions options)
-	let inp = optInput options
-	let oup = optOutput options
-	ast <- errorOnLeftM (Just "Error when parsing input file") (parseCFile (newGCC "gcc") Nothing cpp inp)
-	let ctx = createContext ast
-	case checkSanity (ctxInputAst ctx) of
-		[] -> do 
-			debug ctx
-			writeAst (ctxOutputAst ctx) oup
-		errors -> do
-			outputErrors errors
+	result <- process
+	case result of
+		Left e -> do
+			hPutStrLn stderr e
 			exitWith (ExitFailure 1)
-
-errorOnLeftM :: (Show a) => Maybe String -> IO (Either a b) -> IO b
-errorOnLeftM msg action = action >>= errorOnLeft msg
-
-errorOnLeft :: (Show a) => Maybe String -> (Either a b) -> IO b
-errorOnLeft (Just msg) = either (error . ((msg ++ "\n")++).show) return
-errorOnLeft Nothing = either (error . show) return
+		Right _ -> return ()
