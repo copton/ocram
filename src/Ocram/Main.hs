@@ -6,7 +6,7 @@ import Ocram.Options (getOptions, Options)
 import Ocram.Output (writeAst)
 import Ocram.Sanity (checkSanity)
 import Ocram.Parser (parse)
-import Ocram.Analysis (determineBlockingFunctions, getFunctions, findStartRoutines, determineCallGraph, determineCriticalFunctions)
+import Ocram.Analysis (determineBlockingFunctions, getFunctions, findStartRoutines, determineCallGraph, determineCriticalFunctions, checkConstraints)
 import Ocram.Transformation (tc2ec)
 
 import System.Exit (exitWith, ExitCode(ExitFailure))
@@ -28,7 +28,8 @@ process' options raw_ast = do
 	start_routines <- findStartRoutines function_map
 	call_graph <- determineCallGraph input_ast function_map blocking_functions
 	critical_functions <- determineCriticalFunctions call_graph function_map blocking_functions
-	output_ast <- tc2ec input_ast
+	input_ast' <- checkConstraints input_ast critical_functions
+	output_ast <- tc2ec input_ast'
 	return output_ast
 
 main :: IO ()
