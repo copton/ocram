@@ -4,12 +4,12 @@ module Ocram.Filter.Util (
 
 import Language.C.Data.Node (NodeInfo(NodeInfo, OnlyPos))
 import Language.C.Data.Position (posFile, posRow)
-import Ocram.Types (Result, AST)
+import Ocram.Types (Result, Ast)
 import Data.Monoid (mconcat)
 
 data Filter = Filter {
 	getDescription :: String,
-	getChecker :: AST -> [Error],
+	getChecker :: Ast -> [Error],
 	getErrorCodes :: Int -> String
 }
 
@@ -18,10 +18,10 @@ data Error = Error {
 	getLocation :: NodeInfo
 }
 
-performCheck :: Filter -> AST -> [Int]
+performCheck :: Filter -> Ast -> [Int]
 performCheck f ast = map getId $ getChecker f ast
 
-performFilter :: Filter -> AST -> Result AST
+performFilter :: Filter -> Ast -> Result Ast
 performFilter filter ast = case getChecker filter ast of
 	[] -> return ast
 	es -> fail $ showErrors filter es

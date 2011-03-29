@@ -3,14 +3,16 @@ module Ocram.Test.Tests.Analysis.BlockingFunctions (
 ) where
 
 import Ocram.Test.Lib (parse)
+import Ocram.Filter (checkSanity)
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 import Ocram.Analysis (determineBlockingFunctions)
 
 import Data.Map (keys)
 
 reduce code = do
-	ast <- parse code
-	bf <- determineBlockingFunctions ast
+	raw_ast <- parse code
+	sane_ast <- checkSanity raw_ast
+	bf <- determineBlockingFunctions sane_ast
 	return $ keys bf
 	
 tests = runTests "BlockingFunctions" reduce [

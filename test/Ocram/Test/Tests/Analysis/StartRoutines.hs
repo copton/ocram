@@ -3,13 +3,15 @@ module Ocram.Test.Tests.Analysis.StartRoutines (
 ) where 
 
 import Ocram.Analysis (getFunctions, findStartRoutines)
+import Ocram.Filter (checkSanity)
 import Ocram.Test.Lib (parse)
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 import Ocram.Symbols (symbol)
 
 reduce code = do
-	ast <- parse code
-	fm <- getFunctions ast
+	raw_ast <- parse code
+	sane_ast <- checkSanity raw_ast
+	fm <- getFunctions sane_ast
 	sr <- findStartRoutines fm
 	return $ (map symbol) sr
 

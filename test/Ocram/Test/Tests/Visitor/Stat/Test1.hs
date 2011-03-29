@@ -2,6 +2,7 @@ module Ocram.Test.Tests.Visitor.Stat.Test1 (
 	test
 ) where
 
+import Ocram.Types (getAst, RawAst, Ast)
 import Ocram.Visitor.DefaultStates (emptyDownState, EmptyDownState)
 import Ocram.Visitor.Visitor (UpVisitor, mapCStat)
 import Ocram.Visitor.Traverse (traverseCTranslUnit)
@@ -36,10 +37,10 @@ output2 = [
 		"}"
 	]
 
-transform :: CTranslUnit -> CTranslUnit
-transform ctu = fromJust $ fst result
+transform :: RawAst -> CTranslUnit
+transform raw_ast = fromJust $ fst result
 	where
 		result :: (Maybe CTranslUnit, UpState)
-		result = traverseCTranslUnit ctu emptyDownState
+		result = traverseCTranslUnit (getAst raw_ast) emptyDownState
 
 test = [(input1, transform, output1), (input2, transform, output2)]

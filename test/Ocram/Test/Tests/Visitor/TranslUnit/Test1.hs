@@ -2,6 +2,8 @@ module Ocram.Test.Tests.Visitor.TranslUnit.Test1 (
 	test
 ) where
 
+import Ocram.Types (getAst, RawAst, Ast)
+
 input = [
 	"void foo() { }",
 	"void bar() { }"]
@@ -15,6 +17,7 @@ output = [
 		"}"
 	]
 
-translate = id
+transform :: RawAst -> Ast
+transform raw_ast = getAst raw_ast
 
-test = [(input, translate, output)]
+test = [(input, transform, output)]
