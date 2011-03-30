@@ -3,15 +3,15 @@ module Ocram.Analysis.CriticalFunctions (
 ) where
 
 import Ocram.Analysis.Types (CriticalFunctions, FunctionMap, BlockingFunctions, Signature(Signature), CallGraph, Entry(Entry))
-import Ocram.Types (Result)
+import Ocram.Types (Result, CyclefreeAst)
 import Ocram.Symbols (symbol, Symbol)
 import Language.C.Syntax.AST 
 import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-determineCriticalFunctions :: CallGraph -> FunctionMap -> BlockingFunctions -> Result CriticalFunctions
-determineCriticalFunctions cg fm bfs = return $ 
+determineCriticalFunctions :: CyclefreeAst -> CallGraph -> FunctionMap -> BlockingFunctions -> Result CriticalFunctions
+determineCriticalFunctions ciclefree_ast cg fm bfs = seq ciclefree_ast $ return $ 
 	foldl (travBlocking (fm, cg)) Map.empty (Map.assocs bfs)
 
 travEntry (fm, cg) cfs (Entry callers _) = foldl (travCaller (fm, cg)) cfs (Set.elems callers)

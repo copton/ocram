@@ -42,7 +42,8 @@ reduce code = do
 	fm <- getFunctions sane_ast
 	bf <- determineBlockingFunctions sane_ast
 	cg <- determineCallGraph sane_ast fm bf
-	cf <- determineCriticalFunctions cg fm bf	
+	cf_ast <- checkRecursion sane_ast
+	cf <- determineCriticalFunctions cf_ast cg fm bf	
 	return $ L.(map procFunction).toList $ cf
 
 tests = runTests "CriticalFunctions" reduce [
