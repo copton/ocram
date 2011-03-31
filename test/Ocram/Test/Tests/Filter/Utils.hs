@@ -2,16 +2,16 @@ module Ocram.Test.Tests.Filter.Utils (
 	runTests
 ) where
 
-import Ocram.Types (AST)
-import Ocram.Test.Lib (getAst)
+import Ocram.Types (RawAst)
+import Ocram.Test.Lib (parse')
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 import Data.List (sort)
 
-runTest :: (AST -> [Int]) -> (Int, (String, [Int])) -> Test
+runTest :: (RawAst -> [Int]) -> (Int, (String, [Int])) -> Test
 runTest reduce (number, (code, expected)) = TestCase $ assertEqual name (sort expected) (sort errors) 
 	where
 		name = "test" ++ show number
-		errors = reduce $ getAst code
+		errors = reduce $ parse' code
 
-runTests :: String -> (AST -> [Int]) -> [(String, [Int])] -> Test
+runTests :: String -> (RawAst -> [Int]) -> [(String, [Int])] -> Test
 runTests label reduce tests = TestLabel label $ TestList $ map (runTest reduce) $ zip [1..] tests

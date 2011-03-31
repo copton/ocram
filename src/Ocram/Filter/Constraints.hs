@@ -3,26 +3,29 @@ module Ocram.Filter.Constraints (
 ) where
 
 import Ocram.Filter.Util (Error, pass, append, Filter(Filter), performCheck, performFilter)
-import Ocram.Types (AST)
+import Ocram.Types (Result, Ast, getAst, CyclefreeAst, ValidAst(ValidAst))
 import Ocram.Analysis.Types (CriticalFunctions)
 import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 import Data.Map (member)
 
+checkConstraints :: CriticalFunctions -> CyclefreeAst -> Result ValidAst
+checkConstraints cf cyclefree_ast = fmap ValidAst $ performFilter (descriptor cf) $ getAst cyclefree_ast
+
+getErrorCodes :: CriticalFunctions -> CyclefreeAst -> [Int]
+getErrorCodes cf cyclefree_ast = performCheck (descriptor cf) $ getAst cyclefree_ast
+
 errorCodes :: Int -> String
 errorCodes 1 = "taking pointer from critical function"
 errorCodes x = error $ "unknown error code: " ++ show x
 
-checker :: CriticalFunctions -> AST -> [Error]
+checker :: CriticalFunctions -> Ast -> [Error]
 checker cf ast = checkFunctionPointer cf ast
 
 descriptor cf = Filter "constraint" (checker cf) errorCodes
 
-checkConstraints cf = performFilter (descriptor cf)
-getErrorCodes cf = performCheck (descriptor cf)
-
-checkFunctionPointer :: CriticalFunctions -> AST -> [Error]
+checkFunctionPointer :: CriticalFunctions -> Ast -> [Error]
 checkFunctionPointer cf ast = snd $ traverseCTranslUnit ast cf
 
 type DownState = CriticalFunctions

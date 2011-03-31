@@ -3,12 +3,16 @@ module Ocram.Filter.Sanity (
 ) where
 
 import Ocram.Filter.Util (Error, pass, append, Filter(Filter), performFilter, performCheck)
-import Ocram.Types (AST)
+import Ocram.Types (Result, Ast, RawAst, SaneAst(SaneAst), getAst)
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit)
 import Language.C.Syntax.AST 
 import Data.Monoid (mconcat)
 
-checker :: AST -> [Error]
+checkSanity :: RawAst -> Result SaneAst
+checkSanity raw_ast = fmap SaneAst $ performFilter descriptor $ getAst raw_ast
+getErrorCodes raw_ast = performCheck descriptor $ getAst raw_ast
+
+checker :: Ast -> [Error]
 checker ast = snd $ traverseCTranslUnit ast emptyDownState
 
 errorCodes :: Int -> String
@@ -17,8 +21,6 @@ errorCodes x = error $ "unknown error code " ++ show x
 
 descriptor = Filter "sanity" checker errorCodes
 
-checkSanity = performFilter descriptor
-getErrorCodes = performCheck descriptor
 
 type UpState = [Error]
 

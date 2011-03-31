@@ -3,6 +3,7 @@ module Ocram.Test.Tests.Analysis.CriticalFunctions (
 ) where
 
 import Ocram.Test.Tests.Analysis.Utils (runTests)
+import Ocram.Filter (checkSanity, checkRecursion)
 import Ocram.Test.Lib (parse)
 import Ocram.Analysis (getFunctions, determineBlockingFunctions, determineCallGraph, determineCriticalFunctions)
 import Ocram.Analysis.Types (Signature(Signature))
@@ -36,11 +37,13 @@ procFunction :: (Symbol, Signature) -> F
 procFunction (symbol, (Signature r ps)) = F symbol (procTypeSpec r) (map procParam ps)
 
 reduce code = do
-	ast <- parse code
-	fm <- getFunctions ast
-	bf <- determineBlockingFunctions ast
-	cg <- determineCallGraph ast fm bf
-	cf <- determineCriticalFunctions cg fm bf	
+	raw_ast <- parse code
+	sane_ast <- checkSanity raw_ast
+	fm <- getFunctions sane_ast
+	bf <- determineBlockingFunctions sane_ast
+	cg <- determineCallGraph sane_ast fm bf
+	cf_ast <- checkRecursion sane_ast
+	cf <- determineCriticalFunctions cf_ast cg fm bf	
 	return $ L.(map procFunction).toList $ cf
 
 tests = runTests "CriticalFunctions" reduce [

@@ -2,6 +2,7 @@ module Ocram.Test.Tests.Visitor.TranslUnit.Test2 (
 	test
 ) where
 
+import Ocram.Types (RawAst, Ast, getAst)
 import Ocram.Visitor.Visitor (DownVisitor, UpVisitor, upCFunDef, upCDecl, mapCTranslUnit)
 import Ocram.Visitor.Traverse (traverseCTranslUnit)
 import Ocram.Symbols (symbol, Symbol)
@@ -35,10 +36,10 @@ output = [
 		"}"
 	]
 
-transform :: CTranslUnit -> CTranslUnit
-transform ctu = fromJust $ fst result
+transform :: RawAst -> Ast
+transform raw_ast = fromJust $ fst result
 	where 
 		result :: (Maybe CTranslUnit, UpState)
-		result = traverseCTranslUnit ctu $ symbol "bar"
+		result = traverseCTranslUnit (getAst raw_ast) $ symbol "bar"
 
 test = [(input, transform, output)]

@@ -1,11 +1,11 @@
 module Ocram.Main (main) where
 
 import Control.Monad.Error
-import Ocram.Types (Result, AST)
+import Ocram.Types (Result, RawAst, OutputAst)
 import Ocram.Options (getOptions, Options)
 import Ocram.Parser (parse)
 import Ocram.Analysis (determineBlockingFunctions, getFunctions, findStartRoutines, determineCallGraph, determineCriticalFunctions)
-import Ocram.Filter (checkSanity, checkConstraints)
+import Ocram.Filter (checkSanity, checkConstraints, checkRecursion)
 import Ocram.Transformation (tc2ec)
 import Ocram.Output (writeAst)
 
@@ -20,16 +20,17 @@ process = runErrorT $ do
 	result <- ErrorT $ writeAst options output_ast
 	return result
 
-process' :: Options -> AST -> Result AST
+process' :: Options -> RawAst -> Result OutputAst
 process' options raw_ast = do
-	input_ast <- checkSanity raw_ast
-	blocking_functions <- determineBlockingFunctions input_ast
-	function_map <- getFunctions input_ast
+	sane_ast <- checkSanity raw_ast
+	blocking_functions <- determineBlockingFunctions sane_ast
+	function_map <- getFunctions sane_ast
 	start_routines <- findStartRoutines function_map
-	call_graph <- determineCallGraph input_ast function_map blocking_functions
-	critical_functions <- determineCriticalFunctions call_graph function_map blocking_functions
-	input_ast' <- checkConstraints critical_functions input_ast
-	output_ast <- tc2ec input_ast'
+	call_graph <- determineCallGraph sane_ast function_map blocking_functions
+	cyclefree_ast <- checkRecursion sane_ast
+	critical_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
+	valid_ast <- checkConstraints critical_functions cyclefree_ast
+	output_ast <- tc2ec valid_ast
 	return output_ast
 
 main :: IO ()
