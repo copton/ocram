@@ -5,7 +5,7 @@ module Ocram.Test.Tests.Analysis.CriticalFunctions (
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 import Ocram.Filter (checkSanity, checkRecursion)
 import Ocram.Test.Lib (parse)
-import Ocram.Analysis (getFunctions, determineBlockingFunctions, determineCallGraph, determineCriticalFunctions)
+import Ocram.Analysis (getFunctions, determineBlockingFunctions, determineCallGraph, determineCriticalFunctions, findStartRoutines)
 import Ocram.Analysis.Types (Signature(Signature))
 import Data.Map (toList)
 import Data.List (sort)
@@ -40,9 +40,10 @@ reduce code = do
 	raw_ast <- parse code
 	sane_ast <- checkSanity raw_ast
 	fm <- getFunctions sane_ast
+	sr <- findStartRoutines fm
 	bf <- determineBlockingFunctions sane_ast
 	cg <- determineCallGraph sane_ast fm bf
-	cf_ast <- checkRecursion sane_ast
+	cf_ast <- checkRecursion sane_ast cg sr fm
 	cf <- determineCriticalFunctions cf_ast cg fm bf	
 	return $ L.(map procFunction).toList $ cf
 
