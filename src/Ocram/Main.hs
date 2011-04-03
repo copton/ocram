@@ -27,7 +27,7 @@ process' options raw_ast = do
 	function_map <- getFunctions sane_ast
 	start_routines <- findStartRoutines function_map
 	call_graph <- determineCallGraph sane_ast function_map blocking_functions
-	cyclefree_ast <- checkRecursion sane_ast
+	cyclefree_ast <- checkRecursion sane_ast call_graph start_routines function_map
 	critical_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
 	valid_ast <- checkConstraints critical_functions cyclefree_ast
 	output_ast <- tc2ec valid_ast
