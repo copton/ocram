@@ -5,4 +5,4 @@ import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit), CTranslUnit)
 import Language.C.Data.Node (undefNode)
 
 tc2ec :: ValidAst -> Result OutputAst
-tc2ec _ = return $ OutputAst $ CTranslUnit [] undefNode
+tc2ec valid_ast = return $ OutputAst $ getAst valid_ast
