@@ -6,7 +6,7 @@ import Ocram.Visitor (DownVisitor, UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol, Symbol)
 import Prelude hiding (lookup)
 import Data.Map (member, keys, (!), lookup)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, catMaybes)
 import Data.Monoid (mconcat)
 import Language.C.Syntax.AST
 import Language.C.Data.Node (undefNode)
@@ -55,10 +55,8 @@ createHandlerFunction (CTranslUnit decls ni) cf fm = (CTranslUnit (handlerFun : 
 							[] undefNode]
 					 Nothing [] undefNode)
 				[] (CCompound [] bodies undefNode) undefNode))
-		bodies = concatMap process (keys cf)
-		process k = case lookup k fm of
-			(Just fd) -> extractBody fd 
-			Nothing -> []
-		extractBody (CFunDef _ _ _ (CCompound _ body _) _) = body
+		bodies = concatMap (label . extractBody) $ catMaybes $ map (`lookup`fm) $ keys cf
+		extractBody fd@(CFunDef _ _ _ (CCompound _ body _) _) = (symbol fd, body)
+		label (name, body) = (CBlockStmt (CLabel (Ident ("ec_" ++ name) 0 undefNode) (CExpr Nothing undefNode) [] undefNode)) : body
 
 ident s = Ident s 0 undefNode
