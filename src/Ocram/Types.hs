@@ -27,6 +27,10 @@ newtype ValidAst = ValidAst Ast
 instance AstC ValidAst where
 	getAst (ValidAst ast) = ast
 
+newtype StacklessAst = StacklessAst Ast
+instance AstC StacklessAst where
+	getAst (StacklessAst ast) = ast
+
 newtype OutputAst = OutputAst Ast
 instance AstC OutputAst where
 	getAst (OutputAst ast) = ast
