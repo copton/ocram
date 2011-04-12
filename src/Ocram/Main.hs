@@ -30,8 +30,8 @@ process' options raw_ast = do
 	cyclefree_ast <- checkRecursion sane_ast call_graph start_routines function_map
 	critical_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
 	valid_ast <- checkConstraints critical_functions cyclefree_ast
-	stackless_ast <- transformDataFlow valid_ast critical_functions function_map
-	output_ast <- transformControlFlow stackless_ast critical_functions function_map
+	(function_infos, stackless_ast) <- transformDataFlow valid_ast critical_functions function_map
+	output_ast <- transformControlFlow stackless_ast function_infos critical_functions function_map
 	return output_ast
 
 main :: IO ()
