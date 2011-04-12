@@ -1,11 +1,11 @@
-module Ocram.Transformation.CriticalFunctions (transformCriticalFunctions) where
+module Ocram.Transformation.ControlFlow (transformControlFlow) where
 
 import Ocram.Types (Result, ValidAst(ValidAst), getAst, Ast)
 import Ocram.Analysis (CriticalFunctions, FunctionMap)
 import Ocram.Visitor (DownVisitor, UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol, Symbol)
 import Prelude hiding (lookup)
-import Data.Map (member, keys, (!), lookup)
+import Data.Map (member, keys, lookup)
 import Data.Maybe (fromJust, catMaybes)
 import Data.Monoid (mconcat)
 import Language.C.Syntax.AST
