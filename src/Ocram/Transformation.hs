@@ -1,3 +1,7 @@
-module Ocram.Transformation (tc2ec) where
+module Ocram.Transformation (
+	  module Ocram.Transformation.ControlFlow
+	, module Ocram.Transformation.DataFlow
+) where
 
-import Ocram.Transformation.Tc2ec (tc2ec)
+import Ocram.Transformation.ControlFlow
+import Ocram.Transformation.DataFlow

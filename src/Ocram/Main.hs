@@ -6,7 +6,7 @@ import Ocram.Options (getOptions, Options)
 import Ocram.Parser (parse)
 import Ocram.Analysis (determineBlockingFunctions, getFunctions, findStartRoutines, determineCallGraph, determineCriticalFunctions)
 import Ocram.Filter (checkSanity, checkConstraints, checkRecursion)
-import Ocram.Transformation (tc2ec)
+import Ocram.Transformation (transformControlFlow, transformDataFlow)
 import Ocram.Output (writeAst)
 
 import System.Exit (exitWith, ExitCode(ExitFailure))
@@ -30,7 +30,8 @@ process' options raw_ast = do
 	cyclefree_ast <- checkRecursion sane_ast call_graph start_routines function_map
 	critical_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
 	valid_ast <- checkConstraints critical_functions cyclefree_ast
-	output_ast <- tc2ec valid_ast
+	stackless_ast <- transformDataFlow valid_ast critical_functions function_map
+	output_ast <- transformControlFlow stackless_ast critical_functions function_map
 	return output_ast
 
 main :: IO ()

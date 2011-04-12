@@ -2,9 +2,10 @@ module Ocram.Test.Tests (
 	tests
 ) where
 
-import qualified Ocram.Test.Tests.Analysis as A
-import qualified Ocram.Test.Tests.Visitor as B
-import qualified Ocram.Test.Tests.Filter as C
+import qualified Ocram.Test.Tests.Symbol as A
+import qualified Ocram.Test.Tests.Analysis as B
+import qualified Ocram.Test.Tests.Visitor as C
+import qualified Ocram.Test.Tests.Filter as D
 import Test.HUnit
 
-tests = TestList [A.tests, B.tests, C.tests]
+tests = TestList [A.tests, B.tests, C.tests, D.tests]

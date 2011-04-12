@@ -30,9 +30,7 @@ recurse downHandler upHandler outerObject create traverse innerObjects downState
   let downState' = downHandler outerObject downState in
 	case traverse innerObjects downState' of
 		(Nothing, upStates) -> 
-			case upHandler outerObject downState' upStates of
-				(Nothing, upState) -> (Nothing, upState)
-				res -> res
+			upHandler outerObject downState' upStates
 		(Just innerObjects', upStates) ->
 			let outerObject' = create outerObject innerObjects' in
 			case upHandler outerObject' downState' upStates of
