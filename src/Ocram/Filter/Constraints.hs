@@ -8,7 +8,7 @@ import Ocram.Analysis.Types (CriticalFunctions)
 import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
-import Data.Map (member)
+import Data.Set (member)
 import Data.Monoid (mconcat)
 
 checkConstraints :: CriticalFunctions -> CyclefreeAst -> Result ValidAst

@@ -8,7 +8,8 @@ import Ocram.Analysis (CriticalFunctions, FunctionMap)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (undefNode)
 import Prelude hiding (lookup)
-import Data.Map (keys, lookup)
+import Data.Map (lookup)
+import Data.Set (elems)
 import Data.Maybe (catMaybes)
 
 import Language.C.Syntax.AST
@@ -30,7 +31,7 @@ handlerFun fm cf = (CFDefExt
 			 Nothing [] undefNode)
 		[] (CCompound [] (bodies fm cf) undefNode) undefNode))
 
-bodies fm cf = concatMap (label . extractBody) $ catMaybes $ map (`lookup`fm) $ keys cf
+bodies fm cf = concatMap (label . extractBody) $ catMaybes $ map (`lookup`fm) $ elems cf
 
 extractBody fd@(CFunDef _ _ _ (CCompound _ body _) _) = (symbol fd, body)
 

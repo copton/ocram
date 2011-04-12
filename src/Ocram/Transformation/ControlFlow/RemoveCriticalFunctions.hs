@@ -9,7 +9,7 @@ import Ocram.Visitor (DownVisitor, UpVisitor(..), traverseCTranslUnit)
 import Language.C.Syntax.AST (CExtDecl, CExternalDeclaration(CDeclExt, CFDefExt), CTranslUnit, CTranslationUnit(CTranslUnit))
 import Data.Monoid (mconcat)
 import Ocram.Symbols (symbol)
-import Data.Map (member)
+import Data.Set (member)
 
 removeCriticalFunctions :: CriticalFunctions -> Ast -> Ast
 removeCriticalFunctions cf ast = fromJust $ fst $ (traverseCTranslUnit ast (DownState cf) :: (Maybe CTranslUnit, UpState))
