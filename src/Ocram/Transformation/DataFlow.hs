@@ -2,7 +2,7 @@ module Ocram.Transformation.DataFlow (
 	transformDataFlow
 ) where
 
-import Ocram.Types (ValidAst, Result, StacklessAst)
+import Ocram.Types (ValidAst, Result, StacklessAst(StacklessAst), getAst)
 import Ocram.Analysis (CriticalFunctions, FunctionMap)
 import Ocram.Transformation.Types (FunctionInfos, TStackFrame)
 import Ocram.Symbols (Symbol)
@@ -19,7 +19,12 @@ import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 
 transformDataFlow :: ValidAst -> CriticalFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
-transformDataFlow valid_ast cf fm = undefined
+transformDataFlow valid_ast cf fm = return (fis, StacklessAst $ stackless_ast ast)
+	where
+		ast = getAst valid_ast
+		stackless_ast (CTranslUnit decls ni) = CTranslUnit (decls ++ frames) ni
+		frames = createTStackFrames fis
+		fis = retrieveFunctionInfos fm cf
 
 -- retrieveFunctionInfos
 retrieveFunctionInfos :: FunctionMap -> CriticalFunctions -> FunctionInfos
@@ -46,10 +51,11 @@ instance UpVisitor EmptyDownState UpState where
 		where
 			(decls, items') = partition isCBlockDecl items
 			upState = map (\(CBlockDecl d) -> d) decls ++ mconcat us
+
 	mapCStat _ _ us = (Nothing, mconcat us)
 		 
 isCBlockDecl (CBlockDecl _) = True
-isCBlockDecl _ = True
+isCBlockDecl _ = False
 
 extractBody :: CFunDef -> [CBlockItem]
 extractBody (CFunDef _ _ _ (CCompound _ items _) _) = items
