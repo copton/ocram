@@ -82,10 +82,10 @@ extractTypeSpec (_:xs) = extractTypeSpec xs
 createTStackFrames :: FunctionInfos -> [TStackFrame]
 createTStackFrames fi = map createTStackFrame $ Map.elems fi
 
-(<:) :: Maybe a -> [a] -> [a]
-(Just x) <: xs = x : xs
-Nothing <:  xs = xs
-infixr 5 <:
+(?:) :: Maybe a -> [a] -> [a]
+(Just x) ?: xs = x : xs
+Nothing ?:  xs = xs
+infixr 5 ?:
  
 createTStackFrame :: FunctionInfo -> TStackFrame
 createTStackFrame (FunctionInfo name resultType frame _) = 
@@ -99,7 +99,7 @@ createTStackFrame (FunctionInfo name resultType frame _) =
                     (CDecl [CTypeSpec (CTypeDef (ident "ec_continuation_t") undefNode)]
                        [(Just (CDeclr (Just (ident "ec_cont")) [] Nothing [] undefNode), Nothing,
                          Nothing)]
-                       undefNode) : result <: frame))
+                       undefNode) : result ?: frame))
                  [] undefNode)
               undefNode)]
 

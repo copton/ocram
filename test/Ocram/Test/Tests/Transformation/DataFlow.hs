@@ -11,20 +11,25 @@ import Ocram.Transformation (transformDataFlow)
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
 import Language.C.Pretty (pretty)
+import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
 
 tests = runTests [
 	([
 		"__attribute__((tc_blocking)) void foo();",
-		"int bar(char param)", "{",
+
+		"int bar(char param) {",
 		"    foo();", 
 		"}"
 		],[
 		"typedef struct {",
-		"            ec_continuation_t ec_cont; int ec_result; char param;",
-		"        } frame_bar_t;",
+		"    ec_continuation_t ec_cont;",
+		"    int ec_result;",
+		"    char param;",
+		"} frame_bar_t;",
+
 		"typedef struct {",
-		"            ec_continuation_t ec_cont;",
-		"        } frame_foo_t;"
+		"    ec_continuation_t ec_cont;",
+		"} frame_foo_t;"
 	])
 	]
 
@@ -35,12 +40,14 @@ runTest :: (Int, ([String], [String])) -> Test
 runTest (number, (code, expected)) = TestCase $ assertEqual name expected' result
 	where
 		code' = unlines code
-		expected' = unlines $ code ++ expected
+		expected' = show $ pretty $ strip $ getAst $ parse' $ unlines $ bootstrap : code ++ expected
 		name = "test" ++ show number
-		result = (show $ pretty $ getAst ast) ++ "\n"
+		result = show $ pretty $ getAst ast
 		ast = case getStacklessAst code' of
 			Left e -> error e
 			Right x -> x
+		bootstrap = "typedef struct { } ec_continuation_t;"
+		strip(CTranslUnit (_:decls) ni) = CTranslUnit decls ni
 
 getStacklessAst code = do
 	let raw_ast = parse' code
