@@ -6,7 +6,7 @@ import Ocram.Test.Lib (parse')
 import Ocram.Types (getAst)
 import Ocram.Analysis (determineBlockingFunctions, getFunctions, findStartRoutines, determineCallGraph, determineCriticalFunctions)
 import Ocram.Filter (checkSanity, checkConstraints, checkRecursion)
-import Ocram.Transformation (transformDataFlow)
+import Ocram.Transformation (transformDataFlow, removeAttributes)
 
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
@@ -17,11 +17,18 @@ tests = runTests [
 	([
 		"__attribute__((tc_blocking)) void foo();",
 
-		"int bar(char param) {",
+		"__attribute__((tc_run_thread)) int bar(char param) {",
 		"    int i;",
 		"    foo();", 
 		"}"
 		],[
+		"void foo();",
+
+		"int bar(char param) {",
+		"    int i;",
+		"    foo();", 
+		"}",
+
 		"typedef struct {",
 		"    ec_continuation_t ec_cont;",
 		"} ec_frame_foo_t;",
@@ -45,7 +52,7 @@ runTest :: (Int, ([String], [String])) -> Test
 runTest (number, (code, expected)) = TestCase $ assertEqual name expected' result
 	where
 		code' = unlines code
-		expected' = show $ pretty $ strip $ getAst $ parse' $ unlines $ bootstrap : code ++ expected
+		expected' = show $ pretty $ strip $ getAst $ parse' $ unlines $ bootstrap : expected
 		name = "test" ++ show number
 		result = show $ pretty $ getAst ast
 		ast = case getStacklessAst code' of
@@ -65,6 +72,7 @@ getStacklessAst code = do
 	cricitcal_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
 	critical_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
 	valid_ast <- checkConstraints critical_functions cyclefree_ast
-	(function_infos, stackless_ast) <- transformDataFlow valid_ast call_graph critical_functions blocking_functions function_map
+	revised_ast <- removeAttributes valid_ast blocking_functions start_routines
+	(function_infos, stackless_ast) <- transformDataFlow revised_ast call_graph critical_functions blocking_functions function_map
 	return stackless_ast
 			

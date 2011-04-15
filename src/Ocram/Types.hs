@@ -45,6 +45,10 @@ newtype ValidAst = ValidAst Ast
 instance AstC ValidAst where
 	getAst (ValidAst ast) = ast
 
+newtype RevisedAst = RevisedAst Ast
+instance AstC RevisedAst where
+	getAst (RevisedAst ast) = ast
+
 newtype StacklessAst = StacklessAst Ast
 instance AstC StacklessAst where
 	getAst (StacklessAst ast) = ast

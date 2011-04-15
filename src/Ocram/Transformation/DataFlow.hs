@@ -14,10 +14,10 @@ import Data.List (partition)
 import Data.Maybe (fromJust)
 import Language.C.Syntax.AST
 
-transformDataFlow :: ValidAst -> CallGraph -> CriticalFunctions -> BlockingFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
-transformDataFlow valid_ast cg cf bf fm = return (fi, StacklessAst $ stackless_ast ast)
+transformDataFlow :: RevisedAst -> CallGraph -> CriticalFunctions -> BlockingFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
+transformDataFlow revised_ast cg cf bf fm = return (fi, StacklessAst $ stackless_ast ast)
 	where
-		ast = getAst valid_ast
+		ast = getAst revised_ast
 		stackless_ast (CTranslUnit decls ni) = CTranslUnit (decls ++ frames) ni
 		frames = createTStackFrames bf cg fi
 		fi = retrieveFunctionInfos cf bf fm
