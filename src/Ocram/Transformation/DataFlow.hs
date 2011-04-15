@@ -2,6 +2,8 @@ module Ocram.Transformation.DataFlow (
 	transformDataFlow
 ) where
 
+import Ocram.Transformation.Names (contType, contVar, resVar, frameType, frameUnion, frameVar)
+import Ocram.Transformation.Util (un, ident)
 import Ocram.Types 
 import Ocram.Util ((?:))
 import Data.Monoid (Monoid, mappend, mempty, mconcat)
@@ -10,8 +12,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.List (partition)
 import Data.Maybe (fromJust)
-import Language.C.Data.Node (undefNode)
-import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 
 transformDataFlow :: ValidAst -> CallGraph -> CriticalFunctions -> BlockingFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
@@ -88,24 +88,24 @@ createTStackFrame :: CallGraph -> FunctionInfo -> TStackFrame
 createTStackFrame cg fi@(FunctionInfo name resultType frame _) = 
    CDeclExt
      (CDecl
-        [CStorageSpec (CTypedef undefNode),
+        [CStorageSpec (CTypedef un),
          CTypeSpec
            (CSUType
               (CStruct CStructTag Nothing
                  (Just (
-                    (CDecl [CTypeSpec (CTypeDef (ident "ec_continuation_t") undefNode)]
-                       [(Just (CDeclr (Just (ident "ec_cont")) [] Nothing [] undefNode), Nothing,
+                    (CDecl [CTypeSpec (CTypeDef (ident contType) un)]
+                       [(Just (CDeclr (Just (ident contVar)) [] Nothing [] un), Nothing,
                          Nothing)]
-                       undefNode) : result ?: nestedFrames ?: frame))
-                 [] undefNode)
-              undefNode)]
+                       un) : result ?: nestedFrames ?: frame))
+                 [] un)
+              un)]
 
-        [(Just (CDeclr (Just (frameIdent name)) [] Nothing [] undefNode), Nothing, Nothing)]
-        undefNode)
+        [(Just (CDeclr (Just (ident (frameType name))) [] Nothing [] un), Nothing, Nothing)]
+        un)
 	where
 		result = case resultType of
 			(CVoidType _) -> Nothing
-			_ -> Just $ CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident "ec_result")) [] Nothing [] undefNode), Nothing, Nothing)] undefNode
+			_ -> Just $ CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident resVar)) [] Nothing [] un), Nothing, Nothing)] un
 		nestedFrames = createNestedFramesUnion cg fi
                        
 createNestedFramesUnion :: CallGraph -> FunctionInfo -> Maybe CDecl
@@ -113,10 +113,6 @@ createNestedFramesUnion cg fi = result
 	where
 		result = if null entries then Nothing else Just createDecl
 		entries = map createEntry $ Set.elems $ cgCallees $ (Map.!) cg $ getFunctionName fi
-		createEntry sym = CDecl [CTypeSpec (CTypeDef (frameIdent sym) undefNode)]
-											[(Just (CDeclr (Just (ident sym)) [] Nothing [] undefNode), Nothing, Nothing)] undefNode 
-		createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] undefNode) undefNode)] [(Just (CDeclr (Just (ident "ec_frames")) [] Nothing [] undefNode), Nothing, Nothing)] undefNode
-
-ident s = Ident s 0 undefNode
-frameIdent funcName = ident $ frameName funcName
-frameName funcName = "ec_frame_" ++ funcName ++ "_t"
+		createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
+											[(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
+		createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un

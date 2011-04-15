@@ -5,6 +5,7 @@ module Ocram.Transformation.ControlFlow (
 import Ocram.Types (FunctionInfos, Ast, Result, StacklessAst, OutputAst(OutputAst), getAst, CriticalFunctions, FunctionMap)
 import Ocram.Visitor (DownVisitor, UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol)
+import Ocram.Transformation.Names (label, handlerFunction, contType, contVar)
 
 import Data.Set (elems)
 import Data.Maybe (fromJust)
@@ -28,11 +29,11 @@ addHandlerFunction cf fm (CTranslUnit decls ni) = (CTranslUnit (handlerFun fm cf
 	
 handlerFun fm cf = (CFDefExt
 	(CFunDef [CTypeSpec (CVoidType undefNode)]
-		(CDeclr (Just (ident "ec_events"))
+		(CDeclr (Just (ident handlerFunction))
 			[CFunDeclr
 					(Right
-						 ([CDecl [CTypeSpec (CTypeDef (ident "ec_continuation_t") undefNode)]
-								 [(Just (CDeclr (Just (ident "ec_cont")) 
+						 ([CDecl [CTypeSpec (CTypeDef (ident contType) undefNode)]
+								 [(Just (CDeclr (Just (ident contVar)) 
 										[CPtrDeclr [] undefNode] Nothing [] undefNode), Nothing, Nothing)]
 								 undefNode],
 							False))
@@ -40,12 +41,12 @@ handlerFun fm cf = (CFDefExt
 			 Nothing [] undefNode)
 		[] (CCompound [] (bodies fm cf) undefNode) undefNode))
 
-bodies fm cf = concatMap (label . extractBody) $ catMaybes $ map (`lookup`fm) $ elems cf
+bodies fm cf = concatMap (createLabel . extractBody) $ catMaybes $ map (`lookup`fm) $ elems cf
 
 extractBody fd@(CFunDef _ _ _ (CCompound _ body _) _) = (symbol fd, body)
 
-label (name, body) = 
-	(CBlockStmt (CLabel (Ident ("ec_" ++ name) 0 undefNode) (CExpr Nothing undefNode) [] undefNode)) : body
+createLabel (name, body) = 
+	(CBlockStmt (CLabel (Ident (label name 0) 0 undefNode) (CExpr Nothing undefNode) [] undefNode)) : body
 
 ident s = Ident s 0 undefNode
 

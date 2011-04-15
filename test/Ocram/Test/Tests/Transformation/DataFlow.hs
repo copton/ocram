@@ -18,6 +18,7 @@ tests = runTests [
 		"__attribute__((tc_blocking)) void foo();",
 
 		"int bar(char param) {",
+		"    int i;",
 		"    foo();", 
 		"}"
 		],[
@@ -32,6 +33,7 @@ tests = runTests [
 		"        ec_frame_foo_t foo;",
     "    } ec_frames;",
 		"    char param;",
+    "    int i;",
 		"} ec_frame_bar_t;"
 	])
 	]
