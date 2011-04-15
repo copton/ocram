@@ -5,7 +5,7 @@ module Ocram.Transformation.ControlFlow (
 import Ocram.Types (FunctionInfos, Ast, Result, StacklessAst, OutputAst(OutputAst), getAst, CriticalFunctions, FunctionMap)
 import Ocram.Visitor (DownVisitor, UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol)
-import Ocram.Transformation.Names (label, handlerFunction, contType, contVar)
+import Ocram.Names (label, handlerFunction, contType, contVar)
 
 import Data.Set (elems)
 import Data.Maybe (fromJust)

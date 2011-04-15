@@ -1,4 +1,7 @@
-module Ocram.Transformation.Names where
+module Ocram.Names where
+
+blockingAttr = "tc_blocking"
+startRoutineAttr = "tc_run_thread"
 
 contType = "ec_continuation_t"
 contVar = "ec_cont"

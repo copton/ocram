@@ -2,7 +2,7 @@ module Ocram.Transformation.DataFlow (
 	transformDataFlow
 ) where
 
-import Ocram.Transformation.Names (contType, contVar, resVar, frameType, frameUnion, frameVar)
+import Ocram.Names (contType, contVar, resVar, frameType, frameUnion, frameVar)
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types 
 import Ocram.Util ((?:))

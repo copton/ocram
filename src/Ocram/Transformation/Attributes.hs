@@ -10,6 +10,7 @@ import qualified Data.Map as Map
 
 import Language.C.Pretty (pretty)
 import Debug.Trace (trace)
+import Ocram.Names (blockingAttr, startRoutineAttr)
 
 removeAttributes :: ValidAst -> BlockingFunctions -> StartRoutines -> Result RevisedAst
 removeAttributes valid_ast bf sr = return $ RevisedAst $ process $ getAst valid_ast
@@ -18,11 +19,11 @@ removeAttributes valid_ast bf sr = return $ RevisedAst $ process $ getAst valid_
 
 revise :: BlockingFunctions -> StartRoutines -> CExtDecl -> CExtDecl
 revise bf sr cd@(CDeclExt (CDecl tts ds@[(Just (CDeclr (Just (Ident name _ _)) _ _ _ _), Nothing, Nothing)] ni))
-	| Map.member name bf = CDeclExt (CDecl (filter (not . isAttr "tc_blocking") tts) ds ni)
+	| Map.member name bf = CDeclExt (CDecl (filter (not . isAttr blockingAttr) tts) ds ni)
 	| otherwise = cd
 
 revise bf sr fd@(CFDefExt (CFunDef tts cd@(CDeclr (Just (Ident name _ _)) _ _ _ _) x y z))
-	| elem name sr = CFDefExt (CFunDef (filter (not . isAttr "tc_run_thread") tts) cd x y z)
+	| elem name sr = CFDefExt (CFunDef (filter (not . isAttr startRoutineAttr) tts) cd x y z)
 	| otherwise = fd
 
 isAttr name (CTypeQual (CAttrQual (CAttr (Ident name' _ _) _ _))) = name == name'

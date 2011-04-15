@@ -3,6 +3,7 @@ module Ocram.Analysis.BlockingFunctions (
 ) where
 
 import Ocram.Types (Result, getAst, SaneAst, BlockingFunctions)
+import Ocram.Names (blockingAttr)
 import qualified Data.Map as Map
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit)
 import Language.C.Syntax.AST
@@ -19,5 +20,5 @@ instance UpVisitor EmptyDownState BlockingFunctions where
 			Map.empty
 	upCExtDecl _ _ _ = Map.empty
 
-isBlockingAttribute (CTypeQual (CAttrQual (CAttr (Ident "tc_blocking" _ _) [] _))) = True
+isBlockingAttribute (CTypeQual (CAttrQual (CAttr (Ident blockingAttr _ _) [] _))) = True
 isBlockingAttribute _ = False
