@@ -15,22 +15,23 @@ import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
 
 tests = runTests [
 	([
-		"__attribute__((tc_blocking)) void foo();",
+		"__attribute__((tc_blocking)) void foo(int i);",
 
 		"__attribute__((tc_run_thread)) int bar(char param) {",
 		"    int i;",
-		"    foo();", 
+		"    foo(i);", 
 		"}"
 		],[
-		"void foo();",
+		"void foo(int i);",
 
 		"int bar(char param) {",
 		"    int i;",
-		"    foo();", 
+		"    foo(i);", 
 		"}",
 
 		"typedef struct {",
 		"    ec_continuation_t ec_cont;",
+		"    int i;",
 		"} ec_frame_foo_t;",
 
 		"typedef struct {",

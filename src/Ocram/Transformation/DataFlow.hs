@@ -3,16 +3,18 @@ module Ocram.Transformation.DataFlow (
 ) where
 
 import Ocram.Names (contType, contVar, resVar, frameType, frameUnion, frameVar)
-import Ocram.Transformation.Util (un, ident)
+import Ocram.Transformation.Util (un, ident, tStackAccess)
 import Ocram.Types 
+import Ocram.Symbols (symbol)
 import Ocram.Util ((?:))
 import Data.Monoid (Monoid, mappend, mempty, mconcat)
-import Ocram.Visitor (traverseCFunDef, emptyDownState, EmptyDownState, UpVisitor(mapCStat))
+import Ocram.Visitor (traverseCFunDef, UpVisitor(mapCStat, mapCExpr), DownVisitor(downCFunDef))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.List (partition)
 import Data.Maybe (fromJust)
 import Language.C.Syntax.AST
+import Language.C.Data.Ident (Ident(Ident))
 
 transformDataFlow :: RevisedAst -> CallGraph -> CriticalFunctions -> BlockingFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
 transformDataFlow revised_ast cg cf bf fm = return (fi, StacklessAst $ stackless_ast ast)
@@ -47,18 +49,27 @@ retrieveFunctionInfo symbol fd@(CFunDef tss (CDeclr _ [cfd] Nothing _ _) [] _ _)
 process :: CFunDef -> (Frame, [CBlockItem])
 process fd = (frame, body)
 	where
-		(maybeFd, frame) = traverseCFunDef fd emptyDownState
+		(maybeFd, frame) = traverseCFunDef fd ""
 		body = extractBody $ fromJust maybeFd
 
+type DownState = Symbol
+instance DownVisitor DownState where
+	downCFunDef fd _ = symbol fd
+	
 type UpState = Frame
 
-instance UpVisitor EmptyDownState UpState where
+instance UpVisitor DownState UpState where
 	mapCStat (CCompound idents items ni) _ us = (Just (CCompound idents items' ni), upState)
 		where
 			(decls, items') = partition isCBlockDecl items
 			upState = map (\(CBlockDecl d) -> d) decls ++ mconcat us
 
 	mapCStat _ _ us = (Nothing, mconcat us)
+
+	mapCExpr (CVar (Ident vName _ _)_ ) fName us = (Just (tStackAccess fName vName), mconcat us)
+
+	mapCExpr _ _ us = (Nothing, mconcat us)
+
 		 
 isCBlockDecl (CBlockDecl _) = True
 isCBlockDecl _ = False

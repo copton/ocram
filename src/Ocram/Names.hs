@@ -4,6 +4,8 @@ blockingAttr = "tc_blocking"
 startRoutineAttr = "tc_run_thread"
 
 contType = "ec_continuation_t"
+contFrameVar = "frame"
+contLabelVar = "label"
 contVar = "ec_cont"
 resVar = "ec_result"
 label fName count = "ec_label_" ++ fName ++ "_" ++ (show count)
