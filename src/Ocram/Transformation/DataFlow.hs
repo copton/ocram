@@ -81,11 +81,11 @@ createTStackFrames bf cg fi = concatMap (topologicSort cg fi) $ Map.keys bf
 topologicSort :: CallGraph -> FunctionInfos -> Symbol -> [TStackFrame]
 topologicSort cg fi sym = myFrame : otherFrames
 	where
-		myFrame = createTStackFrame $ fi Map.! sym
+		myFrame = createTStackFrame cg $ fi Map.! sym
 		otherFrames = concatMap (topologicSort cg fi) $ Set.elems $ cgCallers $ cg Map.! sym
 
-createTStackFrame :: FunctionInfo -> TStackFrame
-createTStackFrame (FunctionInfo name resultType frame _) = 
+createTStackFrame :: CallGraph -> FunctionInfo -> TStackFrame
+createTStackFrame cg fi@(FunctionInfo name resultType frame _) = 
    CDeclExt
      (CDecl
         [CStorageSpec (CTypedef undefNode),
@@ -96,7 +96,7 @@ createTStackFrame (FunctionInfo name resultType frame _) =
                     (CDecl [CTypeSpec (CTypeDef (ident "ec_continuation_t") undefNode)]
                        [(Just (CDeclr (Just (ident "ec_cont")) [] Nothing [] undefNode), Nothing,
                          Nothing)]
-                       undefNode) : result ?: frame))
+                       undefNode) : result ?: nestedFrames ?: frame))
                  [] undefNode)
               undefNode)]
 
@@ -106,9 +106,17 @@ createTStackFrame (FunctionInfo name resultType frame _) =
 		result = case resultType of
 			(CVoidType _) -> Nothing
 			_ -> Just $ CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident "ec_result")) [] Nothing [] undefNode), Nothing, Nothing)] undefNode
+		nestedFrames = createNestedFramesUnion cg fi
                        
+createNestedFramesUnion :: CallGraph -> FunctionInfo -> Maybe CDecl
+createNestedFramesUnion cg fi = result
+	where
+		result = if null entries then Nothing else Just createDecl
+		entries = map createEntry $ Set.elems $ cgCallees $ (Map.!) cg $ getFunctionName fi
+		createEntry sym = CDecl [CTypeSpec (CTypeDef (frameIdent sym) undefNode)]
+											[(Just (CDeclr (Just (ident sym)) [] Nothing [] undefNode), Nothing, Nothing)] undefNode 
+		createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] undefNode) undefNode)] [(Just (CDeclr (Just (ident "ec_frames")) [] Nothing [] undefNode), Nothing, Nothing)] undefNode
 
 ident s = Ident s 0 undefNode
 frameIdent funcName = ident $ frameName funcName
-frameName funcName = "frame_" ++ funcName ++ "_t"
-
+frameName funcName = "ec_frame_" ++ funcName ++ "_t"

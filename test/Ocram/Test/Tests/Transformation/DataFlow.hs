@@ -23,13 +23,16 @@ tests = runTests [
 		],[
 		"typedef struct {",
 		"    ec_continuation_t ec_cont;",
-		"} frame_foo_t;",
+		"} ec_frame_foo_t;",
 
 		"typedef struct {",
 		"    ec_continuation_t ec_cont;",
 		"    int ec_result;",
+		"    union {",
+		"        ec_frame_foo_t foo;",
+    "    } ec_frames;",
 		"    char param;",
-		"} frame_bar_t;"
+		"} ec_frame_bar_t;"
 	])
 	]
 
