@@ -23,13 +23,13 @@ tests = runTests [
 		],[
 		"typedef struct {",
 		"    ec_continuation_t ec_cont;",
-		"    int ec_result;",
-		"    char param;",
-		"} frame_bar_t;",
+		"} frame_foo_t;",
 
 		"typedef struct {",
 		"    ec_continuation_t ec_cont;",
-		"} frame_foo_t;"
+		"    int ec_result;",
+		"    char param;",
+		"} frame_bar_t;"
 	])
 	]
 
@@ -60,6 +60,6 @@ getStacklessAst code = do
 	cricitcal_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
 	critical_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
 	valid_ast <- checkConstraints critical_functions cyclefree_ast
-	(function_infos, stackless_ast) <- transformDataFlow valid_ast critical_functions blocking_functions function_map
+	(function_infos, stackless_ast) <- transformDataFlow valid_ast call_graph critical_functions blocking_functions function_map
 	return stackless_ast
 			

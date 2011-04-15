@@ -14,13 +14,13 @@ import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 
-transformDataFlow :: ValidAst -> CriticalFunctions -> BlockingFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
-transformDataFlow valid_ast cf bf fm = return (fis, StacklessAst $ stackless_ast ast)
+transformDataFlow :: ValidAst -> CallGraph -> CriticalFunctions -> BlockingFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
+transformDataFlow valid_ast cg cf bf fm = return (fi, StacklessAst $ stackless_ast ast)
 	where
 		ast = getAst valid_ast
 		stackless_ast (CTranslUnit decls ni) = CTranslUnit (decls ++ frames) ni
-		frames = createTStackFrames fis
-		fis = retrieveFunctionInfos cf bf fm
+		frames = createTStackFrames bf cg fi
+		fi = retrieveFunctionInfos cf bf fm
 
 -- retrieveFunctionInfos
 retrieveFunctionInfos :: CriticalFunctions -> BlockingFunctions -> FunctionMap -> FunctionInfos
@@ -75,8 +75,14 @@ extractTypeSpec ((CTypeSpec ts):xs) = ts
 extractTypeSpec (_:xs) = extractTypeSpec xs
 
 -- createTStackFrames
-createTStackFrames :: FunctionInfos -> [TStackFrame]
-createTStackFrames fi = map createTStackFrame $ Map.elems fi
+createTStackFrames :: BlockingFunctions -> CallGraph -> FunctionInfos -> [TStackFrame]
+createTStackFrames bf cg fi = concatMap (topologicSort cg fi) $ Map.keys bf
+
+topologicSort :: CallGraph -> FunctionInfos -> Symbol -> [TStackFrame]
+topologicSort cg fi sym = myFrame : otherFrames
+	where
+		myFrame = createTStackFrame $ fi Map.! sym
+		otherFrames = concatMap (topologicSort cg fi) $ Set.elems $ cgCallers $ cg Map.! sym
 
 createTStackFrame :: FunctionInfo -> TStackFrame
 createTStackFrame (FunctionInfo name resultType frame _) = 

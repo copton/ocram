@@ -1,8 +1,8 @@
 module Ocram.Main (main) where
 
 import Control.Monad.Error
-import Ocram.Types (Result, RawAst, OutputAst)
-import Ocram.Options (getOptions, Options)
+import Ocram.Types (Result, RawAst, OutputAst, Options)
+import Ocram.Options (getOptions)
 import Ocram.Parser (parse)
 import Ocram.Analysis (determineBlockingFunctions, getFunctions, findStartRoutines, determineCallGraph, determineCriticalFunctions)
 import Ocram.Filter (checkSanity, checkConstraints, checkRecursion)
@@ -30,7 +30,7 @@ process' options raw_ast = do
 	cyclefree_ast <- checkRecursion sane_ast call_graph start_routines function_map
 	critical_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
 	valid_ast <- checkConstraints critical_functions cyclefree_ast
-	(function_infos, stackless_ast) <- transformDataFlow valid_ast critical_functions blocking_functions function_map
+	(function_infos, stackless_ast) <- transformDataFlow valid_ast call_graph critical_functions blocking_functions function_map
 	output_ast <- transformControlFlow stackless_ast function_infos critical_functions function_map
 	return output_ast
 

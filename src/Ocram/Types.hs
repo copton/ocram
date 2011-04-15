@@ -13,6 +13,15 @@ type Symbol = String
 type Result a = Either String a
 
 -------------
+-- options
+data Options = Options { 
+	  optInput :: String
+	, optOutput :: String
+	, optCppOptions :: String
+	, optHelp :: Bool
+} deriving Show
+
+-------------
 -- AST
 
 type Ast = CTranslUnit

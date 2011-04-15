@@ -2,17 +2,10 @@ module Ocram.Options (
 	Options(..), getOptions
 ) where
 
-import Ocram.Types (Result)
+import Ocram.Types (Result, Options(..))
 import System.Environment (getArgs, getProgName)
 import Data.List (intersperse)
 import System.Console.GetOpt
-
-data Options = Options { 
-	  optInput :: String
-	, optOutput :: String
-	, optCppOptions :: String
-	, optHelp :: Bool
-} deriving Show
 
 getOptions :: IO (Result Options)
 getOptions = do
