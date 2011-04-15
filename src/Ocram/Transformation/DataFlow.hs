@@ -3,7 +3,7 @@ module Ocram.Transformation.DataFlow (
 ) where
 
 import Ocram.Types (ValidAst, Result, StacklessAst(StacklessAst), getAst)
-import Ocram.Analysis (CriticalFunctions, FunctionMap)
+import Ocram.Analysis (CriticalFunctions, FunctionMap, BlockingFunctions)
 import Ocram.Transformation.Types (FunctionInfos, TStackFrame)
 import Ocram.Symbols (Symbol)
 import Ocram.Analysis (FunctionMap, CriticalFunctions)
@@ -18,17 +18,27 @@ import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 
-transformDataFlow :: ValidAst -> CriticalFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
-transformDataFlow valid_ast cf fm = return (fis, StacklessAst $ stackless_ast ast)
+transformDataFlow :: ValidAst -> CriticalFunctions -> BlockingFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
+transformDataFlow valid_ast cf bf fm = return (fis, StacklessAst $ stackless_ast ast)
 	where
 		ast = getAst valid_ast
 		stackless_ast (CTranslUnit decls ni) = CTranslUnit (decls ++ frames) ni
 		frames = createTStackFrames fis
-		fis = retrieveFunctionInfos fm cf
+		fis = retrieveFunctionInfos cf bf fm
 
 -- retrieveFunctionInfos
-retrieveFunctionInfos :: FunctionMap -> CriticalFunctions -> FunctionInfos
-retrieveFunctionInfos fm cf = Map.mapWithKey retrieveFunctionInfo $ Map.filterWithKey (\k _ -> Set.member k cf) fm
+retrieveFunctionInfos :: CriticalFunctions -> BlockingFunctions -> FunctionMap -> FunctionInfos
+retrieveFunctionInfos cf bf fm = Map.union blockingFunctions recBlockingFunctions
+	where
+		blockingFunctions = Map.mapWithKey retrieveFunctionInfo' bf
+		recBlockingFunctions = Map.mapWithKey retrieveFunctionInfo $ Map.filterWithKey (\k _ -> Set.member k cf) fm
+
+retrieveFunctionInfo' :: Symbol -> CExtDecl -> FunctionInfo
+retrieveFunctionInfo' symbol (CDeclExt (CDecl tss [(Just (CDeclr _ [cfd] Nothing [] _), Nothing, Nothing)] _)) =
+	FunctionInfo symbol resultType params []
+	where
+		params = extractParams cfd
+		resultType = extractTypeSpec tss
 
 retrieveFunctionInfo :: Symbol -> CFunDef -> FunctionInfo
 retrieveFunctionInfo symbol fd@(CFunDef tss (CDeclr _ [cfd] Nothing _ _) [] _ _) = 
@@ -72,6 +82,11 @@ extractTypeSpec (_:xs) = extractTypeSpec xs
 createTStackFrames :: FunctionInfos -> [TStackFrame]
 createTStackFrames fi = map createTStackFrame $ Map.elems fi
 
+(<:) :: Maybe a -> [a] -> [a]
+(Just x) <: xs = x : xs
+Nothing <:  xs = xs
+infixr 5 <:
+ 
 createTStackFrame :: FunctionInfo -> TStackFrame
 createTStackFrame (FunctionInfo name resultType frame _) = 
    CDeclExt
@@ -84,14 +99,16 @@ createTStackFrame (FunctionInfo name resultType frame _) =
                     (CDecl [CTypeSpec (CTypeDef (ident "ec_continuation_t") undefNode)]
                        [(Just (CDeclr (Just (ident "ec_cont")) [] Nothing [] undefNode), Nothing,
                          Nothing)]
-                       undefNode) : result : frame))
+                       undefNode) : result <: frame))
                  [] undefNode)
               undefNode)]
 
         [(Just (CDeclr (Just (frameIdent name)) [] Nothing [] undefNode), Nothing, Nothing)]
         undefNode)
 	where
-		result = 	CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident "ec_result")) [] Nothing [] undefNode), Nothing, Nothing)] undefNode
+		result = case resultType of
+			(CVoidType _) -> Nothing
+			_ -> Just $ CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident "ec_result")) [] Nothing [] undefNode), Nothing, Nothing)] undefNode
                        
 
 ident s = Ident s 0 undefNode
