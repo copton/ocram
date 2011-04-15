@@ -3,8 +3,7 @@ module Ocram.Filter.Constraints (
 ) where
 
 import Ocram.Filter.Util (Error(Error), Filter(Filter), performCheck, performFilter)
-import Ocram.Types (Result, Ast, getAst, CyclefreeAst, ValidAst(ValidAst))
-import Ocram.Analysis.Types (CriticalFunctions)
+import Ocram.Types (Result, Ast, getAst, CyclefreeAst, ValidAst(ValidAst), CriticalFunctions)
 import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST

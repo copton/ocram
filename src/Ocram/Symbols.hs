@@ -1,12 +1,11 @@
-module Ocram.Symbols (Symbol, symbol) where
+module Ocram.Symbols (symbol) where
 
+import Ocram.Types (Symbol)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident
 
 -- import Language.C.Pretty (pretty)
 -- import Debug.Trace (trace)
-
-type Symbol = String
 
 class CSymbol s where
 	symbol :: s -> Symbol

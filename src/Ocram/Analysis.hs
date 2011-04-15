@@ -1,5 +1,4 @@
 module Ocram.Analysis (
-	module Ocram.Analysis.Types,
 	module Ocram.Analysis.BlockingFunctions,
 	module Ocram.Analysis.CallGraph,
 	module Ocram.Analysis.CriticalFunctions,
@@ -7,7 +6,6 @@ module Ocram.Analysis (
 	module Ocram.Analysis.StartRoutines,
 ) where
 
-import Ocram.Analysis.Types
 import Ocram.Analysis.BlockingFunctions
 import Ocram.Analysis.CallGraph
 import Ocram.Analysis.CriticalFunctions

@@ -6,7 +6,7 @@ import Ocram.Analysis (determineBlockingFunctions, determineCallGraph, getFuncti
 import Ocram.Filter (checkSanity)
 import Ocram.Test.Lib (parse)
 import Ocram.Test.Tests.Analysis.Utils (runTests)
-import Ocram.Analysis.Types (Entry(Entry))
+import Ocram.Types (Entry(Entry))
 import Ocram.Symbols (symbol)
 import Data.Map (toList)
 import Data.Set (elems)

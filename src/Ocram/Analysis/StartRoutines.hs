@@ -2,8 +2,7 @@ module Ocram.Analysis.StartRoutines (
 	findStartRoutines
 ) where
 
-import Ocram.Types (Result)
-import Ocram.Analysis.Types (FunctionMap, StartRoutines)
+import Ocram.Types (FunctionMap, StartRoutines, Result)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 import Data.Map (elems)

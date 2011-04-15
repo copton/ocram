@@ -2,12 +2,7 @@ module Ocram.Transformation.DataFlow (
 	transformDataFlow
 ) where
 
-import Ocram.Types (ValidAst, Result, StacklessAst(StacklessAst), getAst)
-import Ocram.Analysis (CriticalFunctions, FunctionMap, BlockingFunctions)
-import Ocram.Transformation.Types (FunctionInfos, TStackFrame)
-import Ocram.Symbols (Symbol)
-import Ocram.Analysis (FunctionMap, CriticalFunctions)
-import Ocram.Transformation.Types (FunctionInfos, FunctionInfo(FunctionInfo), Frame)
+import Ocram.Types 
 import Data.Monoid (Monoid, mappend, mempty, mconcat)
 import Ocram.Visitor (traverseCFunDef, emptyDownState, EmptyDownState, UpVisitor(mapCStat))
 import qualified Data.Map as Map

@@ -2,9 +2,18 @@ module Ocram.Types where
 
 import Control.Monad.Error
 import Data.Either
-import Language.C.Syntax.AST (CTranslUnit)
+import Language.C.Syntax.AST (CTranslUnit, CDecl, CBlockItem, CTypeSpec, CExtDecl, CFunDef)
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+
+-------------
+-- generic
+type Symbol = String
 
 type Result a = Either String a
+
+-------------
+-- AST
 
 type Ast = CTranslUnit
 
@@ -35,3 +44,39 @@ newtype OutputAst = OutputAst Ast
 instance AstC OutputAst where
 	getAst (OutputAst ast) = ast
 
+-------------
+-- analysis
+-- map of all blocking function declarations
+type BlockingFunctions = Map.Map Symbol CExtDecl
+
+-- caller: any function definition, callee: any function definition or any blocking function declaration
+
+type Callers = Set.Set Symbol
+type Callees = Set.Set Symbol
+data Entry = Entry {cgCallers :: Callers, cgCallees :: Callees} deriving Show
+
+type CallGraph = Map.Map Symbol Entry
+
+-- set of all critical functions
+type CriticalFunctions = Set.Set Symbol
+
+-- map of all function definitions
+type FunctionMap = Map.Map Symbol CFunDef
+
+-- list of all start routine names
+type StartRoutines = [Symbol]
+
+-------------
+-- Transformation
+type Frame = [CDecl]
+
+data FunctionInfo = FunctionInfo {
+	getFunctionName :: Symbol,
+	getResultType :: CTypeSpec,
+	getTStackFrame :: Frame,
+	getBody :: [CBlockItem]
+}
+
+type FunctionInfos = Map.Map Symbol FunctionInfo
+
+type TStackFrame = CExtDecl

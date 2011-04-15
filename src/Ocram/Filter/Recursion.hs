@@ -3,9 +3,7 @@ module Ocram.Filter.Recursion (
 ) where
 
 import Ocram.Filter.Util (Error(Error), Filter(Filter), performCheck, performFilter)
-import Ocram.Types (Result, Ast, getAst, SaneAst, CyclefreeAst(CyclefreeAst))
-import Ocram.Symbols (Symbol)
-import Ocram.Analysis (CallGraph, StartRoutines, FunctionMap, cgCallees)
+import Ocram.Types (Result, Ast, getAst, SaneAst, CyclefreeAst(CyclefreeAst), CallGraph, StartRoutines, FunctionMap, cgCallees, Symbol)
 import Language.C.Data.Node (nodeInfo)
 import qualified Data.Map as Map
 import Data.List (reverse, intersperse)

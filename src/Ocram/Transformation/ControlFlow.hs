@@ -2,10 +2,7 @@ module Ocram.Transformation.ControlFlow (
 	transformControlFlow
 ) where
 
-import Ocram.Types(Ast)
-import Ocram.Transformation.Types (FunctionInfos)
-import Ocram.Analysis (CriticalFunctions, FunctionMap)
-import Ocram.Types (Result, StacklessAst, OutputAst(OutputAst), getAst)
+import Ocram.Types (FunctionInfos, Ast, Result, StacklessAst, OutputAst(OutputAst), getAst, CriticalFunctions, FunctionMap)
 import Ocram.Visitor (DownVisitor, UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol)
 

@@ -2,9 +2,8 @@ module Ocram.Analysis.CriticalFunctions (
 	determineCriticalFunctions
 ) where
 
-import Ocram.Analysis.Types (CriticalFunctions, FunctionMap, BlockingFunctions, CallGraph, Entry(Entry))
-import Ocram.Types (Result, CyclefreeAst)
-import Ocram.Symbols (symbol, Symbol)
+import Ocram.Types (Result, CyclefreeAst, CriticalFunctions, FunctionMap, BlockingFunctions, CallGraph, Entry(Entry), Symbol)
+import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST 
 import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map

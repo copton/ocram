@@ -2,8 +2,7 @@ module Ocram.Analysis.BlockingFunctions (
 	determineBlockingFunctions
 ) where
 
-import Ocram.Analysis.Types (BlockingFunctions)
-import Ocram.Types (Result, getAst, SaneAst)
+import Ocram.Types (Result, getAst, SaneAst, BlockingFunctions)
 import qualified Data.Map as Map
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit)
 import Language.C.Syntax.AST

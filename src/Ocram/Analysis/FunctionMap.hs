@@ -2,11 +2,10 @@ module Ocram.Analysis.FunctionMap (
 	getFunctions
 ) where
 
-import Ocram.Types (Result, getAst, SaneAst)
+import Ocram.Types (Result, getAst, SaneAst, FunctionMap, Symbol)
 import Data.Map (fromList)
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit)
-import Ocram.Analysis.Types (FunctionMap)
-import Ocram.Symbols (Symbol, symbol)
+import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef)
 
 getFunctions :: SaneAst -> Result FunctionMap

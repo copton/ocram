@@ -3,8 +3,7 @@ module Ocram.Test.Tests.Symbol.Util (
 ) where
 
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
-import Ocram.Symbols (Symbol)
-import Ocram.Types (getAst, Ast)
+import Ocram.Types (getAst, Ast, Symbol)
 import Ocram.Test.Lib (parse')
 
 

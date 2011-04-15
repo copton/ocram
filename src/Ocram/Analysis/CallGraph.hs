@@ -2,8 +2,7 @@ module Ocram.Analysis.CallGraph (
 	 determineCallGraph
 ) where
 
-import Ocram.Analysis.Types (CallGraph, Entry(Entry), cgCallees, cgCallers, FunctionMap, BlockingFunctions)
-import Ocram.Types (Result, SaneAst, getAst)
+import Ocram.Types (Result, SaneAst, getAst, CallGraph, Entry(Entry), cgCallees, cgCallers, FunctionMap, BlockingFunctions)
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
