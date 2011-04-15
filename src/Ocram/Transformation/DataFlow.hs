@@ -3,6 +3,7 @@ module Ocram.Transformation.DataFlow (
 ) where
 
 import Ocram.Types 
+import Ocram.Util ((?:))
 import Data.Monoid (Monoid, mappend, mempty, mconcat)
 import Ocram.Visitor (traverseCFunDef, emptyDownState, EmptyDownState, UpVisitor(mapCStat))
 import qualified Data.Map as Map
@@ -77,11 +78,6 @@ extractTypeSpec (_:xs) = extractTypeSpec xs
 createTStackFrames :: FunctionInfos -> [TStackFrame]
 createTStackFrames fi = map createTStackFrame $ Map.elems fi
 
-(?:) :: Maybe a -> [a] -> [a]
-(Just x) ?: xs = x : xs
-Nothing ?:  xs = xs
-infixr 5 ?:
- 
 createTStackFrame :: FunctionInfo -> TStackFrame
 createTStackFrame (FunctionInfo name resultType frame _) = 
    CDeclExt
