@@ -1,29 +1,44 @@
-module Ocram.Filter.Recursion (
+module Ocram.Filter.Recursion 
+-- exports {{{1
+(
 	checkRecursion, getErrorCodes
 ) where
 
-import Ocram.Filter.Util (Error(Error), Filter(Filter), performCheck, performFilter)
-import Ocram.Types (Result, Ast, getAst, SaneAst, CyclefreeAst(CyclefreeAst), CallGraph, StartRoutines, FunctionMap, cgCallees, Symbol)
+-- imports {{{1
+import Ocram.Filter.Util
+import Ocram.Query (getFunDefs)
+import Ocram.Types
 import Language.C.Data.Node (nodeInfo)
+import Language.C.Syntax.AST (CFunDef)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Data.List (reverse, intersperse)
 import Data.Set (toList)
 
-newtype RecError = RecError [Symbol]
+-- checkRecursion :: Context -> Result CyclefreeAst  {{{1
+checkRecursion :: Context -> Result CyclefreeAst 
+checkRecursion ctx = do
+	ast <- getSaneAst ctx
+	cg <- getCallGraph ctx
+	sr <- getStartRoutines ctx
+	df <- getDefinedFunctions ctx
+	let df' = getFunDefs ast df
+	fmap CyclefreeAst $ performFilter (descriptor cg sr df') $ getAst ast
 
-checkRecursion :: SaneAst -> CallGraph -> StartRoutines -> FunctionMap -> Result CyclefreeAst 
-checkRecursion sane_ast call_graph start_routines function_map = 
-	fmap CyclefreeAst $ performFilter (descriptor call_graph start_routines function_map) $ getAst sane_ast
-
-getErrorCodes :: SaneAst -> CallGraph -> StartRoutines -> FunctionMap -> [Int]
+-- getErrorCodes :: SaneAst -> CallGraph -> StartRoutines -> FunMap CFunDef -> [Int] {{{1
+getErrorCodes :: SaneAst -> CallGraph -> StartRoutines -> FunMap CFunDef -> [Int]
 getErrorCodes sane_ast call_graph start_routines function_map = 
 	performCheck (descriptor call_graph start_routines function_map) $ getAst sane_ast
 
-descriptor call_graph start_routines function_map = 
-	Filter "recursion" (checker call_graph start_routines function_map) (printError) (const 1)
+-- utils {{{1
 
-checker :: CallGraph -> StartRoutines -> FunctionMap -> Ast -> [Error RecError]
-checker cg srs fm _ = map createError $ concatMap (check cg []) srs
+newtype RecError = RecError [Symbol]
+
+descriptor cg sr df' = 
+	Filter "recursion" (checker cg sr df') (printError) (const 1)
+
+checker :: CallGraph -> StartRoutines -> FunMap CFunDef -> Ast -> [Error RecError]
+checker cg srs fm _ = map createError $ concatMap (check cg []) $ Set.elems srs
 	where
 		createError re@(RecError (_:function:_)) = Error re $ nodeInfo $ fm Map.! function
 

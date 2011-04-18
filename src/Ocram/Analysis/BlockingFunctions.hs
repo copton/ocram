@@ -1,24 +1,30 @@
-module Ocram.Analysis.BlockingFunctions (
+module Ocram.Analysis.BlockingFunctions 
+-- exports {{{1
+(
 	determineBlockingFunctions
 ) where
 
-import Ocram.Types (Result, getAst, SaneAst, BlockingFunctions)
+-- imports {{{1
+import Ocram.Types (Result, getAst, SaneAst, BlockingFunctions, Context(getSaneAst))
 import Ocram.Names (blockingAttr)
-import qualified Data.Map as Map
+import qualified Data.Set as Set
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 
-determineBlockingFunctions :: SaneAst -> Result BlockingFunctions
-determineBlockingFunctions sane_ast = return $ snd $ traverseCTranslUnit (getAst sane_ast) emptyDownState
+-- determineBlockingFunctions :: Context -> Result BlockingFunctions {{{1
+determineBlockingFunctions :: Context -> Result BlockingFunctions
+determineBlockingFunctions ctx = do
+	ast <- getSaneAst ctx
+	return $ snd $ traverseCTranslUnit (getAst ast) emptyDownState
 
 instance UpVisitor EmptyDownState BlockingFunctions where
 	upCExtDecl cd@(CDeclExt (CDecl ss [(Just (CDeclr (Just (Ident name _ _)) [CFunDeclr _ _ _] Nothing _ _), Nothing, Nothing)] _)) _ _ =
 		if any isBlockingAttribute ss then 
-			Map.singleton name cd 
+			Set.singleton name 
 		else 
-			Map.empty
-	upCExtDecl _ _ _ = Map.empty
+			Set.empty
+	upCExtDecl _ _ _ = Set.empty
 
 isBlockingAttribute (CTypeQual (CAttrQual (CAttr (Ident blockingAttr _ _) [] _))) = True
 isBlockingAttribute _ = False

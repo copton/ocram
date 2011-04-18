@@ -1,28 +1,34 @@
-module Ocram.Analysis.CriticalFunctions (
+module Ocram.Analysis.CriticalFunctions 
+-- exports {{{1
+(
 	determineCriticalFunctions
 ) where
 
-import Ocram.Types (Result, CyclefreeAst, CriticalFunctions, FunctionMap, BlockingFunctions, CallGraph, Entry(Entry), Symbol)
+-- imports {{{1
+import Ocram.Types
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST 
 import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-determineCriticalFunctions :: CyclefreeAst -> CallGraph -> FunctionMap -> BlockingFunctions -> Result CriticalFunctions
-determineCriticalFunctions ciclefree_ast cg fm bfs = seq ciclefree_ast $ return $ 
-	foldl (travBlocking (fm, cg)) Set.empty (Map.assocs bfs)
+-- determineCriticalFunctions :: Context -> Result CriticalFunctions {{{1
+determineCriticalFunctions :: Context -> Result CriticalFunctions
+determineCriticalFunctions ctx = do
+	ast <- getCyclefreeAst ctx
+	cg <- getCallGraph ctx
+	bf <- getBlockingFunctions ctx
+	seq ast $ return $ foldl (travBlocking cg) Set.empty (Set.elems bf)
 
-travEntry (fm, cg) cfs (Entry callers _) = foldl (travCaller (fm, cg)) cfs (Set.elems callers)
+travEntry cg cfs (Entry callers _) = foldl (travCaller cg) cfs (Set.elems callers)
 
-travCaller (fm, cg) cfs caller = 
-	let fd = fm Map.! caller in
+travCaller cg cfs caller = 
 	let newCfs = Set.insert caller cfs in
-	travEntry (fm, cg) newCfs $ cg Map.! caller
+	travEntry cg newCfs $ cg Map.! caller
 
-travBlocking (fm, cg) cfs (name, decl) = 
+travBlocking cg cfs name = 
 	let fid = symbol name in
 	let newCfs = Set.insert fid cfs in
 	case Map.lookup fid cg of
 		Nothing -> newCfs
-		(Just entry) -> travEntry (fm, cg) newCfs entry
+		(Just entry) -> travEntry cg newCfs entry

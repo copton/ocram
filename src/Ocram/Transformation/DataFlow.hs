@@ -1,11 +1,15 @@
-module Ocram.Transformation.DataFlow (
+module Ocram.Transformation.DataFlow 
+-- exports {{{1
+(
 	transformDataFlow
 ) where
 
+-- imports {{{1
 import Ocram.Names (contType, contVar, resVar, frameType, frameUnion, frameVar)
 import Ocram.Transformation.Util (un, ident, tStackAccess)
 import Ocram.Types 
 import Ocram.Symbols (symbol)
+import Ocram.Query (getFunDefs, getFunDecls)
 import Ocram.Util ((?:))
 import Data.Monoid (Monoid, mappend, mempty, mconcat)
 import Ocram.Visitor (traverseCFunDef, UpVisitor(mapCStat, mapCExpr), DownVisitor(downCFunDef))
@@ -16,23 +20,31 @@ import Data.Maybe (fromJust)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 
-transformDataFlow :: RevisedAst -> CallGraph -> CriticalFunctions -> BlockingFunctions -> FunctionMap -> Result (FunctionInfos, StacklessAst)
-transformDataFlow revised_ast cg cf bf fm = return (fi, StacklessAst $ stackless_ast ast)
-	where
-		ast = getAst revised_ast
-		stackless_ast (CTranslUnit decls ni) = CTranslUnit (decls ++ frames) ni
-		frames = createTStackFrames bf cg fi
-		fi = retrieveFunctionInfos cf bf fm
+-- transformDataFlow :: Context -> Result (FunctionInfos, StacklessAst) {{{1
+transformDataFlow :: Context -> Result (FunctionInfos, StacklessAst)
+transformDataFlow ctx = do
+	ast <- getRevisedAst ctx
+	cg <- getCallGraph ctx
+	cf <- getCriticalFunctions ctx
+	bf <- getBlockingFunctions ctx
+	df <- getDefinedFunctions ctx
+	let df' = getFunDefs ast df
+	let bf' = getFunDecls ast bf
+	let fi = retrieveFunctionInfos cf bf' df'
+	let frames = createTStackFrames bf' cg fi
+	return (fi, StacklessAst $ stackless_ast (getAst ast) frames)
 
--- retrieveFunctionInfos
-retrieveFunctionInfos :: CriticalFunctions -> BlockingFunctions -> FunctionMap -> FunctionInfos
+stackless_ast (CTranslUnit decls ni) frames = CTranslUnit (decls ++ frames) ni
+
+-- retrieveFunctionInfos :: CriticalFunctions -> FunMap CDecl -> FunMap CFunDef -> FunctionInfos {{{1
+retrieveFunctionInfos :: CriticalFunctions -> FunMap CDecl -> FunMap CFunDef -> FunctionInfos
 retrieveFunctionInfos cf bf fm = Map.union blockingFunctions recBlockingFunctions
 	where
 		blockingFunctions = Map.mapWithKey retrieveFunctionInfo' bf
 		recBlockingFunctions = Map.mapWithKey retrieveFunctionInfo $ Map.filterWithKey (\k _ -> Set.member k cf) fm
 
-retrieveFunctionInfo' :: Symbol -> CExtDecl -> FunctionInfo
-retrieveFunctionInfo' symbol (CDeclExt (CDecl tss [(Just (CDeclr _ [cfd] Nothing [] _), Nothing, Nothing)] _)) =
+retrieveFunctionInfo' :: Symbol -> CDecl -> FunctionInfo
+retrieveFunctionInfo' symbol (CDecl tss [(Just (CDeclr _ [cfd] Nothing [] _), Nothing, Nothing)] _) =
 	FunctionInfo symbol resultType params []
 	where
 		params = extractParams cfd
@@ -85,8 +97,8 @@ extractTypeSpec [] = error "ill-formed input: type specifier expected"
 extractTypeSpec ((CTypeSpec ts):xs) = ts
 extractTypeSpec (_:xs) = extractTypeSpec xs
 
--- createTStackFrames
-createTStackFrames :: BlockingFunctions -> CallGraph -> FunctionInfos -> [TStackFrame]
+-- createTStackFrames :: FunMap CDecl -> CallGraph -> FunctionInfos -> [TStackFrame] {{{1
+createTStackFrames :: FunMap CDecl -> CallGraph -> FunctionInfos -> [TStackFrame]
 createTStackFrames bf cg fi = concatMap (topologicSort cg fi) $ Map.keys bf
 
 topologicSort :: CallGraph -> FunctionInfos -> Symbol -> [TStackFrame]

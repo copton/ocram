@@ -1,4 +1,4 @@
-module Ocram.Test.Tests.Analysis.FunctionMap (
+module Ocram.Test.Tests.Analysis.DefinedFunctions (
 	tests
 ) where
 
@@ -15,7 +15,7 @@ reduce code = do
 	fm <- getFunctions sane_ast
 	return $ (map symbol).keys $ fm
 
-tests = runTests "FunctionMap" reduce [
+tests = runTests "DefinedFunctions" reduce [
 	 ("void foo() { }", ["foo"])
 	,("", [])
 	,("int foo() {}", ["foo"])

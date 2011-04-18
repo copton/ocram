@@ -1,11 +1,15 @@
-module Ocram.Transformation.ControlFlow (
+module Ocram.Transformation.ControlFlow 
+-- exports {{{1
+(
 	transformControlFlow
 ) where
 
-import Ocram.Types (FunctionInfos, Ast, Result, StacklessAst, OutputAst(OutputAst), getAst, CriticalFunctions, FunctionMap)
+-- imports {{{1
+import Ocram.Types 
 import Ocram.Visitor (DownVisitor, UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol)
 import Ocram.Names (label, handlerFunction, contType, contVar)
+import Ocram.Query (getFunDefs)
 
 import Data.Set (elems)
 import Data.Maybe (fromJust)
@@ -13,18 +17,24 @@ import Data.Maybe (catMaybes)
 import Data.Monoid (mconcat)
 import Data.Set (member)
 import Prelude hiding (lookup)
-import Data.Map (lookup)
+import qualified Data.Map as Map
 
 import Language.C.Syntax.AST
 import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (Ident(Ident))
 
+-- transformControlFlow :: Context -> Result OutputAst {{{1
+transformControlFlow :: Context -> Result OutputAst
+transformControlFlow ctx = do
+	ast <- getStacklessAst ctx
+	fi <- getFunctionInfos ctx
+	cf <- getCriticalFunctions ctx
+	df <- getDefinedFunctions ctx
+	let fm = getFunDefs ast df
+	return $ OutputAst $ addHandlerFunction cf fm $ removeCriticalFunctions cf $ getAst ast
 
-transformControlFlow :: StacklessAst -> FunctionInfos -> CriticalFunctions -> FunctionMap -> Result OutputAst
-transformControlFlow ast fi cf fm = return $ OutputAst $ addHandlerFunction cf fm $ removeCriticalFunctions cf $ getAst ast
 
-
-addHandlerFunction :: CriticalFunctions -> FunctionMap -> Ast -> Ast
+addHandlerFunction :: CriticalFunctions -> Map.Map Symbol CFunDef -> Ast -> Ast
 addHandlerFunction cf fm (CTranslUnit decls ni) = (CTranslUnit (handlerFun fm cf : decls) ni)
 	
 handlerFun fm cf = (CFDefExt
@@ -41,7 +51,7 @@ handlerFun fm cf = (CFDefExt
 			 Nothing [] undefNode)
 		[] (CCompound [] (bodies fm cf) undefNode) undefNode))
 
-bodies fm cf = concatMap (createLabel . extractBody) $ catMaybes $ map (`lookup`fm) $ elems cf
+bodies fm cf = concatMap (createLabel . extractBody) $ catMaybes $ map (flip Map.lookup fm) $ elems cf
 
 extractBody fd@(CFunDef _ _ _ (CCompound _ body _) _) = (symbol fd, body)
 

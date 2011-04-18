@@ -2,16 +2,20 @@ module Ocram.Filter.Constraints (
 	checkConstraints, getErrorCodes
 ) where
 
-import Ocram.Filter.Util (Error(Error), Filter(Filter), performCheck, performFilter)
-import Ocram.Types (Result, Ast, getAst, CyclefreeAst, ValidAst(ValidAst), CriticalFunctions)
+import Ocram.Filter.Util
+import Ocram.Types
 import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 import Data.Set (member)
 import Data.Monoid (mconcat)
 
-checkConstraints :: CriticalFunctions -> CyclefreeAst -> Result ValidAst
-checkConstraints cf cyclefree_ast = fmap ValidAst $ performFilter (descriptor cf) $ getAst cyclefree_ast
+-- checkConstraints :: Context -> Result ValidAst {{{1
+checkConstraints :: Context -> Result ValidAst
+checkConstraints ctx = do
+	ast <- getCyclefreeAst ctx
+	cf <- getCriticalFunctions ctx
+	fmap ValidAst $ performFilter (descriptor cf) $ getAst ast
 
 getErrorCodes :: CriticalFunctions -> CyclefreeAst -> [Int]
 getErrorCodes cf cyclefree_ast = performCheck (descriptor cf) $ getAst cyclefree_ast

@@ -6,14 +6,14 @@ import Language.C.Syntax.AST (CTranslUnit, CDecl, CBlockItem, CTypeSpec, CExtDec
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
--------------
--- generic
+-- generic {{{1
 type Symbol = String
 
 type Result a = Either String a
 
--------------
--- options
+type FunMap a = Map.Map Symbol a
+
+-- options {{{1
 data Options = Options { 
 	  optInput :: String
 	, optOutput :: String
@@ -21,8 +21,7 @@ data Options = Options {
 	, optHelp :: Bool
 } deriving Show
 
--------------
--- AST
+-- AST {{{1
 
 type Ast = CTranslUnit
 
@@ -57,10 +56,9 @@ newtype OutputAst = OutputAst Ast
 instance AstC OutputAst where
 	getAst (OutputAst ast) = ast
 
--------------
--- analysis
+-- analysis {{{1
 -- map of all blocking function declarations
-type BlockingFunctions = Map.Map Symbol CExtDecl
+type BlockingFunctions = Set.Set Symbol
 
 -- caller: any function definition, callee: any function definition or any blocking function declaration
 
@@ -74,13 +72,12 @@ type CallGraph = Map.Map Symbol Entry
 type CriticalFunctions = Set.Set Symbol
 
 -- map of all function definitions
-type FunctionMap = Map.Map Symbol CFunDef
+type DefinedFunctions = Set.Set Symbol 
 
 -- list of all start routine names
-type StartRoutines = [Symbol]
+type StartRoutines = Set.Set Symbol
 
--------------
--- Transformation
+-- transformation {{{1
 type Frame = [CDecl]
 
 data FunctionInfo = FunctionInfo {
@@ -93,3 +90,21 @@ data FunctionInfo = FunctionInfo {
 type FunctionInfos = Map.Map Symbol FunctionInfo
 
 type TStackFrame = CExtDecl
+
+--- context {{{1
+data Context = Context {
+	getOptions :: Options,
+	getRawAst :: RawAst,
+	getSaneAst :: Result SaneAst,
+	getBlockingFunctions :: Result BlockingFunctions,
+	getDefinedFunctions :: Result DefinedFunctions,
+	getStartRoutines :: Result StartRoutines,
+	getCallGraph :: Result CallGraph,
+	getCyclefreeAst :: Result CyclefreeAst,
+	getCriticalFunctions :: Result CriticalFunctions,
+	getValidAst :: Result ValidAst,
+	getRevisedAst :: Result RevisedAst,
+	getFunctionInfos :: Result FunctionInfos,
+	getStacklessAst :: Result StacklessAst,
+	getOutputAst :: Result OutputAst
+	}

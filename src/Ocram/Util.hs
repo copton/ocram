@@ -2,6 +2,7 @@ module Ocram.Util (
 	(?:), mapt2
 ) where
 
+
 (?:) :: Maybe a -> [a] -> [a]
 (Just x) ?: xs = x : xs
 Nothing ?:  xs = xs
