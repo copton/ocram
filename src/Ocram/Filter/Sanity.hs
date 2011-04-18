@@ -17,9 +17,11 @@ checkSanity ctx = do
 	let ast = getRawAst ctx
 	fmap SaneAst $ performFilter descriptor $ getAst ast
 
--- getErrorCodes :: RawAst -> [Int] {{{1
-getErrorCodes :: RawAst -> [Int]
-getErrorCodes raw_ast = performCheck descriptor $ getAst raw_ast
+-- getErrorCodes :: Context -> Result [Int] {{{1
+getErrorCodes :: Context -> Result [Int]
+getErrorCodes ctx = do
+	let ast = getRawAst ctx
+	return $ performCheck descriptor $ getAst ast
 
 -- util {{{1
 checker :: Ast -> [Error Int]

@@ -25,10 +25,15 @@ checkRecursion ctx = do
 	let df' = getFunDefs ast df
 	fmap CyclefreeAst $ performFilter (descriptor cg sr df') $ getAst ast
 
--- getErrorCodes :: SaneAst -> CallGraph -> StartRoutines -> FunMap CFunDef -> [Int] {{{1
-getErrorCodes :: SaneAst -> CallGraph -> StartRoutines -> FunMap CFunDef -> [Int]
-getErrorCodes sane_ast call_graph start_routines function_map = 
-	performCheck (descriptor call_graph start_routines function_map) $ getAst sane_ast
+-- getErrorCodes :: Context -> Result [Int] {{{1
+getErrorCodes :: Context -> Result [Int]
+getErrorCodes ctx = do
+	ast <- getSaneAst ctx
+	cg <- getCallGraph ctx
+	sr <- getStartRoutines ctx
+	df <- getDefinedFunctions ctx
+	let df' = getFunDefs ast df
+	return $ performCheck (descriptor cg sr df') $ getAst ast
 
 -- utils {{{1
 

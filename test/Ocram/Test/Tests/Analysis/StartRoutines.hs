@@ -2,21 +2,19 @@ module Ocram.Test.Tests.Analysis.StartRoutines (
 	tests
 ) where 
 
-import Ocram.Analysis (getFunctions, findStartRoutines)
-import Ocram.Filter (checkSanity)
-import Ocram.Test.Lib (parse)
+import Ocram.Types (getStartRoutines)
+import Ocram.Test.Lib (createContext)
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 import Ocram.Symbols (symbol)
+import qualified Data.Set as Set
 
 reduce code = do
-	raw_ast <- parse code
-	sane_ast <- checkSanity raw_ast
-	fm <- getFunctions sane_ast
-	sr <- findStartRoutines fm
-	return $ (map symbol) sr
+	let ctx = createContext code Nothing
+	sr <- getStartRoutines ctx
+	return $ (Set.map symbol) sr
 
 tests = runTests "StartRoutines" reduce
-	[("__attribute__((tc_run_thread)) void foo() { }", ["foo"])
-	,("void __attribute__((tc_run_thread)) foo() { }", ["foo"])
-	,("", [])
-	,("void foo() {}", [])]
+	[("__attribute__((tc_run_thread)) void foo() { }", Set.singleton "foo")
+	,("void __attribute__((tc_run_thread)) foo() { }", Set.singleton "foo")
+	,("", Set.empty)
+	,("void foo() {}", Set.empty)]

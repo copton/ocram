@@ -3,20 +3,14 @@ module Ocram.Test.Tests.Analysis.CriticalFunctions (
 ) where
 
 import Ocram.Test.Tests.Analysis.Utils (runTests)
-import Ocram.Filter (checkSanity, checkRecursion)
-import Ocram.Test.Lib (parse)
-import Ocram.Analysis (getFunctions, determineBlockingFunctions, determineCallGraph, determineCriticalFunctions, findStartRoutines)
+import Ocram.Types (getCriticalFunctions)
+import Ocram.Test.Lib (createContext)
 import Data.Set (empty, fromList)
 
 reduce code = do
-	raw_ast <- parse code
-	sane_ast <- checkSanity raw_ast
-	fm <- getFunctions sane_ast
-	sr <- findStartRoutines fm
-	bf <- determineBlockingFunctions sane_ast
-	cg <- determineCallGraph sane_ast fm bf
-	cf_ast <- checkRecursion sane_ast cg sr fm
-	determineCriticalFunctions cf_ast cg fm bf	
+	let ctx = createContext code Nothing
+	cf <- getCriticalFunctions ctx
+	return cf
 
 tests = runTests "CriticalFunctions" reduce [
 	 ("void foo() { }", empty)

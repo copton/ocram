@@ -17,9 +17,14 @@ checkConstraints ctx = do
 	cf <- getCriticalFunctions ctx
 	fmap ValidAst $ performFilter (descriptor cf) $ getAst ast
 
-getErrorCodes :: CriticalFunctions -> CyclefreeAst -> [Int]
-getErrorCodes cf cyclefree_ast = performCheck (descriptor cf) $ getAst cyclefree_ast
+-- getErrorCodes :: Context -> Result [Int] {{{1
+getErrorCodes :: Context -> Result [Int]
+getErrorCodes ctx = do
+	ast <- getCyclefreeAst ctx	
+	cf <- getCriticalFunctions ctx
+	return $ performCheck (descriptor cf) $ getAst ast
 
+-- utils {{{1
 printError :: Int -> String
 printError 1 = "taking pointer from critical function"
 printError x = error $ "unknown error code: " ++ show x

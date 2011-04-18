@@ -24,6 +24,7 @@ instance UpVisitor DownState UpState where
 	upCExtDecl (CFDefExt fd) symbols _
 		| Set.member (symbol fd) symbols = [fd]
 		| otherwise = []
+	upCExtDecl _ _ _ = []
 
 -- getFunDecls :: (AstC a) => a -> Set.Set Symbol -> Map.Map Symbol CDecl {{{1
 getFunDecls :: (AstC a) => a -> Set.Set Symbol -> Map.Map Symbol CDecl
@@ -34,6 +35,7 @@ instance UpVisitor DownState UpState' where
 	upCExtDecl (CDeclExt fd) symbols _
 		| Set.member (symbol fd) symbols = [fd]
 		| otherwise = []
+	upCExtDecl _ _ _ = []
 
 -- util {{{1
 createEntry m fd = Map.insert (symbol fd) fd m

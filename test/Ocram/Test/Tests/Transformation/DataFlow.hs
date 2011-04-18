@@ -2,11 +2,8 @@ module Ocram.Test.Tests.Transformation.DataFlow (
 	tests
 ) where
 
-import Ocram.Test.Lib (parse')
-import Ocram.Types (getAst)
-import Ocram.Analysis (determineBlockingFunctions, getFunctions, findStartRoutines, determineCallGraph, determineCriticalFunctions)
-import Ocram.Filter (checkSanity, checkConstraints, checkRecursion)
-import Ocram.Transformation (transformDataFlow, removeAttributes)
+import Ocram.Test.Lib (createContext, parse')
+import Ocram.Types (getAst, getStacklessAst)
 
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
@@ -56,24 +53,8 @@ runTest (number, (code, expected)) = TestCase $ assertEqual name expected' resul
 		expected' = show $ pretty $ strip $ getAst $ parse' $ unlines $ bootstrap : expected
 		name = "test" ++ show number
 		result = show $ pretty $ getAst ast
-		ast = case getStacklessAst code' of
+		ast = case getStacklessAst (createContext code' Nothing) of
 			Left e -> error e
 			Right x -> x
 		bootstrap = "typedef struct { } ec_continuation_t;"
 		strip(CTranslUnit (_:decls) ni) = CTranslUnit decls ni
-
-getStacklessAst code = do
-	let raw_ast = parse' code
-	sane_ast <- checkSanity raw_ast
-	blocking_functions <- determineBlockingFunctions sane_ast
-	function_map <- getFunctions sane_ast
-	start_routines <- findStartRoutines function_map
-	call_graph <- determineCallGraph sane_ast function_map blocking_functions
-	cyclefree_ast <- checkRecursion sane_ast call_graph start_routines function_map
-	cricitcal_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
-	critical_functions <- determineCriticalFunctions cyclefree_ast call_graph function_map blocking_functions
-	valid_ast <- checkConstraints critical_functions cyclefree_ast
-	revised_ast <- removeAttributes valid_ast blocking_functions start_routines
-	(function_infos, stackless_ast) <- transformDataFlow revised_ast call_graph critical_functions blocking_functions function_map
-	return stackless_ast
-			

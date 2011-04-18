@@ -2,9 +2,8 @@ module Ocram.Test.Tests.Analysis.CallGraph (
 	tests
 ) where
 
-import Ocram.Analysis (determineBlockingFunctions, determineCallGraph, getFunctions)
-import Ocram.Filter (checkSanity)
-import Ocram.Test.Lib (parse)
+import Ocram.Test.Lib (createContext)
+import Ocram.Types (getCallGraph)
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 import Ocram.Types (Entry(Entry))
 import Ocram.Symbols (symbol)
@@ -32,11 +31,8 @@ instance Show L where
 	show (L es) = show es
 
 reduce code = do
-	raw_ast <- parse code
-	sane_ast <- checkSanity raw_ast
-	fm <- getFunctions sane_ast
-	bf <- determineBlockingFunctions sane_ast
-	cg <- determineCallGraph sane_ast fm bf
+	let ctx = createContext code Nothing
+	cg <- getCallGraph ctx
 	return $ L.(map reduce_entry).toList $ cg
 	where
 		reduce_entry (fid, (Entry callers callees)) = E (symbol fid) (reduce_set callers) (reduce_set callees)
