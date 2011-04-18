@@ -22,7 +22,6 @@ tests = runTests [
 		void foo(int i);
 
 		int bar(char param) {
-				int i;
 				foo(i); 
 		}
 

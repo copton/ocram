@@ -10,7 +10,7 @@ import Ocram.Transformation
 context :: Options -> RawAst -> Context
 context options raw_ast = ctx
 	where
-		ctx = Context options raw_ast sane_ast blocking_functions defined_functions start_routines call_graph cyclefree_ast critical_functions valid_ast revised_ast function_infos stackless_ast output_ast
+		ctx = Context options raw_ast sane_ast blocking_functions defined_functions start_routines call_graph cyclefree_ast critical_functions valid_ast revised_ast stackless_ast output_ast
 		sane_ast = checkSanity ctx
 		blocking_functions = determineBlockingFunctions ctx
 		defined_functions = collectDefinedFunctions ctx
@@ -20,7 +20,5 @@ context options raw_ast = ctx
 		critical_functions = determineCriticalFunctions ctx
 		valid_ast = checkConstraints ctx
 		revised_ast = removeAttributes ctx
-		dfResult = transformDataFlow ctx
-		function_infos = fmap fst dfResult
-		stackless_ast = fmap snd dfResult
+		stackless_ast = transformDataFlow ctx
 		output_ast =transformControlFlow ctx

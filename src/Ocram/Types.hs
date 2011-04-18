@@ -1,5 +1,6 @@
 module Ocram.Types where
 
+-- imports {{{1
 import Control.Monad.Error
 import Data.Either
 import Language.C.Syntax.AST (CTranslUnit, CDecl, CBlockItem, CTypeSpec, CExtDecl, CFunDef)
@@ -78,16 +79,12 @@ type DefinedFunctions = Set.Set Symbol
 type StartRoutines = Set.Set Symbol
 
 -- transformation {{{1
-type Frame = [CDecl]
-
-data FunctionInfo = FunctionInfo {
-	getFunctionName :: Symbol,
+data Signature = Signature {
 	getResultType :: CTypeSpec,
-	getTStackFrame :: Frame,
-	getBody :: [CBlockItem]
+	getParameters :: [CDecl]
 }
 
-type FunctionInfos = Map.Map Symbol FunctionInfo
+type Signatures = Map.Map Symbol Signature
 
 type TStackFrame = CExtDecl
 
@@ -104,7 +101,6 @@ data Context = Context {
 	getCriticalFunctions :: Result CriticalFunctions,
 	getValidAst :: Result ValidAst,
 	getRevisedAst :: Result RevisedAst,
-	getFunctionInfos :: Result FunctionInfos,
 	getStacklessAst :: Result StacklessAst,
 	getOutputAst :: Result OutputAst
 	}

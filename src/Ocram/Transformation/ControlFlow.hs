@@ -27,7 +27,6 @@ import Language.C.Data.Ident (Ident(Ident))
 transformControlFlow :: Context -> Result OutputAst
 transformControlFlow ctx = do
 	ast <- getStacklessAst ctx
-	fi <- getFunctionInfos ctx
 	cf <- getCriticalFunctions ctx
 	df <- getDefinedFunctions ctx
 	let fm = getFunDefs ast df
