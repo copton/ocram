@@ -17,11 +17,6 @@ tests = runTests [
 			foo(23);
 		}
 	|],[$paste|
-		void foo(int i);
-		void bar() { 
-			foo(23);
-		}
-
 		typedef struct {
 				ec_continuation_t ec_cont;
 				int i;
@@ -33,8 +28,14 @@ tests = runTests [
 						ec_frame_foo_t foo;
 				} ec_frames;
 		} ec_frame_bar_t;
-	|]),
-	([$paste|
+
+		void foo(int i);
+
+		void bar() { 
+			foo(23);
+		}
+	|])
+	,([$paste|
 		__attribute__((tc_blocking)) void foo(int i);
 
 		__attribute__((tc_run_thread)) int bar(char param) {
@@ -42,12 +43,6 @@ tests = runTests [
 				foo(i);
 		}
 	|],[$paste|
-		void foo(int i);
-
-		int bar(char param) {
-				foo(i); 
-		}
-
 		typedef struct {
 				ec_continuation_t ec_cont;
 				int i;
@@ -62,6 +57,46 @@ tests = runTests [
 				char param;
 				int i;
 		} ec_frame_bar_t;
+
+		void foo(int i);
+
+		int bar(char param) {
+				foo(((ec_frame_bar_t*) ec_cont->frame)->i);
+		}
+	|])
+	,([$paste|
+		__attribute__((tc_blocking)) void foo(int i, int j);
+
+		int j;
+
+		__attribute__((tc_run_thread)) int bar(char param) {
+				int i;
+				foo(i, j);
+		}
+	|],[$paste|
+		typedef struct {
+				ec_continuation_t ec_cont;
+				int i;
+				int j;
+		} ec_frame_foo_t;
+
+		typedef struct {
+				ec_continuation_t ec_cont;
+				int ec_result;
+				union {
+						ec_frame_foo_t foo;
+				} ec_frames;
+				char param;
+				int i;
+		} ec_frame_bar_t;
+
+		void foo(int i, int j);
+
+		int j;
+
+		int bar(char param) {
+				foo(((ec_frame_bar_t*) ec_cont->frame)->i, j);
+		}
 	|])
 	]
 
@@ -77,5 +112,11 @@ runTest (number, (code, expected)) = TestCase $ assertEqual name expected' resul
 		ast = case getStacklessAst (createContext code Nothing) of
 			Left e -> error e
 			Right x -> x
-		bootstrap = "typedef struct { } ec_continuation_t;"
-		strip(CTranslUnit (_:decls) ni) = CTranslUnit decls ni
+		strip(CTranslUnit (_:_:decls) ni) = CTranslUnit decls ni
+		bootstrap = [$paste|
+			typedef struct { 
+				void* frame;
+				void* label;
+			} ec_continuation_t;
+			ec_continuation_t* ec_cont;
+		|]

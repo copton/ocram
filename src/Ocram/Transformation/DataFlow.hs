@@ -28,14 +28,16 @@ transformDataFlow ctx = do
 	cg <- getCallGraph ctx
 	cf <- getCriticalFunctions ctx
 	bf <- getBlockingFunctions ctx
-	let (ast', _) = (traverseCTranslUnit (getAst ast) (DownState cg cf bf Nothing) :: (Maybe CTranslUnit, UpState))
+	let (ast', _) = (traverseCTranslUnit (getAst ast) (DownState cg cf bf Nothing Set.empty) :: (Maybe CTranslUnit, UpState))
 	return $ StacklessAst $ fromJust ast'
 
+-- types {{{2
 data DownState = DownState {
 	getCg :: CallGraph,
 	getCf :: CriticalFunctions,
 	getBf :: BlockingFunctions,
-	getCfName :: Maybe Symbol
+	getCfName :: Maybe Symbol,
+	getLocalVars :: Set.Set Symbol
 	}
 
 data FunctionInfo = FunctionInfo {
@@ -55,13 +57,15 @@ instance Monoid UpState where
 
 -- visitor {{{2
 instance DownVisitor DownState where
-	downCExtDecl (CFDefExt fd) d@(DownState _ cf _ _) =
+	downCExtDecl (CFDefExt fd) d@(DownState _ cf _ _ _) =
 		let name = (symbol fd) in
 		if Set.member name cf 
-			then d { getCfName = Just name }
+			then d { getCfName = Just name, getLocalVars = localVars }
 			else d
+		where
+			localVars = Set.fromList $ map symbol $ extractParams' fd
 
-	downCExtDecl (CDeclExt cd) d@(DownState _ _ bf _) =
+	downCExtDecl (CDeclExt cd) d@(DownState _ _ bf _ _) =
 		let name = (symbol cd) in
 		if Set.member name bf
 			then d { getCfName = Just name }
@@ -69,48 +73,58 @@ instance DownVisitor DownState where
 		
 	downCExtDecl _ d = d
 
-instance UpVisitor DownState UpState where
-	mapCTranslUnit (CTranslUnit decls ni) (DownState cg _ bf _) us = (Just ctu, mempty)
+	downCStat (CCompound idents items ni) d@(DownState _ _ _ (Just name) decls) =
+		d { getLocalVars = Set.union decls decls' }
 		where
-			ctu = CTranslUnit (decls ++ frames) ni
+			decls' = Set.fromList $ map (symbol.unpDecl) (filter isCBlockDecl items) 
+
+	downCStat _ d = d
+
+instance UpVisitor DownState UpState where
+	mapCTranslUnit (CTranslUnit decls ni) (DownState cg _ bf _ _) us = (Just ctu, mempty)
+		where
+			ctu = CTranslUnit (frames ++ decls) ni
 			frames = createTStackFrames bf cg fis
 			fis = Map.fromList $ catMaybes $ map getFunctionInfo us
 
-	upCExtDecl (CDeclExt cd) (DownState _ _ _ (Just name)) _ = 
+	upCExtDecl (CDeclExt cd) (DownState _ _ _ (Just name) _) _ = 
 		UpState [] $ Just (name, decl2fi cd)
 
-	upCExtDecl (CFDefExt fd) (DownState _ _ _ (Just name)) us =
+	upCExtDecl (CFDefExt fd) (DownState _ _ _ (Just name) _) us =
 		UpState [] $ Just (name, def2fi fd variables)
 		where
 			variables = concatMap getVariables' us
 
 	upCExtDecl _ _ _ = mempty
 
-	mapCStat (CCompound idents items ni) (DownState _ _ _ (Just name)) us = 
+	mapCStat (CCompound idents items ni) (DownState _ _ _ (Just name) _) us = 
 		(Just (CCompound idents items' ni), upState)
 		where
 			(decls, items') = partition isCBlockDecl items
 			upState = UpState (varDecls ++ concatMap getVariables' us) Nothing
-			varDecls = map (\(CBlockDecl d) -> d) decls
-			isCBlockDecl (CBlockDecl _) = True
-			isCBlockDecl _ = False
+			varDecls = map unpDecl decls
 
 	mapCStat _ _ us = (Nothing, mconcat us)
 
-	 -- mapCExpr (CVar (Ident vName _ _)_ ) fName us = (Just (tStackAccess fName vName), mconcat us)
+	mapCExpr (CVar (Ident vName _ _)_ ) (DownState _ _ _ (Just fName) localVars) us
+		| Set.member vName localVars = (Just (tStackAccess fName vName), mconcat us)
+		| otherwise = (Nothing, mconcat us)
 
-	 -- mapCExpr _ _ us = (Nothing, mconcat us)
+	mapCExpr _ _ us = (Nothing, mconcat us)
 
 decl2fi :: CDecl -> FunctionInfo
-decl2fi (CDecl tss [(Just (CDeclr _ [cfd] Nothing [] _), Nothing, Nothing)] _) =
+decl2fi (CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) =
 	FunctionInfo (extractTypeSpec tss) (extractParams cfd)
 
 def2fi :: CFunDef -> [CDecl] -> FunctionInfo
-def2fi fd@(CFunDef tss (CDeclr _ [cfd] Nothing _ _) [] _ _) variables = 
+def2fi fd@(CFunDef tss _ _ _ _) variables = 
 	FunctionInfo resultType (params ++ variables)
 	where
-		params = extractParams cfd
+		params = extractParams' fd
 		resultType = extractTypeSpec tss
+
+extractParams' :: CFunDef -> [CDecl]
+extractParams' (CFunDef _ (CDeclr _ [cfd] _ _ _) [] _ _) = extractParams cfd
 
 extractParams :: CDerivedDeclr -> [CDecl]
 extractParams (CFunDeclr (Right (ps, False)) _ _) = ps
@@ -120,6 +134,10 @@ extractTypeSpec [] = error "assertion failed: type specifier expected"
 extractTypeSpec ((CTypeSpec ts):xs) = ts
 extractTypeSpec (_:xs) = assert (not $ null xs) (extractTypeSpec xs)
 
+isCBlockDecl (CBlockDecl _) = True
+isCBlockDecl _ = False
+
+unpDecl (CBlockDecl d) = d
 
 -- createTStackFrames :: BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl] {{{2
 createTStackFrames :: BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl]
