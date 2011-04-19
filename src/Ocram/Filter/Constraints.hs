@@ -2,29 +2,44 @@ module Ocram.Filter.Constraints (
 	checkConstraints, getErrorCodes
 ) where
 
-import Ocram.Filter.Util (Error(Error), Filter(Filter), performCheck, performFilter)
-import Ocram.Types (Result, Ast, getAst, CyclefreeAst, ValidAst(ValidAst))
-import Ocram.Analysis.Types (CriticalFunctions)
+import Ocram.Filter.Util
+import Ocram.Types
 import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
-import Data.Map (member)
+import qualified Data.Set as Set
 import Data.Monoid (mconcat)
 
-checkConstraints :: CriticalFunctions -> CyclefreeAst -> Result ValidAst
-checkConstraints cf cyclefree_ast = fmap ValidAst $ performFilter (descriptor cf) $ getAst cyclefree_ast
+-- checkConstraints :: Context -> Result ValidAst {{{1
+checkConstraints :: Context -> Result ValidAst
+checkConstraints ctx = do
+	ast <- getForestAst ctx
+	cf <- getCriticalFunctions ctx
+	sr <- getStartRoutines ctx
+	fmap ValidAst $ performFilter (descriptor cf sr) $ getAst ast
 
-getErrorCodes :: CriticalFunctions -> CyclefreeAst -> [Int]
-getErrorCodes cf cyclefree_ast = performCheck (descriptor cf) $ getAst cyclefree_ast
+-- getErrorCodes :: Context -> Result [Int] {{{1
+getErrorCodes :: Context -> Result [Int]
+getErrorCodes ctx = do
+	ast <- getForestAst ctx	
+	cf <- getCriticalFunctions ctx
+	sr <- getStartRoutines ctx
+	return $ performCheck (descriptor cf sr) $ getAst ast
 
+-- utils {{{1
 printError :: Int -> String
 printError 1 = "taking pointer from critical function"
+printError 2 = "at least one thread must be started"
 printError x = error $ "unknown error code: " ++ show x
 
-checker :: CriticalFunctions -> Ast -> [Error Int]
-checker cf ast = checkFunctionPointer cf ast
+checker :: CriticalFunctions -> StartRoutines -> Ast -> [Error Int]
+checker cf sr ast = checkFunctionPointer cf ast ++ checkThreads ast sr
 
-descriptor cf = Filter "constraint" (checker cf) printError id
+descriptor cf sr = Filter "constraint" (checker cf sr) printError id
+
+checkThreads (CTranslUnit _ ni) sr 
+	| Set.null sr = [Error 2 ni]
+	| otherwise = []
 
 checkFunctionPointer :: CriticalFunctions -> Ast -> [Error Int]
 checkFunctionPointer cf ast = snd $ traverseCTranslUnit ast cf
@@ -38,6 +53,6 @@ pass ess = mconcat ess
 type UpState = [Error Int]
 instance UpVisitor DownState UpState where
 	upCExpr (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni) cf es
-		| name `member` cf = append es 1 ni 
+		| name `Set.member` cf = append es 1 ni 
 		| otherwise = pass es
 	upCExpr _ _ es = pass es

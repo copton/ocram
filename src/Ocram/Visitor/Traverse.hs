@@ -1,4 +1,6 @@
-module Ocram.Visitor.Traverse (
+module Ocram.Visitor.Traverse 
+-- export {{{1
+(
 	 traverseCDecl
 	,traverseCDeclr
 	,traverseCDerivedDeclr
@@ -11,12 +13,14 @@ module Ocram.Visitor.Traverse (
 	,traverseIdent
 ) where
 
+-- import {{{1
 import Language.C.Syntax.AST
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Data.Ident (Ident)
 import Ocram.Visitor.Visitor
 import Data.Maybe (isJust, fromMaybe)
 
+-- recurse {{{1
 recurse :: 
 	   (o -> d -> d) -- down handler
 	-> (o -> d -> [u] -> (Maybe o, u)) -- up handler
@@ -37,12 +41,14 @@ recurse downHandler upHandler outerObject create traverse innerObjects downState
 				(Nothing, upState) -> (Just outerObject', upState)
 				res -> res
 
+-- CTranslUnit {{{1
 traverseCTranslUnit :: (DownVisitor d, UpVisitor d u) => CTranslUnit -> d -> (Maybe CTranslUnit, u)
 traverseCTranslUnit ctu@(CTranslUnit decls _) = recurse downCTranslUnit mapCTranslUnit ctu create traverse decls
 	where 
 		traverse = mapTrav traverseCExtDecl
 		create (CTranslUnit _ ni) decls = CTranslUnit decls ni
 
+-- CExtDecl {{{1
 traverseCExtDecl :: (DownVisitor d, UpVisitor d u) => CExtDecl -> d -> (Maybe CExtDecl, u)
 traverseCExtDecl ced@(CDeclExt cd) = recurse downCExtDecl mapCExtDecl ced create traverse cd
 	where 
@@ -56,6 +62,7 @@ traverseCExtDecl ced@(CFDefExt cfd) = recurse downCExtDecl mapCExtDecl ced creat
 
 traverseCExtDecl ced@(CAsmExt _ _) = recurse downCExtDecl mapCExtDecl ced noCreate noTrav noChildren
 
+-- CDecl {{{1
 traverseCDecl :: (DownVisitor d, UpVisitor d u) => CDecl -> d -> (Maybe CDecl, u)
 traverseCDecl cd@(CDecl _ decls _) = recurse downCDecl mapCDecl cd create traverse decls
 	where 
@@ -66,6 +73,7 @@ traverseCDecl cd@(CDecl _ decls _) = recurse downCDecl mapCDecl cd create traver
 			(maybeTrav traverseCExpr ce d)
 		create (CDecl x _ y) decls = CDecl x decls y
 
+-- CDerivedDeclr {{{1
 traverseCDerivedDeclr :: (DownVisitor d, UpVisitor d u) => CDerivedDeclr -> d -> (Maybe CDerivedDeclr, u)
 traverseCDerivedDeclr cdd@(CFunDeclr (Left ids) _ _) = recurse downCDerivedDeclr mapCDerivedDeclr cdd create traverse ids
 	where
@@ -79,6 +87,7 @@ traverseCDerivedDeclr cdd@(CFunDeclr (Right (cds, _)) _ _) = recurse downCDerive
 
 traverseCDerivedDeclr cdd = recurse downCDerivedDeclr mapCDerivedDeclr cdd noCreate noTrav noChildren
 
+-- CFunDef {{{1
 traverseCFunDef :: (DownVisitor d, UpVisitor d u) => CFunDef -> d -> (Maybe CFunDef, u)
 traverseCFunDef cfd@(CFunDef _ cdr cds cst _) = recurse downCFunDef mapCFunDef cfd create traverse (cdr, cds, cst)
 	where 
@@ -88,6 +97,7 @@ traverseCFunDef cfd@(CFunDef _ cdr cds cst _) = recurse downCFunDef mapCFunDef c
 			(trav traverseCStat t3 d)
 		create (CFunDef x _ _ _ y) (cdr, cds, cst) = CFunDef x cdr cds cst y
 
+-- CDeclr {{{1
 traverseCDeclr :: (DownVisitor d, UpVisitor d u) => CDeclr -> d -> (Maybe CDeclr, u)
 traverseCDeclr cdr@(CDeclr id cdds _ _ _) = recurse downCDeclr mapCDeclr cdr create traverse (id, cdds)
 	where 
@@ -96,6 +106,7 @@ traverseCDeclr cdr@(CDeclr id cdds _ _ _) = recurse downCDeclr mapCDeclr cdr cre
 			(mapTrav traverseCDerivedDeclr cdds d)
 		create (CDeclr _ _ x y z) (id, cdds) = CDeclr id cdds x y z
 
+-- CInit {{{1
 traverseCInit :: (DownVisitor d, UpVisitor d u) => CInit -> d -> (Maybe CInit, u)
 traverseCInit ci@(CInitExpr ce _) = recurse downCInit mapCInit ci create traverse ce
 	where 
@@ -107,9 +118,11 @@ traverseCInit ci@(CInitList cis _) = recurse downCInit mapCInit ci create dissol
 		create (CInitList _ x) cis = CInitList cis x
 
 
+-- Ident {{{1
 traverseIdent :: (DownVisitor d, UpVisitor d u) => Ident -> d -> (Maybe Ident, u)
 traverseIdent id = recurse downIdent mapIdent id noCreate noTrav noChildren
 
+-- CExpr {{{1
 traverseCExpr :: (DownVisitor d, UpVisitor d u) => CExpr -> d -> (Maybe CExpr, u)
 traverseCExpr ce@(CComma ces _) = recurse downCExpr mapCExpr ce create traverse ces
 	where
@@ -227,6 +240,7 @@ traverseCExpr ce@(CLabAddrExpr id _) = recurse downCExpr mapCExpr ce create trav
 
 traverseCExpr ce@(CBuiltinExpr _) = recurse downCExpr mapCExpr ce noCreate noTrav noChildren
 
+-- CStat {{{1
 traverseCStat :: (DownVisitor d, UpVisitor d u) => CStat -> d -> (Maybe CStat, u)
 traverseCStat cs@(CLabel _ cs1 _ _) = recurse downCStat mapCStat cs create traverse cs1
 	where 
@@ -321,6 +335,7 @@ traverseCStat cs@(CReturn ce1 _) = recurse downCStat mapCStat cs create traverse
 
 traverseCStat cs@(CAsm _ _) = recurse downCStat mapCStat cs noCreate noTrav noChildren
 
+-- dissolve {{{1
 dissolveCBlockItem :: (DownVisitor d, UpVisitor d u) => CBlockItem -> d -> (Maybe CBlockItem, [u])
 dissolveCBlockItem (CBlockStmt cs1) d = 
 	case trav traverseCStat cs1 d of
@@ -346,6 +361,7 @@ dissolveCInitList = recTrav traverse'
 				(Just y, us) -> (Just (x, y), us)
 				(Nothing, us) -> (Nothing, us)
 
+-- util {{{1
 noCreate :: a -> () -> a
 noCreate _ _ = error "function was not supposed to be called"
 

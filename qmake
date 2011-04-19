@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+#vim: set filetype=python
+
+import subprocess
+import sys
+
+proc = subprocess.Popen("make", stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+out, err = proc.communicate()
+sys.stdout.write(out)
+
+res = []
+for line in err.split("\n"):
+    if line.startswith("Ocram/Test"):
+        res.append("test/" + line)
+    elif line.startswith("Ocram/"):
+        res.append("src/" + line)
+    else:
+        res.append(line)
+
+res_str = "\n".join(res)
+sys.stdout.write(res_str)
+open("./.quickfix", "w").write(res_str)

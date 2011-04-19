@@ -1,11 +1,15 @@
-module Ocram.Filter.Util (
+module Ocram.Filter.Util 
+--- exports {{{1
+(
 	Filter(Filter), performCheck, performFilter, Error(Error)
 ) where
 
+-- imports {{{1
 import Language.C.Data.Node (NodeInfo(NodeInfo, OnlyPos))
 import Language.C.Data.Position (posFile, posRow)
 import Ocram.Types (Result, Ast)
 
+-- data Filter a = Filter { {{{1
 data Filter a = Filter {
 	getDescription :: String,
 	getChecker :: Ast -> [Error a],
@@ -13,14 +17,17 @@ data Filter a = Filter {
 	getErrorIds :: a -> Int
 }
 
+-- data Error a = Error { {{{1
 data Error a = Error {
 	getError :: a,
 	getLocation :: NodeInfo
 }
 
+-- performCheck :: Filter a -> Ast -> [Int] {{{1
 performCheck :: Filter a -> Ast -> [Int]
 performCheck filter ast = map (getErrorIds filter) $ map getError $ getChecker filter ast
 
+-- performFilter :: Filter a -> Ast -> Result Ast {{{1
 performFilter :: Filter a -> Ast -> Result Ast
 performFilter filter ast = case getChecker filter ast of
 	[] -> return ast

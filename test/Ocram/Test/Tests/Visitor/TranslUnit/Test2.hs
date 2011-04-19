@@ -2,10 +2,10 @@ module Ocram.Test.Tests.Visitor.TranslUnit.Test2 (
 	test
 ) where
 
-import Ocram.Types (RawAst, Ast, getAst)
+import Ocram.Types (RawAst, Ast, getAst, Symbol)
 import Ocram.Visitor.Visitor (DownVisitor, UpVisitor, upCFunDef, upCDecl, mapCTranslUnit)
 import Ocram.Visitor.Traverse (traverseCTranslUnit)
-import Ocram.Symbols (symbol, Symbol)
+import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef, CExternalDeclaration(CFDefExt), CTranslUnit, CTranslationUnit(CTranslUnit))
 import Data.Maybe (fromJust)
 import Data.Monoid (mempty, mconcat)

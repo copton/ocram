@@ -1,7 +1,7 @@
 module Ocram.Filter (
-	checkSanity, checkConstraints, checkRecursion
+	checkSanity, checkConstraints, checkCallGraph
 ) where
 
 import Ocram.Filter.Sanity (checkSanity)
 import Ocram.Filter.Constraints (checkConstraints)
-import Ocram.Filter.Recursion (checkRecursion)
+import Ocram.Filter.CallGraph (checkCallGraph)

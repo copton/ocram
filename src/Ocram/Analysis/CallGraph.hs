@@ -1,9 +1,11 @@
-module Ocram.Analysis.CallGraph (
+module Ocram.Analysis.CallGraph 
+-- exports {{{1
+(
 	 determineCallGraph
 ) where
 
-import Ocram.Analysis.Types (CallGraph, Entry(Entry), cgCallees, cgCallers, FunctionMap, BlockingFunctions)
-import Ocram.Types (Result, SaneAst, getAst)
+-- imports {{{1
+import Ocram.Types
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
@@ -11,12 +13,17 @@ import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-determineCallGraph :: SaneAst -> FunctionMap -> BlockingFunctions -> Result CallGraph
-determineCallGraph sane_ast fm bf = return $ createCallGraph $ snd $ traverseCTranslUnit (getAst sane_ast) (initDownState fm bf)
+-- determineCallGraph :: Context -> Result CallGraph {{{1
+determineCallGraph :: Context -> Result CallGraph
+determineCallGraph ctx = do
+	ast <- getSaneAst ctx
+	df <- getDefinedFunctions ctx
+	bf <- getBlockingFunctions ctx
+	return $ createCallGraph $ snd $ traverseCTranslUnit (getAst ast) (initDownState df bf)
 
 data DownState = DownState {
 	stCaller :: Maybe CFunDef
-, stFunctionMap :: FunctionMap
+, stDefinedFunctions :: DefinedFunctions
 , stBlockingFunctions :: BlockingFunctions
 }
 
@@ -29,8 +36,8 @@ instance DownVisitor DownState where
 
 instance UpVisitor DownState Calls where
 	upCExpr (CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller) fm bf) _ 
-		| Map.member callee fm = [(caller, callee)]
-		| Map.member callee bf = [(caller, callee)]
+		| Set.member callee fm = [(caller, callee)]
+		| Set.member callee bf = [(caller, callee)]
 		| otherwise = []
 	upCExpr _ _ _ = []
 

@@ -1,11 +1,16 @@
 module Ocram.Test.Lib (
-	parse, parse'
+	parse, parse', createContext, paste
 ) where
 
-import Ocram.Types (Result, RawAst(RawAst))
+import Ocram.Types (Result, RawAst(RawAst), Context(Context))
+import Ocram.Options (emptyOptions, Options)
+import Ocram.Context (context)
 import qualified Data.ByteString.Char8 as B
 import Language.C.Data.Position (position)
 import Language.C.Parser (parseC)
+
+import Language.Haskell.TH.Quote (QuasiQuoter(..))
+import Language.Haskell.TH (stringL, litE, litP)
 
 parse' :: String -> RawAst
 parse' code = case parse code of
@@ -19,3 +24,9 @@ parse code = case parseC code' pos of
 	where
 		code' = B.pack code
 		pos = position 0 "<<test>>" 0 0
+
+createContext :: String -> Maybe Options -> Context
+createContext code Nothing = context emptyOptions $ parse' code
+createContext code (Just options) = context options $ parse' code
+
+paste = QuasiQuoter (litE . stringL) (litP . stringL) 

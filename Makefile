@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-GHC_FLAGS=-XMultiParamTypeClasses -XFlexibleInstances -XTypeSynonymInstances
+GHC_FLAGS=-XMultiParamTypeClasses -XFlexibleInstances -XTypeSynonymInstances -XQuasiQuotes
 
 all:
 	cd src; ghc $(GHC_FLAGS) -outputdir ../bin --make main.hs

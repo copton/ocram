@@ -1,18 +1,11 @@
 module Ocram.Options (
-	Options(..), getOptions
+	Options(..), getOptions, emptyOptions
 ) where
 
-import Ocram.Types (Result)
+import Ocram.Types (Result, Options(..))
 import System.Environment (getArgs, getProgName)
 import Data.List (intersperse)
 import System.Console.GetOpt
-
-data Options = Options { 
-	  optInput :: String
-	, optOutput :: String
-	, optCppOptions :: String
-	, optHelp :: Bool
-} deriving Show
 
 getOptions :: IO (Result Options)
 getOptions = do
@@ -21,7 +14,7 @@ getOptions = do
 	let use = usage prg
 	case getOpt Permute options argv of
 		(o,[],[]) -> 
-			let opts = foldl (flip id) defaultOptions o in
+			let opts = foldl (flip id) emptyOptions o in
 			if (optHelp opts) then
 					return $ fail $ help use
 			else
@@ -49,7 +42,7 @@ options = [
 	, Option ['h'] ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
 	]
 
-defaultOptions = Options { 
+emptyOptions = Options { 
 	  optInput = ""
 	, optOutput = ""
 	, optCppOptions = ""
@@ -58,7 +51,7 @@ defaultOptions = Options {
 
 checkOptions :: Options -> Bool
 checkOptions opts
-	| (optInput opts) == (optInput defaultOptions) = False
-	| (optOutput opts) == (optOutput defaultOptions) = False
+	| (optInput opts) == (optInput emptyOptions) = False
+	| (optOutput opts) == (optOutput emptyOptions) = False
 	| otherwise = True
 
