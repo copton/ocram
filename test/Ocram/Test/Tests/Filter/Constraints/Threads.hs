@@ -1,5 +1,5 @@
-module Ocram.Test.Tests.Filter.Constraints.FunctionPointer (
-	tests
+module Ocram.Test.Tests.Filter.Constraints.Threads (
+tests
 ) where
 
 import Ocram.Filter.Constraints (getErrorCodes)
@@ -8,13 +8,11 @@ import Ocram.Test.Lib (createContext, paste)
 
 reduce code = getErrorCodes (createContext code Nothing)
 
-tests = runTests "function pointer" reduce [
+tests = runTests "threads" reduce [
+	("", [2]),
+	("__attribute__((tc_blocking)) void foo();", [2]),
 	([$paste|
 		__attribute__((tc_blocking)) void foo(); 
-		void bar(void*); 
-		__attribute__((tc_run_thread)) void baz() { 
-			bar(&foo); 
-			foo();
-		}
-	|], [1])
+	  __attribute__((tc_run_thread)) void baz() { }
+	|], [])
 	]

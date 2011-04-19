@@ -37,9 +37,9 @@ newtype SaneAst = SaneAst Ast
 instance AstC SaneAst where
 	getAst (SaneAst ast) = ast
 
-newtype CyclefreeAst = CyclefreeAst Ast
-instance AstC CyclefreeAst where
-	getAst (CyclefreeAst ast) = ast
+newtype ForestAst = ForestAst Ast
+instance AstC ForestAst where
+	getAst (ForestAst ast) = ast
 
 newtype ValidAst = ValidAst Ast
 instance AstC ValidAst where
@@ -78,16 +78,6 @@ type DefinedFunctions = Set.Set Symbol
 -- list of all start routine names
 type StartRoutines = Set.Set Symbol
 
--- transformation {{{1
-data Signature = Signature {
-	getResultType :: CTypeSpec,
-	getParameters :: [CDecl]
-}
-
-type Signatures = Map.Map Symbol Signature
-
-type TStackFrame = CExtDecl
-
 --- context {{{1
 data Context = Context {
 	getOptions :: Options,
@@ -97,7 +87,7 @@ data Context = Context {
 	getDefinedFunctions :: Result DefinedFunctions,
 	getStartRoutines :: Result StartRoutines,
 	getCallGraph :: Result CallGraph,
-	getCyclefreeAst :: Result CyclefreeAst,
+	getForestAst :: Result ForestAst,
 	getCriticalFunctions :: Result CriticalFunctions,
 	getValidAst :: Result ValidAst,
 	getRevisedAst :: Result RevisedAst,

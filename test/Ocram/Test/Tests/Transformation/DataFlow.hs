@@ -13,6 +13,29 @@ import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
 tests = runTests [
 	([$paste|
 		__attribute__((tc_blocking)) void foo(int i);
+		__attribute__((tc_run_thread)) void bar() { 
+			foo(23);
+		}
+	|],[$paste|
+		void foo(int i);
+		void bar() { 
+			foo(23);
+		}
+
+		typedef struct {
+				ec_continuation_t ec_cont;
+				int i;
+		} ec_frame_foo_t;
+
+		typedef struct {
+				ec_continuation_t ec_cont;
+				union {
+						ec_frame_foo_t foo;
+				} ec_frames;
+		} ec_frame_bar_t;
+	|]),
+	([$paste|
+		__attribute__((tc_blocking)) void foo(int i);
 
 		__attribute__((tc_run_thread)) int bar(char param) {
 				int i;

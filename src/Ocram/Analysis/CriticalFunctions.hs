@@ -15,7 +15,7 @@ import qualified Data.Set as Set
 -- determineCriticalFunctions :: Context -> Result CriticalFunctions {{{1
 determineCriticalFunctions :: Context -> Result CriticalFunctions
 determineCriticalFunctions ctx = do
-	ast <- getCyclefreeAst ctx
+	ast <- getForestAst ctx
 	cg <- getCallGraph ctx
 	bf <- getBlockingFunctions ctx
 	seq ast $ return $ foldl (travBlocking cg) Set.empty (Set.elems bf)

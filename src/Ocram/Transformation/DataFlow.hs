@@ -21,6 +21,10 @@ import Data.Maybe (fromJust, catMaybes)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 
+myLookup s m k = case Map.lookup k m of
+	(Just v) -> v
+	Nothing -> error (s ++ ": " ++ show k)
+
 -- transformDataFlow :: Context -> Result StacklessAst {{{1
 transformDataFlow :: Context -> Result StacklessAst
 transformDataFlow ctx = do
@@ -128,10 +132,10 @@ createTStackFrames bf cg fi = concatMap (topologicSort cg fi) $ Set.elems bf
 topologicSort :: CallGraph -> FunctionInfos -> Symbol -> [CExtDecl]
 topologicSort cg fi sym = myFrame : otherFrames
 	where
-		myFrame = createTStackFrame cg (sym, fi Map.! sym)
-		otherFrames = concatMap (topologicSort cg fi) $ Set.elems $ cgCallers $ cg Map.! sym
+		myFrame = createTStackFrame cg (sym, myLookup "1" fi sym)
+		otherFrames = concatMap (topologicSort cg fi) $ Set.elems $ cgCallers $ myLookup "2" cg sym
 
-createTStackFrame :: CallGraph -> (Symbol, FunctionInfo) -> TStackFrame
+createTStackFrame :: CallGraph -> (Symbol, FunctionInfo) -> CExtDecl
 createTStackFrame cg (name, fi@(FunctionInfo resultType params)) = 
 	 CDeclExt
 		 (CDecl
@@ -159,7 +163,7 @@ createNestedFramesUnion :: CallGraph -> (Symbol, FunctionInfo) -> Maybe CDecl
 createNestedFramesUnion cg (name, fi) = result
 	where
 		result = if null entries then Nothing else Just createDecl
-		entries = map createEntry $ Set.elems $ cgCallees $ (Map.!) cg name
+		entries = map createEntry $ Set.elems $ cgCallees $ myLookup "3" cg name
 		createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
 											[(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
 		createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
