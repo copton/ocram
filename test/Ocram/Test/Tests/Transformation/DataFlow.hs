@@ -2,15 +2,16 @@ module Ocram.Test.Tests.Transformation.DataFlow (
 	tests
 ) where
 
+-- imports {{{1
 import Ocram.Test.Lib (createContext, parse', paste)
 import Ocram.Types (getAst, getStacklessAst)
-
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
-
 import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
 
+--- tests {{{1
 tests = runTests [
+-- setup {{{2
 	([$paste|
 		__attribute__((tc_blocking)) void foo(int i);
 		__attribute__((tc_run_thread)) void bar() { 
@@ -35,6 +36,7 @@ tests = runTests [
 			foo(23);
 		}
 	|])
+-- local variable {{{2
 	,([$paste|
 		__attribute__((tc_blocking)) void foo(int i);
 
@@ -64,6 +66,7 @@ tests = runTests [
 				foo(((ec_frame_bar_t*) ec_cont->frame)->i);
 		}
 	|])
+-- global variable {{{2
 	,([$paste|
 		__attribute__((tc_blocking)) void foo(int i, int j);
 
@@ -100,6 +103,7 @@ tests = runTests [
 	|])
 	]
 
+-- utils {{{1
 runTests :: [(String, String)] -> Test
 runTests cases = TestLabel "DataFlow" $ TestList $ map runTest $ zip [1..] cases
 
