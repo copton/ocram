@@ -11,4 +11,4 @@ ident s = Ident s 0 un
 un = undefNode
 
 tStackAccess :: String -> String -> CExpr
-tStackAccess fName vName = CMember (CCast (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr Nothing [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un) (CMember (CVar (ident contVar) un) (ident contFrameVar) True un) un) (ident vName) True un
+tStackAccess fName vName = CMember (CCast (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr Nothing [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un) (CMember (CVar (ident contVar) un) (ident contFrameVar) False un) un) (ident vName) True un

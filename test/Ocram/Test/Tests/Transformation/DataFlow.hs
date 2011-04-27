@@ -63,7 +63,7 @@ tests = runTests [
 		void foo(int i);
 
 		int bar(char param) {
-				foo(((ec_frame_bar_t*) ec_cont->frame)->i);
+				foo(((ec_frame_bar_t*) ec_cont.frame)->i);
 		}
 	|])
 -- global variable {{{2
@@ -98,7 +98,7 @@ tests = runTests [
 		int j;
 
 		int bar(char param) {
-				foo(((ec_frame_bar_t*) ec_cont->frame)->i, j);
+				foo(((ec_frame_bar_t*) ec_cont.frame)->i, j);
 		}
 	|])
 	]
