@@ -39,6 +39,7 @@ options = [
 	  Option ['i'] ["input"] (ReqArg (\ x opts -> opts {optInput = x}) "input") "input tc file (required)"
 	, Option ['o'] ["output"] (ReqArg (\ x opts -> opts {optOutput = x}) "output") "output ec file (required)"
 	, Option ['c'] ["cpp"] (ReqArg (\ x opts -> opts {optCppOptions = x}) "cpp") "cpp options (default=\"\")"
+	, Option ['s'] ["scheme"] (ReqArg (\x opts -> opts {optScheme = x }) "scheme") "compilation scheme (default=inline"
 	, Option ['h'] ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
 	]
 
@@ -46,6 +47,7 @@ emptyOptions = Options {
 	  optInput = ""
 	, optOutput = ""
 	, optCppOptions = ""
+	, optScheme = "inline"
 	, optHelp = False
 }
 

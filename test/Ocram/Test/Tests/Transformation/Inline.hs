@@ -1,16 +1,16 @@
-module Ocram.Test.Tests.Transformation.DataFlow (
+module Ocram.Test.Tests.Transformation.Inline (
 	tests
 ) where
 
 -- imports {{{1
 import Ocram.Test.Lib (createContext, parse', paste)
-import Ocram.Types (getAst, getStacklessAst)
-import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
+import Ocram.Types (getAst, getOutputAst)
 import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
+import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
---- tests {{{1
-tests = runTests [
+-- tests {{{1
+tests = runTests "Inline" [
 -- setup {{{2
 	([$paste|
 		__attribute__((tc_blocking)) void foo(int i);
@@ -103,17 +103,20 @@ tests = runTests [
 	|])
 	]
 
--- utils {{{1
-runTests :: [(String, String)] -> Test
-runTests cases = TestLabel "DataFlow" $ TestList $ map runTest $ zip [1..] cases
 
+-- util {{{1
+-- runTests :: [(String, String)] -> Test {{{2
+runTests :: String -> [(String, String)] -> Test
+runTests label cases = TestLabel label $ TestList $ map runTest $ zip [1..] cases
+
+-- runTest :: (Int, (String, String)) -> Test {{{2
 runTest :: (Int, (String, String)) -> Test
 runTest (number, (code, expected)) = TestCase $ assertEqual name expected' result
 	where
 		expected' = show $ pretty $ strip $ getAst $ parse' $ bootstrap ++ expected
 		name = "test" ++ show number
 		result = show $ pretty $ getAst ast
-		ast = case getStacklessAst (createContext code Nothing) of
+		ast = case getOutputAst (createContext code Nothing) of
 			Left e -> error e
 			Right x -> x
 		strip(CTranslUnit (_:_:decls) ni) = CTranslUnit decls ni

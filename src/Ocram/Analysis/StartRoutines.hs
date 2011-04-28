@@ -19,7 +19,7 @@ findStartRoutines :: Context -> Result StartRoutines
 findStartRoutines ctx = do
 	ast <- getSaneAst ctx
 	df <- getDefinedFunctions ctx
-	let df' = getFunDefs ast df
+	let df' = getFunDefs (getAst ast) df
 	return $ fromList $ map symbol $ filter isStartRoutine $ elems df'
 
 isStartRoutine :: CFunDef -> Bool

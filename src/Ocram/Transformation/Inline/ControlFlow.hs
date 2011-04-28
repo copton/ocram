@@ -1,4 +1,4 @@
-module Ocram.Transformation.ControlFlow 
+module Ocram.Transformation.Inline.ControlFlow 
 -- exports {{{1
 (
 	transformControlFlow
@@ -23,15 +23,11 @@ import Language.C.Syntax.AST
 import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (Ident(Ident))
 
--- transformControlFlow :: Context -> Result OutputAst {{{1
-transformControlFlow :: Context -> Result OutputAst
-transformControlFlow ctx = do
-	ast <- getStacklessAst ctx
-	cf <- getCriticalFunctions ctx
-	df <- getDefinedFunctions ctx
-	let fm = getFunDefs ast df
-	return $ OutputAst $ addHandlerFunction cf fm $ removeCriticalFunctions cf $ getAst ast
-
+-- transformControlFlow :: Ast -> CriticalFunctions -> DefinedFunctions -> Ast {{{1
+transformControlFlow :: CriticalFunctions -> DefinedFunctions -> Ast -> Ast
+transformControlFlow cf df ast = ast
+	-- let fm = getFunDefs ast df in
+	-- addHandlerFunction cf fm $ removeCriticalFunctions cf ast
 
 addHandlerFunction :: CriticalFunctions -> Map.Map Symbol CFunDef -> Ast -> Ast
 addHandlerFunction cf fm (CTranslUnit decls ni) = (CTranslUnit (handlerFun fm cf : decls) ni)

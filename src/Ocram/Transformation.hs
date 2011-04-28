@@ -1,9 +1,13 @@
 module Ocram.Transformation (
-	  module Ocram.Transformation.ControlFlow
-	, module Ocram.Transformation.DataFlow
-	, module Ocram.Transformation.Attributes
+	transform
 ) where
 
-import Ocram.Transformation.ControlFlow
-import Ocram.Transformation.DataFlow
-import Ocram.Transformation.Attributes
+import Ocram.Types
+import qualified Ocram.Transformation.Inline as Inline
+
+transform :: Context -> Result OutputAst
+transform ctx = do
+	let options = getOptions ctx
+	case optScheme options of
+		"inline" -> Inline.transform ctx
+		s -> fail $ "unknown compilation scheme \"" ++ s ++ "\"."

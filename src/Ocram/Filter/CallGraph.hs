@@ -22,7 +22,7 @@ checkCallGraph ctx = do
 	cg <- getCallGraph ctx
 	sr <- getStartRoutines ctx
 	df <- getDefinedFunctions ctx
-	let df' = getFunDefs ast df
+	let df' = getFunDefs (getAst ast) df
 	fmap ForestAst $ performFilter (descriptor cg sr df') $ getAst ast
 
 -- getErrorCodes :: Context -> Result [Int] {{{1
@@ -32,7 +32,7 @@ getErrorCodes ctx = do
 	cg <- getCallGraph ctx
 	sr <- getStartRoutines ctx
 	df <- getDefinedFunctions ctx
-	let df' = getFunDefs ast df
+	let df' = getFunDefs (getAst ast) df
 	return $ performCheck (descriptor cg sr df') $ getAst ast
 
 -- utils {{{1

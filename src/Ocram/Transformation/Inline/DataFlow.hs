@@ -1,4 +1,4 @@
-module Ocram.Transformation.DataFlow 
+module Ocram.Transformation.Inline.DataFlow 
 -- exports {{{1
 (
 	transformDataFlow
@@ -21,15 +21,12 @@ import Data.Maybe (fromJust, catMaybes)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 
--- transformDataFlow :: Context -> Result StacklessAst {{{1
-transformDataFlow :: Context -> Result StacklessAst
-transformDataFlow ctx = do
-	ast <- getRevisedAst ctx
-	cg <- getCallGraph ctx
-	cf <- getCriticalFunctions ctx
-	bf <- getBlockingFunctions ctx
-	let (ast', _) = (traverseCTranslUnit (getAst ast) (DownState cg cf bf Nothing Set.empty) :: (Maybe CTranslUnit, UpState))
-	return $ StacklessAst $ fromJust ast'
+-- transformDataFlow :: CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> Ast {{{1
+transformDataFlow :: CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> Ast
+transformDataFlow cg cf bf ast = 
+	let emptyDownState = DownState cg cf bf Nothing Set.empty in
+	let (ast', _) = (traverseCTranslUnit ast emptyDownState) :: (Maybe CTranslUnit, UpState) in
+	fromJust ast'
 
 -- types {{{2
 data DownState = DownState {

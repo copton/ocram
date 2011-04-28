@@ -2,8 +2,30 @@ module Ocram.Test.Tests.Filter.CallGraph (
 	tests
 ) where
 
-import qualified Ocram.Test.Tests.Filter.CallGraph.Test1 as A
-import Test.HUnit
+import Ocram.Filter.CallGraph (getErrorCodes)
+import Ocram.Test.Tests.Filter.Utils (runTests)
+import Ocram.Test.Lib (createContext, paste)
 
-tests = TestLabel "CallGraph" $ TestList [A.tests]
+reduce code = getErrorCodes (createContext code Nothing)
 
+tests = runTests "CallGraph" reduce [
+	([$paste|
+		void foo() {
+			bar();
+		} 
+
+		void bar() {
+			foo();
+		}
+	|], []),
+	([$paste|
+		__attribute__((tc_blocking)) void block(); 
+		__attribute__((tc_run_thread)) void start() {
+			rec();
+		} 
+		void rec() {
+			block(); 
+			start();
+		}
+	|], [1])
+	]

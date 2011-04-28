@@ -19,6 +19,7 @@ data Options = Options {
 	  optInput :: String
 	, optOutput :: String
 	, optCppOptions :: String
+	, optScheme :: String
 	, optHelp :: Bool
 } deriving Show
 
@@ -44,14 +45,6 @@ instance AstC ForestAst where
 newtype ValidAst = ValidAst Ast
 instance AstC ValidAst where
 	getAst (ValidAst ast) = ast
-
-newtype RevisedAst = RevisedAst Ast
-instance AstC RevisedAst where
-	getAst (RevisedAst ast) = ast
-
-newtype StacklessAst = StacklessAst Ast
-instance AstC StacklessAst where
-	getAst (StacklessAst ast) = ast
 
 newtype OutputAst = OutputAst Ast
 instance AstC OutputAst where
@@ -90,7 +83,5 @@ data Context = Context {
 	getForestAst :: Result ForestAst,
 	getCriticalFunctions :: Result CriticalFunctions,
 	getValidAst :: Result ValidAst,
-	getRevisedAst :: Result RevisedAst,
-	getStacklessAst :: Result StacklessAst,
 	getOutputAst :: Result OutputAst
 	}
