@@ -5,8 +5,9 @@ module Ocram.Transformation.Inline.DataFlow
 ) where
 
 -- imports {{{1
-import Ocram.Names (contType, contVar, resVar, frameType, frameUnion, frameVar)
-import Ocram.Transformation.Util (un, ident, tStackAccess)
+import Ocram.Transformation.Inline.Names (contType, contVar, resVar, frameType, frameUnion, frameVar)
+import Ocram.Transformation.Inline.Util (tStackAccess)
+import Ocram.Transformation.Util (un, ident)
 import Ocram.Types 
 import Ocram.Symbols (symbol)
 import Ocram.Query (getFunDefs, getFunDecls)

@@ -37,70 +37,70 @@ tests = runTests "Inline" [
 		}
 	|])
 -- local variable {{{2
-	,([$paste|
-		__attribute__((tc_blocking)) void foo(int i);
+	-- ,([$paste|
+	--   __attribute__((tc_blocking)) void foo(int i);
 
-		__attribute__((tc_run_thread)) int bar(char param) {
-				int i;
-				foo(i);
-		}
-	|],[$paste|
-		typedef struct {
-				ec_continuation_t ec_cont;
-				int i;
-		} ec_frame_foo_t;
+	--   __attribute__((tc_run_thread)) int bar(char param) {
+	--       int i;
+	--       foo(i);
+	--   }
+	-- |],[$paste|
+	--   typedef struct {
+	--       ec_continuation_t ec_cont;
+	--       int i;
+	--   } ec_frame_foo_t;
 
-		typedef struct {
-				ec_continuation_t ec_cont;
-				int ec_result;
-				union {
-						ec_frame_foo_t foo;
-				} ec_frames;
-				char param;
-				int i;
-		} ec_frame_bar_t;
+	--   typedef struct {
+	--       ec_continuation_t ec_cont;
+	--       int ec_result;
+	--       union {
+	--           ec_frame_foo_t foo;
+	--       } ec_frames;
+	--       char param;
+	--       int i;
+	--   } ec_frame_bar_t;
 
-		void foo(int i);
+	--   void foo(int i);
 
-		int bar(char param) {
-				foo(((ec_frame_bar_t*) ec_cont.frame)->i);
-		}
-	|])
+	--   int bar(char param) {
+	--       foo(((ec_frame_bar_t*) ec_cont.frame)->i);
+	--   }
+	-- |])
 -- global variable {{{2
-	,([$paste|
-		__attribute__((tc_blocking)) void foo(int i, int j);
+	-- ,([$paste|
+	--   __attribute__((tc_blocking)) void foo(int i, int j);
 
-		int j;
+	--   int j;
 
-		__attribute__((tc_run_thread)) int bar(char param) {
-				int i;
-				foo(i, j);
-		}
-	|],[$paste|
-		typedef struct {
-				ec_continuation_t ec_cont;
-				int i;
-				int j;
-		} ec_frame_foo_t;
+	--   __attribute__((tc_run_thread)) int bar(char param) {
+	--       int i;
+	--       foo(i, j);
+	--   }
+	-- |],[$paste|
+	--   typedef struct {
+	--       ec_continuation_t ec_cont;
+	--       int i;
+	--       int j;
+	--   } ec_frame_foo_t;
 
-		typedef struct {
-				ec_continuation_t ec_cont;
-				int ec_result;
-				union {
-						ec_frame_foo_t foo;
-				} ec_frames;
-				char param;
-				int i;
-		} ec_frame_bar_t;
+	--   typedef struct {
+	--       ec_continuation_t ec_cont;
+	--       int ec_result;
+	--       union {
+	--           ec_frame_foo_t foo;
+	--       } ec_frames;
+	--       char param;
+	--       int i;
+	--   } ec_frame_bar_t;
 
-		void foo(int i, int j);
+	--   void foo(int i, int j);
 
-		int j;
+	--   int j;
 
-		int bar(char param) {
-				foo(((ec_frame_bar_t*) ec_cont.frame)->i, j);
-		}
-	|])
+	--   int bar(char param) {
+	--       foo(((ec_frame_bar_t*) ec_cont.frame)->i, j);
+	--   }
+	-- |])
 	]
 
 

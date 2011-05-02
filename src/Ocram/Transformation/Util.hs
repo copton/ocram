@@ -1,21 +1,22 @@
-module Ocram.Transformation.Util (
-	ident, un, tStackAccess
+module Ocram.Transformation.Util 
+-- exports {{{1
+(
+	ident, un
 	, removeAttributes
 ) where
 
+-- imports {{{1
 import Ocram.Types
 import qualified Data.Set as Set
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
-import Ocram.Names (frameType, contVar, contFrameVar, blockingAttr, startRoutineAttr)
+import Ocram.Names (blockingAttr, startRoutineAttr)
 
+-- ident {{{1
 ident s = Ident s 0 un
 un = undefNode
 
--- tStackAccess :: String -> String -> CExpr {{{1
-tStackAccess :: String -> String -> CExpr
-tStackAccess fName vName = CMember (CCast (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr Nothing [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un) (CMember (CVar (ident contVar) un) (ident contFrameVar) False un) un) (ident vName) True un
 
 -- removeAttributes :: BlockingFunctions -> StartRoutines -> Ast -> Ast {{{1
 removeAttributes :: BlockingFunctions -> StartRoutines -> Ast -> Ast

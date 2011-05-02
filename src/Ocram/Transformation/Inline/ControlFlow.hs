@@ -8,7 +8,7 @@ module Ocram.Transformation.Inline.ControlFlow
 import Ocram.Types 
 import Ocram.Visitor (DownVisitor, UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol)
-import Ocram.Names (label, handlerFunction, contType, contVar)
+import Ocram.Transformation.Inline.Names (label, handlerFunction, contType, contVar)
 import Ocram.Query (getFunDefs)
 
 import Data.Set (elems)
