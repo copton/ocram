@@ -5,7 +5,7 @@ module Ocram.Transformation.Inline.DataFlow
 ) where
 
 -- imports {{{1
-import Ocram.Transformation.Inline.Names (stackVar, contVar, resVar, frameType, frameUnion, frameVar)
+import Ocram.Transformation.Inline.Names (stackVar, contVar, resVar, frameType, frameUnion)
 import Ocram.Transformation.Inline.Util (tStackAccess)
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types 
@@ -88,7 +88,7 @@ instance UpVisitor DownState UpState where
 			ctu = CTranslUnit (frames ++ stacks ++ decls) ni
 			frames = createTStackFrames sr bf cg fis
 			fis = Map.fromList $ catMaybes $ map getFunctionInfo us
-			stacks = map createTStack $ Set.elems sr
+			stacks = map createTStack $ zip [1..] $ Set.elems sr
 	
 	upCExtDecl (CDeclExt cd) (DownState _ _ _ _ (Just name) _) _ = 
 		UpState [] $ Just (name, decl2fi cd)
@@ -142,9 +142,9 @@ isCBlockDecl _ = False
 
 unpDecl (CBlockDecl d) = d
 
--- createTStack :: Symbol -> CExtDecl {{{1
-createTStack :: Symbol -> CExtDecl
-createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
+-- createTStack :: (Int, Symbol) -> CExtDecl {{{1
+createTStack :: (Int, Symbol) -> CExtDecl
+createTStack (tid, fName) = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar tid))) [] Nothing [] un), Nothing, Nothing)] un)
 
 -- createTStackFrames :: StartRoutines -> BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl] {{{1
 createTStackFrames :: StartRoutines -> BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl]

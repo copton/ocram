@@ -29,11 +29,11 @@ tests = runTests "Inline" [
 				} ec_frames;
 		} ec_frame_bar_t;
 		
-		ec_frame_bar_t ec_stack_bar;
+		ec_frame_bar_t ec_stack_1;
 
 		void foo(ec_frame_foo_t* frame);
 
-		void ec_thread1(void* ec_cont)
+		void ec_thread_1(void* ec_cont)
 		{
 			if (ec_cont != null)
 				goto *ec_cont;
