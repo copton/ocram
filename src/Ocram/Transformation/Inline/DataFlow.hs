@@ -5,7 +5,7 @@ module Ocram.Transformation.Inline.DataFlow
 ) where
 
 -- imports {{{1
-import Ocram.Transformation.Inline.Names (contType, contVar, resVar, frameType, frameUnion, frameVar)
+import Ocram.Transformation.Inline.Names (stackVar, contVar, resVar, frameType, frameUnion, frameVar)
 import Ocram.Transformation.Inline.Util (tStackAccess)
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types 
@@ -18,19 +18,22 @@ import Control.Exception (assert)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.List (partition)
-import Data.Maybe (fromJust, catMaybes)
+import Data.Maybe (fromJust, catMaybes, isJust)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 
--- transformDataFlow :: CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> Ast {{{1
-transformDataFlow :: CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> Ast
-transformDataFlow cg cf bf ast = 
-	let emptyDownState = DownState cg cf bf Nothing Set.empty in
-	let (ast', _) = (traverseCTranslUnit ast emptyDownState) :: (Maybe CTranslUnit, UpState) in
-	fromJust ast'
+-- transformDataFlow :: StartRoutines -> CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> Ast {{{1
+transformDataFlow :: StartRoutines -> CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> Ast
+transformDataFlow sr cg cf bf ast = 
+	let 
+		emptyDownState = DownState sr cg cf bf Nothing Set.empty
+		(ast', _) = (traverseCTranslUnit ast emptyDownState) :: (Maybe CTranslUnit, UpState) 
+	in
+		fromJust ast'
 
 -- types {{{2
 data DownState = DownState {
+	getSr :: StartRoutines,
 	getCg :: CallGraph,
 	getCf :: CriticalFunctions,
 	getBf :: BlockingFunctions,
@@ -55,47 +58,49 @@ instance Monoid UpState where
 
 -- visitor {{{2
 instance DownVisitor DownState where
-	downCExtDecl (CFDefExt fd) d@(DownState _ cf _ _ _) =
+	downCExtDecl (CFDefExt fd) d =
 		let name = (symbol fd) in
-		if Set.member name cf 
+		if Set.member name $ getCf d
 			then d { getCfName = Just name, getLocalVars = localVars }
 			else d
 		where
 			localVars = Set.fromList $ map symbol $ extractParams' fd
 
-	downCExtDecl (CDeclExt cd) d@(DownState _ _ bf _ _) =
+	downCExtDecl (CDeclExt cd) d =
 		let name = (symbol cd) in
-		if Set.member name bf
+		if Set.member name $ getBf d
 			then d { getCfName = Just name }
 			else d
 		
 	downCExtDecl _ d = d
 
-	downCStat (CCompound idents items ni) d@(DownState _ _ _ (Just name) decls) =
-		d { getLocalVars = Set.union decls decls' }
+	downCStat (CCompound idents items ni) d
+		| isJust $ getCfName d = d { getLocalVars = Set.union (getLocalVars d) decls' }
+		| otherwise = d
 		where
 			decls' = Set.fromList $ map (symbol.unpDecl) (filter isCBlockDecl items) 
 
 	downCStat _ d = d
 
 instance UpVisitor DownState UpState where
-	mapCTranslUnit (CTranslUnit decls ni) (DownState cg _ bf _ _) us = (Just ctu, mempty)
+	mapCTranslUnit (CTranslUnit decls ni) (DownState sr cg _ bf _ _) us = (Just ctu, mempty)
 		where
-			ctu = CTranslUnit (frames ++ decls) ni
-			frames = createTStackFrames bf cg fis
+			ctu = CTranslUnit (frames ++ stacks ++ decls) ni
+			frames = createTStackFrames sr bf cg fis
 			fis = Map.fromList $ catMaybes $ map getFunctionInfo us
-
-	upCExtDecl (CDeclExt cd) (DownState _ _ _ (Just name) _) _ = 
+			stacks = map createTStack $ Set.elems sr
+	
+	upCExtDecl (CDeclExt cd) (DownState _ _ _ _ (Just name) _) _ = 
 		UpState [] $ Just (name, decl2fi cd)
 
-	upCExtDecl (CFDefExt fd) (DownState _ _ _ (Just name) _) us =
+	upCExtDecl (CFDefExt fd) (DownState _ _ _ _ (Just name) _) us =
 		UpState [] $ Just (name, def2fi fd variables)
 		where
 			variables = concatMap getVariables' us
 
 	upCExtDecl _ _ _ = mempty
 
-	mapCStat (CCompound idents items ni) (DownState _ _ _ (Just name) _) us = 
+	mapCStat (CCompound idents items ni) (DownState _ _ _ _ (Just name) _) us = 
 		(Just (CCompound idents items' ni), upState)
 		where
 			(decls, items') = partition isCBlockDecl items
@@ -104,7 +109,7 @@ instance UpVisitor DownState UpState where
 
 	mapCStat _ _ us = (Nothing, mconcat us)
 
-	mapCExpr (CVar (Ident vName _ _)_ ) (DownState _ _ _ (Just fName) localVars) us
+	mapCExpr (CVar (Ident vName _ _)_ ) (DownState _ _ _ _ (Just fName) localVars) us
 		| Set.member vName localVars = (Just (tStackAccess fName vName), mconcat us)
 		| otherwise = (Nothing, mconcat us)
 
@@ -137,18 +142,22 @@ isCBlockDecl _ = False
 
 unpDecl (CBlockDecl d) = d
 
--- createTStackFrames :: BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl] {{{2
-createTStackFrames :: BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl]
-createTStackFrames bf cg fi = concatMap (topologicSort cg fi) $ Set.elems bf
+-- createTStack :: Symbol -> CExtDecl {{{1
+createTStack :: Symbol -> CExtDecl
+createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
 
-topologicSort :: CallGraph -> FunctionInfos -> Symbol -> [CExtDecl]
-topologicSort cg fi sym = myFrame : otherFrames
+-- createTStackFrames :: StartRoutines -> BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl] {{{1
+createTStackFrames :: StartRoutines -> BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl]
+createTStackFrames sr bf cg fi = concatMap (topologicSort sr cg fi) $ Set.elems bf
+
+topologicSort :: StartRoutines -> CallGraph -> FunctionInfos -> Symbol -> [CExtDecl]
+topologicSort sr cg fi sym = myFrame : otherFrames
 	where
-		myFrame = createTStackFrame cg (sym, fi Map.! sym)
-		otherFrames = concatMap (topologicSort cg fi) $ Set.elems $ cgCallers $ cg Map.! sym
+		myFrame = createTStackFrame sr cg (sym, fi Map.! sym)
+		otherFrames = concatMap (topologicSort sr cg fi) $ Set.elems $ cgCallers $ cg Map.! sym
 
-createTStackFrame :: CallGraph -> (Symbol, FunctionInfo) -> CExtDecl
-createTStackFrame cg (name, fi@(FunctionInfo resultType params)) = 
+createTStackFrame :: StartRoutines -> CallGraph -> (Symbol, FunctionInfo) -> CExtDecl
+createTStackFrame sr cg (name, fi@(FunctionInfo resultType params)) = 
 	 CDeclExt
 		 (CDecl
 				[CStorageSpec (CTypedef un),
@@ -156,21 +165,23 @@ createTStackFrame cg (name, fi@(FunctionInfo resultType params)) =
 					 (CSUType
 							(CStruct CStructTag Nothing
 								 (Just (
-										(CDecl [CTypeSpec (CTypeDef (ident contType) un)]
-											 [(Just (CDeclr (Just (ident contVar)) [] Nothing [] un), Nothing,
-												 Nothing)]
-											 un) : result ?: nestedFrames ?: params))
+										 continuation ?: result ?: nestedFrames ?: params))
 								 [] un)
 							un)]
 
 				[(Just (CDeclr (Just (ident (frameType name))) [] Nothing [] un), Nothing, Nothing)]
 				un)
 	where
+		continuation
+			| Set.member name sr = Nothing
+			| otherwise = Just (CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un)
+
 		result = case resultType of
 			(CVoidType _) -> Nothing
 			_ -> Just $ CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident resVar)) [] Nothing [] un), Nothing, Nothing)] un
+
 		nestedFrames = createNestedFramesUnion cg (name, fi)
-											 
+
 createNestedFramesUnion :: CallGraph -> (Symbol, FunctionInfo) -> Maybe CDecl
 createNestedFramesUnion cg (name, fi) = result
 	where

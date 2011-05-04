@@ -19,21 +19,32 @@ tests = runTests "Inline" [
 		}
 	|],[$paste|
 		typedef struct {
-				ec_continuation_t ec_cont;
+				void* ec_cont;
 				int i;
 		} ec_frame_foo_t;
 
 		typedef struct {
-				ec_continuation_t ec_cont;
 				union {
 						ec_frame_foo_t foo;
 				} ec_frames;
 		} ec_frame_bar_t;
+		
+		ec_frame_bar_t ec_stack_bar;
 
-		void foo(int i);
+		void foo(ec_frame_foo_t* frame);
 
-		void bar() { 
-			foo(23);
+		void ec_thread1(void* ec_cont)
+		{
+			if (ec_cont != null)
+				goto *ec_cont;
+
+			ec_label_bar_0: {
+				ec_stack_bar->ec_frames.foo.i = 23;
+				ec_stack_bar->ec_frames.foo.ec_cont = &ec_label_bar_1;
+				foo(&ec_stack_bar->ec_frames.foo);
+				} return;
+			ec_label_bar_1: {
+				} return;	
 		}
 	|])
 -- local variable {{{2
@@ -113,17 +124,9 @@ runTests label cases = TestLabel label $ TestList $ map runTest $ zip [1..] case
 runTest :: (Int, (String, String)) -> Test
 runTest (number, (code, expected)) = TestCase $ assertEqual name expected' result
 	where
-		expected' = show $ pretty $ strip $ getAst $ parse' $ bootstrap ++ expected
+		expected' = show $ pretty $ getAst $ parse' $ expected
 		name = "test" ++ show number
 		result = show $ pretty $ getAst ast
 		ast = case getOutputAst (createContext code Nothing) of
 			Left e -> error e
 			Right x -> x
-		strip(CTranslUnit (_:_:decls) ni) = CTranslUnit decls ni
-		bootstrap = [$paste|
-			typedef struct { 
-				void* frame;
-				void* label;
-			} ec_continuation_t;
-			ec_continuation_t* ec_cont;
-		|]
