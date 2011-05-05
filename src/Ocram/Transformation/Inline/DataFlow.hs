@@ -10,13 +10,14 @@ import Ocram.Transformation.Inline.Util (tStackAccess)
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types 
 import Ocram.Symbols (symbol)
-import Ocram.Query (getFunDefs, getFunDecls)
+import Ocram.Query (getFunDefs, getFunDecls, getCallChain)
 import Ocram.Util ((?:))
 import Data.Monoid (Monoid, mappend, mempty, mconcat)
 import Ocram.Visitor
 import Control.Exception (assert)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.List as List
 import Data.List (partition)
 import Data.Maybe (fromJust, catMaybes, isJust)
 import Language.C.Syntax.AST
@@ -148,14 +149,12 @@ createTStack (tid, fName) = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameTy
 
 -- createTStackFrames :: StartRoutines -> BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl] {{{1
 createTStackFrames :: StartRoutines -> BlockingFunctions -> CallGraph -> FunctionInfos -> [CExtDecl]
-createTStackFrames sr bf cg fi = concatMap (topologicSort sr cg fi) $ Set.elems bf
-
-topologicSort :: StartRoutines -> CallGraph -> FunctionInfos -> Symbol -> [CExtDecl]
-topologicSort sr cg fi sym = myFrame : otherFrames
+createTStackFrames sr bf cg fi = frames
 	where
-		myFrame = createTStackFrame sr cg (sym, fi Map.! sym)
-		otherFrames = concatMap (topologicSort sr cg fi) $ Set.elems $ cgCallers $ cg Map.! sym
-
+		fnames = List.reverse $ foldl List.union [] $ map (getCallChain cg) $ Set.elems sr
+		fis = map (\fname -> (fname, fi Map.! fname)) fnames
+		frames = map (createTStackFrame sr cg) fis
+		
 createTStackFrame :: StartRoutines -> CallGraph -> (Symbol, FunctionInfo) -> CExtDecl
 createTStackFrame sr cg (name, fi@(FunctionInfo resultType params)) = 
 	 CDeclExt

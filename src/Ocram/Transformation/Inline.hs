@@ -14,5 +14,4 @@ transform ctx = do
 	bf <- getBlockingFunctions ctx
 	sr <- getStartRoutines ctx
 	df <- getDefinedFunctions ctx
---	return $ OutputAst $ transformControlFlow cf df $ transformDataFlow cg cf bf $ removeAttributes bf sr $ getAst valid_ast
-	return $ OutputAst $ transformControlFlow cg cf df $ transformDataFlow sr cg cf bf $ getAst valid_ast
+	return $ OutputAst $ transformControlFlow bf cg cf sr $ transformDataFlow sr cg cf bf $ getAst valid_ast
