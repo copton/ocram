@@ -10,11 +10,12 @@ import Ocram.Query (getCallChain)
 import Ocram.Visitor (DownVisitor, UpVisitor(..), traverseCTranslUnit)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Util (un, ident)
-import Ocram.Transformation.Inline.Names (frameType, frameParam, label, handlerFunction, contVar)
+import Ocram.Transformation.Inline.Names (frameType, frameParam, label, handlerFunction, contVar, frameUnion, stackVar)
 import Ocram.Query (getFunDefs)
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
+import qualified Data.List as List
 import Data.Maybe (fromJust)
 import Data.Maybe (catMaybes)
 import Data.Monoid
@@ -47,7 +48,7 @@ instance DownVisitor DownState
 data UpState = UpState {
 	getRest :: [CExtDecl],
 	getBfDeclrs :: [CDecl],
-	getCfBodies :: Map.Map Symbol [CBlockItem]
+	getCfBodies :: Map.Map Symbol CStat
 	}
 
 instance Monoid UpState where
@@ -72,15 +73,15 @@ instance UpVisitor DownState UpState where
 		| (symbol cfd) `member` cf = UpState mempty mempty $ Map.singleton (symbol cfd) (extractBody cfd)
 		| otherwise = UpState [CFDefExt cfd] mempty mempty
 		where
-			extractBody (CFunDef _ _ _ (CCompound _ body _) _) = body
+			extractBody (CFunDef _ _ _ body _) = body
 
 -- createBlockingFunctionDeclr :: CDecl -> CDecl {{{2
 createBlockingFunctionDeclr :: CDecl -> CDecl
 createBlockingFunctionDeclr cd = let fName = symbol cd in
    CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident fName)) [CFunDeclr (Right ([CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident frameParam)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un), Nothing, Nothing)] un
 
--- createThreadFunction :: StartRoutines -> CallGraph -> Map.Map Symbol [CBlockItem] -> (Int, Symbol) -> CFunDef {{{2
-createThreadFunction :: BlockingFunctions -> StartRoutines -> CallGraph -> Map.Map Symbol [CBlockItem] -> (Int, Symbol) -> CFunDef
+-- createThreadFunction :: BlockingFunctions -> StartRoutines -> CallGraph -> Map.Map Symbol CStat -> (Int, Symbol) -> CFunDef {{{2
+createThreadFunction :: BlockingFunctions -> StartRoutines -> CallGraph -> Map.Map Symbol CStat -> (Int, Symbol) -> CFunDef
 createThreadFunction bf sr cg bodies (tid, fName) =
 	CFunDef [CTypeSpec (CVoidType un)]
 		(CDeclr (Just (ident (handlerFunction tid)))
@@ -96,13 +97,24 @@ createThreadFunction bf sr cg bodies (tid, fName) =
 		[] (CCompound [] (intro : functions) un) un
 	where
 		intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
-		fNames = filter (not . (flip Set.member bf)) $ getCallChain cg fName
+		callChain = filter (not . (flip Set.member bf)) $ getCallChain cg fName
+		functions = concatMap mapFunction $ List.drop 1 $ List.inits callChain
+		mapFunction chain@(fName:rest) = inlineFunction $ transformCriticalFunction fName (bodies Map.! fName) chain
 
-		functions = concatMap (\fName -> inlineFunction fName (bodies Map.! fName)) fNames
+inlineFunction (CCompound _ block _) = block
 
--- inlineFunction :: CallGraph -> Map.Map Symbol [CBlockItem] -> Symbol -> [CBlockItem] {{{2
-inlineFunction :: Symbol -> [CBlockItem] -> [CBlockItem]
-inlineFunction fName body = []
+-- transformCriticalFunction :: Symbol -> CStat -> [Symbol] -> CStat {{{2
+transformCriticalFunction :: Symbol -> CStat -> [Symbol] -> CStat
+transformCriticalFunction fName body chain = CCompound [] [CBlockStmt (CExpr (Just $ stackAccess (chain ++ ["hemmerned"]) "foo" ) un)] un
+
+stackAccess :: [Symbol] -> Symbol -> CExpr
+stackAccess (sr:chain) variable = foldl create base $ zip pointers members
+	where
+		base = CVar (ident $ stackVar sr) un
+		pointers = True : cycle [False]
+		members = concatMap (\x -> [frameUnion, x]) chain ++ [variable]
+		create :: CExpr -> (Bool, Symbol) -> CExpr
+		create inner (pointer, member) = CMember inner (ident member) pointer un 
 
 -- createLabel (name, body) = 
 --   (CBlockStmt (CLabel (Ident (label name 0) 0 un) (CExpr Nothing un) [] un)) : body

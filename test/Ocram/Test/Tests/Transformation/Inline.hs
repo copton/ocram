@@ -29,7 +29,7 @@ tests = runTests "Inline" [
 				} ec_frames;
 		} ec_frame_bar_t;
 		
-		ec_frame_bar_t ec_stack_1;
+		ec_frame_bar_t ec_stack_bar;
 
 		void foo(ec_frame_foo_t* frame);
 
@@ -38,13 +38,13 @@ tests = runTests "Inline" [
 			if (ec_cont != null)
 				goto *ec_cont;
 
-			ec_label_bar_0: {
+			ec_label_bar_0: ;
 				ec_stack_bar->ec_frames.foo.i = 23;
 				ec_stack_bar->ec_frames.foo.ec_cont = &ec_label_bar_1;
 				foo(&ec_stack_bar->ec_frames.foo);
-				} return;
-			ec_label_bar_1: {
-				} return;	
+				return;
+			ec_label_bar_1: ;
+				return;	
 		}
 	|])
 -- local variable {{{2

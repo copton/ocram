@@ -22,4 +22,4 @@ frameUnion = "ec_frames"
 frameParam = "frame"
 
 -- name of the variables that save the t-stack of a thread
-stackVar tid = "ec_stack_" ++ show tid
+stackVar fName = "ec_stack_" ++ fName
