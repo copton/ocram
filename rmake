@@ -1,0 +1,5 @@
+#!/bin/bash
+
+rsync -aP --delete --exclude .git --exclude bin `pwd` alex@vs0:
+ssh vs0 "cd ocram; ./qmake" > .quickfix
+util/diff_code .quickfix
