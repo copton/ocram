@@ -44,6 +44,30 @@ class DownVisitor downState where
 	downCInit :: CInit -> downState -> downState
 	downCInit _ = id
 
+	crossCExtDecl :: CExtDecl -> downState -> (Maybe [CExtDecl], downState)
+	crossCExtDecl _ d = (Nothing, d)
+
+	crossCDeclMember :: (Maybe CDeclr, Maybe CInit, Maybe CExpr) -> downState -> (Maybe [(Maybe CDeclr, Maybe CInit, Maybe CExpr)], downState)
+	crossCDeclMember _ d = (Nothing, d)
+
+	crossIdent :: Ident -> downState -> (Maybe [Ident], downState)
+	crossIdent _ d = (Nothing, d)
+
+	crossCDecl :: CDecl -> downState -> (Maybe [CDecl], downState)
+	crossCDecl _ d = (Nothing, d)
+
+	crossCDerivedDeclr :: CDerivedDeclr -> downState -> (Maybe [CDerivedDeclr], downState)
+	crossCDerivedDeclr _ d = (Nothing, d)
+
+	crossCExpr :: CExpr -> downState -> (Maybe [CExpr], downState)
+	crossCExpr _ d = (Nothing, d)
+
+	crossCBlockItem :: CBlockItem -> downState -> (Maybe [CBlockItem], downState)
+	crossCBlockItem _ d = (Nothing, d)
+
+	crossCInitListMember :: ([CDesignator], CInit) -> downState -> (Maybe [([CDesignator], CInit)], downState)
+	crossCInitListMember _ d = (Nothing, d)
+
 class (DownVisitor downState, Monoid upState) => UpVisitor downState upState where
 	upCTranslUnit :: CTranslUnit -> downState -> [upState] -> upState
 	upCTranslUnit _ _ = mconcat

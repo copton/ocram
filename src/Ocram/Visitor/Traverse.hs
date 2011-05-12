@@ -45,7 +45,7 @@ recurse downHandler upHandler outerObject create traverse innerObjects downState
 traverseCTranslUnit :: (DownVisitor d, UpVisitor d u) => CTranslUnit -> d -> (Maybe CTranslUnit, u)
 traverseCTranslUnit ctu@(CTranslUnit decls _) = recurse downCTranslUnit mapCTranslUnit ctu create traverse decls
 	where 
-		traverse = mapTrav traverseCExtDecl
+		traverse = mapTrav crossCExtDecl traverseCExtDecl
 		create (CTranslUnit _ ni) decls = CTranslUnit decls ni
 
 -- CExtDecl {{{1
@@ -66,7 +66,7 @@ traverseCExtDecl ced@(CAsmExt _ _) = recurse downCExtDecl mapCExtDecl ced noCrea
 traverseCDecl :: (DownVisitor d, UpVisitor d u) => CDecl -> d -> (Maybe CDecl, u)
 traverseCDecl cd@(CDecl _ decls _) = recurse downCDecl mapCDecl cd create traverse decls
 	where 
-		traverse = recTrav traverse'
+		traverse = recTrav crossCDeclMember traverse'
 		traverse' all@(cd, ci, ce) d = merge3 all
 			(maybeTrav traverseCDeclr cd d)
 			(maybeTrav traverseCInit ci d)
@@ -77,12 +77,12 @@ traverseCDecl cd@(CDecl _ decls _) = recurse downCDecl mapCDecl cd create traver
 traverseCDerivedDeclr :: (DownVisitor d, UpVisitor d u) => CDerivedDeclr -> d -> (Maybe CDerivedDeclr, u)
 traverseCDerivedDeclr cdd@(CFunDeclr (Left ids) _ _) = recurse downCDerivedDeclr mapCDerivedDeclr cdd create traverse ids
 	where
-		traverse = mapTrav traverseIdent
+		traverse = mapTrav crossIdent traverseIdent
 		create (CFunDeclr _ x y) ids = CFunDeclr (Left ids) x y
 
 traverseCDerivedDeclr cdd@(CFunDeclr (Right (cds, _)) _ _) = recurse downCDerivedDeclr mapCDerivedDeclr cdd create traverse cds
 	where 
-		traverse = mapTrav traverseCDecl
+		traverse = mapTrav crossCDecl traverseCDecl
 		create (CFunDeclr (Right (_, x)) y z) ods = CFunDeclr (Right (ods, x)) y z
 
 traverseCDerivedDeclr cdd = recurse downCDerivedDeclr mapCDerivedDeclr cdd noCreate noTrav noChildren
@@ -93,7 +93,7 @@ traverseCFunDef cfd@(CFunDef _ cdr cds cst _) = recurse downCFunDef mapCFunDef c
 	where 
 		traverse all@(cdr, t2, t3) d = merge3 all
 			(trav traverseCDeclr cdr d)
-			(mapTrav traverseCDecl cds d)
+			(mapTrav crossCDecl traverseCDecl cds d)
 			(trav traverseCStat t3 d)
 		create (CFunDef x _ _ _ y) (cdr, cds, cst) = CFunDef x cdr cds cst y
 
@@ -103,7 +103,7 @@ traverseCDeclr cdr@(CDeclr id cdds _ _ _) = recurse downCDeclr mapCDeclr cdr cre
 	where 
 		traverse all@(id, cdds) d = merge2 all
 			(maybeTrav traverseIdent id d)
-			(mapTrav traverseCDerivedDeclr cdds d)
+			(mapTrav crossCDerivedDeclr traverseCDerivedDeclr cdds d)
 		create (CDeclr _ _ x y z) (id, cdds) = CDeclr id cdds x y z
 
 -- CInit {{{1
@@ -126,7 +126,7 @@ traverseIdent id = recurse downIdent mapIdent id noCreate noTrav noChildren
 traverseCExpr :: (DownVisitor d, UpVisitor d u) => CExpr -> d -> (Maybe CExpr, u)
 traverseCExpr ce@(CComma ces _) = recurse downCExpr mapCExpr ce create traverse ces
 	where
-		traverse = mapTrav traverseCExpr
+		traverse = mapTrav crossCExpr traverseCExpr
 		create (CComma _ x) ces = CComma ces x
 
 traverseCExpr ce@(CAssign _ ce1 ce2 _) = recurse downCExpr mapCExpr ce create traverse (ce1, ce2)
@@ -204,7 +204,7 @@ traverseCExpr ce@(CCall ce1 ces _) = recurse downCExpr mapCExpr ce create traver
 	where 
 		traverse all@(ce1, ces) d = merge2 all
 			(trav traverseCExpr ce1 d)
-			(mapTrav traverseCExpr ces d)
+			(mapTrav crossCExpr traverseCExpr ces d)
 		create (CCall _ _ x) (ce1, ces) = CCall ce1 ces x
 
 traverseCExpr ce@(CMember ce1 id _ _) = recurse downCExpr mapCExpr ce create traverse (ce1, id)
@@ -274,7 +274,7 @@ traverseCStat cs@(CExpr ce1 _) = recurse downCStat mapCStat cs create traverse c
 
 traverseCStat cs@(CCompound _ ccbis _) = recurse downCStat mapCStat cs create traverse ccbis
 	where 
-		traverse = recTrav dissolveCBlockItem
+		traverse = recTrav crossCBlockItem dissolveCBlockItem
 		create (CCompound x _ y) ccbis = CCompound x ccbis y
 
 traverseCStat cs@(CIf ce1 cs1 cs2 _) = recurse downCStat mapCStat cs create traverse (ce1, cs1, cs2)
@@ -354,7 +354,7 @@ dissolveCBlockItem (CNestedFunDef cfd) d =
 
 
 dissolveCInitList :: (DownVisitor d, UpVisitor d u) => CInitList -> d -> (Maybe CInitList, [u])
-dissolveCInitList = recTrav traverse'
+dissolveCInitList = recTrav crossCInitListMember traverse'
 	where
 		traverse' (x, ci) d = 
 			case trav traverseCInit ci d of
@@ -375,19 +375,28 @@ trav f o d =
 	let (maybeo, u) = f o d in
 	(maybeo, [u])
 
-mapTrav :: (o->d->(Maybe o, u)) -> [o] -> d -> (Maybe [o], [u])
-mapTrav f os d = 
-	let (maybeos, us) = unzip $ map (\o -> f o d) os in
+mapTrav :: (o->d->(Maybe [o], d)) -> (o->d->(Maybe o, u)) -> [o] -> d -> (Maybe [o], [u])
+mapTrav cross trav os d = 
+	let (maybeos, _, us) = foldl fld ([], d, []) os in
 	if any isJust maybeos
-	then
-		let os' = map (uncurry fromMaybe) $ zip os maybeos in
-		(Just os', us)
-	else
-		(Nothing, us)
+		then
+			let os' = concatMap (uncurry fromMaybe) $ zip (map (:[]) os) maybeos in
+			(Just os', us)
+		else
+			(Nothing, us)
+	where
+		fld (os, c, us) o =
+			let
+				(o', u) = case trav o c of
+					(Just x, y) -> (x, y)
+					(Nothing, y) -> (o, y)
+				(os', c') = cross o' c
+			in
+				(os' : os, c', u : us)
 
-recTrav :: (o->d->(Maybe o, [u])) -> [o] -> d -> (Maybe [o], [u])
-recTrav f os d =
-	let (maybeos, uss) = mapTrav f os d
+recTrav :: (o->d->(Maybe [o], d)) -> (o->d->(Maybe o, [u])) -> [o] -> d -> (Maybe [o], [u])
+recTrav cross trav os d =
+	let (maybeos, uss) = mapTrav cross trav os d
 	in (maybeos, concat uss)
 
 maybeTrav :: (o->d->(Maybe o, u)) -> Maybe o -> d -> (Maybe (Maybe o), [u])
