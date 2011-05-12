@@ -47,12 +47,11 @@ checkFunctionPointer cf ast = snd $ traverseCTranslUnit ast cf
 type DownState = CriticalFunctions
 instance DownVisitor DownState
 
-append ess code location = Error code location : pass ess
-pass ess = mconcat ess
+append es code location = Error code location : es
 
 type UpState = [Error Int]
 instance UpVisitor DownState UpState where
-	upCExpr (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni) cf es
-		| name `Set.member` cf = append es 1 ni 
-		| otherwise = pass es
-	upCExpr _ _ es = pass es
+	upCExpr (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni) cf u
+		| name `Set.member` cf = append u 1 ni 
+		| otherwise = u
+	upCExpr _ _ u = u

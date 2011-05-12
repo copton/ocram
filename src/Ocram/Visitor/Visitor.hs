@@ -7,6 +7,7 @@ import Language.C.Syntax.AST
 import Language.C.Data.Ident
 import Data.Monoid
 
+-- DownVisitor {{{1
 class DownVisitor downState where
 	downCTranslUnit :: CTranslUnit -> downState -> downState
 	downCTranslUnit _ = id
@@ -44,99 +45,103 @@ class DownVisitor downState where
 	downCInit :: CInit -> downState -> downState
 	downCInit _ = id
 
-	crossCExtDecl :: CExtDecl -> downState -> (Maybe [CExtDecl], downState)
-	crossCExtDecl _ d = (Nothing, d)
-
-	crossCDeclMember :: (Maybe CDeclr, Maybe CInit, Maybe CExpr) -> downState -> (Maybe [(Maybe CDeclr, Maybe CInit, Maybe CExpr)], downState)
-	crossCDeclMember _ d = (Nothing, d)
-
-	crossIdent :: Ident -> downState -> (Maybe [Ident], downState)
-	crossIdent _ d = (Nothing, d)
-
-	crossCDecl :: CDecl -> downState -> (Maybe [CDecl], downState)
-	crossCDecl _ d = (Nothing, d)
-
-	crossCDerivedDeclr :: CDerivedDeclr -> downState -> (Maybe [CDerivedDeclr], downState)
-	crossCDerivedDeclr _ d = (Nothing, d)
-
-	crossCExpr :: CExpr -> downState -> (Maybe [CExpr], downState)
-	crossCExpr _ d = (Nothing, d)
-
-	crossCBlockItem :: CBlockItem -> downState -> (Maybe [CBlockItem], downState)
-	crossCBlockItem _ d = (Nothing, d)
-
-	crossCInitListMember :: ([CDesignator], CInit) -> downState -> (Maybe [([CDesignator], CInit)], downState)
-	crossCInitListMember _ d = (Nothing, d)
-
+-- UpVisitor {{{1
 class (DownVisitor downState, Monoid upState) => UpVisitor downState upState where
-	upCTranslUnit :: CTranslUnit -> downState -> [upState] -> upState
-	upCTranslUnit _ _ = mconcat
+-- up {{{2
+	upCTranslUnit :: CTranslUnit -> downState -> upState -> upState
+	upCTranslUnit _ _ = id
 
-	upCExtDecl :: CExtDecl -> downState -> [upState] -> upState
-	upCExtDecl _ _ = mconcat
+	upCExtDecl :: CExtDecl -> downState -> upState -> upState
+	upCExtDecl _ _ = id
 
-	upCFunDef :: CFunDef -> downState -> [upState] -> upState
-	upCFunDef _ _ = mconcat
+	upCFunDef :: CFunDef -> downState -> upState -> upState
+	upCFunDef _ _ = id
 
-	upCDecl :: CDecl -> downState -> [upState] -> upState
-	upCDecl _ _ = mconcat
+	upCDecl :: CDecl -> downState -> upState -> upState
+	upCDecl _ _ = id
 
-	upCStructUnion :: CStructUnion -> downState -> [upState] -> upState
-	upCStructUnion _ _ = mconcat
+	upCStructUnion :: CStructUnion -> downState -> upState -> upState
+	upCStructUnion _ _ = id
 	
-	upCEnum :: CEnum -> downState -> [upState] -> upState
-	upCEnum _ _ = mconcat
+	upCEnum :: CEnum -> downState -> upState -> upState
+	upCEnum _ _ = id
 
-	upCDeclr :: CDeclr -> downState -> [upState] -> upState
-	upCDeclr _ _ = mconcat
+	upCDeclr :: CDeclr -> downState -> upState -> upState
+	upCDeclr _ _ = id
 
-	upCStat :: CStat -> downState -> [upState] -> upState
-	upCStat _ _ = mconcat
+	upCStat :: CStat -> downState -> upState -> upState
+	upCStat _ _ = id
 
-	upCExpr :: CExpr -> downState -> [upState] -> upState
-	upCExpr _ _ = mconcat
+	upCExpr :: CExpr -> downState -> upState -> upState
+	upCExpr _ _ = id
 
-	upIdent :: Ident -> downState -> [upState] -> upState
-	upIdent _ _ = mconcat
+	upIdent :: Ident -> downState -> upState -> upState
+	upIdent _ _ = id
 
-	upCDerivedDeclr :: CDerivedDeclr -> downState -> [upState] -> upState
-	upCDerivedDeclr _ _ = mconcat
+	upCDerivedDeclr :: CDerivedDeclr -> downState -> upState -> upState
+	upCDerivedDeclr _ _ = id
 
-	upCInit :: CInit -> downState -> [upState] -> upState
-	upCInit _ _ = mconcat
+	upCInit :: CInit -> downState -> upState -> upState
+	upCInit _ _ = id
 
-	mapCTranslUnit :: CTranslUnit -> downState -> [upState] -> (Maybe CTranslUnit, upState)
+-- map {{{2
+	mapCTranslUnit :: CTranslUnit -> downState -> upState -> (Maybe CTranslUnit, upState)
 	mapCTranslUnit x d s = (Nothing, upCTranslUnit x d s)
 
-	mapCExtDecl :: CExtDecl -> downState -> [upState] -> (Maybe CExtDecl, upState)
+	mapCExtDecl :: CExtDecl -> downState -> upState -> (Maybe CExtDecl, upState)
 	mapCExtDecl x d s = (Nothing, upCExtDecl x d s)
 
-	mapCFunDef :: CFunDef -> downState -> [upState] -> (Maybe CFunDef, upState)
+	mapCFunDef :: CFunDef -> downState -> upState -> (Maybe CFunDef, upState)
 	mapCFunDef x d s = (Nothing, upCFunDef x d s)
 
-	mapCDecl :: CDecl -> downState -> [upState] -> (Maybe CDecl, upState)
+	mapCDecl :: CDecl -> downState -> upState -> (Maybe CDecl, upState)
 	mapCDecl x d s = (Nothing, upCDecl x d s)
 
-	mapCStructUnion :: CStructUnion -> downState -> [upState] -> (Maybe CStructUnion, upState)
+	mapCStructUnion :: CStructUnion -> downState -> upState -> (Maybe CStructUnion, upState)
 	mapCStructUnion x d s = (Nothing, upCStructUnion x d s)
 	
-	mapCEnum :: CEnum -> downState -> [upState] -> (Maybe CEnum, upState)
+	mapCEnum :: CEnum -> downState -> upState -> (Maybe CEnum, upState)
 	mapCEnum x d s = (Nothing, upCEnum x d s)
 
-	mapCDeclr :: CDeclr -> downState -> [upState] -> (Maybe CDeclr, upState)
+	mapCDeclr :: CDeclr -> downState -> upState -> (Maybe CDeclr, upState)
 	mapCDeclr x d s = (Nothing, upCDeclr x d s)
 
-	mapCStat :: CStat -> downState -> [upState] -> (Maybe CStat, upState)
+	mapCStat :: CStat -> downState -> upState -> (Maybe CStat, upState)
 	mapCStat x d s = (Nothing, upCStat x d s)
 
-	mapCExpr :: CExpr -> downState -> [upState] -> (Maybe CExpr, upState)
+	mapCExpr :: CExpr -> downState -> upState -> (Maybe CExpr, upState)
 	mapCExpr x d s = (Nothing, upCExpr x d s)
 
-	mapIdent :: Ident -> downState -> [upState] -> (Maybe Ident, upState)
+	mapIdent :: Ident -> downState -> upState -> (Maybe Ident, upState)
 	mapIdent x d s = (Nothing, upIdent x d s)
 
-	mapCDerivedDeclr :: CDerivedDeclr -> downState -> [upState] -> (Maybe CDerivedDeclr, upState)
+	mapCDerivedDeclr :: CDerivedDeclr -> downState -> upState -> (Maybe CDerivedDeclr, upState)
 	mapCDerivedDeclr x d s = (Nothing, upCDerivedDeclr x d s)
 
-	mapCInit :: CInit -> downState -> [upState] -> (Maybe CInit, upState)
+	mapCInit :: CInit -> downState -> upState -> (Maybe CInit, upState)
 	mapCInit x d s = (Nothing, upCInit x d s)
+
+-- cross {{{2
+	crossCExtDecl :: CExtDecl -> downState -> upState -> (Maybe [CExtDecl], downState)
+	crossCExtDecl _ d _ = (Nothing, d)
+
+	crossCDeclMember :: (Maybe CDeclr, Maybe CInit, Maybe CExpr) -> downState -> upState -> (Maybe [(Maybe CDeclr, Maybe CInit, Maybe CExpr)], downState)
+	crossCDeclMember _ d _ = (Nothing, d)
+
+	crossIdent :: Ident -> downState -> upState -> (Maybe [Ident], downState)
+	crossIdent _ d _ = (Nothing, d)
+
+	crossCDecl :: CDecl -> downState -> upState -> (Maybe [CDecl], downState)
+	crossCDecl _ d _ = (Nothing, d)
+
+	crossCDerivedDeclr :: CDerivedDeclr -> downState -> upState -> (Maybe [CDerivedDeclr], downState)
+	crossCDerivedDeclr _ d _ = (Nothing, d)
+
+	crossCExpr :: CExpr -> downState -> upState -> (Maybe [CExpr], downState)
+	crossCExpr _ d _ = (Nothing, d)
+
+	crossCBlockItem :: CBlockItem -> downState -> upState -> (Maybe [CBlockItem], downState)
+	crossCBlockItem _ d _ = (Nothing, d)
+
+	crossCInitListMember :: ([CDesignator], CInit) -> downState -> upState -> (Maybe [([CDesignator], CInit)], downState)
+	crossCInitListMember _ d _ = (Nothing, d)

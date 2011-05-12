@@ -33,11 +33,10 @@ printError x = error $ "unknown error code " ++ show x
 
 descriptor = Filter "sanity" checker printError id
 
-append ess code location = Error code location : pass ess
-pass ess = mconcat ess
+append es code location = Error code location : es
 
 type UpState = [Error Int]
 
 instance UpVisitor EmptyDownState UpState where
-	upCExtDecl (CFDefExt (CFunDef _ (CDeclr _ [] _ _ _) _ _ ni)) _ us = append us 1 ni
-	upCExtDecl _ _ us = pass us
+	upCExtDecl (CFDefExt (CFunDef _ (CDeclr _ [] _ _ _) _ _ ni)) _ u = append u 1 ni
+	upCExtDecl _ _ u = u
