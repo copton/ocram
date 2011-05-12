@@ -374,15 +374,15 @@ noChildren = ()
 
 mapTrav :: (DownVisitor d, UpVisitor d u) => (o->d->u->(Maybe [o], d)) -> (o->d->(Maybe o, u)) -> ([o]->d->(Maybe [o], u))
 mapTrav cross trav os d = 
-	let (maybeos, _, u) = foldl fld ([], d, mempty) os in
+	let (maybeos, _, u) = foldl iter ([], d, mempty) os in
 	if any isJust maybeos
 		then
-			let os' = concatMap (uncurry fromMaybe) $ zip (map (:[]) os) maybeos in
+			let os' = foldl merge [] $ zip (reverse os) maybeos in
 			(Just os', u)
 		else
 			(Nothing, u)
 	where
-		fld (os, c, u) o =
+		iter (os, c, u) o =
 			let
 				(o', u') = case trav o c of
 					(Just x, y) -> (x, y)
@@ -390,6 +390,9 @@ mapTrav cross trav os d =
 				(os', c') = cross o' c u'
 			in
 				(os' : os, c', mappend u u') -- XXX: list of os is in wrong order
+
+		merge os (o, Nothing) = o : os
+		merge os (_, Just o) = o ++ os
 
 maybeTrav :: (DownVisitor d, UpVisitor d u) => (o->d->(Maybe o, u)) -> Maybe o -> d -> (Maybe (Maybe o), u)
 maybeTrav _ Nothing _ = (Nothing, mempty)
