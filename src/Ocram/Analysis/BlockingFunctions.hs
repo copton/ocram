@@ -19,11 +19,10 @@ determineBlockingFunctions ctx = do
 	return $ snd $ traverseCTranslUnit (getAst ast) emptyDownState
 
 instance UpVisitor EmptyDownState BlockingFunctions where
-	upCExtDecl cd@(CDeclExt (CDecl ss [(Just (CDeclr (Just (Ident name _ _)) [CFunDeclr _ _ _] Nothing _ _), Nothing, Nothing)] _)) _ _ =
-		if any isBlockingAttribute ss then 
-			Set.singleton name 
-		else 
-			Set.empty
+	upCExtDecl cd@(CDeclExt (CDecl ss [(Just (CDeclr (Just (Ident name _ _)) [CFunDeclr _ _ _] Nothing _ _), Nothing, Nothing)] _)) _ _
+		| any isBlockingAttribute ss = Set.singleton name 
+		| otherwise = Set.empty
+
 	upCExtDecl _ _ _ = Set.empty
 
 isBlockingAttribute (CTypeQual (CAttrQual (CAttr (Ident blockingAttr _ _) [] _))) = True
