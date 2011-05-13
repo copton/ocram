@@ -6,7 +6,7 @@ module Ocram.Transformation.Inline.DataFlow
 
 -- imports {{{1
 import Ocram.Transformation.Inline.Names (stackVar, contVar, resVar, frameType, frameUnion)
-import Ocram.Transformation.Inline.Util (tStackAccess)
+import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types 
 import Ocram.Symbols (symbol)
@@ -23,63 +23,51 @@ import Data.Maybe (fromJust, catMaybes, isJust)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 
--- transformDataFlow :: StartRoutines -> CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> Ast {{{1
-transformDataFlow :: StartRoutines -> CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> Ast
+-- transformDataFlow :: StartRoutines -> CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> (FunctionInfos, Ast) {{{1
+transformDataFlow :: StartRoutines -> CallGraph -> CriticalFunctions -> BlockingFunctions -> Ast -> (FunctionInfos, Ast)
 transformDataFlow sr cg cf bf ast = 
 	let 
 		emptyDownState = DownState sr cg cf bf Nothing Set.empty
-		(ast', _) = (traverseCTranslUnit ast emptyDownState) :: (Maybe CTranslUnit, UpState) 
+		(ast', u) = traverseCTranslUnit ast emptyDownState
 	in
-		fromJust ast'
+		(usFunctionInfos u, fromJust ast')
 
 -- types {{{2
 data DownState = DownState {
-	getSr :: StartRoutines,
-	getCg :: CallGraph,
-	getCf :: CriticalFunctions,
-	getBf :: BlockingFunctions,
-	getCfName :: Maybe Symbol,
-	getLocalVars :: Set.Set Symbol
+	dsSr :: StartRoutines,
+	dsCg :: CallGraph,
+	dsCf :: CriticalFunctions,
+	dsBf :: BlockingFunctions,
+	dsCfName :: Maybe Symbol,
+	dsLocalVars :: Set.Set Symbol
 	}
 
-data FunctionInfo = FunctionInfo {
-		getResultType :: CTypeSpec,
-		getVariables :: [CDecl]
-	}
 
-type FunctionInfos = Map.Map Symbol FunctionInfo
 data UpState = UpState {
-	getVariables' :: [CDecl],
-	getFunctionInfo :: Maybe (Symbol, FunctionInfo)
+	usVariables :: [CDecl],
+	usFunctionInfos :: FunctionInfos
 	}
 
 instance Monoid UpState where
-	mempty = UpState [] Nothing
-	(UpState p Nothing) `mappend` (UpState p' Nothing) = UpState (p `mappend` p') Nothing
+	mempty = UpState mempty mempty
+	(UpState a b) `mappend` (UpState a' b') = UpState (a `mappend` a') (b `mappend` b')
 
 -- visitor {{{2
 instance DownVisitor DownState where
-	downCExtDecl (CFDefExt fd) d =
-		let name = (symbol fd) in
-		if Set.member name $ getCf d
-			then d { getCfName = Just name, getLocalVars = localVars }
-			else d
+	downCExtDecl (CFDefExt fd) d
+		| Set.member name (dsCf d) = d { dsCfName = Just name, dsLocalVars = localVars }
+		| otherwise = d
 		where
+			name = symbol fd
 			localVars = Set.fromList $ map symbol $ extractParams' fd
 
-	downCExtDecl (CDeclExt cd) d =
-		let name = (symbol cd) in
-		if Set.member name $ getBf d
-			then d { getCfName = Just name }
-			else d
-		
 	downCExtDecl _ d = d
 
 	downCStat (CCompound idents items ni) d
-		| isJust $ getCfName d = d { getLocalVars = Set.union (getLocalVars d) decls' }
+		| isJust (dsCfName d) = d { dsLocalVars = Set.union (dsLocalVars d) decls' }
 		| otherwise = d
 		where
-			decls' = Set.fromList $ map (symbol.unpDecl) (filter isCBlockDecl items) 
+			decls' = Set.fromList $ map (symbol . unpDecl) (filter isCBlockDecl items) 
 
 	downCStat _ d = d
 
@@ -88,7 +76,7 @@ instance UpVisitor DownState UpState where
 		where
 			ctu = CTranslUnit (frames ++ stacks ++ decls) ni
 			frames = createTStackFrames sr bf cg fis
-			fis = Map.fromList $ catMaybes $ map getFunctionInfo us
+			fis = usFunctionInfos $ mconcat us
 			stacks = map createTStack $ Set.elems sr
 	
 	upCExtDecl (CDeclExt cd) (DownState _ _ _ _ (Just name) _) _ = 
@@ -110,9 +98,10 @@ instance UpVisitor DownState UpState where
 
 	mapCStat _ _ us = (Nothing, mconcat us)
 
-	mapCExpr (CVar (Ident vName _ _)_ ) (DownState _ _ _ _ (Just fName) localVars) us
-		| Set.member vName localVars = (Just (tStackAccess fName vName), mconcat us)
-		| otherwise = (Nothing, mconcat us)
+	mapCExpr (CVar (Ident vName _ _)_ ) (DownState _ _ _ _ (Just fName) localVars) us = undefined
+	 
+		-- | Set.member vName localVars = (Just (tStackAccess fName vName), mconcat us)
+		-- | otherwise = (Nothing, mconcat us)
 
 	mapCExpr _ _ us = (Nothing, mconcat us)
 
