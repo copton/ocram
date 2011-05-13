@@ -7,3 +7,4 @@ import qualified Ocram.Test.Tests.Visitor.Stat as B
 import Test.HUnit (Test(TestLabel, TestList))
 
 tests = TestLabel "Visitor" $ TestList [A.tests, B.tests]
+

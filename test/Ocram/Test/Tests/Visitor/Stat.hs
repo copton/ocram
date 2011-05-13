@@ -56,7 +56,9 @@ instance UpVisitor EmptyDownState UpState where
 	
 	mapCStat _ _ _ = (Nothing, mempty)
 
-zeroToOne ast = fromJust $ fst result
+zeroToOne ast = case fst result of
+		Nothing -> error "fuck"
+		Just x -> x
 	where
 		result :: (Maybe CTranslUnit, UpState)
 		result = traverseCTranslUnit (getAst ast) emptyDownState
