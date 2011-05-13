@@ -10,6 +10,9 @@ class CSymbol s where
 instance CSymbol String where
 	symbol = id
 
+instance CSymbol Ident where
+	symbol (Ident name _ _) = name
+
 instance CSymbol CFunDef where
 	symbol (CFunDef _ (CDeclr (Just (Ident name _ _)) _ _ _ _) _ _ _ ) = name
 

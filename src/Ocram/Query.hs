@@ -30,25 +30,25 @@ topologicSort cg names fName =
 			
 -- getFunDefs :: Ast -> Set.Set Symbol -> Map.Map Symbol CFunDef {{{1
 getFunDefs :: Ast -> Set.Set Symbol -> Map.Map Symbol CFunDef
-getFunDefs ast symbols = foldl createEntry Map.empty $ snd $ traverseCTranslUnit ast symbols
+getFunDefs ast symbols = foldl createEntry Map.empty $ snd $ traverseCTranslUnit ast (DownState symbols)
 
-type DownState = Set.Set Symbol
+newtype DownState = DownState (Set.Set Symbol)
 instance DownVisitor DownState
 
 type UpState = [CFunDef]
 instance UpVisitor DownState UpState where
-	upCExtDecl (CFDefExt fd) symbols _
+	upCExtDecl (CFDefExt fd) (DownState symbols) _
 		| Set.member (symbol fd) symbols = [fd]
 		| otherwise = []
 	upCExtDecl _ _ _ = []
 
 -- getFunDecls :: Ast -> Set.Set Symbol -> Map.Map Symbol CDecl {{{1
 getFunDecls :: Ast -> Set.Set Symbol -> Map.Map Symbol CDecl
-getFunDecls ast symbols = foldl createEntry Map.empty $ snd $ traverseCTranslUnit ast symbols
+getFunDecls ast symbols = foldl createEntry Map.empty $ snd $ traverseCTranslUnit ast (DownState symbols)
 
 type UpState' = [CDecl]
 instance UpVisitor DownState UpState' where
-	upCExtDecl (CDeclExt fd) symbols _
+	upCExtDecl (CDeclExt fd) (DownState symbols) _
 		| Set.member (symbol fd) symbols = [fd]
 		| otherwise = []
 	upCExtDecl _ _ _ = []

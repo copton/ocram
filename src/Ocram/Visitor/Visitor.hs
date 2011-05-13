@@ -122,26 +122,35 @@ class (DownVisitor downState, Monoid upState) => UpVisitor downState upState whe
 	mapCInit x d s = (Nothing, upCInit x d s)
 
 -- cross {{{2
+	-- external declarations of a translation unit
 	crossCExtDecl :: CExtDecl -> downState -> upState -> (Maybe [CExtDecl], downState)
 	crossCExtDecl _ d _ = (Nothing, d)
 
+	-- 
 	crossCDeclMember :: (Maybe CDeclr, Maybe CInit, Maybe CExpr) -> downState -> upState -> (Maybe [(Maybe CDeclr, Maybe CInit, Maybe CExpr)], downState)
 	crossCDeclMember _ d _ = (Nothing, d)
 
+  -- parameters of an old style function declaration
 	crossIdent :: Ident -> downState -> upState -> (Maybe [Ident], downState)
 	crossIdent _ d _ = (Nothing, d)
 
+  --
 	crossCDecl :: CDecl -> downState -> upState -> (Maybe [CDecl], downState)
 	crossCDecl _ d _ = (Nothing, d)
 
+  --
 	crossCDerivedDeclr :: CDerivedDeclr -> downState -> upState -> (Maybe [CDerivedDeclr], downState)
 	crossCDerivedDeclr _ d _ = (Nothing, d)
 
+	-- expressions in a sequence of comma operators
+	-- parameters of a function call
 	crossCExpr :: CExpr -> downState -> upState -> (Maybe [CExpr], downState)
 	crossCExpr _ d _ = (Nothing, d)
 
+	-- items of a compound statement
 	crossCBlockItem :: CBlockItem -> downState -> upState -> (Maybe [CBlockItem], downState)
 	crossCBlockItem _ d _ = (Nothing, d)
 
+  --
 	crossCInitListMember :: ([CDesignator], CInit) -> downState -> upState -> (Maybe [([CDesignator], CInit)], downState)
 	crossCInitListMember _ d _ = (Nothing, d)
