@@ -123,34 +123,34 @@ class (DownVisitor downState, Monoid upState) => UpVisitor downState upState whe
 
 -- cross {{{2
 	-- external declarations of a translation unit
-	crossCExtDecl :: CExtDecl -> downState -> upState -> (Maybe [CExtDecl], downState)
-	crossCExtDecl _ d _ = (Nothing, d)
+	crossCExtDecl :: CExtDecl -> downState -> upState -> (Maybe [CExtDecl], downState, upState)
+	crossCExtDecl _ d u = (Nothing, d, u)
 
 	-- 
-	crossCDeclMember :: (Maybe CDeclr, Maybe CInit, Maybe CExpr) -> downState -> upState -> (Maybe [(Maybe CDeclr, Maybe CInit, Maybe CExpr)], downState)
-	crossCDeclMember _ d _ = (Nothing, d)
+	crossCDeclMember :: (Maybe CDeclr, Maybe CInit, Maybe CExpr) -> downState -> upState -> (Maybe [(Maybe CDeclr, Maybe CInit, Maybe CExpr)], downState, upState)
+	crossCDeclMember _ d u = (Nothing, d, u)
 
   -- parameters of an old style function declaration
-	crossIdent :: Ident -> downState -> upState -> (Maybe [Ident], downState)
-	crossIdent _ d _ = (Nothing, d)
+	crossIdent :: Ident -> downState -> upState -> (Maybe [Ident], downState, upState)
+	crossIdent _ d u = (Nothing, d, u)
 
   --
-	crossCDecl :: CDecl -> downState -> upState -> (Maybe [CDecl], downState)
-	crossCDecl _ d _ = (Nothing, d)
+	crossCDecl :: CDecl -> downState -> upState -> (Maybe [CDecl], downState, upState)
+	crossCDecl _ d u = (Nothing, d, u)
 
   --
-	crossCDerivedDeclr :: CDerivedDeclr -> downState -> upState -> (Maybe [CDerivedDeclr], downState)
-	crossCDerivedDeclr _ d _ = (Nothing, d)
+	crossCDerivedDeclr :: CDerivedDeclr -> downState -> upState -> (Maybe [CDerivedDeclr], downState, upState)
+	crossCDerivedDeclr _ d u = (Nothing, d, u)
 
 	-- expressions in a sequence of comma operators
 	-- parameters of a function call
-	crossCExpr :: CExpr -> downState -> upState -> (Maybe [CExpr], downState)
-	crossCExpr _ d _ = (Nothing, d)
+	crossCExpr :: CExpr -> downState -> upState -> (Maybe [CExpr], downState, upState)
+	crossCExpr _ d u = (Nothing, d, u)
 
 	-- items of a compound statement
-	crossCBlockItem :: CBlockItem -> downState -> upState -> (Maybe [CBlockItem], downState)
-	crossCBlockItem _ d _ = (Nothing, d)
+	crossCBlockItem :: CBlockItem -> downState -> upState -> (Maybe [CBlockItem], downState, upState)
+	crossCBlockItem _ d u = (Nothing, d, u)
 
   --
-	crossCInitListMember :: ([CDesignator], CInit) -> downState -> upState -> (Maybe [([CDesignator], CInit)], downState)
-	crossCInitListMember _ d _ = (Nothing, d)
+	crossCInitListMember :: ([CDesignator], CInit) -> downState -> upState -> (Maybe [([CDesignator], CInit)], downState, upState)
+	crossCInitListMember _ d u = (Nothing, d, u)

@@ -59,8 +59,8 @@ instance DownVisitor DownState2
 
 instance UpVisitor DownState2 UpState where
 	crossCExtDecl (CFDefExt cfd) d@(DownState2 name) _
-		| symbol cfd == name = (Just [], d)
-		| otherwise = (Nothing, d)
+		| symbol cfd == name = (Just [], d, ())
+		| otherwise = (Nothing, d, ())
 
 removeBar ast = fromJust $ fst result
 	where
@@ -74,8 +74,8 @@ instance DownVisitor DownState3
 
 instance UpVisitor DownState3 UpState where
 	crossCExtDecl a@(CFDefExt cfd) d@(DownState3 name) _
-		| symbol cfd == name = (Just [a, a], d)
-		| otherwise = (Nothing, d)
+		| symbol cfd == name = (Just [a, a], d, ())
+		| otherwise = (Nothing, d, ())
 
 doubleBar ast = fromJust $ fst result
 	where

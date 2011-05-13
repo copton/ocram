@@ -372,7 +372,7 @@ noTrav _ _ = (Nothing, mempty)
 
 noChildren = ()
 
-mapTrav :: (DownVisitor d, UpVisitor d u) => (o->d->u->(Maybe [o], d)) -> (o->d->(Maybe o, u)) -> ([o]->d->(Maybe [o], u))
+mapTrav :: (DownVisitor d, UpVisitor d u) => (o->d->u->(Maybe [o], d, u)) -> (o->d->(Maybe o, u)) -> ([o]->d->(Maybe [o], u))
 mapTrav cross trav os d = 
 	case foldl iter (False, [], d, mempty) os of
 		(True, os', _, u) -> (Just (reverse os'), u)
@@ -381,11 +381,11 @@ mapTrav cross trav os d =
 		iter (flag, os, c, u) o =
 			case trav o c of
 				(Just o', u') -> case cross o' c u' of
-					(Just o'', c') -> (True, o'' ++ os, c', mappend u u')
-					(Nothing, c') -> (True, o' : os, c', mappend u u')
+					(Just o'', c', u'') -> (True, o'' ++ os, c', mappend u u'')
+					(Nothing, c', u'') -> (True, o' : os, c', mappend u u'')
 				(Nothing, u') -> case cross o c u' of
-					(Just o', c') -> (True, o' ++ os, c', mappend u u')
-					(Nothing, c') -> (flag, o : os, c', mappend u u')
+					(Just o', c', u'') -> (True, o' ++ os, c', mappend u u'')
+					(Nothing, c', u'') -> (flag, o : os, c', mappend u u'')
 
 maybeTrav :: (DownVisitor d, UpVisitor d u) => (o->d->(Maybe o, u)) -> Maybe o -> d -> (Maybe (Maybe o), u)
 maybeTrav _ Nothing _ = (Nothing, mempty)

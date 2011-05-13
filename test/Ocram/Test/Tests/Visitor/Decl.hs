@@ -42,9 +42,9 @@ type UpState = ()
 instance DownVisitor DownState
 
 instance UpVisitor DownState UpState where
-	crossCBlockItem (CBlockDecl cd) (DownState symbols) _ = (Just [], DownState $ Set.insert (symbol cd) symbols)
+	crossCBlockItem (CBlockDecl cd) (DownState symbols) _ = (Just [], DownState $ Set.insert (symbol cd) symbols, ())
 	
-	crossCBlockItem _ d _ = (Nothing, d)
+	crossCBlockItem _ d _ = (Nothing, d, ())
 
 	mapCExpr (CVar var _) (DownState symbols) _
 		| Set.member (symbol var) symbols = (Just (CVar (Ident "k" 0 undefNode) undefNode), mempty)
