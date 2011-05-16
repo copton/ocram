@@ -33,6 +33,9 @@ class DownVisitor downState where
 	downCStat :: CStat -> downState -> downState
 	downCStat _ = id
 
+	downCBlockItem :: CBlockItem -> downState -> downState
+	downCBlockItem _ = id
+
 	downCExpr :: CExpr -> downState -> downState
 	downCExpr _ = id
 
@@ -72,6 +75,9 @@ class (DownVisitor downState, Monoid upState) => UpVisitor downState upState whe
 	upCStat :: CStat -> downState -> upState -> upState
 	upCStat _ _ = id
 
+	upCBlockItem :: CBlockItem -> downState -> upState -> upState
+	upCBlockItem _ _ = id
+
 	upCExpr :: CExpr -> downState -> upState -> upState
 	upCExpr _ _ = id
 
@@ -109,6 +115,9 @@ class (DownVisitor downState, Monoid upState) => UpVisitor downState upState whe
 	mapCStat :: CStat -> downState -> upState -> (Maybe CStat, upState)
 	mapCStat x d s = (Nothing, upCStat x d s)
 
+	mapCBlockItem :: CBlockItem -> downState -> upState -> (Maybe CBlockItem, upState)
+	mapCBlockItem x d s = (Nothing, upCBlockItem x d s)
+
 	mapCExpr :: CExpr -> downState -> upState -> (Maybe CExpr, upState)
 	mapCExpr x d s = (Nothing, upCExpr x d s)
 
@@ -123,34 +132,58 @@ class (DownVisitor downState, Monoid upState) => UpVisitor downState upState whe
 
 -- cross {{{2
 	-- external declarations of a translation unit
-	crossCExtDecl :: CExtDecl -> downState -> upState -> (Maybe [CExtDecl], downState, upState)
-	crossCExtDecl _ d u = (Nothing, d, u)
+	crossCExtDecl :: CExtDecl -> downState -> upState -> (Maybe [CExtDecl], downState)
+	crossCExtDecl _ d _ = (Nothing, d)
+
+	lastCExtDecl :: downState -> upState
+	lastCExtDecl _ = mempty
 
 	-- 
-	crossCDeclMember :: (Maybe CDeclr, Maybe CInit, Maybe CExpr) -> downState -> upState -> (Maybe [(Maybe CDeclr, Maybe CInit, Maybe CExpr)], downState, upState)
-	crossCDeclMember _ d u = (Nothing, d, u)
+	crossCDeclMember :: (Maybe CDeclr, Maybe CInit, Maybe CExpr) -> downState -> upState -> (Maybe [(Maybe CDeclr, Maybe CInit, Maybe CExpr)], downState)
+	crossCDeclMember _ d _ = (Nothing, d)
+
+	lastCDeclMember :: downState -> upState
+	lastCDeclMember _ = mempty
 
   -- parameters of an old style function declaration
-	crossIdent :: Ident -> downState -> upState -> (Maybe [Ident], downState, upState)
-	crossIdent _ d u = (Nothing, d, u)
+	crossIdent :: Ident -> downState -> upState -> (Maybe [Ident], downState)
+	crossIdent _ d _ = (Nothing, d)
+
+	lastIdent :: downState -> upState
+	lastIdent _ = mempty
 
   --
-	crossCDecl :: CDecl -> downState -> upState -> (Maybe [CDecl], downState, upState)
-	crossCDecl _ d u = (Nothing, d, u)
+	crossCDecl :: CDecl -> downState -> upState -> (Maybe [CDecl], downState)
+	crossCDecl _ d _ = (Nothing, d)
+
+	lastCDecl :: downState -> upState
+	lastCDecl _ = mempty
 
   --
-	crossCDerivedDeclr :: CDerivedDeclr -> downState -> upState -> (Maybe [CDerivedDeclr], downState, upState)
-	crossCDerivedDeclr _ d u = (Nothing, d, u)
+	crossCDerivedDeclr :: CDerivedDeclr -> downState -> upState -> (Maybe [CDerivedDeclr], downState)
+	crossCDerivedDeclr _ d _ = (Nothing, d)
+
+	lastCDerivedDeclr :: downState -> upState
+	lastCDerivedDeclr _ = mempty
 
 	-- expressions in a sequence of comma operators
 	-- parameters of a function call
-	crossCExpr :: CExpr -> downState -> upState -> (Maybe [CExpr], downState, upState)
-	crossCExpr _ d u = (Nothing, d, u)
+	crossCExpr :: CExpr -> downState -> upState -> (Maybe [CExpr], downState)
+	crossCExpr _ d _ = (Nothing, d)
+
+	lastCExpr :: downState -> upState
+	lastCExpr _ = mempty
 
 	-- items of a compound statement
-	crossCBlockItem :: CBlockItem -> downState -> upState -> (Maybe [CBlockItem], downState, upState)
-	crossCBlockItem _ d u = (Nothing, d, u)
+	crossCBlockItem :: CBlockItem -> downState -> upState -> (Maybe [CBlockItem], downState)
+	crossCBlockItem _ d _ = (Nothing, d)
+
+	lastCBlockItem :: downState -> upState
+	lastCBlockItem _ = mempty
 
   --
-	crossCInitListMember :: ([CDesignator], CInit) -> downState -> upState -> (Maybe [([CDesignator], CInit)], downState, upState)
-	crossCInitListMember _ d u = (Nothing, d, u)
+	crossCInitListMember :: ([CDesignator], CInit) -> downState -> upState -> (Maybe [([CDesignator], CInit)], downState)
+	crossCInitListMember _ d _ = (Nothing, d)
+
+	lastCInitListMember :: downState -> upState
+	lastCInitListMember _ = mempty
