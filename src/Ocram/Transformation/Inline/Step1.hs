@@ -56,13 +56,10 @@ instance DownVisitor DownState where
 	-- add parameters to symbol table
 	downCFunDef fd d 
 		| Set.member (symbol fd) (dCf d) = d {
-					dSt = params
+					dSt = params2SymTab $ extractParams fd
 				, dName = Just (symbol fd)
 			}
 		| otherwise = d
-		where
-			params = foldl add Map.empty $ extractParams' fd
-			add m cd = Map.insert (symbol cd) cd m
 
 	-- add declarations to symbol table {{{3
 	downCBlockItem (CBlockDecl cd) d
@@ -71,11 +68,13 @@ instance DownVisitor DownState where
 
 instance UpVisitor DownState UpState where
 	-- rewrite declarations of blocking functions {{{3
+	-- create function info entry for blocking functions
 	mapCExtDecl (CDeclExt cd) d _
-		| Set.member (symbol cd) (dBf d) = (Just $ CDeclExt cd', mempty)
+		| Set.member (symbol cd) (dBf d) = (cd', u)
 		| otherwise = (Nothing, mempty)
 		where
-			cd' = createBlockingFunctionDeclr cd
+			cd' = Just $ CDeclExt $ createBlockingFunctionDeclr cd
+			u = UpState (Map.singleton (symbol cd) (decl2fi cd)) mempty
 
 	mapCExtDecl _ _ u = (Nothing, u)
 
@@ -98,7 +97,7 @@ instance UpVisitor DownState UpState where
 		| isJust $ dName d = UpState mempty (dSt d)
 		| otherwise = mempty
 
-	-- create function info entry {{{3
+	-- create function info entry for critical function {{{3
 	upCFunDef cfd@(CFunDef tss _ _ body _) d u
 		| isJust $ dName d = 
 			assert (fromJust (dName d) == name) $
@@ -106,24 +105,32 @@ instance UpVisitor DownState UpState where
 		| otherwise = mempty
 		where
 			name = symbol cfd
-			fi = FunctionInfo (extractTypeSpec tss) (uSt u) body
+			fi = FunctionInfo (extractTypeSpec tss) (uSt u) (Just body)
 
 -- support {{{2
 -- util {{{3
--- extractParams {{{4
-extractParams' :: CFunDef -> [CDecl]
-extractParams' (CFunDef _ (CDeclr _ [cfd] _ _ _) [] _ _) = extractParams cfd
+-- function info {{{4
+extractParams :: CFunDef -> [CDecl]
+extractParams (CFunDef _ (CDeclr _ [cfd] _ _ _) [] _ _) = extractParams' cfd
 
-extractParams :: CDerivedDeclr -> [CDecl]
-extractParams (CFunDeclr (Right (ps, False)) _ _) = ps
+extractParams' :: CDerivedDeclr -> [CDecl]
+extractParams' (CFunDeclr (Right (ps, False)) _ _) = ps
 
--- extractTypeSpec {{{4
+params2SymTab :: [CDecl] -> SymTab
+params2SymTab params = foldl add Map.empty params
+	where
+		add m cd = Map.insert (symbol cd) cd m
+
+decl2fi :: CDecl -> FunctionInfo
+decl2fi (CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) =
+	FunctionInfo (extractTypeSpec tss) (params2SymTab $ extractParams' cfd) Nothing
+
 extractTypeSpec :: [CDeclSpec] -> CTypeSpec
 extractTypeSpec [] = error "assertion failed: type specifier expected"
 extractTypeSpec ((CTypeSpec ts):xs) = ts
 extractTypeSpec (_:xs) = extractTypeSpec xs
 
--- blocking functions {{{3
+-- blocking function declr {{{3
 createBlockingFunctionDeclr :: CDecl -> CDecl
 createBlockingFunctionDeclr cd = let fName = symbol cd in
    CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident fName)) [CFunDeclr (Right ([CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident frameParam)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un), Nothing, Nothing)] un

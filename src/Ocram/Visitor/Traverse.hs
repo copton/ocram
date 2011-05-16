@@ -45,10 +45,10 @@ recurse downHandler upHandler outerObject create traverse innerObjects downState
 
 -- mapTrav {{{1
 mapTrav :: (Monoid u) =>
-	   (o->d->u->(Maybe [o], d)) -- cross handler; recurse function
-	-> (d->u) -- last handler; recursion termination
-	-> (o->d->(Maybe o, u)) -- traversal of a single object
-	-> ([o]->d->(Maybe [o], u)) -- traversal method accepting list of objects
+	   (o -> d -> u -> (Maybe [o], d)) -- cross handler; recurse function
+	-> (d -> u) -- last handler; recursion termination
+	-> (o -> d -> (Maybe o, u)) -- traversal of a single object
+	-> ([o] -> d -> (Maybe [o], u)) -- traversal method accepting list of objects
 mapTrav cross last trav os d = 
 	case foldl iter (False, [], d, mempty) os of
 		(True, os', d, u) -> (Just (reverse os'), mappend (last d) u)

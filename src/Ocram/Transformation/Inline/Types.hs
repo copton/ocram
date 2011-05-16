@@ -9,7 +9,7 @@ type SymTab = Map.Map Symbol CDecl
 data FunctionInfo = FunctionInfo {
 		fiResultType :: CTypeSpec,
 		fiVariables :: SymTab,
-		fiBody :: CStat
-	}
+		fiBody :: Maybe CStat
+	} deriving (Show)
 
 type FunctionInfos = Map.Map Symbol FunctionInfo
