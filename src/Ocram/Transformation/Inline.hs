@@ -7,6 +7,7 @@ module Ocram.Transformation.Inline
 -- imports {{{1
 import Ocram.Transformation.Inline.Step1 
 import Ocram.Transformation.Inline.Step2
+import Ocram.Transformation.Inline.Step3
 import Ocram.Types
 
 -- transform {{{1
@@ -21,5 +22,6 @@ transform ctx = do
 	let ast = getAst valid_ast
 	let (ast', fis) = step1 bf cf ast
 	let ast'' = step2 sr cg fis ast'
-	return $ OutputAst $ ast''
+	let ast''' = step3 cg sr fis ast''
+	return $ OutputAst $ ast'''
 
