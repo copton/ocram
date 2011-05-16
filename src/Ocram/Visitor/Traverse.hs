@@ -20,7 +20,7 @@ import Language.C.Data.Node (NodeInfo)
 import Language.C.Data.Ident (Ident)
 import Ocram.Visitor.Visitor
 import Data.Maybe (isJust, fromMaybe)
-import Data.Monoid (mappend, mempty)
+import Data.Monoid (mappend, mempty, Monoid)
 
 -- recurse {{{1
 recurse :: 
@@ -42,6 +42,27 @@ recurse downHandler upHandler outerObject create traverse innerObjects downState
 			case upHandler outerObject' downState' upState of
 				(Nothing, upState') -> (Just outerObject', upState')
 				res -> res
+
+-- mapTrav {{{1
+mapTrav :: (Monoid u) =>
+	   (o->d->u->(Maybe [o], d)) -- cross handler; recurse function
+	-> (d->u) -- last handler; recursion termination
+	-> (o->d->(Maybe o, u)) -- traversal of a single object
+	-> ([o]->d->(Maybe [o], u)) -- traversal method accepting list of objects
+mapTrav cross last trav os d = 
+	case foldl iter (False, [], d, mempty) os of
+		(True, os', d, u) -> (Just (reverse os'), mappend (last d) u)
+		(False, _, d, u) -> (Nothing, mappend (last d) u)
+	where
+		iter (flag, os, c, u) o =
+			case trav o c of
+				(Just o', u') -> case cross o' c u' of
+					(Just o'', c') -> (True, o'' ++ os, c', mappend u u')
+					(Nothing, c') -> (True, o' : os, c', mappend u u')
+				(Nothing, u') -> case cross o c u' of
+					(Just o', c') -> (True, o' ++ os, c', mappend u u')
+					(Nothing, c') -> (flag, o : os, c', mappend u u')
+
 
 -- CTranslUnit {{{1
 traverseCTranslUnit :: (DownVisitor d, UpVisitor d u) => CTranslUnit -> d -> (Maybe CTranslUnit, u)
@@ -373,21 +394,6 @@ noTrav :: (DownVisitor d, UpVisitor d u) => () -> d -> (Maybe (), u)
 noTrav _ _ = (Nothing, mempty)
 
 noChildren = ()
-
-mapTrav :: (DownVisitor d, UpVisitor d u) => (o->d->u->(Maybe [o], d)) -> (d->u) -> (o->d->(Maybe o, u)) -> ([o]->d->(Maybe [o], u))
-mapTrav cross last trav os d = 
-	case foldl iter (False, [], d, mempty) os of
-		(True, os', d, u) -> (Just (reverse os'), mappend (last d) u)
-		(False, _, d, u) -> (Nothing, mappend (last d) u)
-	where
-		iter (flag, os, c, u) o =
-			case trav o c of
-				(Just o', u') -> case cross o' c u' of
-					(Just o'', c') -> (True, o'' ++ os, c', mappend u u')
-					(Nothing, c') -> (True, o' : os, c', mappend u u')
-				(Nothing, u') -> case cross o c u' of
-					(Just o', c') -> (True, o' ++ os, c', mappend u u')
-					(Nothing, c') -> (flag, o : os, c', mappend u u')
 
 maybeTrav :: (DownVisitor d, UpVisitor d u) => (o->d->(Maybe o, u)) -> Maybe o -> d -> (Maybe (Maybe o), u)
 maybeTrav _ Nothing _ = (Nothing, mempty)

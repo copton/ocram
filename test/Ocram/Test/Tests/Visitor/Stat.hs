@@ -61,4 +61,4 @@ zeroToOne ast = case fst result of
 		Just x -> x
 	where
 		result :: (Maybe CTranslUnit, UpState)
-		result = traverseCTranslUnit (getAst ast) emptyDownState
+		result = traverseCTranslUnit ast emptyDownState

@@ -2,14 +2,17 @@ module Ocram.Test.Tests.Visitor.TranslUnit (
 	tests
 ) where
 
+import Ocram.Transformation.Util (ident, un)
 import Ocram.Test.Tests.Visitor.Utils (runTests)
 import Ocram.Test.Lib (paste)
 import Ocram.Types
 import Ocram.Symbols (symbol)
 import Ocram.Visitor.Traverse (traverseCTranslUnit)
 import Language.C.Syntax.AST 
-import Ocram.Visitor.Visitor (DownVisitor, UpVisitor, crossCExtDecl)
+import Language.C.Syntax.Constants
+import Ocram.Visitor.Visitor
 import Data.Maybe (fromJust)
+import Data.Monoid
 
 -- tests {{{1
 tests = runTests "TranslUnit" [
@@ -19,7 +22,7 @@ tests = runTests "TranslUnit" [
 				void foo() { }
 				void bar() { }
 			|],
-			getAst,
+			id,
 			[$paste|
 				void foo() { }
 				void bar() { }
@@ -47,6 +50,17 @@ tests = runTests "TranslUnit" [
 				void bar() { }
 			|]
 		)
+-- test 4 {{{2
+		,(
+			[$paste|
+				void foo() { }
+				void bar() { }
+			|],
+			countFunctions,
+			[$paste|
+				int count=2;
+			|]
+		)
 	]
 
 -- transformations {{{1
@@ -65,7 +79,7 @@ instance UpVisitor DownState2 UpState where
 removeBar ast = fromJust $ fst result
 	where
 		result :: (Maybe CTranslUnit, UpState)
-		result = traverseCTranslUnit (getAst ast) $ DownState2 $ symbol "bar"
+		result = traverseCTranslUnit ast $ DownState2 $ symbol "bar"
 
 -- test 3 {{{2
 newtype DownState3 = DownState3 Symbol
@@ -80,4 +94,29 @@ instance UpVisitor DownState3 UpState where
 doubleBar ast = fromJust $ fst result
 	where
 		result :: (Maybe CTranslUnit, UpState)
-		result = traverseCTranslUnit (getAst ast) $ DownState3 $ symbol "bar"
+		result = traverseCTranslUnit ast $ DownState3 $ symbol "bar"
+
+-- test 4 {{{2
+newtype DownState4 = DownState4 ()
+
+instance DownVisitor DownState4
+
+newtype UpState4 = UpState4 Integer
+
+instance Monoid UpState4 where
+	mempty = UpState4 0
+	mappend (UpState4 x) (UpState4 x') = UpState4 (x + x')
+
+instance UpVisitor DownState4 UpState4 where
+	upCFunDef _ _ _ = UpState4 1
+
+countFunctions ast = wrap $ snd $ traverseCTranslUnit ast $ DownState4 ()
+
+wrap (UpState4 count) = 
+  (CTranslUnit
+     [CDeclExt
+        (CDecl [CTypeSpec (CIntType un)]
+           [(Just (CDeclr (Just (ident "count")) [] Nothing [] un),
+             Just (CInitExpr (CConst (CIntConst (cInteger count) un)) un), Nothing)]
+           un)]
+     un)

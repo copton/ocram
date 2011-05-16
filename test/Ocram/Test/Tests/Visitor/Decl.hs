@@ -55,4 +55,4 @@ instance UpVisitor DownState UpState where
 removeLocalVars ast = fromJust $ fst result
 	where
 		result :: (Maybe CTranslUnit, UpState)
-		result = traverseCTranslUnit (getAst ast) $ DownState Set.empty
+		result = traverseCTranslUnit ast $ DownState Set.empty

@@ -8,5 +8,5 @@ module Ocram.Util (
 Nothing ?:  xs = xs
 infixr 5 ?:
 
-mapt2 :: (a,b) -> ((a->c),(b->d)) -> (c,d)
-mapt2 (x, y) (f, g) = (f x, g y)
+mapt2 :: ((a->c),(b->d)) -> (a,b) -> (c,d)
+mapt2 (f, g) (x, y) = (f x, g y)
