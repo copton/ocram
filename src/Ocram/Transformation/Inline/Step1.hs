@@ -31,7 +31,7 @@ step1 :: BlockingFunctions -> CriticalFunctions -> Ast -> (Ast, FunctionInfos)
 step1 bf cf ast = mapt2 (fromJust, uFis) result
 	where
 		result = traverseCTranslUnit ast d
-		d = DownState bf cf Map.empty Nothing
+		d = DownState bf cf Map.empty [] Nothing
 
 -- Types {{{2
 
@@ -39,28 +39,33 @@ data DownState = DownState {
 		  dBf :: BlockingFunctions
 		, dCf :: CriticalFunctions
 		, dSt :: SymTab
+		, dPs :: [CDecl]
 		, dName :: Maybe (Symbol)
 	}
 
 data UpState = UpState {
 		  uFis :: FunctionInfos
 		, uSt :: SymTab
+		, uPs :: [CDecl]
 	}
 
 -- Visitor {{{2
 instance Monoid UpState where
-	mempty = UpState mempty mempty
-	mappend (UpState a b) (UpState a' b') = UpState (mappend a a') (mappend b b')
+	mempty = UpState mempty mempty mempty
+	mappend (UpState a b c) (UpState a' b' c') = UpState (mappend a a') (mappend b b') (mappend c c')
 
 instance DownVisitor DownState where
 	-- start handling of critical functions {{{3
 	-- add parameters to symbol table
 	downCFunDef fd d 
 		| Set.member (symbol fd) (dCf d) = d {
-					dSt = params2SymTab $ extractParams fd
+					dSt = params2SymTab params
+				,	dPs = params
 				, dName = Just (symbol fd)
 			}
 		| otherwise = d
+		where
+			params = extractParams fd
 
 	-- add declarations to symbol table {{{3
 	downCBlockItem (CBlockDecl cd) d
@@ -75,7 +80,7 @@ instance UpVisitor DownState UpState where
 		| otherwise = (Nothing, mempty)
 		where
 			cd' = Just $ CDeclExt $ createBlockingFunctionDeclr cd
-			u = UpState (Map.singleton (symbol cd) (decl2fi cd)) mempty
+			u = UpState (Map.singleton (symbol cd) (decl2fi cd)) mempty mempty
 
 	mapCExtDecl _ _ u = (Nothing, u)
 
@@ -95,18 +100,18 @@ instance UpVisitor DownState UpState where
 
 	-- pass declarations from down state to up state
 	lastCBlockItem d
-		| isJust $ dName d = UpState mempty (dSt d)
+		| isJust $ dName d = UpState mempty (dSt d) (dPs d)
 		| otherwise = mempty
 
 	-- create function info entry for critical function {{{3
 	upCFunDef cfd@(CFunDef tss _ _ body _) d u
 		| isJust $ dName d = 
 			assert (fromJust (dName d) == name) $
-			UpState (Map.singleton name fi) mempty
+			UpState (Map.singleton name fi) mempty mempty
 		| otherwise = mempty
 		where
 			name = symbol cfd
-			fi = FunctionInfo (extractTypeSpec tss) (uSt u) (Just body)
+			fi = FunctionInfo (extractTypeSpec tss) (uPs u) (uSt u) (Just body)
 
 -- support {{{2
 -- util {{{3
@@ -124,7 +129,9 @@ params2SymTab params = foldl add Map.empty params
 
 decl2fi :: CDecl -> FunctionInfo
 decl2fi (CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) =
-	FunctionInfo (extractTypeSpec tss) (params2SymTab $ extractParams' cfd) Nothing
+	FunctionInfo (extractTypeSpec tss) params (params2SymTab params) Nothing
+	where
+		params = extractParams' cfd
 
 extractTypeSpec :: [CDeclSpec] -> CTypeSpec
 extractTypeSpec [] = error "assertion failed: type specifier expected"

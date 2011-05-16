@@ -22,6 +22,6 @@ transform ctx = do
 	let ast = getAst valid_ast
 	let (ast', fis) = step1 bf cf ast
 	let ast'' = step2 sr cg fis ast'
-	let ast''' = step3 cg sr fis ast''
+	let ast''' = step3 cg sr bf fis ast''
 	return $ OutputAst $ ast'''
 

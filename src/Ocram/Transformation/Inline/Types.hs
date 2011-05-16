@@ -7,9 +7,10 @@ import Ocram.Types (Symbol)
 type SymTab = Map.Map Symbol CDecl
 
 data FunctionInfo = FunctionInfo {
-		fiResultType :: CTypeSpec,
-		fiVariables :: SymTab,
-		fiBody :: Maybe CStat
+		  fiResultType :: CTypeSpec
+		, fiParams :: [CDecl]
+		, fiVariables :: SymTab
+		, fiBody :: Maybe CStat
 	} deriving (Show)
 
 type FunctionInfos = Map.Map Symbol FunctionInfo

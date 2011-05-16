@@ -18,20 +18,21 @@ import Ocram.Query (getCallChain)
 
 import Language.C.Syntax.AST
 
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, isJust)
 import Data.Monoid (mempty)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.List as List
 
 --- step3 {{{1
-step3 :: CallGraph -> StartRoutines -> FunctionInfos -> Ast -> Ast
-step3 cg sr fis (CTranslUnit decls ni) = CTranslUnit (decls ++ thread_functions) ni
+step3 :: CallGraph -> StartRoutines -> BlockingFunctions -> FunctionInfos -> Ast -> Ast
+step3 cg sr bf fis (CTranslUnit decls ni) = CTranslUnit (decls ++ thread_functions) ni
 	where
-		thread_functions = map CFDefExt $ map (createThreadFunction cg fis) $ zip [1..] $ Set.elems sr
+		thread_functions = map CFDefExt $ map (createThreadFunction cg bf fis) $ zip [1..] $ Set.elems sr
 
 --- createThreadFunction {{{2
-createThreadFunction :: CallGraph -> FunctionInfos -> (Integer, Symbol) -> CFunDef
-createThreadFunction cg fis (tid, name) = 
+createThreadFunction :: CallGraph -> BlockingFunctions -> FunctionInfos -> (Integer, Symbol) -> CFunDef
+createThreadFunction cg bf fis (tid, name) = 
 	CFunDef [CTypeSpec (CVoidType un)]
 		(CDeclr (Just (ident (handlerFunction tid)))
 			[CFunDeclr
@@ -46,21 +47,30 @@ createThreadFunction cg fis (tid, name) =
 		[] (CCompound [] (intro : functions) un) un
 	where
 		intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
-		callChain = getCallChain cg name
-		functions = []
+		callChain = filter (not . (flip Set.member bf)) $ getCallChain cg name
+		functions = concatMap mapFunction $ List.drop 1 $ List.inits callChain
+		mapFunction chain@(fName:_) = inlineCriticalFunction chain fis fName
 
 -- inlineCriticalFunction {{{2
 type CallChain = [Symbol]
 
-inlineCriticalFunction :: CallChain -> FunctionInfo -> CStat
-inlineCriticalFunction cc fi = fromJust $ fst result
+inlineCriticalFunction :: CallChain -> FunctionInfos -> Symbol -> [CBlockItem]
+inlineCriticalFunction cc fis fName = lbl : body' ++ [close]
 	where
 		result :: (Maybe CStat, UpState)
-		result = traverseCStat (fromJust $ fiBody fi) $ DownState cc (fiVariables fi)
+		result = traverseCStat body $ DownState cc (fiVariables fi) fis fName
+		fi = fis Map.! fName
+		body = fromJust $ fiBody fi
+		body' = extractBody $ fromJust $ fst result
+		extractBody (CCompound _ body _) = body
+		lbl = createLabel fName 0
+		close = CBlockStmt $ CReturn Nothing un
 
 data DownState = DownState {
 	  dCc	:: CallChain
 	, dSt :: SymTab
+	, dFis :: FunctionInfos
+	, dFName :: Symbol
 	}
 
 type UpState = ()
@@ -68,18 +78,46 @@ type UpState = ()
 instance DownVisitor DownState
 
 instance UpVisitor DownState UpState where
+	-- rewrite access to local variables
 	mapCExpr (CVar iden _) d _
-		| Map.member name (dSt d) = (Just $ stackAccess (dCc d) name, mempty)
+		| Map.member name (dSt d) = (Just $ stackAccess (dCc d) (Just name), mempty)
 		| otherwise = (Nothing, mempty)
 		where name = symbol iden
 
 	mapCExpr _ _ _ = (Nothing, mempty)
 
+	-- rewrite critical function calls
+	crossCBlockItem (CBlockStmt (CExpr (Just (CCall (CVar iden _) params _)) _)) d _
+		| Map.member name (dFis d) = (Just $ criticalFunctionCall d name, d)
+		| otherwise = (Nothing, d)
+		where
+			name = symbol iden
+
+-- criticalFunctionCall {{{3
+criticalFunctionCall :: DownState -> Symbol -> [CBlockItem]
+criticalFunctionCall d cfName = params ++ continuation : call : return : lbl : []
+	where
+		chain' = (dCc d) ++ [cfName]
+
+		params = []
+
+		continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess chain' (Just contVar)) (CUnary CAdrOp (CVar (ident $ label (dFName d) 1) un) un) un)) un) -- TODO: enumerate labels
+
+		call = CBlockStmt (CExpr (Just (CCall (CVar (ident cfName) un) [CUnary CAdrOp (stackAccess chain' Nothing) un] un)) un)
+
+		return = CBlockStmt (CReturn Nothing un)
+
+		lbl = createLabel (dFName d) 1 -- TODO: enumerate labels
+
 -- stackAccess {{{3
-stackAccess :: CallChain -> Symbol -> CExpr
+stackAccess :: CallChain -> Maybe Symbol -> CExpr
 stackAccess (sr:chain) variable = foldl create base $ zip pointers members
 	where
+		variables = if isJust variable then [fromJust variable] else []
 		base = CVar (ident $ stackVar sr) un
 		pointers = True : cycle [False]
-		members = foldr (\x l -> frameUnion : x : l) [] chain ++ [variable]
+		members = foldr (\x l -> frameUnion : x : l) [] chain ++ variables
 		create inner (pointer, member) = CMember inner (ident member) pointer un 
+
+-- createLabel {{{3
+createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un

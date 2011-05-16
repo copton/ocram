@@ -48,7 +48,7 @@ createTStackFrames sr cg fis = frames
 		
 -- createTStackFrame {{{3
 createTStackFrame :: StartRoutines -> CallGraph -> (Symbol, FunctionInfo) -> CExtDecl
-createTStackFrame sr cg (name, fi@(FunctionInfo resultType vars _)) = 
+createTStackFrame sr cg (name, fi@(FunctionInfo resultType _ vars _)) = 
 	 CDeclExt
 		 (CDecl
 				[CStorageSpec (CTypedef un),

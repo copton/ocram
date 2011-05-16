@@ -57,10 +57,10 @@ mapTrav cross last trav os d =
 		iter (flag, os, c, u) o =
 			case trav o c of
 				(Just o', u') -> case cross o' c u' of
-					(Just o'', c') -> (True, o'' ++ os, c', mappend u u')
+					(Just o'', c') -> (True, reverse o'' ++ os, c', mappend u u')
 					(Nothing, c') -> (True, o' : os, c', mappend u u')
 				(Nothing, u') -> case cross o c u' of
-					(Just o', c') -> (True, o' ++ os, c', mappend u u')
+					(Just o', c') -> (True, reverse o' ++ os, c', mappend u u')
 					(Nothing, c') -> (flag, o : os, c', mappend u u')
 
 
