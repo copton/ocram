@@ -1,6 +1,7 @@
 module Ocram.Test.Main (main) where
 
 import Ocram.Test.Tests (tests)
-import Test.HUnit (runTestTT)
+import Test.HUnit (runTestText, putTextToHandle)
+import System.IO (stderr)
 
-main = runTestTT tests >> return ()
+main = runTestText (putTextToHandle stderr False) tests >> return ()
