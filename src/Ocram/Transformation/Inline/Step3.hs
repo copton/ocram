@@ -55,10 +55,10 @@ createThreadFunction cg bf fis (tid, name) =
 type CallChain = [Symbol]
 
 inlineCriticalFunction :: CallChain -> FunctionInfos -> Symbol -> [CBlockItem]
-inlineCriticalFunction cc fis fName = lbl : body' ++ [close]
+inlineCriticalFunction cc fis fName = lbl : body' ++ close : []
 	where
 		result :: (Maybe CStat, UpState)
-		result = traverseCStat body $ DownState cc (fiVariables fi) fis fName
+		result = traverseCStat body $ DownState cc (fiVariables fi) fis fName 1
 		fi = fis Map.! fName
 		body = fromJust $ fiBody fi
 		body' = extractBody $ fromJust $ fst result
@@ -71,6 +71,7 @@ data DownState = DownState {
 	, dSt :: SymTab
 	, dFis :: FunctionInfos
 	, dFName :: Symbol
+	, dLbl :: Int
 	}
 
 type UpState = ()
@@ -88,26 +89,35 @@ instance UpVisitor DownState UpState where
 
 	-- rewrite critical function calls
 	crossCBlockItem (CBlockStmt (CExpr (Just (CCall (CVar iden _) params _)) _)) d _
-		| Map.member name (dFis d) = (Just $ criticalFunctionCall d name, d)
+		| Map.member name (dFis d) = (Just $ criticalFunctionCall d name params, d {dLbl = (dLbl d) + 1})
 		| otherwise = (Nothing, d)
 		where
 			name = symbol iden
 
 -- criticalFunctionCall {{{3
-criticalFunctionCall :: DownState -> Symbol -> [CBlockItem]
-criticalFunctionCall d cfName = params ++ continuation : call : return : lbl : []
+criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> [CBlockItem]
+criticalFunctionCall d cfName params = parameters ++ continuation : call : return : lbl : []
 	where
+		lid = dLbl d
 		chain' = (dCc d) ++ [cfName]
+		fi = (dFis d) Map.! cfName
 
-		params = []
+		parameters = map (createParamAssign chain') $ zip params $ fiParams fi
 
-		continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess chain' (Just contVar)) (CUnary CAdrOp (CVar (ident $ label (dFName d) 1) un) un) un)) un) -- TODO: enumerate labels
+		continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess chain' (Just contVar)) (CUnary CAdrOp (CVar (ident $ label (dFName d) lid) un) un) un)) un)
 
 		call = CBlockStmt (CExpr (Just (CCall (CVar (ident cfName) un) [CUnary CAdrOp (stackAccess chain' Nothing) un] un)) un)
 
 		return = CBlockStmt (CReturn Nothing un)
 
-		lbl = createLabel (dFName d) 1 -- TODO: enumerate labels
+		lbl = createLabel (dFName d) lid
+
+-- createParamAssign
+createParamAssign :: CallChain -> (CExpr, CDecl) -> CBlockItem
+createParamAssign chain (exp, decl) = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) un)
+	where
+		lhs = stackAccess chain (Just $ symbol decl)
+		rhs = exp
 
 -- stackAccess {{{3
 stackAccess :: CallChain -> Maybe Symbol -> CExpr
