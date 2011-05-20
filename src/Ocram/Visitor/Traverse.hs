@@ -34,19 +34,6 @@ type Recurse o d u = Traverse o d u
 
 type CrossHandler o d u = o -> d -> u -> ([o], d, u)
 
--- util {{{2
-maybeTrav :: (Monoid u) => Traverse o d u -> Traverse (Maybe o) d u
-maybeTrav _ Nothing _ = (Nothing, mempty)
-maybeTrav trav (Just o) d = mapt2 (Just, id) $ trav o d
-
-maybeDown :: DownHandler o d -> DownHandler (Maybe o) d
-maybeDown _ Nothing d = d
-maybeDown downh (Just o) d = downh o d
-
-maybeUp :: (Monoid u) => UpHandler o d u -> UpHandler (Maybe o) d u
-maybeUp _ Nothing _ _ = (Nothing, mempty)
-maybeUp uph (Just o) d u = mapt2 (Just, id) $ uph o d u
-
 -- trav {{{1
 trav ::
 	   DownHandler o d
@@ -117,8 +104,8 @@ traverseCDecls = listTrav downCDecl upCDecl recurseCDecl traverseCDecls
 traverseCExprs :: (DownVisitor d, UpVisitor d u) => Traverse [CExpr] d u
 traverseCExprs = listTrav downCExpr upCExpr recurseCExpr traverseCExprs
 
--- traverseCBlockItems :: (DownVisitor d, UpVisitor d u) => Traverse [CBlockItem] d u
--- traverseCBlockItems = listTrav downCBlockItem upCBlockItem recurseCBlockItem traverseCBlockItem
+traverseCBlockItems :: (DownVisitor d, UpVisitor d u) => Traverse [CBlockItem] d u
+traverseCBlockItems = listTrav downCBlockItem upCBlockItem recurseCBlockItem traverseCBlockItems
 
 traverseCDerivedDeclrs :: (DownVisitor d, UpVisitor d u) => Traverse [CDerivedDeclr] d u
 traverseCDerivedDeclrs = listTrav downCDerivedDeclr upCDerivedDeclr recurseCDerivedDeclr traverseCDerivedDeclrs
@@ -289,75 +276,77 @@ recurseCStat (CDefault i x) d = let (i', u) = traverseCStat i d in (CDefault i' 
 	
 recurseCStat (CExpr i x) d = let (i', u) = maybeTrav traverseCExpr i d in (CExpr i' x, u)
 
---recurseCStat (CCompound x1 i x2) d = let (i', u) = traverseCBlockItems i d in (CCompound x1 i' x2, u)
+recurseCStat (CCompound x1 i x2) d = let (i', u) = traverseCBlockItems i d in (CCompound x1 i' x2, u)
 
--- traverseCStat cs@(CIf ce1 cs1 cs2 _) d = recurse downCStat mapCStat traverse create (ce1, cs1, cs2) cs d
---   where 
---     traverse all@(ce1, cs1, cs2) d = merge3 d all
---       (traverseCExpr ce1 d)
---       (traverseCStat cs1 d)
---       (maybeTrav traverseCStat cs2 d)
---     create (CIf _ _ _ x) (ce1, cs1, cs2) = CIf ce1 cs1 cs2 x
+recurseCStat (CIf i1 i2 i3 x) d =
+	let
+		(i1', u1) = traverseCExpr i1 d
+		(i2', u2) = traverseCStat i2 d
+		(i3', u3) = maybeTrav traverseCStat i3 d
+	in
+		(CIf i1' i2' i3' x, u1 `mappend` u2 `mappend` u3)
 
--- traverseCStat cs@(CSwitch ce1 cs1 _) d = recurse downCStat mapCStat traverse create (ce1, cs1) cs d
---   where 
---     traverse all@(ce1, cs1) d = merge2 d all
---       (traverseCExpr ce1 d)
---       (traverseCStat cs1 d)
---     create (CSwitch _ _ x) (ce1, cs1) = CSwitch ce1 cs1 x
+recurseCStat (CSwitch i1 i2 x) d =
+	let
+		(i1', u1) = traverseCExpr i1 d
+		(i2', u2) = traverseCStat i2 d
+	in
+		(CSwitch i1' i2' x, u1 `mappend` u2)
 
--- traverseCStat cs@(CWhile ce1 cs1 _ _) d = recurse downCStat mapCStat traverse create (ce1, cs1) cs d
---   where 
---     traverse all@(ce1, cs1) d = merge2 d all
---       (traverseCExpr ce1 d)
---       (traverseCStat cs1 d)
---     create (CWhile _ _ x y) (ce1, cs1) = CWhile ce1 cs1 x y
+recurseCStat (CWhile i1 i2 x1 x2) d =
+	let
+		(i1', u1) = traverseCExpr i1 d
+		(i2', u2) = traverseCStat i2 d
+	in
+		(CWhile i1' i2' x1 x2, u1 `mappend` u2)
 
--- traverseCStat cs@(CFor (Left ce1) ce2 ce3 cs1 _) d = recurse downCStat mapCStat traverse create (ce1, ce2, ce3, cs1) cs d
---   where 
---     traverse all@(ce1, ce2, ce3, cs1) d = merge4 d all
---       (maybeTrav traverseCExpr ce1 d)
---       (maybeTrav traverseCExpr ce2 d)
---       (maybeTrav traverseCExpr ce3 d)
---       (traverseCStat cs1 d)
---     create (CFor _ _ _ _ x) (ce1, ce2, ce3, cs1) = CFor (Left ce1) ce2 ce3 cs1 x
+recurseCStat (CFor (Left i1) i2 i3 i4 x) d =
+	let
+		(i1', u1) = maybeTrav traverseCExpr i1 d
+		(i2', u2) = maybeTrav traverseCExpr i2 d
+		(i3', u3) = maybeTrav traverseCExpr i3 d
+		(i4', u4) = traverseCStat i4 d
+	in
+		(CFor (Left i1') i2' i3' i4' x, u1 `mappend` u2 `mappend` u3 `mappend` u4)
 
--- traverseCStat cs@(CFor (Right cd1) ce1 ce2 cs1 _) d = recurse downCStat mapCStat traverse create (cd1, ce1, ce2, cs1) cs d
---   where 
---     traverse all@(cd1, ce1, ce2, cs1) d = merge4 d all
---       (traverseCDecl cd1 d)
---       (maybeTrav traverseCExpr ce1 d)
---       (maybeTrav traverseCExpr ce2 d)
---       (traverseCStat cs1 d)
---     create (CFor _ _ _ _ x) (cd1, ce1, ce2, cs1) = CFor (Right cd1) ce1 ce2 cs1 x
+recurseCStat (CFor (Right i1) i2 i3 i4 x) d =
+	let
+		(i1', u1) = traverseCDecl i1 d
+		(i2', u2) = maybeTrav traverseCExpr i2 d
+		(i3', u3) = maybeTrav traverseCExpr i3 d
+		(i4', u4) = traverseCStat i4 d
+	in
+		(CFor (Right i1') i2' i3' i4' x, u1 `mappend` u2 `mappend` u3 `mappend` u4)
 
--- traverseCStat cs@(CGoto _ _) d = recurse downCStat mapCStat noTrav noCreate noChildren cs d
+recurseCStat o@(CGoto _ _) _ = (o, mempty)
 
--- traverseCStat cs@(CGotoPtr ce1 _) d = recurse downCStat mapCStat traverse create ce1 cs d
---   where 
---     traverse = traverseCExpr
---     create (CGotoPtr _ x) ce1 = CGotoPtr ce1 x
+recurseCStat (CGotoPtr i x) d = let (i', u) = traverseCExpr i d in (CGotoPtr i' x, u)
 
--- traverseCStat cs@(CCont _) d = recurse downCStat mapCStat noTrav noCreate noChildren cs d
+recurseCStat o@(CCont _) _ = (o, mempty)
 
--- traverseCStat cs@(CBreak _) d = recurse downCStat mapCStat noTrav noCreate noChildren cs d
+recurseCStat o@(CBreak _) _ = (o, mempty)
 
--- traverseCStat cs@(CReturn ce1 _) d = recurse downCStat mapCStat traverse create ce1 cs d
---   where 
---     traverse = maybeTrav traverseCExpr
---     create (CReturn _ x) ce1 = CReturn ce1 x
+recurseCStat (CReturn i x) d = let (i', u) = maybeTrav traverseCExpr i d in (CReturn i' x, u)
 
--- traverseCStat cs@(CAsm _ _) d = recurse downCStat mapCStat noTrav noCreate noChildren cs d
+recurseCStat o@(CAsm _ _) _ = (o, mempty)
 
--- CBlockItem {{{1
+-- CBlockItem {{{2
 recurseCBlockItem (CBlockStmt i) d = let (i', u) = traverseCStat i d in (CBlockStmt i', u)
 
--- traverseCBlockItem cbi@(CBlockDecl cd) d = recurse downCBlockItem mapCBlockItem traverse create cd cbi d
---   where
---     traverse = traverseCDecl
---     create _ cd = CBlockDecl cd
+recurseCBlockItem (CBlockDecl i) d = let (i', u) = traverseCDecl i d in (CBlockDecl i', u)
 
--- traverseCBlockItem cbi@(CNestedFunDef cfd) d = recurse downCBlockItem mapCBlockItem traverse create cfd cbi d
---   where
---     traverse = traverseCFunDef
---     create _ cfd = CNestedFunDef cfd
+recurseCBlockItem (CNestedFunDef i) d = let (i', u) = traverseCFunDef i d in (CNestedFunDef i', u)
+
+-- util {{{1
+maybeTrav :: (Monoid u) => Traverse o d u -> Traverse (Maybe o) d u
+maybeTrav _ Nothing _ = (Nothing, mempty)
+maybeTrav trav (Just o) d = mapt2 (Just, id) $ trav o d
+
+maybeDown :: DownHandler o d -> DownHandler (Maybe o) d
+maybeDown _ Nothing d = d
+maybeDown downh (Just o) d = downh o d
+
+maybeUp :: (Monoid u) => UpHandler o d u -> UpHandler (Maybe o) d u
+maybeUp _ Nothing _ _ = (Nothing, mempty)
+maybeUp uph (Just o) d u = mapt2 (Just, id) $ uph o d u
+
