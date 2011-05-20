@@ -1,5 +1,5 @@
 module Ocram.Query 
---- exports {{{1
+-- exports {{{1
 (
 	getFunDefs, getFunDecls, getCallChain
 ) where
@@ -10,7 +10,7 @@ import Ocram.Symbols (symbol)
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Language.C.Syntax.AST(CFunDef, CDecl, CExternalDeclaration(CFDefExt, CDeclExt))
-import Ocram.Visitor (traverseCTranslUnit, DownVisitor, UpVisitor(upCExtDecl))
+import Ocram.Visitor (traverseCTranslUnit, DownVisitor, UpVisitor(upCExtDecl), ListVisitor)
 
 
 -- getCallChain :: CallGraph -> Symbol -> [Symbol] {{{1
@@ -37,10 +37,12 @@ instance DownVisitor DownState
 
 type UpState = [CFunDef]
 instance UpVisitor DownState UpState where
-	upCExtDecl (CFDefExt fd) (DownState symbols) _
-		| Set.member (symbol fd) symbols = [fd]
-		| otherwise = []
-	upCExtDecl _ _ _ = []
+	upCExtDecl o@(CFDefExt fd) (DownState symbols) _
+		| Set.member (symbol fd) symbols = (o, [fd])
+		| otherwise = (o, [])
+	upCExtDecl o _ _ = (o, [])
+
+instance ListVisitor DownState UpState
 
 -- getFunDecls :: Ast -> Set.Set Symbol -> Map.Map Symbol CDecl {{{1
 getFunDecls :: Ast -> Set.Set Symbol -> Map.Map Symbol CDecl
@@ -48,10 +50,12 @@ getFunDecls ast symbols = foldl createEntry Map.empty $ snd $ traverseCTranslUni
 
 type UpState' = [CDecl]
 instance UpVisitor DownState UpState' where
-	upCExtDecl (CDeclExt fd) (DownState symbols) _
-		| Set.member (symbol fd) symbols = [fd]
-		| otherwise = []
-	upCExtDecl _ _ _ = []
+	upCExtDecl o@(CDeclExt fd) (DownState symbols) _
+		| Set.member (symbol fd) symbols = (o, [fd])
+		| otherwise = (o, [])
+	upCExtDecl o _ _ = (o, [])
+
+instance ListVisitor DownState UpState'
 
 -- util {{{1
 createEntry m fd = Map.insert (symbol fd) fd m

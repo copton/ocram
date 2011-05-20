@@ -8,7 +8,7 @@ import Ocram.Types
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants
 import Ocram.Visitor.DefaultStates (emptyDownState, EmptyDownState)
-import Ocram.Visitor.Visitor (UpVisitor, mapCStat)
+import Ocram.Visitor.Visitor (UpVisitor, upCStat, ListVisitor)
 import Data.Monoid (mempty)
 import Ocram.Visitor.Traverse (traverseCTranslUnit)
 import Data.Maybe (fromJust)
@@ -51,14 +51,14 @@ tests = runTests "Stat" [
 type UpState = ()
 
 instance UpVisitor EmptyDownState UpState where
-	mapCStat (CReturn (Just (CConst (CIntConst (CInteger 0 repr flags) ni1))) ni2) _ _ = 
-		(Just (CReturn (Just (CConst (CIntConst (CInteger 1 repr flags) ni1))) ni2), mempty)
+	upCStat (CReturn (Just (CConst (CIntConst (CInteger 0 repr flags) ni1))) ni2) _ _ = 
+		(CReturn (Just (CConst (CIntConst (CInteger 1 repr flags) ni1))) ni2, mempty)
 	
-	mapCStat _ _ _ = (Nothing, mempty)
+	upCStat o _ _ = (o, mempty)
 
-zeroToOne ast = case fst result of
-		Nothing -> error "fuck"
-		Just x -> x
+instance ListVisitor EmptyDownState UpState
+
+zeroToOne ast = fst result
 	where
-		result :: (Maybe CTranslUnit, UpState)
+		result :: (CTranslUnit, UpState)
 		result = traverseCTranslUnit ast emptyDownState

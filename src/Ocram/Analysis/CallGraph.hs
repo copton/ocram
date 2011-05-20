@@ -6,7 +6,7 @@ module Ocram.Analysis.CallGraph
 
 -- imports {{{1
 import Ocram.Types
-import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit)
+import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit, ListVisitor)
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
 import Language.C.Data.Ident (Ident(Ident))
@@ -35,11 +35,11 @@ instance DownVisitor DownState where
 	downCFunDef fd d = d {stCaller = Just fd}
 
 instance UpVisitor DownState Calls where
-	upCExpr (CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller) fm bf) _ 
-		| Set.member callee fm = [(caller, callee)]
-		| Set.member callee bf = [(caller, callee)]
-		| otherwise = []
-	upCExpr _ _ _ = []
+	upCExpr o@(CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller) fm bf) _ 
+		| Set.member callee fm = (o, [(caller, callee)])
+		| Set.member callee bf = (o, [(caller, callee)])
+		| otherwise = (o, [])
+	upCExpr o _ _ = (o, [])
 
 createCallGraph :: Calls -> CallGraph
 createCallGraph calls = foldl addCall Map.empty calls
@@ -54,3 +54,4 @@ addCall cg (fd, name) = Map.alter addCallee caller $ Map.alter addCaller callee 
 		addCallee Nothing = Just $ Entry Set.empty (Set.singleton callee)
 		addCallee (Just entry) = Just $ entry { cgCallees = callee `Set.insert` (cgCallees entry) }
 	
+instance ListVisitor DownState Calls

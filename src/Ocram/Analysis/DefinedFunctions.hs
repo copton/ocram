@@ -7,7 +7,7 @@ module Ocram.Analysis.DefinedFunctions
 -- imports {{{1
 import Ocram.Types
 import Data.Set (fromList)
-import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit)
+import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit, ListVisitor)
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef)
 
@@ -20,4 +20,6 @@ collectDefinedFunctions ctx = do
 type UpState = [Symbol]
 
 instance UpVisitor EmptyDownState UpState where
-	upCFunDef fd _ _ = [symbol fd]
+	upCFunDef o _ _ = (o, [symbol o])
+
+instance ListVisitor EmptyDownState UpState

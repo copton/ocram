@@ -25,10 +25,11 @@ import qualified Data.Set as Set
 import qualified Data.Map as Map
 
 import Control.Exception (assert)
+import Debug.Trace (trace)
 
 -- step1 {{{1
 step1 :: BlockingFunctions -> CriticalFunctions -> Ast -> (Ast, FunctionInfos)
-step1 bf cf ast = mapt2 (fromJust, uFis) result
+step1 bf cf ast = mapt2 (id, uFis) result
 	where
 		result = traverseCTranslUnit ast d
 		d = DownState bf cf Map.empty [] Nothing
@@ -46,13 +47,12 @@ data DownState = DownState {
 data UpState = UpState {
 		  uFis :: FunctionInfos
 		, uSt :: SymTab
-		, uPs :: [CDecl]
 	}
 
 -- Visitor {{{2
 instance Monoid UpState where
-	mempty = UpState mempty mempty mempty
-	mappend (UpState a b c) (UpState a' b' c') = UpState (mappend a a') (mappend b b') (mappend c c')
+	mempty = UpState mempty mempty
+	mappend (UpState a b) (UpState a' b') = UpState (mappend a a') (mappend b b')
 
 instance DownVisitor DownState where
 	-- start handling of critical functions {{{3
@@ -72,46 +72,51 @@ instance DownVisitor DownState where
 		| isJust $ dName d = d {dSt = Map.insert (symbol cd) cd (dSt d)}
 		| otherwise = d
 
+	downCBlockItem _ d = d
+
 instance UpVisitor DownState UpState where
-	-- rewrite declarations of blocking functions {{{3
-	-- create function info entry for blocking functions
-	mapCExtDecl (CDeclExt cd) d _
-		| Set.member (symbol cd) (dBf d) = (cd', u)
-		| otherwise = (Nothing, mempty)
+	-- create function info entry for critical function {{{3
+	upCFunDef o@(CFunDef tss _ _ body _) d u
+		| isJust $ dName d =
+			assert (fromJust (dName d) == name) $
+			(o, UpState (Map.singleton name fi) mempty)
+		| otherwise = (o, u)
 		where
-			cd' = Just $ CDeclExt $ createBlockingFunctionDeclr cd
-			u = UpState (Map.singleton (symbol cd) (decl2fi cd)) mempty mempty
-
-	mapCExtDecl _ _ u = (Nothing, u)
-
-	-- remove critical functions {{{3
-	crossCExtDecl (CFDefExt fd) d u
-		| Set.member (symbol fd) (dCf d) = (Just [], d)
-		| otherwise = (Nothing, d)
-	
-	crossCExtDecl _ d u = (Nothing, d)
-
-	-- remove declarations {{{3
-	crossCBlockItem (CBlockDecl _) d _
-		| isJust $ dName d = (Just [], d)
-		| otherwise = (Nothing, d)
-
-	crossCBlockItem _ d _ = (Nothing, d)
+			name = symbol o
+			fi = FunctionInfo (extractTypeSpec tss) (dPs d) (uSt u) (Just body)
 
 	-- pass declarations from down state to up state
-	lastCBlockItem d
-		| isJust $ dName d = UpState mempty (dSt d) (dPs d)
-		| otherwise = mempty
+	upCBlockItem o@(CBlockDecl _) d u
+		| isJust $ dName d = (o, u `mappend` UpState mempty (dSt d))
+		| otherwise = (o, u)
 
-	-- create function info entry for critical function {{{3
-	upCFunDef cfd@(CFunDef tss _ _ body _) d u
-		| isJust $ dName d = 
-			assert (fromJust (dName d) == name) $
-			UpState (Map.singleton name fi) mempty mempty
-		| otherwise = mempty
+	upCBlockItem o _ u = (o, u)
+
+	-- rewrite declarations of blocking functions {{{3
+	-- create function info entry for blocking functions
+	upCExtDecl o@(CDeclExt cd) d u
+		| Set.member (symbol cd) (dBf d) = (cd', u)
+		| otherwise = (o, u)
 		where
-			name = symbol cfd
-			fi = FunctionInfo (extractTypeSpec tss) (uPs u) (uSt u) (Just body)
+			cd' = CDeclExt $ createBlockingFunctionDeclr cd
+			u = UpState (Map.singleton (symbol cd) (decl2fi cd)) mempty
+
+	upCExtDecl o _ u = (o, u)
+
+instance ListVisitor DownState UpState where
+	-- remove critical functions {{{3
+	nextCExtDecl o@(CFDefExt fd) d u
+		| Set.member (symbol fd) (dCf d) = ([], d, u)
+		| otherwise = ([o], d, u)
+	
+	nextCExtDecl o d u = ([o], d, u)
+
+	-- remove declarations {{{3
+	nextCBlockItem o@(CBlockDecl _) d u
+		| isJust $ dName d = ([], d, u)
+		| otherwise = ([o], d, u)
+
+	nextCBlockItem o d u = ([o], d, u)
 
 -- support {{{2
 -- util {{{3

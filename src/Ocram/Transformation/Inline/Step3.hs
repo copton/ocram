@@ -57,11 +57,11 @@ type CallChain = [Symbol]
 inlineCriticalFunction :: CallChain -> FunctionInfos -> Symbol -> [CBlockItem]
 inlineCriticalFunction cc fis fName = lbl : body' ++ close : []
 	where
-		result :: (Maybe CStat, UpState)
+		result :: (CStat, UpState)
 		result = traverseCStat body $ DownState cc (fiVariables fi) fis fName 1
 		fi = fis Map.! fName
 		body = fromJust $ fiBody fi
-		body' = extractBody $ fromJust $ fst result
+		body' = extractBody $ fst result
 		extractBody (CCompound _ body _) = body
 		lbl = createLabel fName 0
 		close = CBlockStmt $ CReturn Nothing un
@@ -80,17 +80,18 @@ instance DownVisitor DownState
 
 instance UpVisitor DownState UpState where
 	-- rewrite access to local variables
-	mapCExpr (CVar iden _) d _
-		| Map.member name (dSt d) = (Just $ stackAccess (dCc d) (Just name), mempty)
-		| otherwise = (Nothing, mempty)
+	upCExpr o@(CVar iden _) d _
+		| Map.member name (dSt d) = (stackAccess (dCc d) (Just name), mempty)
+		| otherwise = (o, mempty)
 		where name = symbol iden
 
-	mapCExpr _ _ _ = (Nothing, mempty)
+	upCExpr o _ _ = (o, mempty)
 
+instance ListVisitor DownState UpState where
 	-- rewrite critical function calls
-	crossCBlockItem (CBlockStmt (CExpr (Just (CCall (CVar iden _) params _)) _)) d _
-		| Map.member name (dFis d) = (Just $ criticalFunctionCall d name params, d {dLbl = (dLbl d) + 1})
-		| otherwise = (Nothing, d)
+	nextCBlockItem o@(CBlockStmt (CExpr (Just (CCall (CVar iden _) params _)) _)) d u
+		| Map.member name (dFis d) = (criticalFunctionCall d name params, d {dLbl = (dLbl d) + 1}, u)
+		| otherwise = ([o], d, u)
 		where
 			name = symbol iden
 

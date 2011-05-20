@@ -4,7 +4,7 @@ module Ocram.Filter.Constraints (
 
 import Ocram.Filter.Util
 import Ocram.Types
-import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit)
+import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit, ListVisitor)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 import qualified Data.Set as Set
@@ -51,7 +51,9 @@ append es code location = Error code location : es
 
 type UpState = [Error Int]
 instance UpVisitor DownState UpState where
-	upCExpr (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni) (DownState cf) u
-		| name `Set.member` cf = append u 1 ni 
-		| otherwise = u
-	upCExpr _ _ u = u
+	upCExpr o@(CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni) (DownState cf) u
+		| name `Set.member` cf = (o, append u 1 ni)
+		| otherwise = (o, u)
+	upCExpr o _ u = (o, u)
+
+instance ListVisitor DownState UpState
