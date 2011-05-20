@@ -24,15 +24,9 @@ import Language.C.Data.Ident (Ident)
 import Data.Maybe (isJust, fromMaybe)
 import Data.Monoid (mappend, mempty, Monoid)
 
-import Debug.Trace (trace)
-
 -- types {{{1
-type DownHandler o d = o -> d -> d
-type UpHandler o d u = o -> d -> u -> (o, u)
 type Traverse o d u = o -> d -> (o, u)
 type Recurse o d u = Traverse o d u
-
-type CrossHandler o d u = o -> d -> u -> ([o], d, u)
 
 -- trav {{{1
 trav ::
@@ -51,79 +45,78 @@ listTrav :: (Monoid u) =>
 	   DownHandler o d
 	-> UpHandler o d u
 	-> Recurse o d u
+	-> NextHandler o d u
 	-> Traverse [o] d u
 	-> Traverse [o] d u
-listTrav _ _ _ _ [] _ = ([], mempty)
-listTrav downh uph recf travf (o:os) d =
+listTrav _ _ _ _ _ [] _ = ([], mempty)
+listTrav downh uph recf nexth travf (o:os) d =
 	let
 		d' = downh o d
 		(o', u) = recf o d'
 		(o'', u') = uph o' d' u
-		(os', us) = travf os d'
+		(o''', d'', u'') = nexth o'' d' u'
+		(os', ut) = travf os d''
 	in
-		(o'':os', us `mappend` u')
+		(o'''++os', ut `mappend` u'')
 
 -- public trav functionss {{{2
-traverseCTranslUnit :: (DownVisitor d, UpVisitor d u) => Traverse CTranslUnit d u
+traverseCTranslUnit :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CTranslUnit d u
 traverseCTranslUnit = trav downCTranslUnit upCTranslUnit recurseCTranslUnit
 
-traverseCExtDecl :: (DownVisitor d, UpVisitor d u) => Traverse CExtDecl d u
+traverseCExtDecl :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CExtDecl d u
 traverseCExtDecl = trav downCExtDecl upCExtDecl recurseCExtDecl
 
-traverseCDecl :: (DownVisitor d, UpVisitor d u) => Traverse CDecl d u
+traverseCDecl :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CDecl d u
 traverseCDecl = trav downCDecl upCDecl recurseCDecl
 
-traverseCDerivedDeclr :: (DownVisitor d, UpVisitor d u) => Traverse CDerivedDeclr d u
+traverseCDerivedDeclr :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CDerivedDeclr d u
 traverseCDerivedDeclr = trav downCDerivedDeclr upCDerivedDeclr recurseCDerivedDeclr
 
-traverseCFunDef :: (DownVisitor d, UpVisitor d u) => Traverse CFunDef d u
+traverseCFunDef :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CFunDef d u
 traverseCFunDef = trav downCFunDef upCFunDef recurseCFunDef
 
-traverseCDeclr :: (DownVisitor d, UpVisitor d u) => Traverse CDeclr d u
+traverseCDeclr :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CDeclr d u
 traverseCDeclr = trav downCDeclr upCDeclr recurseCDeclr
 
-traverseCInit :: (DownVisitor d, UpVisitor d u) => Traverse CInit d u
+traverseCInit :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CInit d u
 traverseCInit = trav downCInit upCInit recurseCInit
 
-traverseCExpr :: (DownVisitor d, UpVisitor d u) => Traverse CExpr d u
+traverseCExpr :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CExpr d u
 traverseCExpr = trav downCExpr upCExpr recurseCExpr
 
-traverseCStat :: (DownVisitor d, UpVisitor d u) => Traverse CStat d u
+traverseCStat :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CStat d u
 traverseCStat = trav downCStat upCStat recurseCStat
 
-traverseCBlockItem :: (DownVisitor d, UpVisitor d u) => Traverse CBlockItem d u
+traverseCBlockItem :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse CBlockItem d u
 traverseCBlockItem = trav downCBlockItem upCBlockItem recurseCBlockItem
 
 -- list trav functions {{{2
-traverseCExtDecls :: (DownVisitor d, UpVisitor d u) => Traverse [CExtDecl] d u
-traverseCExtDecls = listTrav downCExtDecl upCExtDecl recurseCExtDecl traverseCExtDecls
+traverseCExtDecls :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse [CExtDecl] d u
+traverseCExtDecls = listTrav downCExtDecl upCExtDecl recurseCExtDecl nextCExtDecl traverseCExtDecls
 
-traverseCDecls :: (DownVisitor d, UpVisitor d u) => Traverse [CDecl] d u
-traverseCDecls = listTrav downCDecl upCDecl recurseCDecl traverseCDecls
+traverseCDecls :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse [CDecl] d u
+traverseCDecls = listTrav downCDecl upCDecl recurseCDecl nextCDecl traverseCDecls
 
-traverseCExprs :: (DownVisitor d, UpVisitor d u) => Traverse [CExpr] d u
-traverseCExprs = listTrav downCExpr upCExpr recurseCExpr traverseCExprs
+traverseCExprs :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse [CExpr] d u
+traverseCExprs = listTrav downCExpr upCExpr recurseCExpr nextCExpr traverseCExprs
 
-traverseCBlockItems :: (DownVisitor d, UpVisitor d u) => Traverse [CBlockItem] d u
-traverseCBlockItems = listTrav downCBlockItem upCBlockItem recurseCBlockItem traverseCBlockItems
+traverseCBlockItems :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse [CBlockItem] d u
+traverseCBlockItems = listTrav downCBlockItem upCBlockItem recurseCBlockItem nextCBlockItem traverseCBlockItems
 
-traverseCDerivedDeclrs :: (DownVisitor d, UpVisitor d u) => Traverse [CDerivedDeclr] d u
-traverseCDerivedDeclrs = listTrav downCDerivedDeclr upCDerivedDeclr recurseCDerivedDeclr traverseCDerivedDeclrs
+traverseCDerivedDeclrs :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse [CDerivedDeclr] d u
+traverseCDerivedDeclrs = listTrav downCDerivedDeclr upCDerivedDeclr recurseCDerivedDeclr nextCDerivedDeclr traverseCDerivedDeclrs
 
-traverseCInitListMembers :: (DownVisitor d, UpVisitor d u) => Traverse [([CDesignator], CInit)] d u
-traverseCInitListMembers [] _ = ([], mempty)
-traverseCInitListMembers ((x, o):os) d =
-	let
-		d' = downCInit o d
-		(o', u) = recurseCInit o d'
-		(o'', u') = upCInit o' d u
-		(os', us) = traverseCInitListMembers os d'
-	in
-		((x, o''):os', us `mappend` u')
+traverseCInitListMembers :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse [([CDesignator], CInit)] d u
+traverseCInitListMembers = listTrav downh uph recf nextCInitListMember traverseCInitListMembers
+	where
+		downh (_, i) d = downCInit i d
+		uph (x, i) d u = let (i', u) = upCInit i d u in ((x, i'), u)
+		recf (x, i) d = let (i', u) = recurseCInit i d	in ((x, i'), u)
 
-traverseCDeclMembers :: (DownVisitor d, UpVisitor d u) => Traverse [(Maybe CDeclr, Maybe CInit, Maybe CExpr)] d u
+-- TODO: find a way to express traverseCDeclMembers in terms of listTrav
+traverseCDeclMembers :: (DownVisitor d, UpVisitor d u, ListVisitor d u) => Traverse [(Maybe CDeclr, Maybe CInit, Maybe CExpr)] d u
 traverseCDeclMembers [] _ = ([], mempty)
-traverseCDeclMembers ((i1,i2,i3):os) d =
+traverseCDeclMembers (o@(i1,i2,i3):os) d =
 	let
 		d1 = maybeDown downCDeclr i1 d
 		(i1', u1) = maybeTrav recurseCDeclr i1 d1
@@ -137,9 +130,13 @@ traverseCDeclMembers ((i1,i2,i3):os) d =
 		(i3', u3) = maybeTrav recurseCExpr i3 d3
 		(i3'', u3') = maybeUp upCExpr i3' d3 u3
 
-		(os', u) = traverseCDeclMembers os d3
+		u = u1' `mappend` u2' `mappend` u3'
+		(o', d', u') = nextCDeclMember (i1'',i2'',i3'') d3 u
+
+		(os', ut) = traverseCDeclMembers os d'
+
 	in
-		((i1'',i2'',i3''):os', u `mappend` u1' `mappend` u2' `mappend` u3')
+		(o' ++ os', ut `mappend` u1' `mappend` u2' `mappend` u3')
 
 -- recurse {{{1
 -- CTranslUnit {{{2

@@ -71,14 +71,16 @@ type UpState = ()
 
 instance DownVisitor DownState2
 
-instance UpVisitor DownState2 UpState where
-	crossCExtDecl (CFDefExt cfd) d@(DownState2 name) _
-		| symbol cfd == name = (Just [], d)
-		| otherwise = (Nothing, d)
+instance UpVisitor DownState2 UpState 
 
-removeBar ast = fromJust $ fst result
+instance ListVisitor DownState2 UpState where
+	nextCExtDecl o@(CFDefExt cfd) d@(DownState2 name) u
+		| symbol cfd == name = ([], d, u)
+		| otherwise = ([o], d, u)
+
+removeBar ast = fst result
 	where
-		result :: (Maybe CTranslUnit, UpState)
+		result :: (CTranslUnit, UpState)
 		result = traverseCTranslUnit ast $ DownState2 $ symbol "bar"
 
 -- test 3 {{{2
@@ -86,14 +88,16 @@ newtype DownState3 = DownState3 Symbol
 
 instance DownVisitor DownState3
 
-instance UpVisitor DownState3 UpState where
-	crossCExtDecl a@(CFDefExt cfd) d@(DownState3 name) _
-		| symbol cfd == name = (Just [a, a], d)
-		| otherwise = (Nothing, d)
+instance UpVisitor DownState3 UpState
 
-doubleBar ast = fromJust $ fst result
+instance ListVisitor DownState3 UpState where
+	nextCExtDecl o@(CFDefExt cfd) d@(DownState3 name) u
+		| symbol cfd == name = ([o, o], d, u)
+		| otherwise = ([o], d, u)
+
+doubleBar ast = fst result
 	where
-		result :: (Maybe CTranslUnit, UpState)
+		result :: (CTranslUnit, UpState)
 		result = traverseCTranslUnit ast $ DownState3 $ symbol "bar"
 
 -- test 4 {{{2
@@ -108,7 +112,9 @@ instance Monoid UpState4 where
 	mappend (UpState4 x) (UpState4 x') = UpState4 (x + x')
 
 instance UpVisitor DownState4 UpState4 where
-	upCFunDef _ _ _ = UpState4 1
+	upCFunDef o _ _ = (o, UpState4 1)
+
+instance ListVisitor DownState4 UpState4
 
 countFunctions ast = wrap $ snd $ traverseCTranslUnit ast $ DownState4 ()
 

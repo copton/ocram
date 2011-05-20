@@ -12,43 +12,43 @@ import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 -- tests {{{1
 tests = runTests "Inline" [
 -- setup {{{2
-	-- ([$paste|
-	--   __attribute__((tc_blocking)) void foo(int i);
-	--   __attribute__((tc_run_thread)) void bar() { 
-	--     foo(23);
-	--   }
-	-- |],[$paste|
-	--   typedef struct {
-	--       void* ec_cont;
-	--       int i;
-	--   } ec_frame_foo_t;
-
-	--   typedef struct {
-	--       union {
-	--           ec_frame_foo_t foo;
-	--       } ec_frames;
-	--   } ec_frame_bar_t;
-	--   
-	--   ec_frame_bar_t ec_stack_bar;
-
-	--   void foo(ec_frame_foo_t* frame);
-
-	--   void ec_thread_1(void* ec_cont)
-	--   {
-	--     if (ec_cont != null)
-	--       goto *ec_cont;
-
-	--     ec_label_bar_0: ;
-	--       ec_stack_bar->ec_frames.foo.i = 23;
-	--       ec_stack_bar->ec_frames.foo.ec_cont = &ec_label_bar_1;
-	--       foo(&ec_stack_bar->ec_frames.foo);
-	--       return;
-	--     ec_label_bar_1: ;
-	--       return;	
-	--   }
-	-- |])
--- local variable {{{2
 	([$paste|
+		__attribute__((tc_blocking)) void foo(int i);
+		__attribute__((tc_run_thread)) void bar() { 
+			foo(23);
+		}
+	|],[$paste|
+		typedef struct {
+				void* ec_cont;
+				int i;
+		} ec_frame_foo_t;
+
+		typedef struct {
+				union {
+						ec_frame_foo_t foo;
+				} ec_frames;
+		} ec_frame_bar_t;
+		
+		ec_frame_bar_t ec_stack_bar;
+
+		void foo(ec_frame_foo_t* frame);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont != null)
+				goto *ec_cont;
+
+			ec_label_bar_0: ;
+				ec_stack_bar->ec_frames.foo.i = 23;
+				ec_stack_bar->ec_frames.foo.ec_cont = &ec_label_bar_1;
+				foo(&ec_stack_bar->ec_frames.foo);
+				return;
+			ec_label_bar_1: ;
+				return;	
+		}
+	|])
+-- local variable {{{2
+	, ([$paste|
 		__attribute__((tc_blocking)) void foo(int i);
 
 		__attribute__((tc_run_thread)) void bar() 

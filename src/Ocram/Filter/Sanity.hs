@@ -7,7 +7,7 @@ module Ocram.Filter.Sanity
 -- imports {{{1
 import Ocram.Filter.Util (Error(Error), Filter(Filter), performFilter, performCheck)
 import Ocram.Types
-import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit)
+import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit, ListVisitor)
 import Language.C.Syntax.AST 
 import Data.Monoid (mconcat)
 
@@ -38,5 +38,7 @@ append es code location = Error code location : es
 type UpState = [Error Int]
 
 instance UpVisitor EmptyDownState UpState where
-	upCExtDecl (CFDefExt (CFunDef _ (CDeclr _ [] _ _ _) _ _ ni)) _ u = append u 1 ni
-	upCExtDecl _ _ u = u
+	upCExtDecl o@(CFDefExt (CFunDef _ (CDeclr _ [] _ _ _) _ _ ni)) _ u = (o, append u 1 ni)
+	upCExtDecl o _ u = (o, u)
+
+instance ListVisitor EmptyDownState UpState

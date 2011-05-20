@@ -42,17 +42,19 @@ type UpState = ()
 instance DownVisitor DownState
 
 instance UpVisitor DownState UpState where
-	crossCBlockItem (CBlockDecl cd) (DownState symbols) _ = (Just [], DownState $ Set.insert (symbol cd) symbols)
-	
-	crossCBlockItem _ d _ = (Nothing, d)
+	upCExpr o@(CVar var _) d@(DownState symbols) u
+		| Set.member (symbol var) symbols = (CVar (Ident "k" 0 undefNode) undefNode, mempty)
+		| otherwise = (o, u)
 
-	mapCExpr (CVar var _) (DownState symbols) _
-		| Set.member (symbol var) symbols = (Just (CVar (Ident "k" 0 undefNode) undefNode), mempty)
-		| otherwise = (Nothing, mempty)
+	upCExpr o d u = (o, u)
 
-	mapCExpr _ _ _ = (Nothing, mempty)
+instance ListVisitor DownState UpState where
+	nextCBlockItem (CBlockDecl cd) (DownState symbols) u = ([], DownState $ Set.insert (symbol cd) symbols, u)
 
-removeLocalVars ast = fromJust $ fst result
+	nextCBlockItem o d u = ([o], d, u)
+
+
+removeLocalVars ast = fst result
 	where
-		result :: (Maybe CTranslUnit, UpState)
+		result :: (CTranslUnit, UpState)
 		result = traverseCTranslUnit ast $ DownState Set.empty

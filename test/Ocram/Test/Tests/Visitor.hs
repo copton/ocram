@@ -8,4 +8,3 @@ import qualified Ocram.Test.Tests.Visitor.Decl as C
 import Test.HUnit (Test(TestLabel, TestList))
 
 tests = TestLabel "Visitor" $ TestList [A.tests, B.tests, C.tests]
-
