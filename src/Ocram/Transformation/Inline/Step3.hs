@@ -1,134 +1,85 @@
--- add thread functions
-module Ocram.Transformation.Inline.Step3 
+-- add tstack structures and variables
+module Ocram.Transformation.Inline.Step3
 -- exports {{{1
 (
 	step3
 ) where
 
 -- imports {{{1
+
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 
 import Ocram.Transformation.Util (un, ident)
 
 import Ocram.Types
-import Ocram.Visitor
-import Ocram.Symbols (symbol)
+import Ocram.Util ((?:))
 import Ocram.Query (getCallChain)
 
 import Language.C.Syntax.AST
+import Language.C.Data.Ident
 
-import Data.Maybe (fromJust, isJust)
-import Data.Monoid (mempty)
-import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Map as Map
 import qualified Data.List as List
 
---- step3 {{{1
-step3 :: CallGraph -> StartRoutines -> BlockingFunctions -> FunctionInfos -> Ast -> Ast
-step3 cg sr bf fis (CTranslUnit decls ni) = CTranslUnit (decls ++ thread_functions) ni
+-- step3 {{{1
+step3 :: StartRoutines -> CallGraph -> FunctionInfos -> Ast -> Ast
+step3 sr cg fis (CTranslUnit decls ni) = CTranslUnit (frames ++ stacks ++ decls) ni
 	where
-		thread_functions = map CFDefExt $ map (createThreadFunction cg bf fis) $ zip [1..] $ Set.elems sr
+		frames = createTStackFrames sr cg fis
+		stacks = map createTStack $ Set.elems sr
 
---- createThreadFunction {{{2
-createThreadFunction :: CallGraph -> BlockingFunctions -> FunctionInfos -> (Integer, Symbol) -> CFunDef
-createThreadFunction cg bf fis (tid, name) = 
-	CFunDef [CTypeSpec (CVoidType un)]
-		(CDeclr (Just (ident (handlerFunction tid)))
-			[CFunDeclr
-					(Right
-						 ([CDecl [CTypeSpec (CVoidType un)]
-								 [(Just (CDeclr (Just (ident contVar)) 
-										[CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)]
-								 un],
-							False))
-					[] un]
-			 Nothing [] un)
-		[] (CCompound [] (intro : functions) un) un
+-- createTStack :: Symbol -> CExtDecl {{{2
+createTStack :: Symbol -> CExtDecl
+createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
+
+-- createTStackFrames :: StartRoutines -> CallGraph -> FunctionInfos -> [CExtDecl] {{{2
+createTStackFrames :: StartRoutines -> CallGraph -> FunctionInfos -> [CExtDecl]
+createTStackFrames sr cg fis = frames
 	where
-		intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
-		callChain = filter (not . (flip Set.member bf)) $ getCallChain cg name
-		functions = concatMap mapFunction $ List.drop 1 $ List.inits callChain
-		mapFunction chain@(fName:_) = inlineCriticalFunction chain fis fName
+		frames = map (createTStackFrame sr cg) fipairs
+		fipairs = fst $ foldl fld ([], Set.empty) $ concatMap (getCallChain cg) $ Set.elems sr
+		fld (lst, set) fname
+			| Set.member fname set = (lst, set)
+			| otherwise = case Map.lookup fname fis of
+					Nothing -> (lst, set)
+					(Just fi) -> ((fname, fi) : lst, Set.insert fname set)
+		
+-- createTStackFrame {{{3
+createTStackFrame :: StartRoutines -> CallGraph -> (Symbol, FunctionInfo) -> CExtDecl
+createTStackFrame sr cg (name, fi@(FunctionInfo resultType _ vars _)) = 
+	 CDeclExt
+		 (CDecl
+				[CStorageSpec (CTypedef un),
+				 CTypeSpec
+					 (CSUType
+							(CStruct CStructTag Nothing
+								 (Just (
+										 continuation ?: result ?: nestedFrames ?: Map.elems vars))
+								 [] un)
+							un)]
 
--- inlineCriticalFunction {{{2
-type CallChain = [Symbol]
-
-inlineCriticalFunction :: CallChain -> FunctionInfos -> Symbol -> [CBlockItem]
-inlineCriticalFunction cc fis fName = lbl : body' ++ close : []
+				[(Just (CDeclr (Just (ident (frameType name))) [] Nothing [] un), Nothing, Nothing)]
+				un)
 	where
-		result :: (CStat, UpState)
-		result = traverseCStat body $ DownState cc (fiVariables fi) fis fName 1
-		fi = fis Map.! fName
-		body = fromJust $ fiBody fi
-		body' = extractBody $ fst result
-		extractBody (CCompound _ body _) = body
-		lbl = createLabel fName 0
-		close = CBlockStmt $ CReturn Nothing un
+		continuation
+			| Set.member name sr = Nothing
+			| otherwise = Just (CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un)
 
-data DownState = DownState {
-	  dCc	:: CallChain
-	, dSt :: SymTab
-	, dFis :: FunctionInfos
-	, dFName :: Symbol
-	, dLbl :: Int
-	}
+		result = case resultType of
+			(CVoidType _) -> Nothing
+			_ -> Just $ CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident resVar)) [] Nothing [] un), Nothing, Nothing)] un
 
-type UpState = ()
+		nestedFrames = createNestedFramesUnion cg (name, fi)
 
-instance DownVisitor DownState
-
-instance UpVisitor DownState UpState where
-	-- rewrite access to local variables
-	upCExpr o@(CVar iden _) d _
-		| Map.member name (dSt d) = (stackAccess (dCc d) (Just name), mempty)
-		| otherwise = (o, mempty)
-		where name = symbol iden
-
-	upCExpr o _ _ = (o, mempty)
-
-instance ListVisitor DownState UpState where
-	-- rewrite critical function calls
-	nextCBlockItem o@(CBlockStmt (CExpr (Just (CCall (CVar iden _) params _)) _)) d u
-		| Map.member name (dFis d) = (criticalFunctionCall d name params, d {dLbl = (dLbl d) + 1}, u)
-		| otherwise = ([o], d, u)
-		where
-			name = symbol iden
-
--- criticalFunctionCall {{{3
-criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> [CBlockItem]
-criticalFunctionCall d cfName params = parameters ++ continuation : call : return : lbl : []
+-- createNestedFramesUnion {{{3
+createNestedFramesUnion :: CallGraph -> (Symbol, FunctionInfo) -> Maybe CDecl
+createNestedFramesUnion cg (name, fi) = result
 	where
-		lid = dLbl d
-		chain' = (dCc d) ++ [cfName]
-		fi = (dFis d) Map.! cfName
+		result = if null entries then Nothing else Just createDecl
+		entries = map createEntry $ Set.elems $ cgCallees $ cg Map.! name
+		createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
+											[(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
+		createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
 
-		parameters = map (createParamAssign chain') $ zip params $ fiParams fi
-
-		continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess chain' (Just contVar)) (CUnary CAdrOp (CVar (ident $ label (dFName d) lid) un) un) un)) un)
-
-		call = CBlockStmt (CExpr (Just (CCall (CVar (ident cfName) un) [CUnary CAdrOp (stackAccess chain' Nothing) un] un)) un)
-
-		return = CBlockStmt (CReturn Nothing un)
-
-		lbl = createLabel (dFName d) lid
-
--- createParamAssign
-createParamAssign :: CallChain -> (CExpr, CDecl) -> CBlockItem
-createParamAssign chain (exp, decl) = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) un)
-	where
-		lhs = stackAccess chain (Just $ symbol decl)
-		rhs = exp
-
--- stackAccess {{{3
-stackAccess :: CallChain -> Maybe Symbol -> CExpr
-stackAccess (sr:chain) variable = foldl create base $ zip pointers members
-	where
-		variables = if isJust variable then [fromJust variable] else []
-		base = CVar (ident $ stackVar sr) un
-		pointers = True : cycle [False]
-		members = foldr (\x l -> frameUnion : x : l) [] chain ++ variables
-		create inner (pointer, member) = CMember inner (ident member) pointer un 
-
--- createLabel {{{3
-createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un

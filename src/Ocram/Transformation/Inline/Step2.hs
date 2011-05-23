@@ -1,4 +1,4 @@
--- add tstack structures and variables
+-- create function infos
 module Ocram.Transformation.Inline.Step2
 -- exports {{{1
 (
@@ -6,79 +6,89 @@ module Ocram.Transformation.Inline.Step2
 ) where
 
 -- imports {{{1
-
-import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 
-import Ocram.Transformation.Util (un, ident)
-
 import Ocram.Types
-import Ocram.Util ((?:))
-import Ocram.Query (getCallChain)
+import Ocram.Visitor
+import Ocram.Symbols (symbol)
 
 import Language.C.Syntax.AST
-import Language.C.Data.Ident
 
-import qualified Data.Set as Set
+import Data.Monoid
 import qualified Data.Map as Map
-import qualified Data.List as List
 
 -- step2 {{{1
-step2 :: StartRoutines -> CallGraph -> FunctionInfos -> Ast -> Ast
-step2 sr cg fis (CTranslUnit decls ni) = CTranslUnit (frames ++ stacks ++ decls) ni
+step2 :: [CDecl] -> [CFunDef] -> FunctionInfos
+step2 bfs cfs = mconcat (bffis ++ cffis)
 	where
-		frames = createTStackFrames sr cg fis
-		stacks = map createTStack $ Set.elems sr
+		bffis = map decl2fi bfs
+		cffis = map cffi cfs
+		cffi cf = uFi $ snd $ traverseCFunDef cf $ DownState Map.empty []
 
--- createTStack :: Symbol -> CExtDecl {{{2
-createTStack :: Symbol -> CExtDecl
-createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
+data DownState = DownState {
+		dSt :: SymTab
+	, dPs :: [CDecl]	
+	}
 
--- createTStackFrames :: StartRoutines -> CallGraph -> FunctionInfos -> [CExtDecl] {{{2
-createTStackFrames :: StartRoutines -> CallGraph -> FunctionInfos -> [CExtDecl]
-createTStackFrames sr cg fis = frames
+data UpState = UpState {
+	  uFi	:: FunctionInfos
+	, uSt :: SymTab
+	}
+
+instance Monoid UpState where
+	mempty = UpState mempty mempty
+	mappend (UpState a b) (UpState a' b') = UpState (mappend a a') (mappend b b')
+
+instance DownVisitor DownState where
+	-- add parameters to symbol table
+	downCFunDef fd _ = DownState (params2SymTab params) params
+		where
+			params = extractParams fd
+
+	-- add declarations to symbol table {{{3
+	downCBlockItem (CBlockDecl cd) d = d {dSt = Map.insert (symbol cd) cd (dSt d)}
+
+	downCBlockItem _ d = d
+
+instance UpVisitor DownState UpState where
+	-- pass declarations from down state to up state
+	upCBlockItem o@(CBlockDecl _) d u = (o, u `mappend` UpState mempty (dSt d))
+
+	upCBlockItem o _ u = (o, u)
+
+	-- create function info entry {{{3
+	upCFunDef o@(CFunDef tss _ _ body _) d u = (o, UpState (Map.singleton name fi) mempty)
+		where
+			name = symbol o
+			fi = FunctionInfo (extractTypeSpec tss) (dPs d) (dSt d `mappend` uSt u) (Just body)
+
+instance ListVisitor DownState UpState where
+	-- remove variable declarations {{{3
+	nextCBlockItem (CBlockDecl _) d u = ([], d, u)
+
+	nextCBlockItem o d u = ([o], d, u)
+
+-- utils {{{1
+extractParams :: CFunDef -> [CDecl]
+extractParams (CFunDef _ (CDeclr _ [cfd] _ _ _) [] _ _) = extractParams' cfd
+
+extractParams' :: CDerivedDeclr -> [CDecl]
+extractParams' (CFunDeclr (Right (ps, False)) _ _) = ps
+
+params2SymTab :: [CDecl] -> SymTab
+params2SymTab params = foldl add Map.empty params
 	where
-		frames = map (createTStackFrame sr cg) fipairs
-		fipairs = fst $ foldl fld ([], Set.empty) $ concatMap (getCallChain cg) $ Set.elems sr
-		fld (lst, set) fname
-			| Set.member fname set = (lst, set)
-			| otherwise = case Map.lookup fname fis of
-					Nothing -> (lst, set)
-					(Just fi) -> ((fname, fi) : lst, Set.insert fname set)
-		
--- createTStackFrame {{{3
-createTStackFrame :: StartRoutines -> CallGraph -> (Symbol, FunctionInfo) -> CExtDecl
-createTStackFrame sr cg (name, fi@(FunctionInfo resultType _ vars _)) = 
-	 CDeclExt
-		 (CDecl
-				[CStorageSpec (CTypedef un),
-				 CTypeSpec
-					 (CSUType
-							(CStruct CStructTag Nothing
-								 (Just (
-										 continuation ?: result ?: nestedFrames ?: Map.elems vars))
-								 [] un)
-							un)]
+		add m cd = Map.insert (symbol cd) cd m
 
-				[(Just (CDeclr (Just (ident (frameType name))) [] Nothing [] un), Nothing, Nothing)]
-				un)
+decl2fi :: CDecl -> FunctionInfos
+decl2fi cd@(CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) = Map.singleton (symbol cd) fi
+	
 	where
-		continuation
-			| Set.member name sr = Nothing
-			| otherwise = Just (CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un)
+		fi = FunctionInfo (extractTypeSpec tss) params (params2SymTab params) Nothing	
+		params = extractParams' cfd
 
-		result = case resultType of
-			(CVoidType _) -> Nothing
-			_ -> Just $ CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident resVar)) [] Nothing [] un), Nothing, Nothing)] un
+extractTypeSpec :: [CDeclSpec] -> CTypeSpec
+extractTypeSpec [] = error "assertion failed: type specifier expected"
+extractTypeSpec ((CTypeSpec ts):xs) = ts
+extractTypeSpec (_:xs) = extractTypeSpec xs
 
-		nestedFrames = createNestedFramesUnion cg (name, fi)
-
--- createNestedFramesUnion {{{3
-createNestedFramesUnion :: CallGraph -> (Symbol, FunctionInfo) -> Maybe CDecl
-createNestedFramesUnion cg (name, fi) = result
-	where
-		result = if null entries then Nothing else Just createDecl
-		entries = map createEntry $ Set.elems $ cgCallees $ cg Map.! name
-		createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
-											[(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
-		createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un

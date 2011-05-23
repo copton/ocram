@@ -8,6 +8,7 @@ module Ocram.Transformation.Inline
 import Ocram.Transformation.Inline.Step1 
 import Ocram.Transformation.Inline.Step2
 import Ocram.Transformation.Inline.Step3
+import Ocram.Transformation.Inline.Step4
 import Ocram.Types
 
 -- transform {{{1
@@ -19,9 +20,10 @@ transform ctx = do
 	bf <- getBlockingFunctions ctx
 	sr <- getStartRoutines ctx
 	df <- getDefinedFunctions ctx
-	let ast = getAst valid_ast
-	let (ast', fis) = step1 bf cf ast
-	let ast'' = step2 sr cg fis ast'
-	let ast''' = step3 cg sr bf fis ast''
-	return $ OutputAst $ ast'''
+	let ast1 = getAst valid_ast
+	let (ast2, bfs, cfs) = step1 bf cf ast1
+	let fis = step2 bfs cfs
+	let ast3 = step3 sr cg fis ast2
+	let ast4 = step4 sr cg bf fis ast3
+	return $ OutputAst $ ast4
 
