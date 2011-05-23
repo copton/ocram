@@ -38,8 +38,8 @@ createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fNam
 createTStackFrames :: StartRoutines -> CallGraph -> FunctionInfos -> [CExtDecl]
 createTStackFrames sr cg fis = frames
 	where
-		frames = map (createTStackFrame sr cg) fipairs
-		fipairs = fst $ foldl fld ([], Set.empty) $ concatMap (getCallChain cg) $ Set.elems sr
+		frames = map (createTStackFrame sr cg) $ List.reverse fipairs
+		fipairs = fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . getCallChain cg) $ Set.elems sr
 		fld (lst, set) fname
 			| Set.member fname set = (lst, set)
 			| otherwise = case Map.lookup fname fis of

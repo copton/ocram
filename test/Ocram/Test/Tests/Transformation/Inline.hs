@@ -246,6 +246,81 @@ tests = runTests "Inline" [
 				return;
 		}
 	|])
+-- two threads {{{2
+	,([$paste|
+		__attribute__((tc_blocking)) void block(int b);
+
+		__attribute__((tc_run_thread)) void start() { 
+				int s;
+				while (1) {
+					block(s);
+				}
+		}
+
+		__attribute__((tc_run_thread)) void run() { 
+				int r;
+				while (1) {
+					block(r);
+				}
+		}
+	|],[$paste|
+		typedef struct {
+				void* ec_cont;
+				int b;
+		} ec_frame_block_t;
+
+		typedef struct {
+				union {
+						ec_frame_block_t block;
+				} ec_frames;
+				int r;
+		} ec_frame_run_t;
+
+		typedef struct {
+				union {
+						ec_frame_block_t block;
+				} ec_frames;
+				int s;
+		} ec_frame_start_t;
+		
+		ec_frame_run_t ec_stack_run;
+		ec_frame_start_t ec_stack_start;
+
+		void block(ec_frame_block_t* frame);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont != null)
+				goto *ec_cont;
+
+			ec_label_run_0: ;
+				while (1) {
+				ec_stack_run->ec_frames.block.b = ec_stack_run->r;
+				ec_stack_run->ec_frames.block.ec_cont = &ec_label_run_1;
+				block(&ec_stack_run->ec_frames.block);
+				return;
+			ec_label_run_1: ;
+				}
+				return;	
+		}
+
+		void ec_thread_2(void* ec_cont)
+		{
+			if (ec_cont != null)
+				goto *ec_cont;
+
+			ec_label_start_0: ;
+				while (1) {
+				ec_stack_start->ec_frames.block.b = ec_stack_start->s;
+				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start->ec_frames.block);
+				return;
+			ec_label_start_1: ;
+				}
+				return;	
+		}
+	|])
+-- end {{{2
 	]
 -- util {{{1
 -- runTests :: [(String, String)] -> Test {{{2
