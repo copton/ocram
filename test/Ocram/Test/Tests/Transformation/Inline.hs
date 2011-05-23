@@ -13,108 +13,108 @@ import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 tests = runTests "Inline" [
 -- setup {{{2
 	([$paste|
-		__attribute__((tc_blocking)) void foo(int i);
-		__attribute__((tc_run_thread)) void bar() { 
-			foo(23);
+		__attribute__((tc_blocking)) void block(int i);
+		__attribute__((tc_run_thread)) void start() { 
+			block(23);
 		}
 	|],[$paste|
 		typedef struct {
 				void* ec_cont;
 				int i;
-		} ec_frame_foo_t;
+		} ec_frame_block_t;
 
 		typedef struct {
 				union {
-						ec_frame_foo_t foo;
+						ec_frame_block_t block;
 				} ec_frames;
-		} ec_frame_bar_t;
+		} ec_frame_start_t;
 		
-		ec_frame_bar_t ec_stack_bar;
+		ec_frame_start_t ec_stack_start;
 
-		void foo(ec_frame_foo_t* frame);
+		void block(ec_frame_block_t* frame);
 
 		void ec_thread_1(void* ec_cont)
 		{
 			if (ec_cont != null)
 				goto *ec_cont;
 
-			ec_label_bar_0: ;
-				ec_stack_bar->ec_frames.foo.i = 23;
-				ec_stack_bar->ec_frames.foo.ec_cont = &ec_label_bar_1;
-				foo(&ec_stack_bar->ec_frames.foo);
+			ec_label_start_0: ;
+				ec_stack_start->ec_frames.block.i = 23;
+				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start->ec_frames.block);
 				return;
-			ec_label_bar_1: ;
+			ec_label_start_1: ;
 				return;	
 		}
 	|])
 -- local variable {{{2
 	, ([$paste|
-		__attribute__((tc_blocking)) void foo(int i);
+		__attribute__((tc_blocking)) void block(int i);
 
-		__attribute__((tc_run_thread)) void bar() 
+		__attribute__((tc_run_thread)) void start() 
 		{
 			int i;
-			foo(i);
+			block(i);
 		}
 	|],[$paste|
 		typedef struct {
 			void* ec_cont;
 			int i;
-		} ec_frame_foo_t;
+		} ec_frame_block_t;
 
 		typedef struct {
 			union {
-					ec_frame_foo_t foo;
+					ec_frame_block_t block;
 			} ec_frames;
 			int i;
-		} ec_frame_bar_t;
+		} ec_frame_start_t;
 
-		ec_frame_bar_t ec_stack_bar;
+		ec_frame_start_t ec_stack_start;
 
-		void foo(ec_frame_foo_t* frame);
+		void block(ec_frame_block_t* frame);
 
 		void ec_thread_1(void* ec_cont)
 		{
 			if (ec_cont != null)
 				goto *ec_cont;
 
-			ec_label_bar_0: ;
-				ec_stack_bar->ec_frames.foo.i = ec_stack_bar->i;
-				ec_stack_bar->ec_frames.foo.ec_cont = &ec_label_bar_1;
-				foo(&ec_stack_bar->ec_frames.foo);
+			ec_label_start_0: ;
+				ec_stack_start->ec_frames.block.i = ec_stack_start->i;
+				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start->ec_frames.block);
 				return;
-			ec_label_bar_1: ;
+			ec_label_start_1: ;
 				return;	
 		}
 	|])
 -- global variable {{{2
 	, ([$paste|
-		__attribute__((tc_blocking)) void foo(int i1, int i2);
+		__attribute__((tc_blocking)) void block(int i1, int i2);
 
 		int k;
 
-		__attribute__((tc_run_thread)) void bar() 
+		__attribute__((tc_run_thread)) void start() 
 		{
 			int j;
-			foo(j, k);
+			block(j, k);
 		}
 	|],[$paste|
 		typedef struct {
 			void* ec_cont;
 			int i1;
 			int i2;
-		} ec_frame_foo_t;
+		} ec_frame_block_t;
 
 		typedef struct {
 			union {
-					ec_frame_foo_t foo;
+					ec_frame_block_t block;
 			} ec_frames;
 			int j;
-		} ec_frame_bar_t;
+		} ec_frame_start_t;
 
-		ec_frame_bar_t ec_stack_bar;
+		ec_frame_start_t ec_stack_start;
 
-		void foo(ec_frame_foo_t* frame);
+		void block(ec_frame_block_t* frame);
 
 		int k;
 
@@ -123,54 +123,54 @@ tests = runTests "Inline" [
 			if (ec_cont != null)
 				goto *ec_cont;
 
-			ec_label_bar_0: ;
-				ec_stack_bar->ec_frames.foo.i1 = ec_stack_bar->j;
-				ec_stack_bar->ec_frames.foo.i2 = k;
-				ec_stack_bar->ec_frames.foo.ec_cont = &ec_label_bar_1;
-				foo(&ec_stack_bar->ec_frames.foo);
+			ec_label_start_0: ;
+				ec_stack_start->ec_frames.block.i1 = ec_stack_start->j;
+				ec_stack_start->ec_frames.block.i2 = k;
+				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start->ec_frames.block);
 				return;
-			ec_label_bar_1: ;
+			ec_label_start_1: ;
 				return;	
 		}
 	|])
 -- loop {{{2
 	,([$paste|
-		__attribute__((tc_blocking)) void foo(int j);
-		__attribute__((tc_run_thread)) void bar() { 
+		__attribute__((tc_blocking)) void block(int j);
+		__attribute__((tc_run_thread)) void start() { 
 			int i;
 			while (i>0) {
-				foo(i);
+				block(i);
 			}
 		}
 	|],[$paste|
 		typedef struct {
 				void* ec_cont;
 				int j;
-		} ec_frame_foo_t;
+		} ec_frame_block_t;
 
 		typedef struct {
 				union {
-						ec_frame_foo_t foo;
+						ec_frame_block_t block;
 				} ec_frames;
 				int i;
-		} ec_frame_bar_t;
+		} ec_frame_start_t;
 		
-		ec_frame_bar_t ec_stack_bar;
+		ec_frame_start_t ec_stack_start;
 
-		void foo(ec_frame_foo_t* frame);
+		void block(ec_frame_block_t* frame);
 
 		void ec_thread_1(void* ec_cont)
 		{
 			if (ec_cont != null)
 				goto *ec_cont;
 
-			ec_label_bar_0: ;
-				while (ec_stack_bar->i > 0) {
-					ec_stack_bar->ec_frames.foo.j = ec_stack_bar->i;
-					ec_stack_bar->ec_frames.foo.ec_cont = &ec_label_bar_1;
-					foo(&ec_stack_bar->ec_frames.foo);
+			ec_label_start_0: ;
+				while (ec_stack_start->i > 0) {
+					ec_stack_start->ec_frames.block.j = ec_stack_start->i;
+					ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
+					block(&ec_stack_start->ec_frames.block);
 					return;
-				ec_label_bar_1: ;
+				ec_label_start_1: ;
 				}
 				return;	
 		}
@@ -410,6 +410,7 @@ tests = runTests "Inline" [
 				return;
 		}
 	|])
+
 -- end {{{2
 	]
 -- util {{{1
