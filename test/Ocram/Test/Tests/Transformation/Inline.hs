@@ -320,6 +320,96 @@ tests = runTests "Inline" [
 				return;	
 		}
 	|])
+-- reentrance {{{2
+	,([$paste|
+		__attribute__((tc_blocking)) void block(int b);
+
+		void critical(int c) {
+			block(c+1);	
+		}
+
+		__attribute__((tc_run_thread)) void run() { 
+				critical(1);
+		}
+
+		__attribute__((tc_run_thread)) void start() { 
+				critical(2);
+		}
+	|],[$paste|
+		typedef struct {
+				void* ec_cont;
+				int b;
+		} ec_frame_block_t;
+
+		typedef struct {
+			void* ec_cont;
+			union {
+				ec_frame_block_t block;
+			} ec_frames;
+			int c;	
+		} ec_frame_critical_t;
+
+		typedef struct {
+				union {
+						ec_frame_critical_t critical;
+				} ec_frames;
+		} ec_frame_run_t;
+
+		typedef struct {
+				union {
+						ec_frame_critical_t critical;
+				} ec_frames;
+		} ec_frame_start_t;
+		
+		ec_frame_run_t ec_stack_run;
+		ec_frame_start_t ec_stack_start;
+
+		void block(ec_frame_block_t* frame);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont != null)
+				goto *ec_cont;
+
+			ec_label_run_0: ;
+				ec_stack_run->ec_frames.critical.c = 1;
+				ec_stack_run->ec_frames.critical.ec_cont = &ec_label_run_1;
+				critical(&ec_stack_run->ec_frames.critical);
+				return;
+			ec_label_run_1: ;
+				return;	
+			
+			ec_label_critical_0: ;
+				ec_stack_run->ec_frames.critical.ec_frames.block.b = ec_stack_run->ec_frames.critical.c + 1;
+				ec_stack_run->ec_frames.critical.ec_frames.block.ec_cont = &ec_label_critical_1;
+				block(&ec_stack_run->ec_frames.critical.ec_frames.block);
+				return;
+			ec_label_critical_1: ;
+				return;
+		}
+
+		void ec_thread_2(void* ec_cont)
+		{
+			if (ec_cont != null)
+				goto *ec_cont;
+
+			ec_label_start_0: ;
+				ec_stack_start->ec_frames.critical.c = 2;
+				ec_stack_start->ec_frames.critical.ec_cont = &ec_label_start_1;
+				critical(&ec_stack_start->ec_frames.critical);
+				return;
+			ec_label_start_1: ;
+				return;	
+			
+			ec_label_critical_0: ;
+				ec_stack_start->ec_frames.critical.ec_frames.block.b = ec_stack_start->ec_frames.critical.c + 1;
+				ec_stack_start->ec_frames.critical.ec_frames.block.ec_cont = &ec_label_critical_1;
+				block(&ec_stack_start->ec_frames.critical.ec_frames.block);
+				return;
+			ec_label_critical_1: ;
+				return;
+		}
+	|])
 -- end {{{2
 	]
 -- util {{{1
