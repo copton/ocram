@@ -27,5 +27,14 @@ tests = runTests "CallGraph" reduce [
 			block(); 
 			start();
 		}
-	|], [1])
+	|], [1]),
+	([$paste|
+		__attribute__((tc_blocking)) int block(int i);
+
+		__attribute__((tc_run_thread)) void start() 
+		{
+			int i;
+			i = block(i);
+		}
+	|], [])
 	]

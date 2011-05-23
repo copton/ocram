@@ -45,9 +45,9 @@ descriptor cg sr df' =
 	Filter "recursion" (checker cg sr df') (printError) errorId
 
 checker :: CallGraph -> StartRoutines -> FunMap CFunDef -> Ast -> [Error MyError]
-checker cg srs fm _ = conErrors ++ recErrors
+checker cg sr fm _ = conErrors ++ recErrors
 	where
-		(conn, disc) = partition (flip Map.member cg) $ Set.elems srs
+		(conn, disc) = partition (flip Map.member cg) $ Set.elems sr
 		conErrors = map (createError . ConError) disc
 		recErrors = map createError $ concatMap (check cg []) conn
 		createError re@(RecError (_:function:_)) = Error re $ nodeInfo $ fm Map.! function
@@ -66,7 +66,7 @@ printError :: MyError -> String
 printError (RecError symbols) =
 	"recursive call of critical function '" ++ (head symbols) ++ "'.\nCall stack is '" ++ call_stack symbols ++ "'"
 printError (ConError symbol) =
-	"start routine '" ++ symbol ++ "' does not call any blocking functions."
+	"start routine '" ++ symbol ++ "' does not call any critical or blocking functions."
 
 call_stack symbols = concat $ intersperse "' -> '" $ reverse symbols
 
