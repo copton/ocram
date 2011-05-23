@@ -19,15 +19,13 @@ determineCallGraph ctx = do
 	ast <- getSaneAst ctx
 	df <- getDefinedFunctions ctx
 	bf <- getBlockingFunctions ctx
-	return $ createCallGraph $ snd $ traverseCTranslUnit (getAst ast) (initDownState df bf)
+	return $ createCallGraph $ snd $ traverseCTranslUnit (getAst ast) $ DownState Nothing df bf
 
 data DownState = DownState {
-	stCaller :: Maybe CFunDef
-, stDefinedFunctions :: DefinedFunctions
-, stBlockingFunctions :: BlockingFunctions
+		stCaller :: Maybe CFunDef
+	, stDefinedFunctions :: DefinedFunctions
+	, stBlockingFunctions :: BlockingFunctions
 }
-
-initDownState fm bf = DownState Nothing fm bf
 
 type Calls = [(CFunDef, String)]
 
@@ -35,11 +33,11 @@ instance DownVisitor DownState where
 	downCFunDef fd d = d {stCaller = Just fd}
 
 instance UpVisitor DownState Calls where
-	upCExpr o@(CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller) fm bf) _ 
+	upCExpr o@(CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller) fm bf) u
 		| Set.member callee fm = (o, [(caller, callee)])
 		| Set.member callee bf = (o, [(caller, callee)])
-		| otherwise = (o, [])
-	upCExpr o _ _ = (o, [])
+		| otherwise = (o, u)
+	upCExpr o _ u = (o, u)
 
 createCallGraph :: Calls -> CallGraph
 createCallGraph calls = foldl addCall Map.empty calls

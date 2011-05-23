@@ -24,10 +24,10 @@ import qualified Data.Map as Map
 import qualified Data.List as List
 
 -- step3 {{{1
-step3 :: StartRoutines -> CallGraph -> FunctionInfos -> Ast -> Ast
-step3 sr cg fis (CTranslUnit decls ni) = CTranslUnit (frames ++ stacks ++ decls) ni
+step3 :: CriticalFunctions -> StartRoutines -> CallGraph -> FunctionInfos -> Ast -> Ast
+step3 cf sr cg fis (CTranslUnit decls ni) = CTranslUnit (frames ++ stacks ++ decls) ni
 	where
-		frames = createTStackFrames sr cg fis
+		frames = createTStackFrames cf sr cg fis
 		stacks = map createTStack $ Set.elems sr
 
 -- createTStack :: Symbol -> CExtDecl {{{2
@@ -35,10 +35,10 @@ createTStack :: Symbol -> CExtDecl
 createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
 
 -- createTStackFrames :: StartRoutines -> CallGraph -> FunctionInfos -> [CExtDecl] {{{2
-createTStackFrames :: StartRoutines -> CallGraph -> FunctionInfos -> [CExtDecl]
-createTStackFrames sr cg fis = frames
+createTStackFrames :: CriticalFunctions -> StartRoutines -> CallGraph -> FunctionInfos -> [CExtDecl]
+createTStackFrames cf sr cg fis = frames
 	where
-		frames = map (createTStackFrame sr cg) $ List.reverse fipairs
+		frames = map (createTStackFrame cf sr cg) $ List.reverse fipairs
 		fipairs = fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . getCallChain cg) $ Set.elems sr
 		fld (lst, set) fname
 			| Set.member fname set = (lst, set)
@@ -47,8 +47,8 @@ createTStackFrames sr cg fis = frames
 					(Just fi) -> ((fname, fi) : lst, Set.insert fname set)
 		
 -- createTStackFrame {{{3
-createTStackFrame :: StartRoutines -> CallGraph -> (Symbol, FunctionInfo) -> CExtDecl
-createTStackFrame sr cg (name, fi@(FunctionInfo resultType _ vars _)) = 
+createTStackFrame :: CriticalFunctions -> StartRoutines -> CallGraph -> (Symbol, FunctionInfo) -> CExtDecl
+createTStackFrame cf sr cg (name, fi@(FunctionInfo resultType _ vars _)) = 
 	 CDeclExt
 		 (CDecl
 				[CStorageSpec (CTypedef un),
@@ -71,15 +71,18 @@ createTStackFrame sr cg (name, fi@(FunctionInfo resultType _ vars _)) =
 			(CVoidType _) -> Nothing
 			_ -> Just $ CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident resVar)) [] Nothing [] un), Nothing, Nothing)] un
 
-		nestedFrames = createNestedFramesUnion cg (name, fi)
+		nestedFrames = createNestedFramesUnion cf cg (name, fi)
 
 -- createNestedFramesUnion {{{3
-createNestedFramesUnion :: CallGraph -> (Symbol, FunctionInfo) -> Maybe CDecl
-createNestedFramesUnion cg (name, fi) = result
+createNestedFramesUnion :: CriticalFunctions -> CallGraph -> (Symbol, FunctionInfo) -> Maybe CDecl
+createNestedFramesUnion cf cg (name, fi) = result
 	where
 		result = if null entries then Nothing else Just createDecl
-		entries = map createEntry $ Set.elems $ cgCallees $ cg Map.! name
+		entries = map createEntry $ filter (flip Set.member cf) $ Set.elems $ cgCallees $ mlookup "XXX 2" name cg
 		createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
 											[(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
 		createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
 
+mlookup s k m = case Map.lookup k m of
+	Nothing -> error s
+	Just x -> x

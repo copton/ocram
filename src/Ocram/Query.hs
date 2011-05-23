@@ -7,15 +7,18 @@ module Ocram.Query
 -- imports {{{1
 import Ocram.Types
 import Ocram.Symbols (symbol)
-import qualified Data.Set as Set
-import qualified Data.Map as Map
-import Language.C.Syntax.AST(CFunDef, CDecl, CExternalDeclaration(CFDefExt, CDeclExt))
 import Ocram.Visitor (traverseCTranslUnit, DownVisitor, UpVisitor(upCExtDecl), ListVisitor)
 
+import Language.C.Syntax.AST(CFunDef, CDecl, CExternalDeclaration(CFDefExt, CDeclExt))
+
+import qualified Data.Set as Set
+import qualified Data.Map as Map
+
+import Control.Exception (assert)
 
 -- getCallChain :: CallGraph -> Symbol -> [Symbol] {{{1
 getCallChain :: CallGraph -> Symbol -> [Symbol]
-getCallChain cg fName = topologicSort cg Set.empty fName
+getCallChain cg fName = assert (Map.member fName cg) $ topologicSort cg Set.empty fName
 
 topologicSort cg names fName =
 	if Set.member fName names

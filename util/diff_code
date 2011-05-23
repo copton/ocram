@@ -9,10 +9,10 @@ expected = []
 got = []
 
 for line in fileinput.input():
-	if line.startswith("expected:"):
+	if line.startswith("expected:") and line.count('"') == 2:
 		(pre, code, post) = line.split('"')
 		expected.append(code)
-	if line.startswith(" but got:"):
+	if line.startswith(" but got:") and line.count('"') == 2:
 		(pre, code, post) = line.split('"')
 		got.append(code)
 		
