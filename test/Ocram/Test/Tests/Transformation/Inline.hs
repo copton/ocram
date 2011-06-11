@@ -138,9 +138,13 @@ tests = runTests "Inline" [
 		__attribute__((tc_blocking)) void block(int j);
 		__attribute__((tc_run_thread)) void start() { 
 			int i;
-			while (i>0) {
+			i = 0;
+			while (i<10) {
+				i++;
 				block(i);
+				i++;
 			}
+			i = 0;
 		}
 	|],[$paste|
 		typedef struct {
@@ -164,14 +168,18 @@ tests = runTests "Inline" [
 			if (ec_cont != null)
 				goto *ec_cont;
 
-			ec_label_start_0: ;
-				while (ec_stack_start->i > 0) {
+		ec_label_start_0: ;
+				ec_stack_start->i = 0;
+				while (ec_stack_start->i < 10) {
+					ec_stack_start->i++;
 					ec_stack_start->ec_frames.block.j = ec_stack_start->i;
 					ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
 					block(&ec_stack_start->ec_frames.block);
 					return;
-				ec_label_start_1: ;
+		ec_label_start_1: ;
+					ec_stack_start->i++;
 				}
+				ec_stack_start->i = 0;
 				return;	
 		}
 	|])
