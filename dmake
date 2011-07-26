@@ -1,4 +1,0 @@
-#!/bin/bash
-
-./qmake
-util/diff_code .quickfix
