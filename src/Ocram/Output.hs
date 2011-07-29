@@ -1,19 +1,31 @@
-module Ocram.Output (writeAst) where
+module Ocram.Output (
+	pretty_print,
+	writeDebugSymbols
+) where
 
-import Ocram.Types (OutputAst, Result, getAst)
+import Ocram.Types (Ast, DebugSymbols, EIO)
 import Ocram.Options (Options, optOutput)
 import Language.C.Syntax.AST (CTranslUnit)
 import System.IO (openFile, IOMode(WriteMode), hClose, hPutStrLn)
 import Language.C (pretty)
+import Control.Monad.Trans (liftIO)
+import Control.Monad.Error(throwError)
 
-writeAst :: Options -> OutputAst -> IO (Result ())
-writeAst options output_ast = do
+pretty_print :: Options -> Ast -> EIO ()
+pretty_print options ast = do
 	let file = optOutput options
-	outh <- openFile file WriteMode
-	let code = show $ pretty $ getAst output_ast 
-	hPutStrLn outh code
-	hPutStrLn outh main
-	hClose outh
-	return $ return ()
+	let code = show $ pretty ast 
+	liftIO $ write file $ code ++ "\n" ++ main
+	return ()
+
+write :: String -> String -> IO ()
+write filename contents = do
+		outh <- openFile filename WriteMode
+		hPutStrLn outh contents
+		hClose outh
+		return ()
+
+writeDebugSymbols :: Options -> DebugSymbols -> EIO ()
+writeDebugSymbols = undefined
 
 main = "int main() { return 0; }"

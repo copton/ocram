@@ -22,23 +22,23 @@ Extra-source-files:
   util/pretty_ast/DumpAst.hs
   util/view_ast/ViewAst.hs
 
-Executable Test
-  Hs-Source-Dirs: src, test
-  Main-is: Test.hs
-  Default-language: Haskell98
-  Default-extensions: 
-    MultiParamTypeClasses,
-    FlexibleInstances,
-    TypeSynonymInstances,
-    QuasiQuotes
-  Build-depends:       
-    language-c >= 0.4.1,
-    base >= 4.0,
-    containers >= 0.3.0.0,
-    mtl >= 1.1.0.2,
-    HUnit >= 1.2.2.1,
-    template-haskell,
-    bytestring >= 0.9.1.5
+--Executable Test
+--  Hs-Source-Dirs: src, test
+--  Main-is: Test.hs
+--  Default-language: Haskell98
+--  Default-extensions: 
+--    MultiParamTypeClasses,
+--    FlexibleInstances,
+--    TypeSynonymInstances,
+--    QuasiQuotes
+--  Build-depends:       
+--    language-c >= 0.4.1,
+--    base >= 4.0,
+--    containers >= 0.3.0.0,
+--    mtl >= 1.1.0.2,
+--    HUnit >= 1.2.2.1,
+--    template-haskell,
+--    bytestring >= 0.9.1.5
 
 Executable Ocram
   Hs-Source-Dirs: src
@@ -48,7 +48,7 @@ Executable Ocram
     MultiParamTypeClasses,
     FlexibleInstances,
     TypeSynonymInstances,
-    QuasiQuotes
+    GeneralizedNewtypeDeriving
   Build-depends:       
     language-c >= 0.4.1,
     base >= 4.0,
@@ -69,7 +69,6 @@ Executable Ocram
     Ocram.Types,
     Ocram.Names,
     Ocram.Options,
-    Ocram.Context,
     Ocram.Visitor.Visitor,
     Ocram.Visitor.DefaultStates,
     Ocram.Visitor.Traverse,
@@ -82,7 +81,6 @@ Executable Ocram
     Ocram.Transformation.Inline.Step1,
     Ocram.Transformation.Util,
     Ocram.Transformation.Inline,
-    Ocram.Transformation,
     Ocram.Util,
     Ocram.Analysis.CriticalFunctions,
     Ocram.Analysis.DefinedFunctions,

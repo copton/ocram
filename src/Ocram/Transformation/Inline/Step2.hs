@@ -18,8 +18,8 @@ import Data.Monoid
 import qualified Data.Map as Map
 
 -- step2 {{{1
-step2 :: [CDecl] -> [CFunDef] -> FunctionInfos
-step2 bfs cfs = mconcat (bffis ++ cffis)
+step2 :: [CDecl] -> [CFunDef] -> WR FunctionInfos
+step2 bfs cfs = return $ mconcat (bffis ++ cffis)
 	where
 		bffis = map decl2fi bfs
 		cffis = map cffi cfs

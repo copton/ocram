@@ -3,7 +3,7 @@ module Ocram.Analysis (
 	module Ocram.Analysis.CallGraph,
 	module Ocram.Analysis.CriticalFunctions,
 	module Ocram.Analysis.DefinedFunctions,
-	module Ocram.Analysis.StartRoutines,
+	module Ocram.Analysis.StartRoutines
 ) where
 
 import Ocram.Analysis.BlockingFunctions

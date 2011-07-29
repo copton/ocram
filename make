@@ -13,10 +13,10 @@ def execute(commandline):
     return (proc.returncode, out, err)
 
 def notify(text, color):
-    cmd = ["/usr/bin/osd_cat", "-A", "right", "-d", "2", "-c", color]
+    cmd = "/usr/bin/osd_cat -A right -p bottom -o -40 -d 2 -c %s" % color
 
     if os.fork() == 0:
-        subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(text)
+        subprocess.Popen(cmd.split(' '), stdin=subprocess.PIPE).communicate(text)
         sys.exit(0)
 
 def getFirstLine(text, predicate):

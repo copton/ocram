@@ -13,14 +13,6 @@ data StartRoutines = StartRoutines
 data CallGraph = CallGraph
 data CriticalFunctions = CriticalFunctions
 
-data Analysis = Analysis {
-	getBlockingFunctions :: BlockingFunctions,
-	getDefinedFunctions :: DefinedFunctions,
-	getStartRoutines :: StartRoutines,
-	getCallGraph :: CallGraph,
-	getCriticalFunctions :: CriticalFunctions
-}
-
 -- IO
 options :: ErrorT String IO Options
 options = undefined
@@ -39,42 +31,43 @@ report (Left err) = putStrLn $ "failed: " ++ err
 report _ = putStrLn "complete"
 
 -- Analysis
-newtype Ana a = Ana {
-		runAna :: ErrorT String (Reader Options) a
-	} deriving (
-		Monad,
-		MonadError String,
-		MonadReader Options
-	)
+data Analysis = Analysis {
+	getBlockingFunctions :: BlockingFunctions,
+	getDefinedFunctions :: DefinedFunctions,
+	getStartRoutines :: StartRoutines,
+	getCallGraph :: CallGraph,
+	getCriticalFunctions :: CriticalFunctions
+}
 
-check_sanity :: Ast -> Ana ()
+
+check_sanity :: Ast -> ER ()
 check_sanity = undefined
 
-check_call_graph :: CallGraph -> StartRoutines -> DefinedFunctions -> Ast -> Ana ()
+check_call_graph :: CallGraph -> StartRoutines -> DefinedFunctions -> Ast -> ER ()
 check_call_graph = undefined
 
-blocking_functions :: Ast -> Ana BlockingFunctions
+blocking_functions :: Ast -> ER BlockingFunctions
 blocking_functions = undefined
 
-defined_functions :: Ast -> Ana DefinedFunctions
+defined_functions :: Ast -> ER DefinedFunctions
 defined_functions = undefined
 
-start_routines :: DefinedFunctions -> Ast -> Ana StartRoutines
+start_routines :: DefinedFunctions -> Ast -> ER StartRoutines
 start_routines = undefined
 
-call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> Ana CallGraph
+call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> ER CallGraph
 call_graph = undefined
 
-critical_functions :: CallGraph -> BlockingFunctions -> Ast -> Ana CriticalFunctions
+critical_functions :: CallGraph -> BlockingFunctions -> Ast -> ER CriticalFunctions
 critical_functions = undefined
 
-check_constraints :: CriticalFunctions -> StartRoutines -> Ast -> Ana ()
+check_constraints :: CriticalFunctions -> StartRoutines -> Ast -> ER ()
 check_constraints = undefined
 
 analysis :: Options -> Ast -> ErrorT String IO (Analysis, Ast)
-analysis opt ast = ErrorT $ return $ runReader (runErrorT (runAna (analysis' ast))) opt
+analysis opt ast = ErrorT $ return $ runReader (runErrorT (runER (analysis' ast))) opt
 
-analysis' :: Ast -> Ana (Analysis, Ast)
+analysis' :: Ast -> ER (Analysis, Ast)
 analysis' ast = do
 	check_sanity ast
 	bf <- blocking_functions ast
@@ -109,7 +102,6 @@ transform opt ana ast = runReader (runWriterT (runTrans (transform' ast))) $ Tra
 
 transform' :: Ast -> Trans Ast
 transform' = undefined
-
 
 main :: IO ()
 main = do

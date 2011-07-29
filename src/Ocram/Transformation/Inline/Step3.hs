@@ -23,12 +23,17 @@ import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List as List
 
+import Control.Monad.Reader (asks)
+
 -- step3 {{{1
-step3 :: CriticalFunctions -> StartRoutines -> CallGraph -> FunctionInfos -> Ast -> Ast
-step3 cf sr cg fis (CTranslUnit decls ni) = CTranslUnit (frames ++ stacks ++ decls) ni
-	where
-		frames = createTStackFrames cf sr cg fis
-		stacks = map createTStack $ Set.elems sr
+step3 :: FunctionInfos -> Ast -> WR Ast
+step3 fis (CTranslUnit decls ni) = do
+	cf <- asks $ getCriticalFunctions . snd
+	sr <- asks $ getStartRoutines . snd
+	cg <- asks $ getCallGraph . snd
+	let frames = createTStackFrames cf sr cg fis
+	let stacks = map createTStack $ Set.elems sr
+	return $ CTranslUnit (frames ++ stacks ++ decls) ni
 
 -- createTStack :: Symbol -> CExtDecl {{{2
 createTStack :: Symbol -> CExtDecl

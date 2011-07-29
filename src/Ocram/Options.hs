@@ -1,29 +1,32 @@
 module Ocram.Options (
-	Options(..), getOptions, emptyOptions
+	Options(..), options, emptyOptions
 ) where
 
-import Ocram.Types (Result, Options(..))
+import Ocram.Types (EIO, Options(..))
 import System.Environment (getArgs, getProgName)
 import Data.List (intersperse)
 import System.Console.GetOpt
 
-getOptions :: IO (Result Options)
-getOptions = do
-	argv <- getArgs
-	prg <- getProgName
+import Control.Monad.Trans (liftIO)
+import Control.Monad.Error (throwError)
+
+options :: EIO Options
+options = do
+	argv <- liftIO getArgs
+	prg <- liftIO getProgName
 	let use = usage prg
-	case getOpt Permute options argv of
+	case getOpt Permute available_options argv of
 		(o,[],[]) -> 
 			let opts = foldl (flip id) emptyOptions o in
 			if (optHelp opts) then
-					return $ fail $ help use
+					throwError $ help use
 			else
 				if checkOptions opts then
-					return $ return opts
+					return opts
 				else
-					return $ fail $ err use "missing required option(s)"
-		(_,n,[]) -> return $ fail $ err use ("unknown options '" ++ unwords n ++ "'")
-		(_,_,es) -> return $ fail $ err use $ concat $ intersperse "\n" es
+					throwError $ err use "missing required option(s)"
+		(_,n,[]) -> throwError $ err use ("unknown options '" ++ unwords n ++ "'")
+		(_,_,es) -> throwError $ err use $ concat $ intersperse "\n" es
 
 help :: String -> String
 help use = "Printing usage:\n" ++ use
@@ -32,10 +35,10 @@ err :: String -> String -> String
 err use msg = "Error in command line options\n" ++ msg ++ "\n" ++ use
 
 usage :: String -> String
-usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") options
+usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") available_options
 
-options :: [OptDescr (Options -> Options)]
-options = [
+available_options :: [OptDescr (Options -> Options)]
+available_options = [
 	  Option ['i'] ["input"] (ReqArg (\ x opts -> opts {optInput = x}) "input") "input tc file (required)"
 	, Option ['o'] ["output"] (ReqArg (\ x opts -> opts {optOutput = x}) "output") "output ec file (required)"
 	, Option ['c'] ["cpp"] (ReqArg (\ x opts -> opts {optCppOptions = x}) "cpp") "cpp options (default=\"\")"

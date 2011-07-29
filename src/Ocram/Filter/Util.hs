@@ -5,9 +5,12 @@ module Ocram.Filter.Util
 ) where
 
 -- imports {{{1
+import Ocram.Types
+
 import Language.C.Data.Node (NodeInfo(NodeInfo, OnlyPos))
 import Language.C.Data.Position (posFile, posRow)
-import Ocram.Types (Result, Ast)
+
+import Control.Monad.Error (throwError)
 
 -- data Filter a = Filter { {{{1
 data Filter a = Filter {
@@ -27,11 +30,11 @@ data Error a = Error {
 performCheck :: Filter a -> Ast -> [Int]
 performCheck filter ast = map (getErrorIds filter) $ map getError $ getChecker filter ast
 
--- performFilter :: Filter a -> Ast -> Result Ast {{{1
-performFilter :: Filter a -> Ast -> Result Ast
+-- performFilter :: Filter a -> Ast -> ER () {{{1
+performFilter :: Filter a -> Ast -> ER ()
 performFilter filter ast = case getChecker filter ast of
-	[] -> return ast
-	es -> fail $ showErrors filter es
+	[] -> return ()
+	es -> throwError $ showErrors filter es
 
 showErrors :: Filter a -> [Error a] -> String
 showErrors filter es = "input programm failed the following " ++ (getDescription filter) ++ " checks:\n" ++ (showEnum filter $ zip [1..] es)

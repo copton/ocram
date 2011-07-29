@@ -25,14 +25,18 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
 
-import Debug.Trace (trace)
 import Language.C.Pretty (pretty)
 
+import Control.Monad.Reader (asks)
+
 --- step4 {{{1
-step4 :: StartRoutines -> CallGraph -> BlockingFunctions -> FunctionInfos -> Ast -> Ast
-step4 sr cg bf fis (CTranslUnit decls ni) = CTranslUnit (decls ++ thread_functions) ni
-	where
-		thread_functions = map CFDefExt $ map (createThreadFunction cg bf fis) $ zip [1..] $ Set.elems sr
+step4 :: FunctionInfos -> Ast -> WR Ast
+step4 fis (CTranslUnit decls ni) = do
+	cg <- asks $ getCallGraph . snd
+	bf <- asks $ getBlockingFunctions . snd
+	sr <- asks $ getStartRoutines . snd
+	let thread_functions = map CFDefExt $ map (createThreadFunction cg bf fis) $ zip [1..] $ Set.elems sr
+	return $ CTranslUnit (decls ++ thread_functions) ni
 
 --- createThreadFunction {{{2
 createThreadFunction :: CallGraph -> BlockingFunctions -> FunctionInfos -> (Integer, Symbol) -> CFunDef

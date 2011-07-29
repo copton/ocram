@@ -2,19 +2,17 @@ module Ocram.Types where
 
 -- imports {{{1
 import Control.Monad.Error
-import Data.Either
+import Control.Monad.Reader
+import Control.Monad.Writer
+
 import Language.C.Syntax.AST (CTranslUnit, CDecl, CBlockItem, CTypeSpec, CExtDecl, CFunDef)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
--- generic {{{1
+-- General {{{1
 type Symbol = String
-
-type Result a = Either String a
-
 type FunMap a = Map.Map Symbol a
-
--- options {{{1
+type Ast = CTranslUnit
 data Options = Options { 
 	  optInput :: String
 	, optOutput :: String
@@ -23,40 +21,35 @@ data Options = Options {
 	, optHelp :: Bool
 } deriving Show
 
--- AST {{{1
+-- Monads {{{1
+type EIO = ErrorT String IO
 
-type Ast = CTranslUnit
+newtype ER a = ER {
+		runER :: ErrorT String (Reader Options) a
+	} deriving (
+		Monad,
+		MonadError String,
+		MonadReader Options
+	)
 
-class AstC a where
-	getAst :: a -> Ast
+type WRData = (Options, Analysis)
 
-newtype RawAst = RawAst Ast
-instance AstC RawAst where
-	getAst (RawAst ast) = ast
+newtype WR a = WR {
+		runWR :: WriterT DebugSymbols (Reader WRData) a
+ 	} deriving (
+		Monad, 
+		MonadWriter DebugSymbols, 
+		MonadReader WRData
+	)
 
-newtype SaneAst = SaneAst Ast
-instance AstC SaneAst where
-	getAst (SaneAst ast) = ast
+-- Analysis {{{1
 
-newtype ForestAst = ForestAst Ast
-instance AstC ForestAst where
-	getAst (ForestAst ast) = ast
-
-newtype ValidAst = ValidAst Ast
-instance AstC ValidAst where
-	getAst (ValidAst ast) = ast
-
-newtype OutputAst = OutputAst Ast
-instance AstC OutputAst where
-	getAst (OutputAst ast) = ast
-
--- analysis {{{1
 -- map of all blocking function declarations
 type BlockingFunctions = Set.Set Symbol
 
--- caller: any function definition, callee: any function definition or any blocking function declaration
-
+-- caller: any function definition
 type Callers = Set.Set Symbol
+-- callee: any function definition or any blocking function declaration
 type Callees = Set.Set Symbol
 data Entry = Entry {cgCallers :: Callers, cgCallees :: Callees} deriving Show
 
@@ -71,17 +64,19 @@ type DefinedFunctions = Set.Set Symbol
 -- list of all start routine names
 type StartRoutines = Set.Set Symbol
 
---- context {{{1
-data Context = Context {
-	getOptions :: Options,
-	getRawAst :: RawAst,
-	getSaneAst :: Result SaneAst,
-	getBlockingFunctions :: Result BlockingFunctions,
-	getDefinedFunctions :: Result DefinedFunctions,
-	getStartRoutines :: Result StartRoutines,
-	getCallGraph :: Result CallGraph,
-	getForestAst :: Result ForestAst,
-	getCriticalFunctions :: Result CriticalFunctions,
-	getValidAst :: Result ValidAst,
-	getOutputAst :: Result OutputAst
-	}
+data Analysis = Analysis {
+	getBlockingFunctions :: BlockingFunctions,
+	getDefinedFunctions :: DefinedFunctions,
+	getStartRoutines :: StartRoutines,
+	getCallGraph :: CallGraph,
+	getCriticalFunctions :: CriticalFunctions
+}
+
+-- Transformation {{{1
+
+
+data DebugSymbol = DebugSymbol -- TODO
+type DebugSymbols = [DebugSymbol]
+
+
+

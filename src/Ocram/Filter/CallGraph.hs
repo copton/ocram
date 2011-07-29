@@ -1,7 +1,7 @@
 module Ocram.Filter.CallGraph 
 -- exports {{{1
 (
-	checkCallGraph, getErrorCodes
+	check_call_graph --, getErrorCodes
 ) where
 
 -- imports {{{1
@@ -16,24 +16,20 @@ import Data.List (reverse, intersperse, partition)
 import Data.Set (toList)
 
 -- checkCallGraph :: Context -> Result ForestAst  {{{1
-checkCallGraph :: Context -> Result ForestAst 
-checkCallGraph ctx = do
-	ast <- getSaneAst ctx
-	cg <- getCallGraph ctx
-	sr <- getStartRoutines ctx
-	df <- getDefinedFunctions ctx
-	let df' = getFunDefs (getAst ast) df
-	fmap ForestAst $ performFilter (descriptor cg sr df') $ getAst ast
+check_call_graph ::  CallGraph -> StartRoutines -> DefinedFunctions -> Ast -> ER ()
+check_call_graph cg sr df ast = 
+	let df' = getFunDefs ast df in
+	performFilter (descriptor cg sr df') ast
 
 -- getErrorCodes :: Context -> Result [Int] {{{1
-getErrorCodes :: Context -> Result [Int]
-getErrorCodes ctx = do
-	ast <- getSaneAst ctx
-	cg <- getCallGraph ctx
-	sr <- getStartRoutines ctx
-	df <- getDefinedFunctions ctx
-	let df' = getFunDefs (getAst ast) df
-	return $ performCheck (descriptor cg sr df') $ getAst ast
+--getErrorCodes :: Context -> Result [Int]
+--getErrorCodes ctx = do
+--	ast <- getSaneAst ctx
+--	cg <- getCallGraph ctx
+--	sr <- getStartRoutines ctx
+--	df <- getDefinedFunctions ctx
+--	let df' = getFunDefs (getAst ast) df
+--	return $ performCheck (descriptor cg sr df') $ getAst ast
 
 -- utils {{{1
 

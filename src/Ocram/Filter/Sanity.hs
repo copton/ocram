@@ -1,7 +1,7 @@
 module Ocram.Filter.Sanity 
 -- exports {{{1
 (
-	checkSanity, getErrorCodes
+	check_sanity --, getErrorCodes
 ) where
 
 -- imports {{{1
@@ -12,16 +12,14 @@ import Language.C.Syntax.AST
 import Data.Monoid (mconcat)
 
 -- checkSanity :: Context -> Result SaneAst {{{1
-checkSanity :: Context -> Result SaneAst
-checkSanity ctx = do
-	let ast = getRawAst ctx
-	fmap SaneAst $ performFilter descriptor $ getAst ast
+check_sanity :: Ast -> ER ()
+check_sanity ast = performFilter descriptor ast
 
 -- getErrorCodes :: Context -> Result [Int] {{{1
-getErrorCodes :: Context -> Result [Int]
-getErrorCodes ctx = do
-	let ast = getRawAst ctx
-	return $ performCheck descriptor $ getAst ast
+--getErrorCodes :: Context -> Result [Int]
+--getErrorCodes ctx = do
+--	let ast = getRawAst ctx
+--	return $ performCheck descriptor $ getAst ast
 
 -- util {{{1
 checker :: Ast -> [Error Int]

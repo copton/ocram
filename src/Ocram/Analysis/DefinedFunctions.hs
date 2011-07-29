@@ -1,7 +1,7 @@
 module Ocram.Analysis.DefinedFunctions 
 -- exports {{{!
 (
-	collectDefinedFunctions
+	defined_functions
 ) where
 
 -- imports {{{1
@@ -11,11 +11,9 @@ import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTr
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef)
 
--- collectDefinedFunctions :: Context -> Result DefinedFunctions {{{1
-collectDefinedFunctions :: Context -> Result DefinedFunctions
-collectDefinedFunctions ctx = do
-	ast <- getSaneAst ctx
-	return $ fromList $ snd $ traverseCTranslUnit (getAst ast) emptyDownState
+-- defined_functions :: Ast -> ER DefinedFunctions {{{1
+defined_functions :: Ast -> ER DefinedFunctions
+defined_functions ast = return $ fromList $ snd $ traverseCTranslUnit ast emptyDownState
 
 type UpState = [Symbol]
 

@@ -1,11 +1,11 @@
 module Ocram.Analysis.CallGraph 
 -- exports {{{1
 (
-	 determineCallGraph
+	 call_graph
 ) where
 
 -- imports {{{1
-import Ocram.Types
+import Ocram.Types 
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCTranslUnit, ListVisitor)
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
@@ -13,13 +13,9 @@ import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
--- determineCallGraph :: Context -> Result CallGraph {{{1
-determineCallGraph :: Context -> Result CallGraph
-determineCallGraph ctx = do
-	ast <- getSaneAst ctx
-	df <- getDefinedFunctions ctx
-	bf <- getBlockingFunctions ctx
-	return $ createCallGraph $ snd $ traverseCTranslUnit (getAst ast) $ DownState Nothing df bf
+-- call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> ER CallGraph {{{1
+call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> ER CallGraph
+call_graph df bf ast = return $ createCallGraph $ snd $ traverseCTranslUnit ast $ DownState Nothing df bf
 
 data DownState = DownState {
 		stCaller :: Maybe CFunDef
