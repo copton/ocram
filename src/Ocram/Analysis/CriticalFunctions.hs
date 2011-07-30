@@ -12,6 +12,7 @@ import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+-- critical_functions :: CallGraph -> BlockingFunctions -> Ast -> ER CriticalFunctions {{{1
 critical_functions :: CallGraph -> BlockingFunctions -> Ast -> ER CriticalFunctions
 critical_functions cg bf ast = return $ foldl (travBlocking cg) Set.empty (Set.elems bf)
 

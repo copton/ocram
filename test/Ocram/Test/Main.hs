@@ -1,9 +1,16 @@
 module Ocram.Test.Main (main) where
 
-import Ocram.Test.Tests (tests)
 import Test.HUnit (runTestText, putTextToHandle, Counts(errors, failures))
 import System.IO (stderr)
 import System.Exit (exitWith, ExitCode(ExitFailure))
+
+import qualified Ocram.Test.Tests.Symbol as A
+import qualified Ocram.Test.Tests.Analysis as B
+import qualified Ocram.Test.Tests.Visitor as C
+import qualified Ocram.Test.Tests.Filter as D
+import qualified Ocram.Test.Tests.Transformation as E
+
+tests = TestList [A.tests, B.tests, C.tests, D.tests, E.tests]
 
 main = do
 	(count, _ ) <- runTestText (putTextToHandle stderr False) tests

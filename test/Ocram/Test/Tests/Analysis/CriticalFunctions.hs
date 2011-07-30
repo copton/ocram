@@ -2,9 +2,8 @@ module Ocram.Test.Tests.Analysis.CriticalFunctions (
 	tests
 ) where
 
-import Ocram.Test.Tests.Analysis.Utils (runTests)
 import Ocram.Types (getCriticalFunctions)
-import Ocram.Test.Lib (createContext, paste)
+import Ocram.Test.Lib (createContext, paste, runTests)
 import Data.Set (empty, fromList)
 
 reduce code = do

@@ -2,23 +2,23 @@ module Ocram.Test.Tests.Analysis.DefinedFunctions (
 	tests
 ) where
 
-import Ocram.Test.Lib (createContext)
-import Ocram.Types (getDefinedFunctions)
-import Ocram.Test.Tests.Analysis.Utils (runTests)
-import Ocram.Symbols (symbol)
-import Data.Set (empty, fromList)
+import Ocram.Test.Lib
+import Ocram.Types
+import Ocram.Analysis.DefinedFunctions
+import Data.Set (toList)
 
+reduce :: String -> ER [String]
 reduce code = do
-	let ctx = createContext code Nothing
-	df <- getDefinedFunctions ctx
-	return df
+	let ast = parse code
+	df <- defined_functions ast
+	return $ toList df
 
 tests = runTests "DefinedFunctions" reduce [
-	 ("void foo() { }", fromList ["foo"])
-	,("", empty)
-	,("int foo() {}", fromList ["foo"])
-	,("__attribute__((bar)) int foo() {}", fromList ["foo"])
-	,("void foo();", empty)
-	,("void foo(); void bar() { }", fromList ["bar"])
-	,("void foo() { } void bar() { }", fromList ["bar", "foo"])
+	 ("void foo() { }", ["foo"])
+	,("", [])
+	,("int foo() {}", ["foo"])
+	,("__attribute__((bar)) int foo() {}", ["foo"])
+	,("void foo();", [])
+	,("void foo(); void bar() { }", ["bar"])
+	,("void foo() { } void bar() { }", ["bar", "foo"])
 	]

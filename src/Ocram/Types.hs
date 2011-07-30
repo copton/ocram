@@ -32,6 +32,9 @@ newtype ER a = ER {
 		MonadReader Options
 	)
 
+execER :: Options -> ER a -> Either String a
+execER opt f = runReader (runErrorT (runER f)) opt
+
 type WRData = (Options, Analysis)
 
 newtype WR a = WR {
@@ -42,6 +45,8 @@ newtype WR a = WR {
 		MonadReader WRData
 	)
 
+execWR :: WRData -> WR a -> (a, DebugSymbols)
+execWR wrd f = runReader (runWriterT (runWR f)) wrd 
 -- Analysis {{{1
 
 -- map of all blocking function declarations

@@ -2,95 +2,89 @@ module Ocram.Test.Tests.Analysis.CallGraph (
 	tests
 ) where
 
-import Ocram.Test.Lib (createContext, paste)
-import Ocram.Types (getCallGraph)
-import Ocram.Test.Tests.Analysis.Utils (runTests)
-import Ocram.Types (Entry(Entry))
+import Ocram.Test.Lib
+import Ocram.Types
 import Ocram.Symbols (symbol)
-import Data.Map (toList)
-import Data.Set (elems)
-import Data.List (sort)
+import Ocram.Analysis.CallGraph (call_graph)
 
-data E = E String [String] [String]
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+import qualified Data.List as List
 
-instance Ord E where
-	(E s _ _) <= (E s' _ _) =  s <= s'
+type CG = [(String, [String], [String])]
 
-instance Eq E where
-	(E function callers callees) == (E function' callers' callees') =
-		   function == function' 
-		&& (sort callers) == (sort callers') 
-		&& (sort callees) == (sort callees')
-
-instance Show E where
-	show (E function callers callees) = show function ++ " " ++ show (sort callers) ++ " " ++ show (sort callees)
-
-data L = L [E]
-
-instance Eq L where
-	(L es) == (L es') = (sort es) == (sort es')
-
-instance Show L where
-	show (L es) = show $ sort es
-
-reduce code = do
-	let ctx = createContext code Nothing
-	cg <- getCallGraph ctx
-	return $ L.(map reduce_entry).toList $ cg
+reduce :: (String, [String], [String]) -> ER CG
+reduce (code, df, bf) = do
+	let ast = parse code
+	let bf' = Set.fromList bf
+	let df' = Set.fromList df
+	cg <- call_graph df' bf' ast
+	return $ map decompose $ Map.toList cg
 	where
-		reduce_entry (fid, (Entry callers callees)) = E (symbol fid) (reduce_set callers) (reduce_set callees)
-		reduce_set set = map symbol $ elems set
+		decompose (function, (Entry callers callees)) =
+			(show function, map show (Set.toList callers), map show (Set.toList callees))
 
 tests = runTests "CallGraph" reduce [
-	([$paste|
-		void foo() { 
-			bar();
-		} 
-		void bar() { }
-	|],  L [E "foo" [] ["bar"], E "bar" ["foo"] []])
-	,([$paste|
-		void foo() { 
-			bar(); 
-			baz(); 
-		} 
+	(([$paste|
+			void foo() { 
+				bar();
+			} 
+			void bar() { }
+		|], ["foo", "bar"], []), 
+		[("foo", [], ["bar"]), ("bar", ["foo"], [])]
+	),
+	(([$paste|
+			void foo() { 
+				bar(); 
+				baz(); 
+			} 
 
-		void bar() { }
-		void baz();
-	|], L [E "foo" [] ["bar"], E "bar" ["foo"] []])
-	,([$paste|
-		__attribute__((tc_blocking)) void foo();
-		void bar() {
-			baz();
-		}
-		
-		void baz() {
-			foo();
-			bar();
-		}
-	|], L [E "foo" ["baz"] [], E "bar" ["baz"] ["baz"], E "baz" ["bar"] ["foo", "bar"]])
-	,([$paste|
-		__attribute__((tc_blocking)) void block(); 
-		__attribute__((tc_run_thread)) void start() {
-			rec();
-		} 
-		void rec() {
-			block(); 
-			start();
-		}
-	|], L [E "block" ["rec"] [], E "start" ["rec"] ["rec"], E "rec" ["start"] ["block", "start"]])
-	,([$paste|
-		__attribute__((tc_blocking)) void foo(); 
-		void bar(void*); 
-		__attribute__((tc_run_thread)) void baz() { 
-			bar(&foo); 
-			foo();
-		}
-	|], L [E "foo" ["baz"] [], E "baz" [] ["foo"]])
-	,([$paste|
-		__attribute__((tc_blocking)) int block(int i); 
-		__attribute__((tc_run_thread)) void start() { 
-			int i;
-			i = block(i);
-		}
-	|], L [E "block" ["start"] [], E "start" [] ["block"]])
+			void bar() { }
+			void baz();
+		|], ["foo", "bar"], []),
+		[("foo", [], ["bar", "baz"]), ("bar", ["foo"], [])]
+	),
+	(([$paste|
+			__attribute__((tc_blocking)) void foo();
+			void bar() {
+				baz();
+			}
+			
+			void baz() {
+				foo();
+				bar();
+			}
+		|], ["bar", "baz"], ["foo"]),
+		[("foo", ["baz"], []), ("bar", ["baz"], ["baz"]), ("baz", ["bar"], ["foo", "bar"])]
+	),
+	(([$paste|
+			__attribute__((tc_blocking)) void block(); 
+			__attribute__((tc_run_thread)) void start() {
+				rec();
+			} 
+			void rec() {
+				block(); 
+				start();
+			}
+		|], ["start", "rec"], ["block"]),
+		[("block", ["rec"], []), ("start", ["rec"], ["rec"]), ("rec", ["block", "start"], ["start"])]
+	),
+	(([$paste|
+			__attribute__((tc_blocking)) void foo(); 
+			void bar(void*); 
+			__attribute__((tc_run_thread)) void baz() { 
+				bar(&foo); 
+				foo();
+			}
+		|], ["baz"], ["foo"]),
+		[("foo", ["baz"], []), ("bar", ["baz"], []), ("baz", [], ["bar", "foo"])]
+	),
+	(([$paste|
+			__attribute__((tc_blocking)) int block(int i); 
+			__attribute__((tc_run_thread)) void start() { 
+				int i;
+				i = block(i);
+			}
+		|], ["start"], ["block"]),
+		[("block", ["start"], []), ("start", [], ["block"])])
 	]

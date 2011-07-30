@@ -1,7 +1,7 @@
 module Ocram.Filter.Util 
 --- exports {{{1
 (
-	Filter(Filter), performCheck, performFilter, Error(Error)
+	Filter(Filter), performFilter, Error(Error)
 ) where
 
 -- imports {{{1
@@ -25,10 +25,6 @@ data Error a = Error {
 	getError :: a,
 	getLocation :: NodeInfo
 }
-
--- performCheck :: Filter a -> Ast -> [Int] {{{1
-performCheck :: Filter a -> Ast -> [Int]
-performCheck filter ast = map (getErrorIds filter) $ map getError $ getChecker filter ast
 
 -- performFilter :: Filter a -> Ast -> ER () {{{1
 performFilter :: Filter a -> Ast -> ER ()

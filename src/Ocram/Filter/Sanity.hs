@@ -1,11 +1,11 @@
 module Ocram.Filter.Sanity 
 -- exports {{{1
 (
-	check_sanity --, getErrorCodes
+	check_sanity
 ) where
 
 -- imports {{{1
-import Ocram.Filter.Util (Error(Error), Filter(Filter), performFilter, performCheck)
+import Ocram.Filter.Util (Error(Error), Filter(Filter), performFilter)
 import Ocram.Types
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit, ListVisitor)
 import Language.C.Syntax.AST 
@@ -15,11 +15,6 @@ import Data.Monoid (mconcat)
 check_sanity :: Ast -> ER ()
 check_sanity ast = performFilter descriptor ast
 
--- getErrorCodes :: Context -> Result [Int] {{{1
---getErrorCodes :: Context -> Result [Int]
---getErrorCodes ctx = do
---	let ast = getRawAst ctx
---	return $ performCheck descriptor $ getAst ast
 
 -- util {{{1
 checker :: Ast -> [Error Int]

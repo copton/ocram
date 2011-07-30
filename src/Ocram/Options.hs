@@ -1,5 +1,5 @@
 module Ocram.Options (
-	Options(..), options, emptyOptions
+	Options(..), options, defaultOptions
 ) where
 
 import Ocram.Types (EIO, Options(..))
@@ -17,7 +17,7 @@ options = do
 	let use = usage prg
 	case getOpt Permute available_options argv of
 		(o,[],[]) -> 
-			let opts = foldl (flip id) emptyOptions o in
+			let opts = foldl (flip id) defaultOptions o in
 			if (optHelp opts) then
 					throwError $ help use
 			else
@@ -46,7 +46,7 @@ available_options = [
 	, Option ['h'] ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
 	]
 
-emptyOptions = Options { 
+defaultOptions = Options { 
 	  optInput = ""
 	, optOutput = ""
 	, optCppOptions = ""
@@ -56,7 +56,7 @@ emptyOptions = Options {
 
 checkOptions :: Options -> Bool
 checkOptions opts
-	| (optInput opts) == (optInput emptyOptions) = False
-	| (optOutput opts) == (optOutput emptyOptions) = False
+	| (optInput opts) == (optInput defaultOptions) = False
+	| (optOutput opts) == (optOutput defaultOptions) = False
 	| otherwise = True
 

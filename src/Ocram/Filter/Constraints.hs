@@ -1,5 +1,5 @@
 module Ocram.Filter.Constraints (
-	check_constraints --, getErrorCodes
+	check_constraints
 ) where
 
 import Ocram.Filter.Util
@@ -10,17 +10,9 @@ import Language.C.Syntax.AST
 import qualified Data.Set as Set
 import Data.Monoid (mconcat)
 
--- checkConstraints :: Context -> Result ValidAst {{{1
+-- check_constraints ::  CriticalFunctions -> StartRoutines -> Ast -> ER () {{{1
 check_constraints ::  CriticalFunctions -> StartRoutines -> Ast -> ER ()
 check_constraints cf sr ast = performFilter (descriptor cf sr) ast
-
--- getErrorCodes :: Context -> Result [Int] {{{1
---getErrorCodes :: Context -> Result [Int]
---getErrorCodes ctx = do
---	ast <- getForestAst ctx	
---	cf <- getCriticalFunctions ctx
---	sr <- getStartRoutines ctx
---	return $ performCheck (descriptor cf sr) $ getAst ast
 
 -- utils {{{1
 printError :: Int -> String
