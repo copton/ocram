@@ -2,23 +2,26 @@ module Ocram.Test.Tests.Analysis.DefinedFunctions (
 	tests
 ) where
 
-import Ocram.Test.Lib
 import Ocram.Types
+import Ocram.Test.Tests.Analysis.Types
+import Ocram.Test.Tests.Analysis.Utils
 import Ocram.Analysis.DefinedFunctions
-import Data.Set (toList)
 
-reduce :: String -> ER [String]
-reduce code = do
-	let ast = parse code
-	df <- defined_functions ast
-	return $ toList df
+type Input = ()
+type Output = TDefinedFunctions
 
-tests = runTests "DefinedFunctions" reduce [
-	 ("void foo() { }", ["foo"])
-	,("", [])
-	,("int foo() {}", ["foo"])
-	,("__attribute__((bar)) int foo() {}", ["foo"])
-	,("void foo();", [])
-	,("void foo(); void bar() { }", ["bar"])
-	,("void foo() { } void bar() { }", ["bar", "foo"])
-	]
+reduce :: Ast -> Input -> ER Output
+reduce ast _ = return . reduce_df =<< defined_functions ast
+
+setup :: TCase -> (Input, Output)
+setup tc = ((), tcDefinedFunctions tc)
+
+tests = runTests "DefinedFunctions" reduce setup
+--	 ("void foo() { }", ["foo"])
+--	,("", [])
+--	,("int foo() {}", ["foo"])
+--	,("__attribute__((bar)) int foo() {}", ["foo"])
+--	,("void foo();", [])
+--	,("void foo(); void bar() { }", ["bar"])
+--	,("void foo() { } void bar() { }", ["bar", "foo"])
+--	]

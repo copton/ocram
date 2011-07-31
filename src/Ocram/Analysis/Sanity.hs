@@ -1,11 +1,11 @@
-module Ocram.Filter.Sanity 
+module Ocram.Analysis.Sanity 
 -- exports {{{1
 (
 	check_sanity
 ) where
 
 -- imports {{{1
-import Ocram.Filter.Util (Error(Error), Filter(Filter), performFilter)
+import Ocram.Analysis.Filter
 import Ocram.Types
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit, ListVisitor)
 import Language.C.Syntax.AST 

@@ -4,7 +4,7 @@ module Ocram.Test.Tests.Filter.Constraints (
 
 import Ocram.Types
 import Ocram.Test.Lib
-import Ocram.Filter.Constraints (check_constraints)
+import Ocram.Analysis.Constraints (check_constraints)
 import Ocram.Test.Tests.Filter.Utils (extractErrorCodes)
 import Control.Monad.Reader (ask)
 import Data.Set (fromList)

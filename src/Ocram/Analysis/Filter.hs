@@ -1,4 +1,4 @@
-module Ocram.Filter.Util 
+module Ocram.Analysis.Filter
 --- exports {{{1
 (
 	Filter(Filter), performFilter, Error(Error)

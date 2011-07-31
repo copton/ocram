@@ -4,7 +4,7 @@ module Ocram.Test.Tests.Filter.Sanity (
 
 import Ocram.Types
 import Ocram.Test.Lib
-import Ocram.Filter.Sanity (check_sanity)
+import Ocram.Analysis.Sanity (check_sanity)
 import Ocram.Test.Tests.Filter.Utils (extractErrorCodes)
 import Control.Monad.Reader (ask)
 

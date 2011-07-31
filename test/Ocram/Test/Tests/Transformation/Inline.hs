@@ -3,10 +3,15 @@ module Ocram.Test.Tests.Transformation.Inline (
 ) where
 
 -- imports {{{1
-import Ocram.Test.Lib (createContext, parse', paste)
-import Ocram.Types (getAst, getOutputAst)
+import Ocram.Types
+import Ocram.Test.Lib (parse, paste)
+import Ocram.Compiler (analysis')
+import Ocram.Transformation.Inline (transformation)
+import Ocram.Options (defaultOptions)
+
 import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
+
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
 -- tests {{{1
@@ -472,9 +477,11 @@ runTests label cases = TestLabel label $ TestList $ map runTest $ zip [1..] case
 runTest :: (Int, (String, String)) -> Test
 runTest (number, (code, expected)) = TestCase $ assertEqual name expected' result
 	where
-		expected' = show $ pretty $ getAst $ parse' $ expected
 		name = "test" ++ show number
-		result = show $ pretty $ getAst ast
-		ast = case getOutputAst (createContext code Nothing) of
+		expected' = show $ pretty $ parse expected
+		opt = defaultOptions
+		(ana, ast) = case execER opt (analysis' (parse code)) of
 			Left e -> error e
 			Right x -> x
+		(ast', _) = execWR (opt, ana) (transformation ast)
+		result = show $ pretty ast'

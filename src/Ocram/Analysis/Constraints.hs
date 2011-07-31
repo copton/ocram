@@ -1,8 +1,8 @@
-module Ocram.Filter.Constraints (
+module Ocram.Analysis.Constraints (
 	check_constraints
 ) where
 
-import Ocram.Filter.Util
+import Ocram.Analysis.Filter
 import Ocram.Types
 import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit, ListVisitor)
 import Language.C.Data.Ident (Ident(Ident))

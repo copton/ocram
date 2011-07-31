@@ -11,7 +11,7 @@ import Ocram.Transformation.Inline.Step3
 import Ocram.Transformation.Inline.Step4
 import Ocram.Types
 
--- transform {{{1
+-- transformation :: Ast -> WR Ast {{{1
 transformation :: Ast -> WR Ast
 transformation ast = do
 	(ast1, bfs, cfs) <- step1 ast

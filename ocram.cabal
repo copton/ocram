@@ -57,40 +57,38 @@ Executable Ocram
     containers >= 0.3.0.0,
     mtl >= 1.1.0.2
   Other-modules:
-    Ocram.Visitor,
-    Ocram.Main,
-    Ocram.Analysis,
-    Ocram.Compiler,
-    Ocram.Query,
-    Ocram.Parser,
-    Ocram.Filter.Sanity,
-    Ocram.Filter.Util,
-    Ocram.Filter.CallGraph ,
-    Ocram.Filter.Constraints,
-    Ocram.Symbols,
-    Ocram.Output,
-    Ocram.Types,
-    Ocram.Names,
-    Ocram.Options,
-    Ocram.Visitor.Visitor,
-    Ocram.Visitor.DefaultStates,
-    Ocram.Visitor.Traverse,
-    Ocram.Filter,
-    Ocram.Transformation.Inline.Step2,
-    Ocram.Transformation.Inline.Types,
-    Ocram.Transformation.Inline.Names,
-    Ocram.Transformation.Inline.Step3,
-    Ocram.Transformation.Inline.Step4,
-    Ocram.Transformation.Inline.Step1,
-    Ocram.Transformation.Util,
-    Ocram.Transformation.Inline,
-    Ocram.Util,
-    Ocram.Analysis.CriticalFunctions,
-    Ocram.Analysis.DefinedFunctions,
-    Ocram.Analysis.BlockingFunctions,
-    Ocram.Analysis.StartRoutines,
+    Ocram.Visitor
+    Ocram.Main
+    Ocram.Analysis
+    Ocram.Query
+    Ocram.Parser
+    Ocram.Symbols
+    Ocram.Output
+    Ocram.Types
+    Ocram.Names
+    Ocram.Options
+    Ocram.Visitor.Visitor
+    Ocram.Visitor.DefaultStates
+    Ocram.Visitor.Traverse
+    Ocram.Transformation.Inline.Step2
+    Ocram.Transformation.Inline.Types
+    Ocram.Transformation.Inline.Names
+    Ocram.Transformation.Inline.Step3
+    Ocram.Transformation.Inline.Step4
+    Ocram.Transformation.Inline.Step1
+    Ocram.Transformation.Util
+    Ocram.Transformation.Inline
+    Ocram.Util
+    Ocram.Analysis.ADG
+    Ocram.Analysis.CriticalFunctions
+    Ocram.Analysis.DefinedFunctions
+    Ocram.Analysis.Sanity
+    Ocram.Analysis.BlockingFunctions
+    Ocram.Analysis.Filter
+    Ocram.Analysis.StartRoutines
     Ocram.Analysis.CallGraph
-  
+    Ocram.Analysis.Constraints
+    Ocram.Compiler
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
   

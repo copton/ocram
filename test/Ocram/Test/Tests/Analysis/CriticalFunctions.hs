@@ -2,51 +2,57 @@ module Ocram.Test.Tests.Analysis.CriticalFunctions (
 	tests
 ) where
 
-import Ocram.Types (getCriticalFunctions)
-import Ocram.Test.Lib (createContext, paste, runTests)
-import Data.Set (empty, fromList)
+import Ocram.Types
+import Ocram.Test.Tests.Analysis.Types
+import Ocram.Test.Tests.Analysis.Utils
+import Ocram.Analysis.CriticalFunctions (critical_functions)
 
-reduce code = do
-	let ctx = createContext code Nothing
-	cf <- getCriticalFunctions ctx
-	return cf
+type Input = (TCallGraph, TBlockingFunctions)
+type Output = TCriticalFunctions
 
-tests = runTests "CriticalFunctions" reduce [
-	 ("void foo() { }", empty)
-	,("", empty)
-	,("void foo();", empty)
-	,("__attribute__((tc_blocking)) void foo();"
-		, fromList ["foo"])
-	,([$paste|
-		__attribute__((tc_blocking)) void foo(); 
+reduce :: Ast -> Input -> ER Output
+reduce ast (cg, bf) =
+	return . reduce_cf =<< critical_functions (enrich_cg cg) (enrich_bf bf) ast
 
-		void bar() { 
-			foo(); 
-		}
-		|], fromList ["foo", "bar"])
-	,([$paste|
-			__attribute__((tc_blocking)) void foo(); 
-		
-			void bar(); 
-			void baz() { 
-				bar(); 
-				foo(); 
-			}
-		|], fromList ["baz", "foo"])
-	,([$paste|
-			__attribute__((tc_blocking)) void D(); 
-			
-			void B() {
-				D();
-			} 
+setup :: TCase -> (Input, Output)
+setup tc = ((tcCallGraph tc, tcBlockingFunctions tc), tcCriticalFunctions tc)
 
-			void C() {
-				D();
-			} 
-	
-			void A() {
-				B();
-				C();
-			}
-			|], fromList ["A", "B", "C", "D"])
-	]
+tests = runTests "CriticalFunctions" reduce setup
+--	 ("void foo() { }", empty)
+--	,("", empty)
+--	,("void foo();", empty)
+--	,("__attribute__((tc_blocking)) void foo();"
+--		, fromList ["foo"])
+--	,([$paste|
+--		__attribute__((tc_blocking)) void foo(); 
+--
+--		void bar() { 
+--			foo(); 
+--		}
+--		|], fromList ["foo", "bar"])
+--	,([$paste|
+--			__attribute__((tc_blocking)) void foo(); 
+--		
+--			void bar(); 
+--			void baz() { 
+--				bar(); 
+--				foo(); 
+--			}
+--		|], fromList ["baz", "foo"])
+--	,([$paste|
+--			__attribute__((tc_blocking)) void D(); 
+--			
+--			void B() {
+--				D();
+--			} 
+--
+--			void C() {
+--				D();
+--			} 
+--	
+--			void A() {
+--				B();
+--				C();
+--			}
+--			|], fromList ["A", "B", "C", "D"])
+--	]

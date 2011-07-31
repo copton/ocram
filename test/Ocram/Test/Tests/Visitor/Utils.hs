@@ -3,7 +3,7 @@ module Ocram.Test.Tests.Visitor.Utils (
 ) where
 
 import Ocram.Types
-import Ocram.Test.Lib hiding (runTests)
+import Ocram.Test.Lib
 import Data.List (intersperse)
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 import Language.C.Pretty (pretty, Pretty)

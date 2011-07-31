@@ -1,11 +1,11 @@
-module Ocram.Filter.CallGraph 
+module Ocram.Analysis.ADG
 -- exports {{{1
 (
 	check_call_graph
 ) where
 
 -- imports {{{1
-import Ocram.Filter.Util
+import Ocram.Analysis.Filter
 import Ocram.Query (getFunDefs)
 import Ocram.Types
 import Language.C.Data.Node (nodeInfo)

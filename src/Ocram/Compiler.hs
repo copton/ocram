@@ -1,10 +1,9 @@
 module Ocram.Compiler (
-	analysis, transformation
+	analysis, analysis', transformation
 ) where
 
 import Ocram.Types
-import Ocram.Analysis (blocking_functions, defined_functions, start_routines, call_graph, critical_functions)
-import Ocram.Filter (check_call_graph, check_sanity, check_constraints)
+import Ocram.Analysis (blocking_functions, defined_functions, start_routines, call_graph, critical_functions, check_call_graph, check_sanity, check_constraints)
 import qualified Ocram.Transformation.Inline as Inline
 
 import Control.Monad.Error (runErrorT, ErrorT(ErrorT), throwError)
