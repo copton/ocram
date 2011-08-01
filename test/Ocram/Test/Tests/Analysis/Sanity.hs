@@ -11,8 +11,8 @@ import Control.Monad.Reader (ask)
 type Input = ()
 type Output = TErrorCodes
 
-reduce :: Ast -> Input -> ER Output
-reduce ast _ = do
+execute :: Ast -> Input -> ER Output
+execute ast _ = do
 	opt <- ask
 	let check = check_sanity ast
 	return $ case execER opt check of
@@ -22,4 +22,4 @@ reduce ast _ = do
 setup :: TCase -> (Input, Output)
 setup tc = ((), tcSanity tc)
 
-tests = runTests "Sanity" reduce setup
+tests = runTests "Sanity" execute setup

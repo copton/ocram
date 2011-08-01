@@ -10,13 +10,13 @@ import Ocram.Analysis.DefinedFunctions
 type Input = ()
 type Output = TDefinedFunctions
 
-reduce :: Ast -> Input -> ER Output
-reduce ast _ = return . reduce_df =<< defined_functions ast
+execute :: Ast -> Input -> ER Output
+execute ast _ = return . reduce =<< defined_functions ast
 
 setup :: TCase -> (Input, Output)
 setup tc = ((), tcDefinedFunctions tc)
 
-tests = runTests "DefinedFunctions" reduce setup
+tests = runTests "DefinedFunctions" execute setup
 --	 ("void foo() { }", ["foo"])
 --	,("", [])
 --	,("int foo() {}", ["foo"])

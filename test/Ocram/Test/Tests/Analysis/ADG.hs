@@ -11,10 +11,10 @@ import Control.Monad.Reader (ask)
 type Input = (TCallGraph, TStartRoutines, TDefinedFunctions)
 type Output = TErrorCodes
 
-reduce :: Ast -> Input -> ER Output
-reduce ast (cg, sr, df) = do
+execute :: Ast -> Input -> ER Output
+execute ast (cg, sr, df) = do
 	opt <- ask
-	let check = check_call_graph (enrich_cg cg) (enrich_sr sr) (enrich_df df) ast
+	let check = check_call_graph (enrich cg) (enrich sr) (enrich df) ast
 	return $ case execER opt check of
 		Left e -> extractErrorCodes e
 		Right _ -> []
@@ -22,9 +22,9 @@ reduce ast (cg, sr, df) = do
 setup :: TCase -> (Input, Output)
 setup tc = ((tcCallGraph tc, tcStartRoutines tc, tcDefinedFunctions tc), tcADG tc)
 
-tests = runTests "CallGraph" reduce setup
+tests = runTests "CallGraph" execute setup
 
---tests = runTests "CallGraph" reduce [
+--tests = runTests "CallGraph" execute [
 --	(([$paste|
 --			void foo() {
 --				bar();

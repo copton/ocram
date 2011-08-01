@@ -10,14 +10,14 @@ import Ocram.Analysis.CriticalFunctions (critical_functions)
 type Input = (TCallGraph, TBlockingFunctions)
 type Output = TCriticalFunctions
 
-reduce :: Ast -> Input -> ER Output
-reduce ast (cg, bf) =
-	return . reduce_cf =<< critical_functions (enrich_cg cg) (enrich_bf bf) ast
+execute :: Ast -> Input -> ER Output
+execute ast (cg, bf) =
+	return . reduce =<< critical_functions (enrich cg) (enrich bf) ast
 
 setup :: TCase -> (Input, Output)
 setup tc = ((tcCallGraph tc, tcBlockingFunctions tc), tcCriticalFunctions tc)
 
-tests = runTests "CriticalFunctions" reduce setup
+tests = runTests "CriticalFunctions" execute setup
 --	 ("void foo() { }", empty)
 --	,("", empty)
 --	,("void foo();", empty)

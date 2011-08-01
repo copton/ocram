@@ -10,21 +10,14 @@ import Ocram.Analysis.BlockingFunctions (blocking_functions)
 type Input = ()
 type Output = TBlockingFunctions
 
-reduce :: Ast -> Input -> ER Output
-reduce ast _ =
-	return . reduce_bf =<< blocking_functions ast
+execute :: Ast -> Input -> ER Output
+execute ast _ =
+	return . reduce =<< blocking_functions ast
 
 setup :: TCase -> (Input, Output)
 setup tc = ((), tcBlockingFunctions tc)	
 
-tests = runTests "BlockingFunctions" reduce setup
---	 ("void foo() { }", [])
---	,("", [])
---	,("void foo();", [])
---	,("__attribute__((tc_blocking)) void foo();", ["foo"])
---	,("__attribute__((tc_blocking)) int foo();", ["foo"])
---	,("__attribute__((tc_blocking)) int foo(char);", ["foo"])
---	,("__attribute__((tc_blocking)) int foo(double,...);", ["foo"])
+tests = runTests "BlockingFunctions" execute setup
 --	,([$paste|
 --		__attribute__((tc_blocking)) int block(int i);
 --

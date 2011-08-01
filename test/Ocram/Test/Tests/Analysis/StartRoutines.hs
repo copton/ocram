@@ -10,13 +10,13 @@ import Ocram.Analysis.StartRoutines (start_routines)
 type Input = TDefinedFunctions
 type Output = TStartRoutines
 
-reduce :: Ast -> Input -> ER Output
-reduce ast df = return . reduce_sr =<< start_routines (enrich_df df) ast
+execute :: Ast -> Input -> ER Output
+execute ast df = return . reduce =<< start_routines (enrich df) ast
 
 setup :: TCase -> (Input, Output)
 setup tc = (tcDefinedFunctions tc, tcStartRoutines tc)
 
-tests = runTests "StartRoutines" reduce setup
+tests = runTests "StartRoutines" execute setup
 --	[ (
 --			(
 --				"__attribute__((tc_run_thread)) void foo() { }", 

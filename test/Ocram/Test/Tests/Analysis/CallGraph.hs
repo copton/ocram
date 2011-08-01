@@ -10,14 +10,14 @@ import Ocram.Analysis.CallGraph (call_graph)
 type Input = (TDefinedFunctions, TBlockingFunctions)
 type Output = TCallGraph
 
-reduce :: Ast -> Input -> ER Output
-reduce ast (df, bf) =
-	return . reduce_cg =<< call_graph (enrich_df df) (enrich_bf bf) ast
+execute :: Ast -> Input -> ER Output
+execute ast (df, bf) =
+	return . reduce =<< call_graph (enrich df) (enrich bf) ast
 
 setup :: TCase -> (Input, Output)
 setup tc = ((tcDefinedFunctions tc, tcBlockingFunctions tc), tcCallGraph tc)
 
-tests = runTests "CallGraph" reduce setup
+tests = runTests "CallGraph" execute setup
 --	(([$paste|
 --			void foo() { 
 --				bar();

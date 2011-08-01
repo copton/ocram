@@ -11,10 +11,10 @@ import Control.Monad.Reader (ask)
 type Input = (TCriticalFunctions, TStartRoutines)
 type Output = TErrorCodes
 
-reduce :: Ast -> Input -> ER Output
-reduce ast (cf, sr) = do
+execute :: Ast -> Input -> ER Output
+execute ast (cf, sr) = do
 	opt <- ask
-	let check = check_constraints (enrich_cf cf) (enrich_sr sr) ast
+	let check = check_constraints (enrich cf) (enrich sr) ast
 	return $ case execER opt check of
 		Left e -> extractErrorCodes e
 		Right _ -> []
@@ -22,7 +22,7 @@ reduce ast (cf, sr) = do
 setup :: TCase -> (Input, Output)
 setup tc = ((tcCriticalFunctions tc, tcStartRoutines tc), tcConstraints tc)
 
-tests = runTests "Constraints" reduce setup
+tests = runTests "Constraints" execute setup
 
 --threads = [
 --	(("", [], []), [2]),
