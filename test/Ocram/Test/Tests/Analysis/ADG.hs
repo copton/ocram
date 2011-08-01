@@ -1,40 +1,28 @@
-module Ocram.Test.Tests.Filter.CallGraph (
+module Ocram.Test.Tests.Analysis.ADG (
 	tests
 ) where
 
 import Ocram.Types
-import Ocram.Test.Lib 
-import Ocram.Test.Tests.Filter.Utils (extractErrorCodes)
-import Ocram.Symbols (symbol)
+import Ocram.Test.Tests.Analysis.Types
+import Ocram.Test.Tests.Analysis.Utils
 import Ocram.Analysis.ADG (check_call_graph)
-import Data.Set (fromList)
 import Control.Monad.Reader (ask)
-import qualified Data.Map as Map
-import qualified Data.Set as Set
 
-type CG = [(String, [String], [String])]
+type Input = (TCallGraph, TStartRoutines, TDefinedFunctions)
+type Output = TErrorCodes
 
-constructCallGraph :: CG -> CallGraph
-constructCallGraph cg = foldl construct Map.empty cg
-	where
-		construct m (function, callers, callees) =
-			Map.insert (symbol function) (Entry (convert callers) (convert callees)) m
-		convert fs = Set.fromList (map symbol fs)
-
-reduce :: (String, CG, [String], [String]) -> ER [Int]
-reduce (code, cg, sr, df) = do
-	let ast = parse code
-	let sr'= Set.fromList sr
-	let df' = Set.fromList df
-	let cg' = constructCallGraph cg
+reduce :: Ast -> Input -> ER Output
+reduce ast (cg, sr, df) = do
 	opt <- ask
-	return $ case execER opt (check_call_graph cg' sr' df' ast) of
+	let check = check_call_graph (enrich_cg cg) (enrich_sr sr) (enrich_df df) ast
+	return $ case execER opt check of
 		Left e -> extractErrorCodes e
 		Right _ -> []
 
-tests = runTests "CallGraph" reduce $ map createTestCase test_cases
+setup :: TCase -> (Input, Output)
+setup tc = ((tcCallGraph tc, tcStartRoutines tc, tcDefinedFunctions tc), tcADG tc)
 
-createTestCase
+tests = runTests "CallGraph" reduce setup
 
 --tests = runTests "CallGraph" reduce [
 --	(([$paste|

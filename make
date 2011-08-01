@@ -26,17 +26,17 @@ def isBuildError(line):
     return line.startswith("src/Ocram") or line.startswith("test/Ocram")
 
 def isTestError(line):
-    return line.startswith('### Failure in:')
+    return line.startswith('### Failure in:') or line.startswith('### Error in:')
 
 def diff_code(text):
     expected = []
     got = []
 
     for line in text.split("\n"):
-        if line.startswith("expected:") and line.count('"') == 2:
+        if line.startswith('expected: "') and line.count('"') == 2:
             (pre, code, post) = line.split('"')
             expected.append(code)
-        if line.startswith(" but got:") and line.count('"') == 2:
+        if line.startswith(' but got: "') and line.count('"') == 2:
             (pre, code, post) = line.split('"')
             got.append(code)
             

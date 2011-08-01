@@ -6,7 +6,7 @@ import Ocram.Types
 import Ocram.Analysis (blocking_functions, defined_functions, start_routines, call_graph, critical_functions, check_call_graph, check_sanity, check_constraints)
 import qualified Ocram.Transformation.Inline as Inline
 
-import Control.Monad.Error (runErrorT, ErrorT(ErrorT), throwError)
+import Control.Monad.Error (ErrorT(ErrorT), throwError)
 import Control.Monad.Reader (runReader)
 import Control.Monad.Writer (runWriterT)
 

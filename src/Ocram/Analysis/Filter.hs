@@ -7,7 +7,7 @@ module Ocram.Analysis.Filter
 -- imports {{{1
 import Ocram.Types
 
-import Language.C.Data.Node (NodeInfo(NodeInfo, OnlyPos))
+import Language.C.Data.Node (NodeInfo(NodeInfo, OnlyPos), isUndefNode)
 import Language.C.Data.Position (posFile, posRow)
 
 import Control.Monad.Error (throwError)
@@ -37,15 +37,18 @@ showErrors filter es = "input programm failed the following " ++ (getDescription
 
 showEnum :: Filter a -> [(Int, Error a)] -> String
 showEnum _ [] = ""
-showEnum filter ((idx,e):es) = sidx ++ ") (" ++ sid ++ ") " ++ sloc ++ "\n" ++ serr ++ "\n\n" ++ next
+showEnum filter ((idx,e):es) = sidx ++ ") (" ++ sid ++ ") " ++ sloc ++ "\n" ++ serr ++ "\n" ++ next
 	where
 		sidx = show idx
-		sloc = showLocation (getLocation e)
-		sid = show $ (getErrorIds filter) $ getError e
-		serr = getErrorDescriptions filter (getError e)
+		sloc = showLocation $ getLocation e
+		sid = show $ getErrorIds filter $ getError e
+		serr = getErrorDescriptions filter $ getError e
 		next = showEnum filter es
 
-showLocation (OnlyPos p _) = showPosition p
-showLocation (NodeInfo p _ _ ) = showPosition p
+showLocation loc
+	| isUndefNode loc = "<<undefined location>>"
+	| otherwise = case loc of
+		(OnlyPos p _) -> showPosition p
+		(NodeInfo p _ _ ) -> showPosition p
 
 showPosition p = "row: " ++ (show $ posRow p) ++ " in file: " ++ (posFile p)

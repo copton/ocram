@@ -53,7 +53,7 @@ reduce_cg :: CallGraph -> TCallGraph
 reduce_cg cg = map decompose (Map.toList cg)
 	where
 		decompose (function, (Entry callers callees)) =
-			(show function, map show (Set.toList callers), map show (Set.toList callees))
+			(function, Set.toList callers, Set.toList callees)
 
 enrich_cg :: TCallGraph -> CallGraph
 enrich_cg cg = foldl construct Map.empty cg
@@ -63,5 +63,9 @@ enrich_cg cg = foldl construct Map.empty cg
 		convert fs = Set.fromList (map symbol fs)
 
 extractErrorCodes :: String -> TErrorCodes
-extractErrorCodes = undefined
-
+extractErrorCodes text = map extract $ every_second $ lines text
+	where
+		every_second [] = []
+		every_second (_:[]) = []
+		every_second (_:x:r) = x : every_second r
+		extract line = read $ takeWhile (/=')') $ tail $ dropWhile (/='(') line

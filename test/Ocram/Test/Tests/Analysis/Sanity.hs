@@ -1,22 +1,25 @@
-module Ocram.Test.Tests.Filter.Sanity (
+module Ocram.Test.Tests.Analysis.Sanity (
 	tests
 ) where
 
 import Ocram.Types
-import Ocram.Test.Lib
+import Ocram.Test.Tests.Analysis.Types
+import Ocram.Test.Tests.Analysis.Utils
 import Ocram.Analysis.Sanity (check_sanity)
-import Ocram.Test.Tests.Filter.Utils (extractErrorCodes)
 import Control.Monad.Reader (ask)
 
-reduce :: String -> ER [Int]
-reduce code = do
-	let ast = parse code
+type Input = ()
+type Output = TErrorCodes
+
+reduce :: Ast -> Input -> ER Output
+reduce ast _ = do
 	opt <- ask
-	return $ case execER opt (check_sanity ast) of
+	let check = check_sanity ast
+	return $ case execER opt check of
 		Left e -> extractErrorCodes e
-		Right _ -> []
+		Right _ -> [] 
 
-tests = runTests "Sanity" reduce [
-		("void foo { }", [1])
-	]
+setup :: TCase -> (Input, Output)
+setup tc = ((), tcSanity tc)
 
+tests = runTests "Sanity" reduce setup

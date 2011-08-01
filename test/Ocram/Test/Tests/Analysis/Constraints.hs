@@ -1,43 +1,46 @@
-module Ocram.Test.Tests.Filter.Constraints (
+module Ocram.Test.Tests.Analysis.Constraints (
 	tests
 ) where
 
 import Ocram.Types
-import Ocram.Test.Lib
+import Ocram.Test.Tests.Analysis.Types
+import Ocram.Test.Tests.Analysis.Utils
 import Ocram.Analysis.Constraints (check_constraints)
-import Ocram.Test.Tests.Filter.Utils (extractErrorCodes)
 import Control.Monad.Reader (ask)
-import Data.Set (fromList)
 
-tests = runTests "Constraints" reduce $ threads ++ function_pointer
+type Input = (TCriticalFunctions, TStartRoutines)
+type Output = TErrorCodes
 
-reduce :: (String, [String], [String]) -> ER [Int]
-reduce (code, cf, sr)  = do
-	let ast = parse code
-	let cf' = fromList cf
-	let sr' = fromList sr
+reduce :: Ast -> Input -> ER Output
+reduce ast (cf, sr) = do
 	opt <- ask
-	return $ case execER opt (check_constraints cf' sr' ast) of
+	let check = check_constraints (enrich_cf cf) (enrich_sr sr) ast
+	return $ case execER opt check of
 		Left e -> extractErrorCodes e
 		Right _ -> []
 
-threads = [
-	(("", [], []), [2]),
-	(("__attribute__((tc_blocking)) void foo();",
-		["foo"], []), [2]),
-	(([$paste|
-		__attribute__((tc_blocking)) void foo(); 
-	  __attribute__((tc_run_thread)) void baz() { foo(); }
-	|], ["foo", "baz"], ["baz"]), [])
-	]
+setup :: TCase -> (Input, Output)
+setup tc = ((tcCriticalFunctions tc, tcStartRoutines tc), tcConstraints tc)
 
-function_pointer = [
-	(([$paste|
-		__attribute__((tc_blocking)) void foo(); 
-		void bar(void*); 
-		__attribute__((tc_run_thread)) void baz() { 
-			bar(&foo); 
-			foo();
-		}
-	|], ["foo", "baz"], ["baz"]), [1])
-	]
+tests = runTests "Constraints" reduce setup
+
+--threads = [
+--	(("", [], []), [2]),
+--	(("__attribute__((tc_blocking)) void foo();",
+--		["foo"], []), [2]),
+--	(([$paste|
+--		__attribute__((tc_blocking)) void foo(); 
+--	  __attribute__((tc_run_thread)) void baz() { foo(); }
+--	|], ["foo", "baz"], ["baz"]), [])
+--	]
+--
+--function_pointer = [
+--	(([$paste|
+--		__attribute__((tc_blocking)) void foo(); 
+--		void bar(void*); 
+--		__attribute__((tc_run_thread)) void baz() { 
+--			bar(&foo); 
+--			foo();
+--		}
+--	|], ["foo", "baz"], ["baz"]), [1])
+--	]

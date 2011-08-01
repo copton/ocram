@@ -6,6 +6,7 @@ import Ocram.Analysis.Filter
 import Ocram.Types
 import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit, ListVisitor)
 import Language.C.Data.Ident (Ident(Ident))
+import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import qualified Data.Set as Set
 import Data.Monoid (mconcat)
@@ -26,7 +27,7 @@ checker cf sr ast = checkFunctionPointer cf ast ++ checkThreads ast sr
 descriptor cf sr = Filter "constraint" (checker cf sr) printError id
 
 checkThreads (CTranslUnit _ ni) sr 
-	| Set.null sr = [Error 2 ni]
+	| Set.null sr = [Error 2 undefNode]
 	| otherwise = []
 
 checkFunctionPointer :: CriticalFunctions -> Ast -> [Error Int]

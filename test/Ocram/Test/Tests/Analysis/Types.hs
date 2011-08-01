@@ -13,12 +13,12 @@ type TErrorCodes = [Int]
 data TCase = TCase {
 	tcCode :: TCode,
 	tcOptions :: Options,
-	tcADG :: TErrorCodes,
-	tcBlockingFunctions :: TBlockingFunctions,
-	tcCallGraph :: TCallGraph,
-	tcConstraints :: TErrorCodes,
-	tcCriticalFunctions :: TCriticalFunctions,
 	tcDefinedFunctions :: TDefinedFunctions,
+	tcBlockingFunctions :: TBlockingFunctions,
+	tcStartRoutines :: TStartRoutines,
+	tcCriticalFunctions :: TCriticalFunctions,
+	tcCallGraph :: TCallGraph,
 	tcSanity :: TErrorCodes,
-	tcStartRoutines :: TStartRoutines
+	tcADG :: TErrorCodes,
+	tcConstraints :: TErrorCodes
 }	
