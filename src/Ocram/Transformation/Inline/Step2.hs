@@ -17,7 +17,7 @@ import Language.C.Syntax.AST
 import Data.Monoid
 import qualified Data.Map as Map
 
--- step2 {{{1
+-- step2 :: [CDecl] -> [CFunDef] -> WR FunctionInfos {{{1
 step2 :: [CDecl] -> [CFunDef] -> WR FunctionInfos
 step2 bfs cfs = return $ mconcat (bffis ++ cffis)
 	where
@@ -40,30 +40,30 @@ instance Monoid UpState where
 	mappend (UpState a b) (UpState a' b') = UpState (mappend a a') (mappend b b')
 
 instance DownVisitor DownState where
-	-- add parameters to symbol table
+	-- add parameters to symbol table {{{2
 	downCFunDef fd _ = DownState (params2SymTab params) params
 		where
 			params = extractParams fd
 
-	-- add declarations to symbol table {{{3
+	-- add declarations to symbol table {{{2
 	downCBlockItem (CBlockDecl cd) d = d {dSt = Map.insert (symbol cd) cd (dSt d)}
 
 	downCBlockItem _ d = d
 
 instance UpVisitor DownState UpState where
-	-- pass declarations from down state to up state
+	-- pass declarations from down state to up state {{{2
 	upCBlockItem o@(CBlockDecl _) d u = (o, u `mappend` UpState mempty (dSt d))
 
 	upCBlockItem o _ u = (o, u)
 
-	-- create function info entry {{{3
+	-- create function info entry {{{2
 	upCFunDef o@(CFunDef tss _ _ body _) d u = (o, UpState (Map.singleton name fi) mempty)
 		where
 			name = symbol o
 			fi = FunctionInfo (extractTypeSpec tss) (dPs d) (dSt d `mappend` uSt u) (Just body)
 
 instance ListVisitor DownState UpState where
-	-- remove variable declarations {{{3
+	-- remove variable declarations {{{2
 	nextCBlockItem (CBlockDecl _) d u = ([], d, u)
 
 	nextCBlockItem o d u = ([o], d, u)

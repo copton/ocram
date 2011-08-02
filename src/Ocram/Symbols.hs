@@ -1,9 +1,13 @@
-module Ocram.Symbols (symbol) where
+module Ocram.Symbols 
+-- export {{{1
+(symbol) where
 
+-- import {{{1
 import Ocram.Types (Symbol)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident
 
+-- symbol {{{1
 class CSymbol s where
 	symbol :: s -> Symbol
 

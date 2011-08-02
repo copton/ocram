@@ -15,5 +15,3 @@ import Ocram.Names (blockingAttr, startRoutineAttr)
 -- ident {{{1
 ident s = Ident s 0 un
 un = undefNode
-
-

@@ -24,7 +24,7 @@ import qualified Data.Map as Map
 
 import Control.Monad.Reader (asks)
 
--- step1 {{{1
+-- step1 :: Ast -> WR (Ast, [CDecl], [CFunDef]) {{{1
 step1 :: Ast -> WR (Ast, [CDecl], [CFunDef])
 step1 ast = do
 	bf <- asks $ getBlockingFunctions . snd
@@ -33,10 +33,9 @@ step1 ast = do
 	return (ast', bf', cf')
 
 -- Types {{{2
-
 data DownState = DownState {
-		  dBf :: BlockingFunctions
-		, dCf :: CriticalFunctions
+		dBf :: BlockingFunctions
+	, dCf :: CriticalFunctions
 	}
 
 data UpState = UpState {

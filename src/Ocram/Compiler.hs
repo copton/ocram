@@ -10,10 +10,11 @@ import Control.Monad.Error (ErrorT(ErrorT), throwError)
 import Control.Monad.Reader (runReader)
 import Control.Monad.Writer (runWriterT)
 
-
+-- analysis :: Options -> Ast -> EIO (Analysis, Ast) {{{1
 analysis :: Options -> Ast -> EIO (Analysis, Ast)
 analysis opt ast = ErrorT $ return $ execER opt (analysis' ast)
 
+-- analysis' :: Ast -> ER (Analysis, Ast) {{{1
 analysis' :: Ast -> ER (Analysis, Ast)
 analysis' ast = do
 	check_sanity ast
@@ -27,13 +28,16 @@ analysis' ast = do
 	let ana = Analysis bf df sr cg cf
 	return (ana, ast)
 
+-- transformation :: Options -> Analysis -> Ast -> EIO (Ast, DebugSymbols) {{{1
+transformation :: Options -> Analysis -> Ast -> EIO (Ast, DebugSymbols)
+transformation opt ana ast = do
+	transformation' <- ErrorT $ return $ select_transformation opt	
+	return $ execWR (opt,ana) (transformation' ast)	
+
+-- select_transformation :: Options -> Either String (Ast -> WR Ast) {{{2
 select_transformation :: Options -> Either String (Ast -> WR Ast)
 select_transformation opt =
 	case optScheme opt of
 		"inline" -> return Inline.transformation
 		s -> throwError $ "unknown compilation scheme \"" ++ s ++ "\"."	
 
-transformation :: Options -> Analysis -> Ast -> EIO (Ast, DebugSymbols)
-transformation opt ana ast = do
-	transformation' <- ErrorT $ return $ select_transformation opt	
-	return $ execWR (opt,ana) (transformation' ast)	

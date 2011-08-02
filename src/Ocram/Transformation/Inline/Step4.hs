@@ -29,7 +29,7 @@ import Language.C.Pretty (pretty)
 
 import Control.Monad.Reader (asks)
 
---- step4 {{{1
+-- step4 :: FunctionInfos -> Ast -> WR Ast {{{1
 step4 :: FunctionInfos -> Ast -> WR Ast
 step4 fis (CTranslUnit decls ni) = do
 	sr <- asks $ getStartRoutines . snd
@@ -37,7 +37,7 @@ step4 fis (CTranslUnit decls ni) = do
 	let thread_functions' = map CFDefExt thread_functions
 	return $ CTranslUnit (decls ++ thread_functions') ni
 
---- createThreadFunction {{{2
+-- createThreadFunction :: FunctionInfos -> (Integer, Symbol) -> WR CFunDef {{{2
 createThreadFunction :: FunctionInfos -> (Integer, Symbol) -> WR CFunDef
 createThreadFunction fis (tid, name) = do
 	cg <- asks (getCallGraph . snd)	
@@ -61,15 +61,14 @@ createThreadFunction fis (tid, name) = do
 				 Nothing [] un)
 			[] (CCompound [] (intro : functions) un) un
 
--- inlineCriticalFunction {{{2
+-- inlineCriticalFunction :: CallChain -> FunctionInfos -> Symbol -> [CBlockItem] {{{2
 type CallChain = [Symbol]
-
 inlineCriticalFunction :: CallChain -> FunctionInfos -> Symbol -> [CBlockItem]
 inlineCriticalFunction cc fis fName = lbl : body' ++ close : []
 	where
 		result :: (CStat, UpState)
 		result = traverseCStat body $ DownState cc (fiVariables fi) fis fName 1
-		fi = mlookup "XXX A" fName fis
+		fi = fis Map.! fName
 		body = fromJust $ fiBody fi
 		body' = extractBody $ fst result
 		extractBody (CCompound _ body _) = body
@@ -113,13 +112,13 @@ instance ListVisitor DownState UpState where
 
 	nextCBlockItem o d u = ([o], d, u)
 
--- criticalFunctionCall {{{3
+-- criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> Maybe CExpr -> [CBlockItem] {{{3
 criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> Maybe CExpr -> [CBlockItem]
 criticalFunctionCall d cfName params resultLhs = parameters ++ continuation : call : return : lbl : result ?: []
 	where
 		lid = dLbl d
 		chain' = (dCc d) ++ [cfName]
-		fi = mlookup "XXX B" cfName (dFis d) 
+		fi = (dFis d) Map.! cfName
 
 		parameters = map (createParamAssign chain') $ zip params $ fiParams fi
 
@@ -133,7 +132,7 @@ criticalFunctionCall d cfName params resultLhs = parameters ++ continuation : ca
 		result = fmap assignResult resultLhs
 		assignResult lhs = createAssign lhs (stackAccess chain' (Just resVar))
 
--- createParamAssign
+-- createParamAssign :: CallChain -> (CExpr, CDecl) -> CBlockItem {{{4
 createParamAssign :: CallChain -> (CExpr, CDecl) -> CBlockItem
 createParamAssign chain (exp, decl) = createAssign lhs rhs
 	where
@@ -143,7 +142,7 @@ createParamAssign chain (exp, decl) = createAssign lhs rhs
 createAssign :: CExpr -> CExpr -> CBlockItem
 createAssign lhs rhs = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) un)
 
--- stackAccess {{{3
+-- stackAccess :: CallChain -> Maybe Symbol -> CExpr {{{3
 stackAccess :: CallChain -> Maybe Symbol -> CExpr
 stackAccess (sr:chain) variable = foldl create base $ zip pointers members
 	where
@@ -157,8 +156,3 @@ stackAccess (sr:chain) variable = foldl create base $ zip pointers members
 createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un
 
 nextLabel d = d {dLbl = (dLbl d) + 1}
-
-mlookup :: (Show k, Ord k) => String -> k -> Map.Map k v -> v
-mlookup s k m = case Map.lookup k m of
-	Nothing -> error $ s ++ ": " ++ (show k)
-	Just x -> x

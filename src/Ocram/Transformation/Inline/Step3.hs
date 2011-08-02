@@ -25,7 +25,7 @@ import qualified Data.List as List
 
 import Control.Monad.Reader (asks)
 
--- step3 {{{1
+-- step3 :: FunctionInfos -> Ast -> WR Ast {{{1
 step3 :: FunctionInfos -> Ast -> WR Ast
 step3 fis (CTranslUnit decls ni) = do
 	frames <- createTStackFrames fis
@@ -37,7 +37,7 @@ step3 fis (CTranslUnit decls ni) = do
 createTStack :: Symbol -> CExtDecl
 createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
 
--- createTStackFrames :: StartRoutines -> CallGraph -> FunctionInfos -> [CExtDecl] {{{2
+-- createTStackFrames :: FunctionInfos -> WR [CExtDecl] {{{3
 createTStackFrames :: FunctionInfos -> WR [CExtDecl]
 createTStackFrames fis = do
 		fipairs <- createFiPairs fis

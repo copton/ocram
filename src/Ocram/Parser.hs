@@ -1,7 +1,10 @@
-module Ocram.Parser (
+module Ocram.Parser 
+-- export {{{1
+(
 	parse
 ) where
 
+-- import {{{1
 import Ocram.Types (EIO, Ast)
 import Ocram.Options (Options, optInput, optCppOptions)
 import Language.C (parseCFile)
@@ -9,6 +12,7 @@ import Language.C.System.GCC (newGCC)
 import Control.Monad.Error (throwError)
 import Control.Monad.Trans (liftIO)
 
+-- parse :: Options -> EIO Ast {{{1
 parse :: Options -> EIO Ast
 parse options = do
 	let cpp = "-DOCRAM_MODE" : words (optCppOptions options)

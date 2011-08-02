@@ -1,7 +1,10 @@
-module Ocram.Options (
+module Ocram.Options 
+-- export {{{1
+(
 	Options(..), options, defaultOptions
 ) where
 
+-- import {{{1
 import Ocram.Types (EIO, Options(..))
 import System.Environment (getArgs, getProgName)
 import Data.List (intersperse)
@@ -10,6 +13,7 @@ import System.Console.GetOpt
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Error (throwError)
 
+-- options :: EIO Options {{{1
 options :: EIO Options
 options = do
 	argv <- liftIO getArgs
