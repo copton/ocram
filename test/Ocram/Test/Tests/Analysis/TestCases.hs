@@ -206,7 +206,7 @@ test_cases = [
 		[]
 		[]
 		[]
--- two threads {{{2
+-- two independant threads {{{2
 	,TCase
 		[$paste|
 			__attribute__((tc_blocking)) void block1();
@@ -228,6 +228,35 @@ test_cases = [
 			("block2", ["start2"], []),
 			("start1", [], ["block1"]),
 			("start2", [], ["block2"])
+		]
+		[]
+		[]
+		[]
+		[]
+-- reentrance {{{2
+	,TCase
+		[$paste|
+			__attribute__((tc_blocking)) void block();
+			void critical() {
+				block();
+			}
+			__attribute__((tc_run_thread)) void start1() {
+				critical();
+			}
+			__attribute__((tc_run_thread)) void start2() {
+				critical();
+			}
+		|]
+		defaultOptions
+		["critical", "start1", "start2"]
+		["block"]
+		["start1", "start2"]
+		["block", "critical", "start1", "start2"]
+		[
+			("block", ["critical"], []),
+			("critical", ["start1", "start2"], ["block"]),
+			("start1", [], ["critical"]),
+			("start2", [], ["critical"])
 		]
 		[]
 		[]
