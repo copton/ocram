@@ -25,36 +25,41 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
 
-import Debug.Trace (trace)
 import Language.C.Pretty (pretty)
 
+import Control.Monad.Reader (asks)
+
 --- step4 {{{1
-step4 :: StartRoutines -> CallGraph -> BlockingFunctions -> FunctionInfos -> Ast -> Ast
-step4 sr cg bf fis (CTranslUnit decls ni) = CTranslUnit (decls ++ thread_functions) ni
-	where
-		thread_functions = map CFDefExt $ map (createThreadFunction cg bf fis) $ zip [1..] $ Set.elems sr
+step4 :: FunctionInfos -> Ast -> WR Ast
+step4 fis (CTranslUnit decls ni) = do
+	sr <- asks $ getStartRoutines . snd
+	thread_functions <- mapM (createThreadFunction fis) $ zip [1..] $ Set.elems sr
+	let thread_functions' = map CFDefExt thread_functions
+	return $ CTranslUnit (decls ++ thread_functions') ni
 
 --- createThreadFunction {{{2
-createThreadFunction :: CallGraph -> BlockingFunctions -> FunctionInfos -> (Integer, Symbol) -> CFunDef
-createThreadFunction cg bf fis (tid, name) = 
-	CFunDef [CTypeSpec (CVoidType un)]
-		(CDeclr (Just (ident (handlerFunction tid)))
-			[CFunDeclr
-					(Right
-						 ([CDecl [CTypeSpec (CVoidType un)]
-								 [(Just (CDeclr (Just (ident contVar)) 
-										[CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)]
-								 un],
-							False))
-					[] un]
-			 Nothing [] un)
-		[] (CCompound [] (intro : functions) un) un
-	where
-		intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
-		callChain = filter onlyDefs $ getCallChain cg name
-		onlyDefs name = (not $ Set.member name bf) && (Map.member name fis)
-		functions = concatMap mapFunction $ List.drop 1 $ List.inits callChain
-		mapFunction chain = inlineCriticalFunction chain fis (last chain)
+createThreadFunction :: FunctionInfos -> (Integer, Symbol) -> WR CFunDef
+createThreadFunction fis (tid, name) = do
+	cg <- asks (getCallGraph . snd)	
+	bf <- asks (getBlockingFunctions . snd)
+	let intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
+	let onlyDefs name = (not $ Set.member name bf) && (Map.member name fis)
+	let callChain = filter onlyDefs $ getCallChain cg name
+	let mapFunction chain = inlineCriticalFunction chain fis (last chain)
+	let functions = concatMap mapFunction $ List.drop 1 $ List.inits callChain
+	return $
+		CFunDef [CTypeSpec (CVoidType un)]
+			(CDeclr (Just (ident (handlerFunction tid)))
+				[CFunDeclr
+						(Right
+							 ([CDecl [CTypeSpec (CVoidType un)]
+									 [(Just (CDeclr (Just (ident contVar)) 
+											[CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)]
+									 un],
+								False))
+						[] un]
+				 Nothing [] un)
+			[] (CCompound [] (intro : functions) un) un
 
 -- inlineCriticalFunction {{{2
 type CallChain = [Symbol]

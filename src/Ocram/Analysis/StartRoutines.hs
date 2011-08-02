@@ -1,7 +1,7 @@
 module Ocram.Analysis.StartRoutines 
 -- exports {{{1
 (
-	findStartRoutines
+	start_routines
 ) where
 
 -- imports {{{1
@@ -14,12 +14,10 @@ import Data.Map (elems)
 import Ocram.Symbols (symbol)
 import Data.Set (fromList)
 
--- findStartRoutines :: Context -> Result StartRoutines {{{1
-findStartRoutines :: Context -> Result StartRoutines
-findStartRoutines ctx = do
-	ast <- getSaneAst ctx
-	df <- getDefinedFunctions ctx
-	let df' = getFunDefs (getAst ast) df
+-- start_routines :: DefinedFunctions -> Ast -> ER StartRoutines {{{1
+start_routines :: DefinedFunctions -> Ast -> ER StartRoutines
+start_routines df ast = 
+	let df' = getFunDefs ast df in
 	return $ fromList $ map symbol $ filter isStartRoutine $ elems df'
 
 isStartRoutine :: CFunDef -> Bool

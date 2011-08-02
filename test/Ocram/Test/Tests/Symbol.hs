@@ -5,8 +5,8 @@ module Ocram.Test.Tests.Symbol (
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit), CExternalDeclaration(CFDefExt, CDeclExt))
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
-import Ocram.Types (getAst, Ast, Symbol)
-import Ocram.Test.Lib (parse')
+import Ocram.Types (Ast, Symbol)
+import Ocram.Test.Lib (parse)
 
 reduce (CTranslUnit [CFDefExt cfd] _) = symbol cfd
 reduce (CTranslUnit [CDeclExt cde] _) = symbol cde
@@ -27,4 +27,4 @@ runTest :: (Ast -> String) -> (Int, (String, String)) -> Test
 runTest reduce (number, (code, expected)) = TestCase $ assertEqual name expected symbol
 	where
 		name = "test" ++ show number
-		symbol = reduce $ getAst $ parse' code
+		symbol = reduce $ parse code

@@ -13,10 +13,10 @@ def execute(commandline):
     return (proc.returncode, out, err)
 
 def notify(text, color):
-    cmd = ["/usr/bin/osd_cat", "-A", "right", "-d", "2", "-c", color]
+    cmd = "/usr/bin/osd_cat -A right -p bottom -o -40 -d 2 -c %s" % color
 
     if os.fork() == 0:
-        subprocess.Popen(cmd, stdin=subprocess.PIPE).communicate(text)
+        subprocess.Popen(cmd.split(' '), stdin=subprocess.PIPE).communicate(text)
         sys.exit(0)
 
 def getFirstLine(text, predicate):
@@ -26,17 +26,17 @@ def isBuildError(line):
     return line.startswith("src/Ocram") or line.startswith("test/Ocram")
 
 def isTestError(line):
-    return line.startswith('### Failure in:')
+    return line.startswith('### Failure in:') or line.startswith('### Error in:')
 
 def diff_code(text):
     expected = []
     got = []
 
     for line in text.split("\n"):
-        if line.startswith("expected:") and line.count('"') == 2:
+        if line.startswith('expected: "') and line.count('"') == 2:
             (pre, code, post) = line.split('"')
             expected.append(code)
-        if line.startswith(" but got:") and line.count('"') == 2:
+        if line.startswith(' but got: "') and line.count('"') == 2:
             (pre, code, post) = line.split('"')
             got.append(code)
             

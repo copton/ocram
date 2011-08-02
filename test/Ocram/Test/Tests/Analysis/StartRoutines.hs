@@ -2,19 +2,18 @@ module Ocram.Test.Tests.Analysis.StartRoutines (
 	tests
 ) where 
 
-import Ocram.Types (getStartRoutines)
-import Ocram.Test.Lib (createContext)
-import Ocram.Test.Tests.Analysis.Utils (runTests)
-import Ocram.Symbols (symbol)
-import qualified Data.Set as Set
+import Ocram.Types
+import Ocram.Test.Tests.Analysis.Types
+import Ocram.Test.Tests.Analysis.Utils
+import Ocram.Analysis.StartRoutines (start_routines)
 
-reduce code = do
-	let ctx = createContext code Nothing
-	sr <- getStartRoutines ctx
-	return $ (Set.map symbol) sr
+type Input = TDefinedFunctions
+type Output = TStartRoutines
 
-tests = runTests "StartRoutines" reduce
-	[("__attribute__((tc_run_thread)) void foo() { }", Set.singleton "foo")
-	,("void __attribute__((tc_run_thread)) foo() { }", Set.singleton "foo")
-	,("", Set.empty)
-	,("void foo() {}", Set.empty)]
+execute :: Ast -> Input -> ER Output
+execute ast df = return . reduce =<< start_routines (enrich df) ast
+
+setup :: TCase -> (Input, Output)
+setup tc = (tcDefinedFunctions tc, tcStartRoutines tc)
+
+tests = runTests TTStartRoutines execute setup 
