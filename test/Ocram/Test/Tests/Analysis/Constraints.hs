@@ -22,25 +22,4 @@ execute ast (cf, sr) = do
 setup :: TCase -> (Input, Output)
 setup tc = ((tcCriticalFunctions tc, tcStartRoutines tc), tcConstraints tc)
 
-tests = runTests "Constraints" execute setup
-
---threads = [
---	(("", [], []), [2]),
---	(("__attribute__((tc_blocking)) void foo();",
---		["foo"], []), [2]),
---	(([$paste|
---		__attribute__((tc_blocking)) void foo(); 
---	  __attribute__((tc_run_thread)) void baz() { foo(); }
---	|], ["foo", "baz"], ["baz"]), [])
---	]
---
---function_pointer = [
---	(([$paste|
---		__attribute__((tc_blocking)) void foo(); 
---		void bar(void*); 
---		__attribute__((tc_run_thread)) void baz() { 
---			bar(&foo); 
---			foo();
---		}
---	|], ["foo", "baz"], ["baz"]), [1])
---	]
+tests = runTests TTConstraints execute setup

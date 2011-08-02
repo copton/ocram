@@ -37,7 +37,7 @@ showErrors filter es = "input programm failed the following " ++ (getDescription
 
 showEnum :: Filter a -> [(Int, Error a)] -> String
 showEnum _ [] = ""
-showEnum filter ((idx,e):es) = sidx ++ ") (" ++ sid ++ ") " ++ sloc ++ "\n" ++ serr ++ "\n" ++ next
+showEnum filter ((idx,e):es) = "### Error: " ++ sidx ++ ") (" ++ sid ++ ") " ++ sloc ++ "\n" ++ serr ++ "\n" ++ next
 	where
 		sidx = show idx
 		sloc = showLocation $ getLocation e

@@ -22,4 +22,4 @@ execute ast _ = do
 setup :: TCase -> (Input, Output)
 setup tc = ((), tcSanity tc)
 
-tests = runTests "Sanity" execute setup
+tests = runTests TTSanity execute setup

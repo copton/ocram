@@ -15,7 +15,6 @@ import Data.Monoid (mconcat)
 check_sanity :: Ast -> ER ()
 check_sanity ast = performFilter descriptor ast
 
-
 -- util {{{1
 checker :: Ast -> [Error Int]
 checker ast = snd $ traverseCTranslUnit ast emptyDownState

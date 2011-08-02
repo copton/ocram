@@ -10,6 +10,7 @@ import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
 import qualified Data.Set as Set
 import qualified Data.Map as Map
+import Data.List (isPrefixOf)
 
 runTest :: (Eq o, Show o) => (Ast -> i -> ER o) -> (Int, (TCode, Options, (i, o))) -> Test
 runTest execute (number, (code, options, (input, output))) = TestCase $ assertEqual name output result
@@ -20,10 +21,11 @@ runTest execute (number, (code, options, (input, output))) = TestCase $ assertEq
 			Left e -> error e
 			Right x -> x
 
-runTests :: (Eq o, Show o) => String -> (Ast -> i -> ER o) -> (TCase -> (i, o)) -> Test
-runTests label execute setup = TestLabel label $ TestList $ map (runTest execute) $ zip [1..] $ map prepare test_cases
+runTests :: (Eq o, Show o) => TestType -> (Ast -> i -> ER o) -> (TCase -> (i, o)) -> Test
+runTests test_type execute setup = TestLabel (show test_type) $ TestList $ map (runTest execute) $ zip [0..] $ map prepare $ filter type_filter test_cases
 	where
 		prepare tc = (tcCode tc, tcOptions tc, setup tc)
+		type_filter tc = test_type `notElem` (tcExclude tc)
 
 class TestData d t where
 	reduce :: d -> t
@@ -46,9 +48,6 @@ instance TestData CallGraph TCallGraph where
 			convert fs = Set.fromList (map symbol fs)
 
 extractErrorCodes :: String -> TErrorCodes
-extractErrorCodes text = map extract $ every_second $ lines text
+extractErrorCodes text = map extract $ filter ("### Error:" `isPrefixOf`) $ lines text
 	where
-		every_second [] = []
-		every_second (_:[]) = []
-		every_second (_:x:r) = x : every_second r
 		extract line = read $ takeWhile (/=')') $ tail $ dropWhile (/='(') line

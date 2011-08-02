@@ -17,42 +17,4 @@ execute ast (cg, bf) =
 setup :: TCase -> (Input, Output)
 setup tc = ((tcCallGraph tc, tcBlockingFunctions tc), tcCriticalFunctions tc)
 
-tests = runTests "CriticalFunctions" execute setup
---	 ("void foo() { }", empty)
---	,("", empty)
---	,("void foo();", empty)
---	,("__attribute__((tc_blocking)) void foo();"
---		, fromList ["foo"])
---	,([$paste|
---		__attribute__((tc_blocking)) void foo(); 
---
---		void bar() { 
---			foo(); 
---		}
---		|], fromList ["foo", "bar"])
---	,([$paste|
---			__attribute__((tc_blocking)) void foo(); 
---		
---			void bar(); 
---			void baz() { 
---				bar(); 
---				foo(); 
---			}
---		|], fromList ["baz", "foo"])
---	,([$paste|
---			__attribute__((tc_blocking)) void D(); 
---			
---			void B() {
---				D();
---			} 
---
---			void C() {
---				D();
---			} 
---	
---			void A() {
---				B();
---				C();
---			}
---			|], fromList ["A", "B", "C", "D"])
---	]
+tests = runTests TTCriticalFunctions execute setup

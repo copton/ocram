@@ -22,47 +22,4 @@ execute ast (cg, sr, df) = do
 setup :: TCase -> (Input, Output)
 setup tc = ((tcCallGraph tc, tcStartRoutines tc, tcDefinedFunctions tc), tcADG tc)
 
-tests = runTests "CallGraph" execute setup
-
---tests = runTests "CallGraph" execute [
---	(([$paste|
---			void foo() {
---				bar();
---			} 
---
---			void bar() {
---				foo();
---			}
---		|],
---		[("foo", ["bar"], ["bar"]), ("bar", ["foo"], ["foo"])],
---		[""],
---		["foo", "bar"]),
---		[]),
---	(([$paste|
---			__attribute__((tc_blocking)) void block(); 
---			__attribute__((tc_run_thread)) void start() {
---				rec();
---			} 
---			void rec() {
---				block(); 
---				start();
---			}
---		|], 
---		[("block", ["rec"], []), ("start", ["rec"], ["rec"]), ("rec", ["start"], ["block", "start"])],
---		["start"],
---		["start", "rec"]),
---		[1]),
---	(([$paste|
---			__attribute__((tc_blocking)) int block(int i);
---
---			__attribute__((tc_run_thread)) void start() 
---			{
---				int i;
---				i = block(i);
---			}
---		|], 
---		[("block", ["start"], []), ("start", [], ["block"])],
---		["start"],
---		["start"]),
---		[])
---	]
+tests = runTests TTADG execute setup

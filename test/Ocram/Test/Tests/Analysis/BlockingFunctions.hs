@@ -17,14 +17,4 @@ execute ast _ =
 setup :: TCase -> (Input, Output)
 setup tc = ((), tcBlockingFunctions tc)	
 
-tests = runTests "BlockingFunctions" execute setup
---	,([$paste|
---		__attribute__((tc_blocking)) int block(int i);
---
---		__attribute__((tc_run_thread)) void start() 
---		{
---			int i;
---			i = block(i);
---		}
---	|], ["block"])
---	]
+tests = runTests TTBlockingFunctions execute setup
