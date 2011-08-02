@@ -1,22 +1,20 @@
 module Ocram.Analysis.BlockingFunctions 
 -- exports {{{1
 (
-	determineBlockingFunctions
+	blocking_functions
 ) where
 
 -- imports {{{1
-import Ocram.Types (Result, getAst, SaneAst, BlockingFunctions, Context(getSaneAst))
+import Ocram.Types
 import Ocram.Names (blockingAttr)
-import qualified Data.Set as Set
+import Data.Set as Set
 import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTranslUnit, ListVisitor)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 
--- determineBlockingFunctions :: Context -> Result BlockingFunctions {{{1
-determineBlockingFunctions :: Context -> Result BlockingFunctions
-determineBlockingFunctions ctx = do
-	ast <- getSaneAst ctx
-	return $ snd $ traverseCTranslUnit (getAst ast) emptyDownState
+-- blocking_functions :: Ast -> ER BlockingFunctions {{{1
+blocking_functions :: Ast -> ER BlockingFunctions
+blocking_functions ast = return $ snd $ traverseCTranslUnit ast emptyDownState
 
 instance UpVisitor EmptyDownState BlockingFunctions where
 	upCExtDecl o@(CDeclExt (CDecl ss [(Just (CDeclr (Just (Ident name _ _)) [CFunDeclr _ _ _] Nothing _ _), Nothing, Nothing)] _)) _ _

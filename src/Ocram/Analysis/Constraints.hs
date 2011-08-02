@@ -1,30 +1,19 @@
-module Ocram.Filter.Constraints (
-	checkConstraints, getErrorCodes
+module Ocram.Analysis.Constraints (
+	check_constraints
 ) where
 
-import Ocram.Filter.Util
+import Ocram.Analysis.Filter
 import Ocram.Types
 import Ocram.Visitor (UpVisitor(..), DownVisitor(..), traverseCTranslUnit, ListVisitor)
 import Language.C.Data.Ident (Ident(Ident))
+import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import qualified Data.Set as Set
 import Data.Monoid (mconcat)
 
--- checkConstraints :: Context -> Result ValidAst {{{1
-checkConstraints :: Context -> Result ValidAst
-checkConstraints ctx = do
-	ast <- getForestAst ctx
-	cf <- getCriticalFunctions ctx
-	sr <- getStartRoutines ctx
-	fmap ValidAst $ performFilter (descriptor cf sr) $ getAst ast
-
--- getErrorCodes :: Context -> Result [Int] {{{1
-getErrorCodes :: Context -> Result [Int]
-getErrorCodes ctx = do
-	ast <- getForestAst ctx	
-	cf <- getCriticalFunctions ctx
-	sr <- getStartRoutines ctx
-	return $ performCheck (descriptor cf sr) $ getAst ast
+-- check_constraints ::  CriticalFunctions -> StartRoutines -> Ast -> ER () {{{1
+check_constraints ::  CriticalFunctions -> StartRoutines -> Ast -> ER ()
+check_constraints cf sr ast = performFilter (descriptor cf sr) ast
 
 -- utils {{{1
 printError :: Int -> String
@@ -38,7 +27,7 @@ checker cf sr ast = checkFunctionPointer cf ast ++ checkThreads ast sr
 descriptor cf sr = Filter "constraint" (checker cf sr) printError id
 
 checkThreads (CTranslUnit _ ni) sr 
-	| Set.null sr = [Error 2 ni]
+	| Set.null sr = [Error 2 undefNode]
 	| otherwise = []
 
 checkFunctionPointer :: CriticalFunctions -> Ast -> [Error Int]

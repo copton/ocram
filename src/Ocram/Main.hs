@@ -1,29 +1,26 @@
 module Ocram.Main (main) where
 
-import Control.Monad.Error
-import Ocram.Types (Result, RawAst, OutputAst, Options, Context(getOutputAst))
-import Ocram.Options (getOptions)
+import Ocram.Types
 import Ocram.Parser (parse)
-import Ocram.Context (context)
-import Ocram.Output (writeAst)
+import Ocram.Options (options)
+import Ocram.Compiler (analysis, transformation)
+import Ocram.Output (pretty_print, writeDebugSymbols)
 
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
 
-process :: IO (Result ())
-process = runErrorT $ do
-	options <- ErrorT $ getOptions
-	raw_ast <- ErrorT $ parse options
-	let ctx = context options raw_ast
-	output_ast <- ErrorT $ return $ getOutputAst ctx
-	result <- ErrorT $ writeAst options output_ast
-	return result
-
-main :: IO ()
+import Control.Monad.Error (runErrorT)
+	
 main = do
-	result <- process
-	case result of
-		Left e -> do
-			hPutStrLn stderr e
-			exitWith (ExitFailure 1)
-		Right _ -> return ()
+	err <- runErrorT $ do
+		opt <- options
+		ast <- parse opt
+		(ana, ast') <- analysis opt ast
+		(ast'', ds) <- transformation opt ana ast'
+		pretty_print opt ast''
+		writeDebugSymbols opt ds
+	report err
+
+report :: Either String () -> IO ()
+report (Left err) = hPutStrLn stderr err >> exitWith (ExitFailure 1)
+report _ = return ()

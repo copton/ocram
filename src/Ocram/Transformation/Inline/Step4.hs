@@ -25,46 +25,50 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
 
-import Debug.Trace (trace)
 import Language.C.Pretty (pretty)
 
---- step4 {{{1
-step4 :: StartRoutines -> CallGraph -> BlockingFunctions -> FunctionInfos -> Ast -> Ast
-step4 sr cg bf fis (CTranslUnit decls ni) = CTranslUnit (decls ++ thread_functions) ni
-	where
-		thread_functions = map CFDefExt $ map (createThreadFunction cg bf fis) $ zip [1..] $ Set.elems sr
+import Control.Monad.Reader (asks)
 
---- createThreadFunction {{{2
-createThreadFunction :: CallGraph -> BlockingFunctions -> FunctionInfos -> (Integer, Symbol) -> CFunDef
-createThreadFunction cg bf fis (tid, name) = 
-	CFunDef [CTypeSpec (CVoidType un)]
-		(CDeclr (Just (ident (handlerFunction tid)))
-			[CFunDeclr
-					(Right
-						 ([CDecl [CTypeSpec (CVoidType un)]
-								 [(Just (CDeclr (Just (ident contVar)) 
-										[CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)]
-								 un],
-							False))
-					[] un]
-			 Nothing [] un)
-		[] (CCompound [] (intro : functions) un) un
-	where
-		intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
-		callChain = filter onlyDefs $ getCallChain cg name
-		onlyDefs name = (not $ Set.member name bf) && (Map.member name fis)
-		functions = concatMap mapFunction $ List.drop 1 $ List.inits callChain
-		mapFunction chain = inlineCriticalFunction chain fis (last chain)
+-- step4 :: FunctionInfos -> Ast -> WR Ast {{{1
+step4 :: FunctionInfos -> Ast -> WR Ast
+step4 fis (CTranslUnit decls ni) = do
+	sr <- asks $ getStartRoutines . snd
+	thread_functions <- mapM (createThreadFunction fis) $ zip [1..] $ Set.elems sr
+	let thread_functions' = map CFDefExt thread_functions
+	return $ CTranslUnit (decls ++ thread_functions') ni
 
--- inlineCriticalFunction {{{2
+-- createThreadFunction :: FunctionInfos -> (Integer, Symbol) -> WR CFunDef {{{2
+createThreadFunction :: FunctionInfos -> (Integer, Symbol) -> WR CFunDef
+createThreadFunction fis (tid, name) = do
+	cg <- asks (getCallGraph . snd)	
+	bf <- asks (getBlockingFunctions . snd)
+	let intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
+	let onlyDefs name = (not $ Set.member name bf) && (Map.member name fis)
+	let callChain = filter onlyDefs $ getCallChain cg name
+	let mapFunction chain = inlineCriticalFunction chain fis (last chain)
+	let functions = concatMap mapFunction $ List.drop 1 $ List.inits callChain
+	return $
+		CFunDef [CTypeSpec (CVoidType un)]
+			(CDeclr (Just (ident (handlerFunction tid)))
+				[CFunDeclr
+						(Right
+							 ([CDecl [CTypeSpec (CVoidType un)]
+									 [(Just (CDeclr (Just (ident contVar)) 
+											[CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)]
+									 un],
+								False))
+						[] un]
+				 Nothing [] un)
+			[] (CCompound [] (intro : functions) un) un
+
+-- inlineCriticalFunction :: CallChain -> FunctionInfos -> Symbol -> [CBlockItem] {{{2
 type CallChain = [Symbol]
-
 inlineCriticalFunction :: CallChain -> FunctionInfos -> Symbol -> [CBlockItem]
 inlineCriticalFunction cc fis fName = lbl : body' ++ close : []
 	where
 		result :: (CStat, UpState)
 		result = traverseCStat body $ DownState cc (fiVariables fi) fis fName 1
-		fi = mlookup "XXX A" fName fis
+		fi = fis Map.! fName
 		body = fromJust $ fiBody fi
 		body' = extractBody $ fst result
 		extractBody (CCompound _ body _) = body
@@ -108,13 +112,13 @@ instance ListVisitor DownState UpState where
 
 	nextCBlockItem o d u = ([o], d, u)
 
--- criticalFunctionCall {{{3
+-- criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> Maybe CExpr -> [CBlockItem] {{{3
 criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> Maybe CExpr -> [CBlockItem]
 criticalFunctionCall d cfName params resultLhs = parameters ++ continuation : call : return : lbl : result ?: []
 	where
 		lid = dLbl d
 		chain' = (dCc d) ++ [cfName]
-		fi = mlookup "XXX B" cfName (dFis d) 
+		fi = (dFis d) Map.! cfName
 
 		parameters = map (createParamAssign chain') $ zip params $ fiParams fi
 
@@ -128,7 +132,7 @@ criticalFunctionCall d cfName params resultLhs = parameters ++ continuation : ca
 		result = fmap assignResult resultLhs
 		assignResult lhs = createAssign lhs (stackAccess chain' (Just resVar))
 
--- createParamAssign
+-- createParamAssign :: CallChain -> (CExpr, CDecl) -> CBlockItem {{{4
 createParamAssign :: CallChain -> (CExpr, CDecl) -> CBlockItem
 createParamAssign chain (exp, decl) = createAssign lhs rhs
 	where
@@ -138,7 +142,7 @@ createParamAssign chain (exp, decl) = createAssign lhs rhs
 createAssign :: CExpr -> CExpr -> CBlockItem
 createAssign lhs rhs = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) un)
 
--- stackAccess {{{3
+-- stackAccess :: CallChain -> Maybe Symbol -> CExpr {{{3
 stackAccess :: CallChain -> Maybe Symbol -> CExpr
 stackAccess (sr:chain) variable = foldl create base $ zip pointers members
 	where
@@ -152,8 +156,3 @@ stackAccess (sr:chain) variable = foldl create base $ zip pointers members
 createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un
 
 nextLabel d = d {dLbl = (dLbl d) + 1}
-
-mlookup :: (Show k, Ord k) => String -> k -> Map.Map k v -> v
-mlookup s k m = case Map.lookup k m of
-	Nothing -> error $ s ++ ": " ++ (show k)
-	Just x -> x

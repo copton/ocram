@@ -22,17 +22,20 @@ import Data.Monoid
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 
--- step1 {{{1
-step1 :: BlockingFunctions -> CriticalFunctions -> Ast -> (Ast, [CDecl], [CFunDef])
-step1 bf cf ast = (ast', bf', cf')
-	where
-		(ast', (UpState bf' cf')) = traverseCTranslUnit ast (DownState bf cf)
+import Control.Monad.Reader (asks)
+
+-- step1 :: Ast -> WR (Ast, [CDecl], [CFunDef]) {{{1
+step1 :: Ast -> WR (Ast, [CDecl], [CFunDef])
+step1 ast = do
+	bf <- asks $ getBlockingFunctions . snd
+	cf <- asks $ getCriticalFunctions . snd
+	let (ast', (UpState bf' cf')) = traverseCTranslUnit ast (DownState bf cf)
+	return (ast', bf', cf')
 
 -- Types {{{2
-
 data DownState = DownState {
-		  dBf :: BlockingFunctions
-		, dCf :: CriticalFunctions
+		dBf :: BlockingFunctions
+	, dCf :: CriticalFunctions
 	}
 
 data UpState = UpState {
@@ -65,7 +68,7 @@ instance ListVisitor DownState UpState where
 	
 	nextCExtDecl o d u = ([o], d, u)
 
--- blocking function declr {{{2
+-- createBlockingFunctionDeclr :: CDecl -> CDecl {{{2
 createBlockingFunctionDeclr :: CDecl -> CDecl
 createBlockingFunctionDeclr cd = let fName = symbol cd in
    CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident fName)) [CFunDeclr (Right ([CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident frameParam)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un), Nothing, Nothing)] un

@@ -1,7 +1,7 @@
 module Ocram.Transformation.Inline 
 -- exports {{{1
 (
-	transform
+	transformation
 ) where
 
 -- imports {{{1
@@ -11,19 +11,11 @@ import Ocram.Transformation.Inline.Step3
 import Ocram.Transformation.Inline.Step4
 import Ocram.Types
 
--- transform {{{1
-transform :: Context -> Result OutputAst
-transform ctx = do
-	valid_ast <- getValidAst ctx
-	cg <- getCallGraph ctx
-	cf <- getCriticalFunctions ctx
-	bf <- getBlockingFunctions ctx
-	sr <- getStartRoutines ctx
-	df <- getDefinedFunctions ctx
-	let ast1 = getAst valid_ast
-	let (ast2, bfs, cfs) = step1 bf cf ast1
-	let fis = step2 bfs cfs
-	let ast3 = step3 cf sr cg fis ast2
-	let ast4 = step4 sr cg bf fis ast3
-	return $ OutputAst $ ast4
-
+-- transformation :: Ast -> WR Ast {{{1
+transformation :: Ast -> WR Ast
+transformation ast = do
+	(ast1, bfs, cfs) <- step1 ast
+	fis <- step2 bfs cfs
+	ast2 <- step3 fis ast1
+	ast3 <- step4 fis ast2
+	return ast3

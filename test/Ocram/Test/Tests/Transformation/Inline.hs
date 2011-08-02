@@ -3,10 +3,15 @@ module Ocram.Test.Tests.Transformation.Inline (
 ) where
 
 -- imports {{{1
-import Ocram.Test.Lib (createContext, parse', paste)
-import Ocram.Types (getAst, getOutputAst)
+import Ocram.Types
+import Ocram.Test.Lib (parse, paste)
+import Ocram.Compiler (analysis')
+import Ocram.Transformation.Inline (transformation)
+import Ocram.Options (defaultOptions)
+
 import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
+
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
 -- tests {{{1
@@ -138,9 +143,13 @@ tests = runTests "Inline" [
 		__attribute__((tc_blocking)) void block(int j);
 		__attribute__((tc_run_thread)) void start() { 
 			int i;
-			while (i>0) {
+			i = 0;
+			while (i<10) {
+				i++;
 				block(i);
+				i++;
 			}
+			i = 0;
 		}
 	|],[$paste|
 		typedef struct {
@@ -164,14 +173,18 @@ tests = runTests "Inline" [
 			if (ec_cont != null)
 				goto *ec_cont;
 
-			ec_label_start_0: ;
-				while (ec_stack_start->i > 0) {
+		ec_label_start_0: ;
+				ec_stack_start->i = 0;
+				while (ec_stack_start->i < 10) {
+					ec_stack_start->i++;
 					ec_stack_start->ec_frames.block.j = ec_stack_start->i;
 					ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
 					block(&ec_stack_start->ec_frames.block);
 					return;
-				ec_label_start_1: ;
+		ec_label_start_1: ;
+					ec_stack_start->i++;
 				}
+				ec_stack_start->i = 0;
 				return;	
 		}
 	|])
@@ -464,9 +477,11 @@ runTests label cases = TestLabel label $ TestList $ map runTest $ zip [1..] case
 runTest :: (Int, (String, String)) -> Test
 runTest (number, (code, expected)) = TestCase $ assertEqual name expected' result
 	where
-		expected' = show $ pretty $ getAst $ parse' $ expected
 		name = "test" ++ show number
-		result = show $ pretty $ getAst ast
-		ast = case getOutputAst (createContext code Nothing) of
+		expected' = show $ pretty $ parse expected
+		opt = defaultOptions
+		(ana, ast) = case execER opt (analysis' (parse code)) of
 			Left e -> error e
 			Right x -> x
+		(ast', _) = execWR (opt, ana) (transformation ast)
+		result = show $ pretty ast'

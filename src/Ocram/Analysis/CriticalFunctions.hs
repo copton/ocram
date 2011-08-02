@@ -1,7 +1,7 @@
 module Ocram.Analysis.CriticalFunctions 
 -- exports {{{1
 (
-	determineCriticalFunctions
+	critical_functions
 ) where
 
 -- imports {{{1
@@ -12,13 +12,9 @@ import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
--- determineCriticalFunctions :: Context -> Result CriticalFunctions {{{1
-determineCriticalFunctions :: Context -> Result CriticalFunctions
-determineCriticalFunctions ctx = do
-	ast <- getForestAst ctx
-	cg <- getCallGraph ctx
-	bf <- getBlockingFunctions ctx
-	seq ast $ return $ foldl (travBlocking cg) Set.empty (Set.elems bf)
+-- critical_functions :: CallGraph -> BlockingFunctions -> Ast -> ER CriticalFunctions {{{1
+critical_functions :: CallGraph -> BlockingFunctions -> Ast -> ER CriticalFunctions
+critical_functions cg bf ast = return $ foldl (travBlocking cg) Set.empty (Set.elems bf)
 
 travEntry cg cfs (Entry callers _) = foldl (travCaller cg) cfs (Set.elems callers)
 
