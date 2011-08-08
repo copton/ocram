@@ -102,7 +102,7 @@ test_cases = [
 		[]
 -- minimal thread, 1 {{{2
 	,TCase
-		[$paste|
+		[paste|
 			__attribute__((tc_blocking)) void block();
 			void __attribute__((tc_run_thread)) start() {
 				block();
@@ -120,7 +120,7 @@ test_cases = [
 		[]
 -- minimal thread, 2 {{{2
 	,TCase
-		[$paste|
+		[paste|
 			__attribute__((tc_blocking)) void block();
 			__attribute__((tc_run_thread)) void start() {
 				block();
@@ -138,7 +138,7 @@ test_cases = [
 		[]
 -- additional critical function {{{2
 	,TCase
-		[$paste|
+		[paste|
 			__attribute__((tc_blocking)) void block();
 			void critical() {
 				block();
@@ -159,7 +159,7 @@ test_cases = [
 		[]
 -- chain of critical functions {{{2
 	,TCase
-		[$paste|
+		[paste|
 			__attribute__((tc_blocking)) void block();
 			void c1() { c2(); }
 			void c2() { c3(); }
@@ -188,7 +188,7 @@ test_cases = [
 		[]
 -- additional non-critical function {{{2
 	,TCase
-		[$paste|
+		[paste|
 			__attribute__((tc_blocking)) void block();
 			void non_critical() { }
 			__attribute__((tc_run_thread)) void start() {
@@ -208,7 +208,7 @@ test_cases = [
 		[]
 -- two independant threads {{{2
 	,TCase
-		[$paste|
+		[paste|
 			__attribute__((tc_blocking)) void block1();
 			__attribute__((tc_blocking)) void block2();
 			__attribute__((tc_run_thread)) void start1() {
@@ -235,7 +235,7 @@ test_cases = [
 		[]
 -- reentrance {{{2
 	,TCase
-		[$paste|
+		[paste|
 			__attribute__((tc_blocking)) void block();
 			void critical() {
 				block();
@@ -264,7 +264,7 @@ test_cases = [
 		[]
 -- pointer to critical function {{{2
 	,TCase
-		[$paste|
+		[paste|
 			__attribute__((tc_blocking)) void block();
 			void f(void*);
 			__attribute__((tc_run_thread)) void start() {
@@ -284,7 +284,7 @@ test_cases = [
 		[]
 -- cyclic call graph {{{2
 	,TCase
-		[$paste|
+		[paste|
 			__attribute__((tc_blocking)) void block();
 			void c2() {
 				block();

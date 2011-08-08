@@ -9,7 +9,7 @@ import Language.C.Data.Position (position)
 import Language.C.Parser (parseC)
 
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
-import Language.Haskell.TH (stringL, litE, litP)
+import Language.Haskell.TH (stringE)
 
 
 parse :: String -> Ast
@@ -20,4 +20,9 @@ parse code = case parseC code' pos of
 		code' = B.pack code
 		pos = position 0 "<<test>>" 0 0
 
-paste = QuasiQuoter (litE . stringL) (litP . stringL) 
+paste = QuasiQuoter { 
+	quoteExp = stringE, 
+	quotePat = undefined,
+	quoteType = undefined,
+	quoteDec = undefined 
+	}

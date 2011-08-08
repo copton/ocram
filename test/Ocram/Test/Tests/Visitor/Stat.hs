@@ -17,13 +17,13 @@ import Data.Maybe (fromJust)
 tests = runTests "Stat" [
 -- test 1 {{{2	
 		(
-			[$paste|
+			[paste|
 				int foo() { 
 					return 0; 
 				}
 			|],
 			zeroToOne,
-			[$paste|
+			[paste|
 				int foo() {
 					return 1;
 				}
@@ -31,13 +31,13 @@ tests = runTests "Stat" [
 		)
 -- test 2 {{{2
 	,(
-		[$paste|
+		[paste|
 			int foo() { 
 				return 0x0L; 
 			}
 		|],
 		zeroToOne,
-		[$paste|
+		[paste|
 			int foo() {
 					return 0x1L;
 			}
