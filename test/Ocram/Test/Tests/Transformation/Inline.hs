@@ -17,12 +17,12 @@ import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 -- tests {{{1
 tests = runTests "Inline" [
 -- setup {{{2
-	([$paste|
+	([paste|
 		__attribute__((tc_blocking)) void block(int i);
 		__attribute__((tc_run_thread)) void start() { 
 			block(23);
 		}
-	|],[$paste|
+	|],[paste|
 		typedef struct {
 				void* ec_cont;
 				int i;
@@ -53,7 +53,7 @@ tests = runTests "Inline" [
 		}
 	|])
 -- local variable {{{2
-	, ([$paste|
+	, ([paste|
 		__attribute__((tc_blocking)) void block(int i);
 
 		__attribute__((tc_run_thread)) void start() 
@@ -61,7 +61,7 @@ tests = runTests "Inline" [
 			int i;
 			block(i);
 		}
-	|],[$paste|
+	|],[paste|
 		typedef struct {
 			void* ec_cont;
 			int i;
@@ -93,7 +93,7 @@ tests = runTests "Inline" [
 		}
 	|])
 -- global variable {{{2
-	, ([$paste|
+	, ([paste|
 		__attribute__((tc_blocking)) void block(int i1, int i2);
 
 		int k;
@@ -103,7 +103,7 @@ tests = runTests "Inline" [
 			int j;
 			block(j, k);
 		}
-	|],[$paste|
+	|],[paste|
 		typedef struct {
 			void* ec_cont;
 			int i1;
@@ -139,7 +139,7 @@ tests = runTests "Inline" [
 		}
 	|])
 -- loop {{{2
-	,([$paste|
+	,([paste|
 		__attribute__((tc_blocking)) void block(int j);
 		__attribute__((tc_run_thread)) void start() { 
 			int i;
@@ -151,7 +151,7 @@ tests = runTests "Inline" [
 			}
 			i = 0;
 		}
-	|],[$paste|
+	|],[paste|
 		typedef struct {
 				void* ec_cont;
 				int j;
@@ -189,7 +189,7 @@ tests = runTests "Inline" [
 		}
 	|])
 -- critical function {{{2
-	,([$paste|
+	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
 
 		void critical(int c) {
@@ -206,7 +206,7 @@ tests = runTests "Inline" [
 				s2 = non_critical(s1);
 				critical(s2);
 		}
-	|],[$paste|
+	|],[paste|
 		typedef struct {
 				void* ec_cont;
 				int b;
@@ -260,7 +260,7 @@ tests = runTests "Inline" [
 		}
 	|])
 -- two threads {{{2
-	,([$paste|
+	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
 
 		__attribute__((tc_run_thread)) void start() { 
@@ -276,7 +276,7 @@ tests = runTests "Inline" [
 					block(r);
 				}
 		}
-	|],[$paste|
+	|],[paste|
 		typedef struct {
 				void* ec_cont;
 				int b;
@@ -334,7 +334,7 @@ tests = runTests "Inline" [
 		}
 	|])
 -- reentrance {{{2
-	,([$paste|
+	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
 
 		void critical(int c) {
@@ -348,7 +348,7 @@ tests = runTests "Inline" [
 		__attribute__((tc_run_thread)) void start() { 
 				critical(2);
 		}
-	|],[$paste|
+	|],[paste|
 		typedef struct {
 				void* ec_cont;
 				int b;
@@ -425,7 +425,7 @@ tests = runTests "Inline" [
 	|])
 
 -- return value {{{2
-	, ([$paste|
+	, ([paste|
 		__attribute__((tc_blocking)) int block(int i);
 
 		__attribute__((tc_run_thread)) void start() 
@@ -433,7 +433,7 @@ tests = runTests "Inline" [
 			int i;
 			i = block(i);
 		}
-	|],[$paste|
+	|],[paste|
 		typedef struct {
 			void* ec_cont;
 			int ec_result;

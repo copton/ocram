@@ -18,19 +18,19 @@ import Data.Monoid
 tests = runTests "TranslUnit" [
 -- test 1 {{{2
 		(
-			[$paste|
+			[paste|
 				void foo() { }
 				void bar() { }
 			|],
 			id,
-			[$paste|
+			[paste|
 				void foo() { }
 				void bar() { }
 			|]
 		)
 -- test 2 {{{2
 		,(
-			[$paste|
+			[paste|
 				void foo() { }
 				void bar() { }
 			|],
@@ -39,12 +39,12 @@ tests = runTests "TranslUnit" [
 		)
 -- test 3 {{{2
 		,(
-			[$paste|
+			[paste|
 				void foo() { }
 				void bar() { }
 			|],
 			doubleBar,
-			[$paste|
+			[paste|
 				void foo() { }
 				void bar() { }
 				void bar() { }
@@ -52,12 +52,12 @@ tests = runTests "TranslUnit" [
 		)
 -- test 4 {{{2
 		,(
-			[$paste|
+			[paste|
 				void foo() { }
 				void bar() { }
 			|],
 			countFunctions,
-			[$paste|
+			[paste|
 				int count=2;
 			|]
 		)

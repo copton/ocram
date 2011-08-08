@@ -17,7 +17,7 @@ import qualified Data.Set as Set
 
 tests = runTests "Decl" [
 		(
-			[$paste|
+			[paste|
 				int k;
 				void foo() {
 					int i;
@@ -26,7 +26,7 @@ tests = runTests "Decl" [
 				}
 			|],
 			removeLocalVars,
-			[$paste|
+			[paste|
 				int k;
 				void foo() {
 					k = 23;
