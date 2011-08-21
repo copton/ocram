@@ -23,12 +23,12 @@ import Ocram.Types
 analysis :: Ast -> Either String Analysis
 analysis ast = do
 	check_sanity ast
-	bf <- return $ blocking_functions ast
-	df <- return $ defined_functions ast
-	sr <- return $ start_routines df ast
-	cg <- return $ call_graph df bf ast
+	let bf = blocking_functions ast
+	let df = defined_functions ast
+	let sr = start_routines df ast
+	let cg = call_graph df bf ast
 	check_call_graph cg sr df ast
-	cf <- return $ critical_functions cg bf ast
+	let cf = critical_functions cg bf ast
 	check_constraints cf sr ast
 	return $ Analysis bf df sr cg cf
 
