@@ -23,7 +23,6 @@ data TestType =
 
 data TCase = TCase {
 	tcCode :: TCode,
-	tcOptions :: Options,
 	tcDefinedFunctions :: TDefinedFunctions,
 	tcBlockingFunctions :: TBlockingFunctions,
 	tcStartRoutines :: TStartRoutines,

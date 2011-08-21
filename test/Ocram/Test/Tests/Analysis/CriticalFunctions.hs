@@ -10,9 +10,9 @@ import Ocram.Analysis.CriticalFunctions (critical_functions)
 type Input = (TCallGraph, TBlockingFunctions)
 type Output = TCriticalFunctions
 
-execute :: Ast -> Input -> ER Output
+execute :: Ast -> Input -> Output
 execute ast (cg, bf) =
-	return . reduce =<< critical_functions (enrich cg) (enrich bf) ast
+	reduce $ critical_functions (enrich cg) (enrich bf) ast
 
 setup :: TCase -> (Input, Output)
 setup tc = ((tcCallGraph tc, tcBlockingFunctions tc), tcCriticalFunctions tc)

@@ -15,8 +15,8 @@ import qualified Data.Set as Set
 import Data.List (reverse, intersperse, partition)
 import Data.Set (toList)
 
--- check_call_graph ::  CallGraph -> StartRoutines -> DefinedFunctions -> Ast -> ER () {{{1
-check_call_graph ::  CallGraph -> StartRoutines -> DefinedFunctions -> Ast -> ER ()
+-- check_call_graph ::  CallGraph -> StartRoutines -> DefinedFunctions -> Ast -> Either String () {{{1
+check_call_graph ::  CallGraph -> StartRoutines -> DefinedFunctions -> Ast -> Either String ()
 check_call_graph cg sr df ast = 
 	let df' = getFunDefs ast df in
 	performFilter (descriptor cg sr df') ast

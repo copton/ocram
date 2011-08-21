@@ -11,9 +11,9 @@ import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTr
 import Ocram.Symbols (symbol)
 import Language.C.Syntax.AST (CFunDef)
 
--- defined_functions :: Ast -> ER DefinedFunctions {{{1
-defined_functions :: Ast -> ER DefinedFunctions
-defined_functions ast = return $ fromList $ snd $ traverseCTranslUnit ast emptyDownState
+-- defined_functions :: Ast -> DefinedFunctions {{{1
+defined_functions :: Ast -> DefinedFunctions
+defined_functions ast = fromList $ snd $ traverseCTranslUnit ast emptyDownState
 
 type UpState = [Symbol]
 

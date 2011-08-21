@@ -26,11 +26,11 @@ data Error a = Error {
 	getLocation :: NodeInfo
 }
 
--- performFilter :: Filter a -> Ast -> ER () {{{1
-performFilter :: Filter a -> Ast -> ER ()
+-- performFilter :: Filter a -> Ast -> Either String () {{{1
+performFilter :: Filter a -> Ast -> Either String ()
 performFilter filter ast = case getChecker filter ast of
-	[] -> return ()
-	es -> throwError $ showErrors filter es
+	[] -> Right ()
+	es -> Left $ showErrors filter es
 
 showErrors :: Filter a -> [Error a] -> String
 showErrors filter es = "input programm failed the following " ++ (getDescription filter) ++ " checks:\n" ++ (showEnum filter $ zip [1..] es)

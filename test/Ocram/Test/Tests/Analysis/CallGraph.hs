@@ -10,9 +10,9 @@ import Ocram.Analysis.CallGraph (call_graph)
 type Input = (TDefinedFunctions, TBlockingFunctions)
 type Output = TCallGraph
 
-execute :: Ast -> Input -> ER Output
+execute :: Ast -> Input -> Output
 execute ast (df, bf) =
-	return . reduce =<< call_graph (enrich df) (enrich bf) ast
+	reduce $ call_graph (enrich df) (enrich bf) ast
 
 setup :: TCase -> (Input, Output)
 setup tc = ((tcDefinedFunctions tc, tcBlockingFunctions tc), tcCallGraph tc)

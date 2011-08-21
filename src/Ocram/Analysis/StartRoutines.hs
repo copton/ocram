@@ -14,11 +14,11 @@ import Data.Map (elems)
 import Ocram.Symbols (symbol)
 import Data.Set (fromList)
 
--- start_routines :: DefinedFunctions -> Ast -> ER StartRoutines {{{1
-start_routines :: DefinedFunctions -> Ast -> ER StartRoutines
+-- start_routines :: DefinedFunctions -> Ast -> StartRoutines {{{1
+start_routines :: DefinedFunctions -> Ast -> StartRoutines
 start_routines df ast = 
 	let df' = getFunDefs ast df in
-	return $ fromList $ map symbol $ filter isStartRoutine $ elems df'
+	fromList $ map symbol $ filter isStartRoutine $ elems df'
 
 isStartRoutine :: CFunDef -> Bool
 isStartRoutine (CFunDef specs _ _ _ _) = any checkAttr specs 

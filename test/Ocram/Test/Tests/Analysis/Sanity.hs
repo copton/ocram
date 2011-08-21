@@ -11,11 +11,9 @@ import Control.Monad.Reader (ask)
 type Input = ()
 type Output = TErrorCodes
 
-execute :: Ast -> Input -> ER Output
-execute ast _ = do
-	opt <- ask
-	let check = check_sanity ast
-	return $ case execER opt check of
+execute :: Ast -> Input -> Output
+execute ast _ =
+	case check_sanity ast of
 		Left e -> extractErrorCodes e
 		Right _ -> [] 
 

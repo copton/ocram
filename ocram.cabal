@@ -89,7 +89,6 @@ Executable Ocram
     Ocram.Analysis.StartRoutines
     Ocram.Analysis.CallGraph
     Ocram.Analysis.Constraints
-    Ocram.Compiler
   -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
   -- Build-tools:         
   

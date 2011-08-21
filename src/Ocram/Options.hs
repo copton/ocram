@@ -5,32 +5,29 @@ module Ocram.Options
 ) where
 
 -- import {{{1
-import Ocram.Types (EIO, Options(..))
-import System.Environment (getArgs, getProgName)
+import Ocram.Types (Options(..))
 import Data.List (intersperse)
 import System.Console.GetOpt
 
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Error (throwError)
 
--- options :: EIO Options {{{1
-options :: EIO Options
-options = do
-	argv <- liftIO getArgs
-	prg <- liftIO getProgName
-	let use = usage prg
+-- options :: String -> [String] -> Either String Options {{{1
+options :: String -> [String] -> Either String Options
+options prg argv =
+	let use = usage prg in
 	case getOpt Permute available_options argv of
 		(o,[],[]) -> 
 			let opts = foldl (flip id) defaultOptions o in
 			if (optHelp opts) then
-					throwError $ help use
+					Left $ help use
 			else
 				if checkOptions opts then
-					return opts
+					Right opts
 				else
-					throwError $ err use "missing required option(s)"
-		(_,n,[]) -> throwError $ err use ("unknown options '" ++ unwords n ++ "'")
-		(_,_,es) -> throwError $ err use $ concat $ intersperse "\n" es
+					Left $ err use "missing required option(s)"
+		(_,n,[]) -> Left $ err use ("unknown options '" ++ unwords n ++ "'")
+		(_,_,es) -> Left $ err use $ concat $ intersperse "\n" es
 
 help :: String -> String
 help use = "Printing usage:\n" ++ use

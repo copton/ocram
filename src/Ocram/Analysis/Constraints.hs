@@ -11,8 +11,8 @@ import Language.C.Syntax.AST
 import qualified Data.Set as Set
 import Data.Monoid (mconcat)
 
--- check_constraints ::  CriticalFunctions -> StartRoutines -> Ast -> ER () {{{1
-check_constraints ::  CriticalFunctions -> StartRoutines -> Ast -> ER ()
+-- check_constraints ::  CriticalFunctions -> StartRoutines -> Ast -> Either String () {{{1
+check_constraints ::  CriticalFunctions -> StartRoutines -> Ast -> Either String ()
 check_constraints cf sr ast = performFilter (descriptor cf sr) ast
 
 -- utils {{{1

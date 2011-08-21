@@ -6,7 +6,7 @@ module Ocram.Output
 ) where
 
 -- import {{{1
-import Ocram.Types (Ast, DebugSymbols, EIO)
+import Ocram.Types (Ast, DebugSymbols)
 import Ocram.Options (Options, optOutput)
 import Language.C.Syntax.AST (CTranslUnit)
 import System.IO (openFile, IOMode(WriteMode), hClose, hPutStrLn)
@@ -14,17 +14,16 @@ import Language.C (pretty)
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Error(throwError)
 
--- pretty_print :: Options -> Ast -> EIO () {{{1
-pretty_print :: Options -> Ast -> EIO ()
+-- pretty_print :: Options -> Ast -> IO () {{{1
+pretty_print :: Options -> Ast -> IO ()
 pretty_print options ast = do
 	let file = optOutput options
 	let code = show $ pretty ast 
 	let main = "int main() { return 0; }"
-	liftIO $ write file $ code ++ "\n" ++ main
-	return ()
+	write file $ code ++ "\n" ++ main
 
--- writeDebugSymbols :: Options -> DebugSymbols -> EIO () {{{1
-writeDebugSymbols :: Options -> DebugSymbols -> EIO ()
+-- writeDebugSymbols :: Options -> DebugSymbols -> IO () {{{1
+writeDebugSymbols :: Options -> DebugSymbols -> IO ()
 writeDebugSymbols = undefined
 
 -- utils {{{1
