@@ -12,19 +12,17 @@ import qualified Data.Set as Set
 import qualified Data.Map as Map
 import Data.List (isPrefixOf)
 
-runTest :: (Eq o, Show o) => (Ast -> i -> ER o) -> (Int, (TCode, Options, (i, o))) -> Test
-runTest execute (number, (code, options, (input, output))) = TestCase $ assertEqual name output result
+runTest :: (Eq o, Show o) => (Ast -> i -> o) -> (Int, (TCode, (i, o))) -> Test
+runTest execute (number, (code, (input, output))) = TestCase $ assertEqual name output result
 	where
 		name = "test" ++ show number
 		ast = parse code
-		result = case execER options (execute ast input) of
-			Left e -> error e
-			Right x -> x
+		result = execute ast input
 
-runTests :: (Eq o, Show o) => TestType -> (Ast -> i -> ER o) -> (TCase -> (i, o)) -> Test
+runTests :: (Eq o, Show o) => TestType -> (Ast -> i -> o) -> (TCase -> (i, o)) -> Test
 runTests test_type execute setup = TestLabel (show test_type) $ TestList $ map (runTest execute) $ zip [0..] $ map prepare $ filter type_filter test_cases
 	where
-		prepare tc = (tcCode tc, tcOptions tc, setup tc)
+		prepare tc = (tcCode tc, setup tc)
 		type_filter tc = test_type `notElem` (tcExclude tc)
 
 class TestData d t where

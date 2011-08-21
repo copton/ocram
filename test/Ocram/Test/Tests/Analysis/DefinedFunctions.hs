@@ -10,8 +10,8 @@ import Ocram.Analysis.DefinedFunctions
 type Input = ()
 type Output = TDefinedFunctions
 
-execute :: Ast -> Input -> ER Output
-execute ast _ = return . reduce =<< defined_functions ast
+execute :: Ast -> Input -> Output
+execute ast _ = reduce $ defined_functions ast
 
 setup :: TCase -> (Input, Output)
 setup tc = ((), tcDefinedFunctions tc)

@@ -12,9 +12,9 @@ import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTr
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (Ident(Ident))
 
--- blocking_functions :: Ast -> ER BlockingFunctions {{{1
-blocking_functions :: Ast -> ER BlockingFunctions
-blocking_functions ast = return $ snd $ traverseCTranslUnit ast emptyDownState
+-- blocking_functions :: Ast -> BlockingFunctions {{{1
+blocking_functions :: Ast -> BlockingFunctions
+blocking_functions ast = snd $ traverseCTranslUnit ast emptyDownState
 
 instance UpVisitor EmptyDownState BlockingFunctions where
 	upCExtDecl o@(CDeclExt (CDecl ss [(Just (CDeclr (Just (Ident name _ _)) [CFunDeclr _ _ _] Nothing _ _), Nothing, Nothing)] _)) _ _

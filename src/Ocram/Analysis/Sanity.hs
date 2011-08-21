@@ -11,8 +11,8 @@ import Ocram.Visitor (UpVisitor(..), EmptyDownState, emptyDownState, traverseCTr
 import Language.C.Syntax.AST 
 import Data.Monoid (mconcat)
 
--- check_sanity :: Ast -> ER () {{{1
-check_sanity :: Ast -> ER ()
+-- check_sanity :: Ast -> Either String () {{{1
+check_sanity :: Ast -> Either String ()
 check_sanity ast = performFilter descriptor ast
 
 -- util {{{1

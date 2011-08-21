@@ -32,7 +32,7 @@ import Control.Monad.Reader (asks)
 -- step4 :: FunctionInfos -> Ast -> WR Ast {{{1
 step4 :: FunctionInfos -> Ast -> WR Ast
 step4 fis (CTranslUnit decls ni) = do
-	sr <- asks $ getStartRoutines . snd
+	sr <- asks getStartRoutines
 	thread_functions <- mapM (createThreadFunction fis) $ zip [1..] $ Set.elems sr
 	let thread_functions' = map CFDefExt thread_functions
 	return $ CTranslUnit (decls ++ thread_functions') ni
@@ -40,8 +40,8 @@ step4 fis (CTranslUnit decls ni) = do
 -- createThreadFunction :: FunctionInfos -> (Integer, Symbol) -> WR CFunDef {{{2
 createThreadFunction :: FunctionInfos -> (Integer, Symbol) -> WR CFunDef
 createThreadFunction fis (tid, name) = do
-	cg <- asks (getCallGraph . snd)	
-	bf <- asks (getBlockingFunctions . snd)
+	cg <- asks getCallGraph
+	bf <- asks getBlockingFunctions
 	let intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
 	let onlyDefs name = (not $ Set.member name bf) && (Map.member name fis)
 	let callChain = filter onlyDefs $ getCallChain cg name

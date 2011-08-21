@@ -10,9 +10,9 @@ import Ocram.Analysis.BlockingFunctions (blocking_functions)
 type Input = ()
 type Output = TBlockingFunctions
 
-execute :: Ast -> Input -> ER Output
+execute :: Ast -> Input -> Output
 execute ast _ =
-	return . reduce =<< blocking_functions ast
+	reduce $ blocking_functions ast
 
 setup :: TCase -> (Input, Output)
 setup tc = ((), tcBlockingFunctions tc)	

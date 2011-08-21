@@ -5,9 +5,8 @@ module Ocram.Test.Tests.Transformation.Inline (
 -- imports {{{1
 import Ocram.Types
 import Ocram.Test.Lib (parse, paste)
-import Ocram.Compiler (analysis')
 import Ocram.Transformation.Inline (transformation)
-import Ocram.Options (defaultOptions)
+import Ocram.Analysis (analysis)
 
 import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
@@ -479,9 +478,11 @@ runTest (number, (code, expected)) = TestCase $ assertEqual name expected' resul
 	where
 		name = "test" ++ show number
 		expected' = show $ pretty $ parse expected
-		opt = defaultOptions
-		(ana, ast) = case execER opt (analysis' (parse code)) of
-			Left e -> error e
-			Right x -> x
-		(ast', _) = execWR (opt, ana) (transformation ast)
+		ast = parse code
+		ana = exitOnError $ analysis ast
+		(ast', _) = transformation ana ast
 		result = show $ pretty ast'
+
+exitOnError :: Either String a -> a
+exitOnError (Left e) = error e
+exitOnError (Right x) = x

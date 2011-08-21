@@ -6,7 +6,6 @@ module Ocram.Test.Tests.Analysis.TestCases
 
 -- import {{{1
 import Ocram.Test.Lib (paste)
-import Ocram.Options (defaultOptions)
 import Ocram.Test.Tests.Analysis.Types
 
 -- test_cases :: [TCase] {{{1
@@ -25,7 +24,6 @@ test_cases = [
 -- empty code {{{2
 	 TCase 
 		""
-		defaultOptions
 		[]
 		[]
 		[]
@@ -38,7 +36,6 @@ test_cases = [
 -- single function declaration {{{2
 	,TCase
 		"void foo();"
-		defaultOptions
 		[]
 		[]
 		[]
@@ -51,7 +48,6 @@ test_cases = [
 -- single function definition {{{2
 	,TCase
 		"void foo() { }"
-		defaultOptions
 		["foo"]
 		[]
 		[]
@@ -64,7 +60,6 @@ test_cases = [
 -- single blocking function declaration, 1 {{{2
 	,TCase
 		"__attribute__((tc_blocking)) void foo();"
-		defaultOptions
 		[]
 		["foo"]
 		[]
@@ -77,7 +72,6 @@ test_cases = [
 -- single blocking function declaration, 2 {{{2
 	,TCase
 		"int __attribute__((tc_blocking)) foo(char);"
-		defaultOptions
 		[]
 		["foo"]
 		[]
@@ -90,7 +84,6 @@ test_cases = [
 -- single blocking function declaration, 3 {{{2
 	,TCase
 		"__attribute__((tc_blocking)) void foo(int x, ...);"
-		defaultOptions
 		[]
 		["foo"]
 		[]
@@ -108,7 +101,6 @@ test_cases = [
 				block();
 			}
 		|]
-		defaultOptions
 		["start"]
 		["block"]
 		["start"]
@@ -126,7 +118,6 @@ test_cases = [
 				block();
 			}
 		|]
-		defaultOptions
 		["start"]
 		["block"]
 		["start"]
@@ -147,7 +138,6 @@ test_cases = [
 				critical();
 			}
 		|]
-		defaultOptions
 		["critical", "start"]
 		["block"]
 		["start"]
@@ -169,7 +159,6 @@ test_cases = [
 				c1();
 			}
 		|]
-		defaultOptions
 		["c1", "c2", "c3", "c4", "start"]
 		["block"]
 		["start"]
@@ -196,7 +185,6 @@ test_cases = [
 				block();
 			}
 		|]
-		defaultOptions
 		["non_critical", "start"]
 		["block"]
 		["start"]
@@ -218,7 +206,6 @@ test_cases = [
 				block2();
 			}
 		|]
-		defaultOptions
 		["start1", "start2"]
 		["block1", "block2"]
 		["start1", "start2"]
@@ -247,7 +234,6 @@ test_cases = [
 				critical();
 			}
 		|]
-		defaultOptions
 		["critical", "start1", "start2"]
 		["block"]
 		["start1", "start2"]
@@ -272,7 +258,6 @@ test_cases = [
 				block();
 			}
 		|]
-		defaultOptions
 		["start"]
 		["block"]
 		["start"]
@@ -299,7 +284,6 @@ test_cases = [
 				c1();
 			}
 		|]
-		defaultOptions
 		["c1", "c2", "start"]
 		["block"]
 		["start"]
@@ -317,7 +301,6 @@ test_cases = [
 -- function definition without parameter {{{2
 	,TCase
 		"void f { }"
-		defaultOptions
 		undefined undefined undefined undefined undefined 
 		[1] 
 		undefined undefined

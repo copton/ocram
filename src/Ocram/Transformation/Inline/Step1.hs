@@ -27,8 +27,8 @@ import Control.Monad.Reader (asks)
 -- step1 :: Ast -> WR (Ast, [CDecl], [CFunDef]) {{{1
 step1 :: Ast -> WR (Ast, [CDecl], [CFunDef])
 step1 ast = do
-	bf <- asks $ getBlockingFunctions . snd
-	cf <- asks $ getCriticalFunctions . snd
+	bf <- asks getBlockingFunctions
+	cf <- asks getCriticalFunctions
 	let (ast', (UpState bf' cf')) = traverseCTranslUnit ast (DownState bf cf)
 	return (ast', bf', cf')
 

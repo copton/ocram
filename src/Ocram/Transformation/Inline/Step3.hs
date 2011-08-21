@@ -29,7 +29,7 @@ import Control.Monad.Reader (asks)
 step3 :: FunctionInfos -> Ast -> WR Ast
 step3 fis (CTranslUnit decls ni) = do
 	frames <- createTStackFrames fis
-	sr <- asks $ getStartRoutines . snd
+	sr <- asks getStartRoutines
 	let stacks = map createTStack $ Set.elems sr
 	return $ CTranslUnit (frames ++ stacks ++ decls) ni
 
@@ -46,8 +46,8 @@ createTStackFrames fis = do
 
 createFiPairs :: FunctionInfos -> WR [(Symbol, FunctionInfo)]
 createFiPairs fis = do
-	sr <- asks (getStartRoutines . snd)
-	cg <- asks (getCallGraph . snd)
+	sr <- asks getStartRoutines
+	cg <- asks getCallGraph
 	return $ fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . getCallChain cg) $ Set.elems sr
 	where
 		fld (lst, set) fname
@@ -60,7 +60,7 @@ createFiPairs fis = do
 createTStackFrame :: (Symbol, FunctionInfo) -> WR CExtDecl
 createTStackFrame (name, fi@(FunctionInfo resultType _ vars _)) = do
 	nestedFrames <- createNestedFramesUnion (name, fi)
-	sr <- asks (getStartRoutines . snd)
+	sr <- asks getStartRoutines
 	let result = case resultType of
 		(CVoidType _) -> Nothing
 		_ -> Just $ CDecl [CTypeSpec resultType] [(Just (CDeclr (Just (ident resVar)) [] Nothing [] un), Nothing, Nothing)] un
@@ -85,8 +85,8 @@ createTStackFrame (name, fi@(FunctionInfo resultType _ vars _)) = do
 -- createNestedFramesUnion :: (Symbol, FunctionInfo) -> WR (Maybe CDecl) {{{3
 createNestedFramesUnion :: (Symbol, FunctionInfo) -> WR (Maybe CDecl)
 createNestedFramesUnion (name, fi) = do
-	cf <- asks (getCriticalFunctions . snd)
-	cg <- asks (getCallGraph . snd)
+	cf <- asks getCriticalFunctions
+	cg <- asks getCallGraph
 	let createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
 											[(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
 	let entries = map createEntry $ filter (flip Set.member cf) $ Set.elems $ cgCallees $ cg Map.! name

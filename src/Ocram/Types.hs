@@ -21,32 +21,7 @@ data Options = Options {
 	, optHelp :: Bool
 } deriving Show
 
--- Monads {{{1
-type EIO = ErrorT String IO
 
-newtype ER a = ER {
-		runER :: ErrorT String (Reader Options) a
-	} deriving (
-		Monad,
-		MonadError String,
-		MonadReader Options
-	)
-
-execER :: Options -> ER a -> Either String a
-execER opt f = runReader (runErrorT (runER f)) opt
-
-type WRData = (Options, Analysis)
-
-newtype WR a = WR {
-		runWR :: WriterT DebugSymbols (Reader WRData) a
- 	} deriving (
-		Monad, 
-		MonadWriter DebugSymbols, 
-		MonadReader WRData
-	)
-
-execWR :: WRData -> WR a -> (a, DebugSymbols)
-execWR wrd f = runReader (runWriterT (runWR f)) wrd 
 -- Analysis {{{1
 
 -- map of all blocking function declarations
@@ -79,9 +54,7 @@ data Analysis = Analysis {
 
 -- Transformation {{{1
 
+type Transformation = Analysis -> Ast -> (Ast, DebugSymbols)
 
 data DebugSymbol = DebugSymbol -- TODO
 type DebugSymbols = [DebugSymbol]
-
-
-

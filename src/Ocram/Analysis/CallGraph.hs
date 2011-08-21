@@ -13,9 +13,9 @@ import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
--- call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> ER CallGraph {{{1
-call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> ER CallGraph
-call_graph df bf ast = return $ createCallGraph $ snd $ traverseCTranslUnit ast $ DownState Nothing df bf
+-- call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> CallGraph {{{1
+call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> CallGraph
+call_graph df bf ast = createCallGraph $ snd $ traverseCTranslUnit ast $ DownState Nothing df bf
 
 data DownState = DownState {
 		stCaller :: Maybe CFunDef
