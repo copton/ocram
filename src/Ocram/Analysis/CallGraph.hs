@@ -12,6 +12,7 @@ import Language.C.Syntax.AST (CFunDef, CExpression(CCall, CVar))
 import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.Monoid (mempty)
 
 -- call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> CallGraph {{{1
 call_graph :: DefinedFunctions -> BlockingFunctions -> Ast -> CallGraph
@@ -29,10 +30,10 @@ instance DownVisitor DownState where
 	downCFunDef fd d = d {stCaller = Just fd}
 
 instance UpVisitor DownState Calls where
-	upCExpr o@(CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller) fm bf) u
+	upCExpr o@(CCall (CVar (Ident callee _ _) _)  _ _) (DownState (Just caller) fm bf) _
 		| Set.member callee fm = (o, [(caller, callee)])
 		| Set.member callee bf = (o, [(caller, callee)])
-		| otherwise = (o, u)
+		| otherwise = (o, mempty)
 	upCExpr o _ u = (o, u)
 
 createCallGraph :: Calls -> CallGraph
