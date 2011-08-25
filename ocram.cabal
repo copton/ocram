@@ -45,7 +45,7 @@ Executable Test
 
 Executable Ocram
   Hs-Source-Dirs: src
-  Main-is: Ocram/Main.hs
+  Main-is: Main.hs
   Default-language: Haskell98
   Default-extensions: 
     MultiParamTypeClasses,
