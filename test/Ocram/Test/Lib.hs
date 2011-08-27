@@ -4,9 +4,11 @@ module Ocram.Test.Lib where
 import Ocram.Types
 
 import Ocram.Symbols (symbol)
+import Ocram.Analysis.CallGraph (addCall)
 
 import Language.C.Data.Position (position)
 import Language.C.Parser (parseC)
+import Language.C.Pretty (pretty)
 
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
@@ -54,10 +56,33 @@ instance TestData CallGraph TCallGraph where
 				Map.insert (symbol function) (Entry (convert callers) (convert callees)) m
 			convert fs = Set.fromList (map symbol fs)
 
+instance TestData CallGraph TCallGraphShort where
+	reduce cg = concatMap decompose $ Map.toList cg
+		where
+			decompose (function, (Entry _ callees)) =
+				[(function, callee) | callee <- Set.toList callees]
+	enrich cg = foldl addCall Map.empty cg
+
+instance TestData Ast String where
+	reduce = show . pretty
+	enrich = parse
+
+instance TestData Symbol String where
+	reduce = show
+	enrich = symbol
+
+instance TestData [Symbol] [String] where
+	reduce = map reduce
+	enrich = map enrich
+
+data Call = String :-> String
+
 type TCode = String
 type TBlockingFunctions = [String]
 type TDefinedFunctions = [String]
 type TCallGraph = [(String, [String], [String])]
+type TCallGraphShort = [(String, String)]
 type TStartRoutines = [String]
 type TCriticalFunctions = [String]
 type TErrorCodes = [Int]
+type TCallChain = [String]

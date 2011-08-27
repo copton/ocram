@@ -4,17 +4,16 @@ module Ocram.Test.Tests.Transformation.Inline (
 
 -- imports {{{1
 import Ocram.Types
-import Ocram.Test.Lib (parse, paste)
+import Ocram.Test.Lib
 import Ocram.Transformation.Inline (transformation)
 import Ocram.Analysis (analysis)
 
-import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
 
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
 -- tests {{{1
-tests = runTests "Inline" [
+tests = runTests [
 -- setup {{{2
 	([paste|
 		__attribute__((tc_blocking)) void block(int i);
@@ -469,19 +468,19 @@ tests = runTests "Inline" [
 	]
 -- util {{{1
 -- runTests :: [(String, String)] -> Test {{{2
-runTests :: String -> [(String, String)] -> Test
-runTests label cases = TestLabel label $ TestList $ map runTest $ zip [1..] cases
+runTests :: [(String, String)] -> Test
+runTests cases = TestLabel "Inline" $ TestList $ map runTest $ zip [1..] cases
 
 -- runTest :: (Int, (String, String)) -> Test {{{2
 runTest :: (Int, (String, String)) -> Test
 runTest (number, (code, expected)) = TestCase $ assertEqual name expected' result
 	where
 		name = "test" ++ show number
-		expected' = show $ pretty $ parse expected
-		ast = parse code
+		expected' = (reduce $ (enrich expected :: Ast) :: String)
+		ast = enrich code
 		ana = exitOnError $ analysis ast
 		(ast', _) = transformation ana ast
-		result = show $ pretty ast'
+		result = reduce ast'
 
 exitOnError :: Either String a -> a
 exitOnError (Left e) = error e

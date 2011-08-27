@@ -1,7 +1,7 @@
 module Ocram.Analysis.CallGraph 
 -- exports {{{1
 (
-	 call_graph
+	 call_graph, addCall
 ) where
 
 -- imports {{{1
@@ -37,13 +37,13 @@ instance UpVisitor DownState Calls where
 	upCExpr o _ u = (o, u)
 
 createCallGraph :: Calls -> CallGraph
-createCallGraph calls = foldl addCall Map.empty calls
+createCallGraph calls = foldl addCall' Map.empty calls
+	where
+		addCall' cg (fd, name) = addCall cg ((symbol fd), (symbol name))
 
-addCall :: CallGraph -> (CFunDef, String) -> CallGraph
-addCall cg (fd, name) = Map.alter addCallee caller $ Map.alter addCaller callee cg
+addCall :: CallGraph -> (String, String) -> CallGraph
+addCall cg (caller, callee) = Map.alter addCallee caller $ Map.alter addCaller callee cg
 	where 
-		caller = symbol fd
-		callee = symbol name
 		addCaller Nothing = Just $ Entry (Set.singleton caller) Set.empty
 		addCaller (Just entry) = Just $ entry { cgCallers = caller `Set.insert` (cgCallers entry) }
 		addCallee Nothing = Just $ Entry Set.empty (Set.singleton callee)

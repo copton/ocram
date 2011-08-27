@@ -8,8 +8,9 @@ import qualified Ocram.Test.Tests.Symbol as A
 import qualified Ocram.Test.Tests.Analysis as B
 import qualified Ocram.Test.Tests.Visitor as C
 import qualified Ocram.Test.Tests.Transformation as D
+import qualified Ocram.Test.Tests.Query as E
 
-tests = TestList [A.tests, B.tests, C.tests, D.tests]
+tests = TestList [A.tests, B.tests, C.tests, D.tests, E.tests]
 
 main = do
 	(count, _ ) <- runTestText (putTextToHandle stderr False) tests
