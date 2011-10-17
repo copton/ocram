@@ -14,7 +14,7 @@ import Ocram.Transformation.Util (un, ident)
 
 import Ocram.Types
 import Ocram.Util ((?:))
-import Ocram.Query (getCallChain)
+getCallChain = undefined
 
 import Language.C.Syntax.AST
 import Language.C.Data.Ident

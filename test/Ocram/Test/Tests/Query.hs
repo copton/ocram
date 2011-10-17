@@ -6,7 +6,6 @@ module Ocram.Test.Tests.Query
 
 -- imports {{{1
 import Ocram.Test.Lib
-import Ocram.Query (getCallChain)
 
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 

@@ -2,15 +2,16 @@ module Ocram.Transformation.Inline.Types where
 
 import Control.Monad.Reader
 import Control.Monad.Writer
-
 import Language.C.Syntax.AST
-import qualified Data.Map as Map
+import Ocram.Symbols (Symbol)
 import Ocram.Types
+import Ocram.Analysis (CallGraph)
+import qualified Data.Map as Map
 
 type SymTab = Map.Map Symbol CDecl
 
 data FunctionInfo = FunctionInfo {
-		  fiResultType :: CTypeSpec
+			fiResultType :: CTypeSpec
 		, fiParams :: [CDecl]
 		, fiVariables :: SymTab
 		, fiBody :: Maybe CStat
@@ -19,13 +20,13 @@ data FunctionInfo = FunctionInfo {
 type FunctionInfos = Map.Map Symbol FunctionInfo
 
 newtype WR a = WR {
-		runWR :: WriterT DebugSymbols (Reader Analysis) a
+		runWR :: WriterT DebugSymbols (Reader CallGraph) a
  	} deriving (
 		Monad, 
 		MonadWriter DebugSymbols, 
-		MonadReader Analysis
+		MonadReader CallGraph 
 	)
 
-execWR :: Analysis -> WR a -> (a, DebugSymbols)
-execWR ana f = runReader (runWriterT (runWR f)) ana
+execWR :: CallGraph -> WR a -> (a, DebugSymbols)
+execWR cg f = runReader (runWriterT (runWR f)) cg
 

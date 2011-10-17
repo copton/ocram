@@ -1,60 +1,15 @@
-module Ocram.Types where
+module Ocram.Types 
+-- export {{{1
+(
+		Ast
+	, DebugSymbols
+) where
 
--- imports {{{1
-import Control.Monad.Error
-import Control.Monad.Reader
-import Control.Monad.Writer
+-- import {{{1
+import Language.C.Syntax.AST (CTranslUnit)
 
-import Language.C.Syntax.AST (CTranslUnit, CDecl, CBlockItem, CTypeSpec, CExtDecl, CFunDef)
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-
--- General {{{1
-type Symbol = String
-type FunMap a = Map.Map Symbol a
+-- types {{{1
 type Ast = CTranslUnit
-data Options = Options { 
-	  optInput :: String
-	, optOutput :: String
-	, optCppOptions :: String
-	, optScheme :: String
-	, optHelp :: Bool
-} deriving Show
-
-
--- Analysis {{{1
-
--- map of all blocking function declarations
-type BlockingFunctions = Set.Set Symbol
-
--- caller: any function definition
-type Callers = Set.Set Symbol
--- callee: any function definition or any blocking function declaration
-type Callees = Set.Set Symbol
-data Entry = Entry {cgCallers :: Callers, cgCallees :: Callees} deriving Show
-
-type CallGraph = Map.Map Symbol Entry
-
--- set of all critical functions
-type CriticalFunctions = Set.Set Symbol
-
--- map of all function definitions
-type DefinedFunctions = Set.Set Symbol 
-
--- list of all start routine names
-type StartRoutines = Set.Set Symbol
-
-data Analysis = Analysis {
-	getBlockingFunctions :: BlockingFunctions,
-	getDefinedFunctions :: DefinedFunctions,
-	getStartRoutines :: StartRoutines,
-	getCallGraph :: CallGraph,
-	getCriticalFunctions :: CriticalFunctions
-}
-
--- Transformation {{{1
-
-type Transformation = Analysis -> Ast -> (Ast, DebugSymbols)
 
 data DebugSymbol = DebugSymbol -- TODO
 type DebugSymbols = [DebugSymbol]
