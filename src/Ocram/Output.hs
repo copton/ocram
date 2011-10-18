@@ -2,7 +2,7 @@ module Ocram.Output
 -- export {{{1
 (
 	pretty_print,
-	writeDebugSymbols
+	write_debug_symbols
 ) where
 
 -- import {{{1
@@ -22,9 +22,9 @@ pretty_print options ast = do
 	let main = "int main() { return 0; }"
 	write file $ code ++ "\n" ++ main
 
--- writeDebugSymbols :: Options -> DebugSymbols -> IO () {{{1
-writeDebugSymbols :: Options -> DebugSymbols -> IO ()
-writeDebugSymbols = undefined
+-- write_debug_symbols :: Options -> DebugSymbols -> IO () {{{1
+write_debug_symbols :: Options -> DebugSymbols -> IO ()
+write_debug_symbols = undefined
 
 -- utils {{{1
 write :: String -> String -> IO ()

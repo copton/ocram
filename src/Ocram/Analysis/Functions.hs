@@ -1,14 +1,16 @@
 module Ocram.Analysis.Functions
 -- exports {{{1
 (
-    CallGraph, CriticalFunctions, BlockingFunctions, StartFunctions
-  , call_graph
-  , blocking_functions, critical_functions, start_functions
-  , is_blocking, is_start, is_critical
-  , get_function_declaration, get_function_definition
+		CallGraph, CriticalFunctions, BlockingFunctions, StartFunctions
+	, call_graph, from_test_graph, to_test_graph
+	, blocking_functions, critical_functions, start_functions
+	, is_blocking, is_start, is_critical
+	, get_function_declaration, get_function_definition
+	, get_call_chain
 ) where
 
 -- imports {{{1
+import Control.Arrow ((***))
 import Data.Graph.Inductive.Graph (mkGraph)
 import Data.Graph.Inductive.Query.BFS (bfs)
 import Data.Maybe (fromJust)
@@ -16,10 +18,12 @@ import Data.Monoid (mempty)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Types (Ast) 
+import Ocram.Types (Ast)
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCFunDef, ListVisitor, EmptyDownState, emptyDownState)
 import qualified Data.Graph.Inductive.Graph as G
 import qualified Data.Graph.Inductive.PatriciaTree as PT
+import qualified Data.Graph.Inductive.Query.BFS as BFS
+import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -36,7 +40,7 @@ data AstNode =
 data Label = Label {
 		lblName :: Symbol
 	, lblAttr :: [Attribute]
-	, lblAstNode :: AstNode
+	, lblAstNode :: Maybe AstNode
 }
 
 type Node = (G.Node, Label)
@@ -74,8 +78,74 @@ call_graph ast =
 	in
 		CallGraph gd' gi
 
+-- from_test_graph :: [(Symbol, Symbol)] -> CallGraph {{{1
+from_test_graph :: [(Symbol, Symbol)] -> CallGraph
+from_test_graph edges =
+	let
+		(callers, callees) = unzip edges
+		labels = map (\name -> Label name [] Nothing) $ List.nub $ callers ++ callees
+		nodes = createNodes labels
+		gi = createGraphIndex nodes
+		resolve symbol = gi Map.! symbol
+		edges' = map (\e -> ((resolve . fst) e, (resolve . snd) e, ())) edges
+		gd = G.mkGraph nodes edges'
+	in
+		CallGraph gd gi
+
+-- to_test_graph :: CallGraph -> [(Symbol, Symbol)] {{{1
+to_test_graph :: CallGraph -> [(Symbol, Symbol)]
+to_test_graph (CallGraph gd _) =
+	map (tmap convert) $ G.edges gd
+	where
+		convert gnode = lblName $ fromJust $ G.lab gd gnode
+
+
+-- blocking_functions :: CallGraph -> BlockingFunctions {{{1
+blocking_functions :: CallGraph -> BlockingFunctions
+blocking_functions = functionsWith attrBlocking
+
+-- critical_functions :: CallGraph -> CriticalFunctions {{{1
+critical_functions :: CallGraph -> CriticalFunctions
+critical_functions = functionsWith attrCritical
+
+-- start_functions :: CallGraph -> StartFunctions {{{1
+start_functions :: CallGraph -> StartFunctions
+start_functions = functionsWith attrStart
+
+-- is_blocking :: CallGraph -> Symbol -> Bool {{{1
+is_blocking :: CallGraph -> Symbol -> Bool
+is_blocking cg name = functionIs attrBlocking cg name
+
+-- is_critical :: CallGraph -> Symbol -> Bool {{{1
+is_critical :: CallGraph -> Symbol -> Bool
+is_critical cg name = functionIs attrCritical cg name
+
+-- is_start :: CallGraph -> Symbol -> Bool {{{1
+is_start :: CallGraph -> Symbol -> Bool
+is_start cg name = functionIs attrStart cg name
+
+-- get_function_declaration :: CallGraph -> Symbol -> Maybe CDecl {{{1
+get_function_declaration :: CallGraph -> Symbol -> Maybe CDecl
+get_function_declaration (CallGraph gd gi) name = Map.lookup name gi >>= G.lab gd >>= extractFunctionDeclaration
+
+-- get_function_definition :: CallGraph -> Symbol -> Maybe CFunDef {{{1
+get_function_definition :: CallGraph -> Symbol -> Maybe CFunDef
+get_function_definition (CallGraph gd gi) name = Map.lookup name gi >>= G.lab gd >>= extractFunctionDefinition
+
+-- get_call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol] {{{1
+get_call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol]
+get_call_chain (CallGraph gd gi) start end = do
+	gstart <- Map.lookup start gi
+	gend <- Map.lookup end gi
+	let path = BFS.esp gstart gend gd
+	return $ map (lblName . fromJust . (G.lab gd)) path
+
+-- utils {{{1
+tmap f = f *** f
+
 createLabels :: Ast -> [Label]
 createLabels (CTranslUnit ds _) = foldr processExtDecl [] ds
+
 
 processExtDecl :: CExtDecl -> [Label] -> [Label]
 processExtDecl (CDeclExt x) labels =
@@ -83,7 +153,7 @@ processExtDecl (CDeclExt x) labels =
 		attr = if isBlockingFunction x
 			then [Blocking]
 			else []
-		label = Label (symbol x) attr (FunDecl x)
+		label = Label (symbol x) attr $ Just $ FunDecl x
 	in
 		label : labels
 
@@ -92,8 +162,8 @@ processExtDecl (CFDefExt x) labels =
 		attr = if isStartFunction x
 			then [Start]
 			else []
-		label = Label (symbol x) attr (FunDef x) 
- in
+		label = Label (symbol x) attr $ Just $ FunDef x
+	in
 		 label : labels
 
 processExtDecl _ labels = labels
@@ -116,9 +186,9 @@ createEdges gi nodes = foldl (processEdge gi) [] nodes
 
 
 processEdge :: GraphIndex -> [Edge] -> Node -> [Edge]
-processEdge _ es (_, (Label _ _ (FunDecl _))) = es
+processEdge _ es (_, (Label _ _ (Just (FunDecl _)))) = es
 
-processEdge gi es (caller, (Label _ _ (FunDef fd))) =
+processEdge gi es (caller, (Label _ _ (Just (FunDef fd)))) =
 	let
 		callees = snd $ traverseCFunDef fd emptyDownState
 		edges = map (\callee -> (caller, gi Map.! callee, ())) callees
@@ -159,15 +229,6 @@ flagCriticalFunctions gd cf = G.nmap (flagCriticalFunction cf) gd
 flagCriticalFunction :: CriticalFunctions -> Label -> Label
 flagCriticalFunction cf (Label x attr y) = (Label x (Critical : attr) y)
 
--- attributes {{{1
-blocking_functions :: CallGraph -> BlockingFunctions
-blocking_functions = functionsWith attrBlocking
-
-critical_functions :: CallGraph -> CriticalFunctions
-critical_functions = functionsWith attrCritical
-
-start_functions :: CallGraph -> StartFunctions
-start_functions = functionsWith attrStart
 
 functionsWith :: (Attribute -> Bool) -> CallGraph -> Set.Set Symbol
 functionsWith pred cg = Set.fromList $ map lblName $ filter (hasAttr pred) $ map snd $ G.labNodes $ grData cg
@@ -192,18 +253,6 @@ functionIs pred (CallGraph gd gi) name =
 			in any pred attr
 
 
-is_blocking :: CallGraph -> Symbol -> Bool
-is_blocking cg name = functionIs attrBlocking cg name
-
-
-is_critical :: CallGraph -> Symbol -> Bool
-is_critical cg name = functionIs attrCritical cg name
-
-
-is_start :: CallGraph -> Symbol -> Bool
-is_start cg name = functionIs attrStart cg name
-
-
 isBlockingFunction :: CDecl -> Bool
 isBlockingFunction (CDecl ss [(Just (CDeclr (Just (Ident name _ _)) [CFunDeclr _ _ _] Nothing _ _), Nothing, Nothing)] _) =
 	any isBlockingAttribute ss
@@ -223,21 +272,11 @@ isStartAttr (CTypeQual (CAttrQual (CAttr (Ident startAttr _ _) [] _))) = True
 isStartAttr _ = False
 
 
--- get_function_definition :: CallGraph -> Symbol -> Maybe CFunDef {{{1
-get_function_definition :: CallGraph -> Symbol -> Maybe CFunDef
-get_function_definition (CallGraph gd gi) name = Map.lookup name gi >>= G.lab gd >>= extractFunctionDefinition
-
-
 extractFunctionDefinition :: Label -> Maybe CFunDef
-extractFunctionDefinition (Label _ _ (FunDef x)) = Just x
+extractFunctionDefinition (Label _ _ (Just (FunDef x))) = Just x
 extractFunctionDefinition _ = Nothing
 
 
--- get_function_declaration :: CallGraph -> Symbol -> Maybe CDecl {{{1
-get_function_declaration :: CallGraph -> Symbol -> Maybe CDecl
-get_function_declaration (CallGraph gd gi) name = Map.lookup name gi >>= G.lab gd >>= extractFunctionDeclaration
-
-
 extractFunctionDeclaration :: Label -> Maybe CDecl
-extractFunctionDeclaration (Label _ _ (FunDecl x)) = Just x
+extractFunctionDeclaration (Label _ _ (Just (FunDecl x))) = Just x
 extractFunctionDeclaration _ = Nothing

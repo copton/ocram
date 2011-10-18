@@ -4,61 +4,48 @@ module Ocram.Test.Tests.Analysis.TestSuites
 	tests
 ) where
 -- imports {{{1
-
-import Ocram.Types
+import Ocram.Analysis (start_functions, blocking_functions, critical_functions, call_graph, check_sanity, check_constraints)
 import Ocram.Test.Lib
 import Ocram.Test.Tests.Analysis.Types
-import Ocram.Test.Tests.Analysis.Utils
-import Ocram.Analysis
+import Ocram.Test.Tests.Analysis.Utils (runTests)
+import Ocram.Text (OcramError(errCode))
+import Ocram.Types
 
--- test suites {{{1
-tests = [sr_tests, adg_tests, bf_tests, cg_tests, con_tests, cf_tests, df_tests, san_tests]
+-- tests {{{1
+tests = [sf_tests, bf_tests, cf_tests, cg_tests, con_tests, san_tests]
 
-sr_tests = runTests TTStartRoutines execute setup 
+sf_tests = runTests TTStartFunctions execute setup 
 	where
-		execute ast df = reduce $ start_routines (enrich df) ast
-		setup tc = (tcDefinedFunctions tc, tcStartRoutines tc)
-
-adg_tests = runTests TTADG execute setup
-	where
-		execute ast (cg, sr, df) = 
-			case check_call_graph (enrich cg) (enrich sr) (enrich df) ast of
-				Left e -> extractErrorCodes e
-				Right _ -> []
-		setup tc = ((tcCallGraph tc, tcStartRoutines tc, tcDefinedFunctions tc), tcADG tc)
+		execute _ cg = reduce $ start_functions $ enrich cg
+		setup tc = (tcCallGraph tc, tcStartFunctions tc)
 
 bf_tests = runTests TTBlockingFunctions execute setup
 	where
-		execute ast _ = reduce $ blocking_functions ast
-		setup tc = ((), tcBlockingFunctions tc)	
-
-cg_tests = runTests TTCallGraph execute setup
-	where
-		execute ast (df, bf) = reduce $ call_graph (enrich df) (enrich bf) ast
-		setup tc = ((tcDefinedFunctions tc, tcBlockingFunctions tc), tcCallGraph tc)
-
-con_tests = runTests TTConstraints execute setup
-	where
-		execute ast (cf, sr) = 
-			case check_constraints (enrich cf) (enrich sr) ast of
-				Left e -> extractErrorCodes e
-				Right _ -> []
-		setup tc = ((tcCriticalFunctions tc, tcStartRoutines tc), tcConstraints tc)
+		execute _ cg = reduce $ blocking_functions $ enrich cg
+		setup tc = (tcCallGraph tc, tcBlockingFunctions tc)	
 
 cf_tests = runTests TTCriticalFunctions execute setup
 	where
-		execute ast (cg, bf) = reduce $ critical_functions (enrich cg) (enrich bf) ast
-		setup tc = ((tcCallGraph tc, tcBlockingFunctions tc), tcCriticalFunctions tc)
+		execute _ cg = reduce $ critical_functions (enrich cg)
+		setup tc = (tcCallGraph tc, tcCriticalFunctions tc)
 
-df_tests = runTests TTDefinedFunctions execute setup
+cg_tests = runTests TTCallGraph execute setup
 	where
-		execute ast _ = reduce $ defined_functions ast
-		setup tc = ((), tcDefinedFunctions tc)
+		execute ast _ = reduce $ call_graph ast
+		setup tc = ((), tcCallGraph tc)
+
+con_tests = runTests TTConstraints execute setup
+	where
+		execute ast cg = 
+			case check_constraints ast (enrich cg) of
+				Left es -> map errCode es
+				Right _ -> []
+		setup tc = (tcCallGraph tc, tcConstraints tc)
 
 san_tests = runTests TTSanity execute setup
 	where
 		execute ast _ =
 			case check_sanity ast of
-				Left e -> extractErrorCodes e
+				Left es -> map errCode es
 				Right _ -> [] 
 		setup tc = ((), tcSanity tc)

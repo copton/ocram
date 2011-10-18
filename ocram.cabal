@@ -87,17 +87,14 @@ Executable Ocram
     Ocram.Visitor.Visitor
     Ocram.Visitor.DefaultStates
     Ocram.Visitor.Traverse
---    Ocram.Transformation.Inline.Step2
---    Ocram.Transformation.Inline.Types
---    Ocram.Transformation.Inline.Names
---    Ocram.Transformation.Inline.Step3
---    Ocram.Transformation.Inline.Step4
---    Ocram.Transformation.Inline.Step1
---    Ocram.Transformation.Util
---    Ocram.Transformation.Inline
+    Ocram.Transformation.Inline.Step2
+    Ocram.Transformation.Inline.Types
+    Ocram.Transformation.Inline.Names
+    Ocram.Transformation.Inline.Step3
+    Ocram.Transformation.Inline.Step4
+    Ocram.Transformation.Inline.Step1
+    Ocram.Transformation.Util
+    Ocram.Transformation.Inline
     Ocram.Util
     Ocram.Analysis.Functions
     Ocram.Analysis.Filter
-  -- Extra tools (e.g. alex, hsc2hs, ...) needed to build the source.
-  -- Build-tools:         
-  

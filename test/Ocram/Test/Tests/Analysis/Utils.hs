@@ -1,15 +1,12 @@
 module Ocram.Test.Tests.Analysis.Utils where
 
 -- imports {{{1
-import Ocram.Types
-import Ocram.Test.Lib (TErrorCodes, TCode)
-import Ocram.Test.Tests.Analysis.Types
-import Ocram.Test.Tests.Analysis.TestCases (test_cases)
+import Ocram.Types (Ast)
 import Ocram.Test.Lib (parse)
-
+import Ocram.Test.Lib (TErrorCodes, TCode)
+import Ocram.Test.Tests.Analysis.TestCases (test_cases)
+import Ocram.Test.Tests.Analysis.Types
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
-
-import Data.List (isPrefixOf)
 
 -- runTests :: (Eq o, Show o) => TestType -> (Ast -> i -> o) -> (TCase -> (i, o)) -> Test {{{1
 runTests :: (Eq o, Show o) => TestType -> (Ast -> i -> o) -> (TCase -> (i, o)) -> Test
@@ -25,8 +22,3 @@ runTest execute (number, (code, (input, output))) = TestCase $ assertEqual name 
 		ast = parse code
 		result = execute ast input
 
--- extractErrorCodes :: String -> TErrorCodes {{{1
-extractErrorCodes :: String -> TErrorCodes
-extractErrorCodes text = map extract $ filter ("### Error:" `isPrefixOf`) $ lines text
-	where
-		extract line = read $ takeWhile (/=')') $ tail $ dropWhile (/='(') line

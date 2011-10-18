@@ -5,24 +5,27 @@ module Ocram.Test.Tests.Query
 ) where
 
 -- imports {{{1
+import Data.Maybe (isJust, fromJust)
+import Ocram.Analysis (get_call_chain)
+import Ocram.Symbols (Symbol)
 import Ocram.Test.Lib
+import Test.HUnit (Test(TestLabel,TestCase,TestList), (@?), (@=?))
 
-import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
-
--- tests
-root = "a"
+-- tests {{{1
 tests = runTests [
-		([(root, "b")], [root, "b"]),
-		([(root, "b"), (root, "c")], [root, "b", "c"])
+		([("a", "b")], ("a", "b"), ["a", "b"])
+	,	([("a", "b"), ("a", "c")], ("a", "b"), ["a", "b"])
+	,	([("a", "b"), ("a", "c")], ("a", "c"), ["a", "c"])
 	]
 
--- runTests :: [(TCallGraphShort, TCallChain)] -> Test {{{1
-runTests :: [(TCallGraphShort, TCallChain)] -> Test
+runTests :: [(TCallGraph, (Symbol, Symbol), TCallChain)] -> Test
 runTests test_cases = TestLabel "CallChain" $ TestList $ map runTest $ zip [1..] test_cases
 
-runTest :: (Int, (TCallGraphShort, TCallChain)) -> Test
-runTest (number, (cg, cc)) = TestCase $ assertEqual name expected result
+runTest :: (Int, (TCallGraph, (Symbol, Symbol), TCallChain)) -> Test
+runTest (number, (cg, (start, end), cc)) = TestCase assertion
 	where
 		name = "test" ++ show number
-		expected = (reduce cc :: [String])
-		result = reduce $ getCallChain (enrich cg) (enrich root)
+		assertion = do
+			let result = get_call_chain (enrich cg) (enrich start) (enrich end)
+			isJust result @? "could not determine call chain."
+			cc @=? (reduce $ fromJust result)

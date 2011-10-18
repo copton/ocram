@@ -1,18 +1,20 @@
-module Ocram.Test.Tests.Visitor.TranslUnit (
+module Ocram.Test.Tests.Visitor.TranslUnit
+-- exports {{{1
+(
 	tests
 ) where
 
-import Ocram.Transformation.Util (ident, un)
-import Ocram.Test.Tests.Visitor.Utils (runTests)
-import Ocram.Test.Lib (paste)
-import Ocram.Types
-import Ocram.Symbols (symbol)
-import Ocram.Visitor.Traverse (traverseCTranslUnit)
-import Language.C.Syntax.AST 
-import Language.C.Syntax.Constants
-import Ocram.Visitor.Visitor
+-- imports {{{1
 import Data.Maybe (fromJust)
 import Data.Monoid
+import Language.C.Syntax.AST 
+import Language.C.Syntax.Constants
+import Ocram.Symbols (symbol, Symbol)
+import Ocram.Test.Lib (paste)
+import Ocram.Test.Tests.Visitor.Utils (runTests)
+import Ocram.Transformation.Util (ident, un)
+import Ocram.Visitor.Traverse (traverseCTranslUnit)
+import Ocram.Visitor.Visitor
 
 -- tests {{{1
 tests = runTests "TranslUnit" [

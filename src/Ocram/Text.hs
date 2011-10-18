@@ -1,7 +1,7 @@
 module Ocram.Text 
 -- export {{{1
 (
-	show_errors, OcramError, new_error
+	show_errors, OcramError(..), new_error
 ) where 
 
 -- import {{{1

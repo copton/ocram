@@ -1,17 +1,15 @@
 module Ocram.Main (main) where
 
-import Ocram.Types
-import Ocram.Parser (parse)
-import Ocram.Options (options, Options(optScheme))
 import Ocram.Analysis (analysis, CallGraph)
+import Ocram.Options (options, Options(optScheme))
+import Ocram.Output (pretty_print, write_debug_symbols)
+import Ocram.Parser (parse)
 import Ocram.Text (OcramError, show_errors, new_error)
---import qualified Ocram.Transformation.Inline as Inline
-import Ocram.Output (pretty_print, writeDebugSymbols)
-import System.Exit (exitWith, ExitCode(ExitFailure))
+import Ocram.Types (DebugSymbols, Ast)
+import qualified Ocram.Transformation.Inline as Inline
 import System.Environment (getArgs, getProgName)
+import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
-
-import Control.Monad.Error (runErrorT)
 
 main = do
 	argv <- getArgs	
@@ -22,13 +20,13 @@ main = do
 	trans <- exitOnError "options" $ select_transformation $ optScheme opt
 	let (ast', ds) = trans ana ast
 	pretty_print opt ast'
-	writeDebugSymbols opt ds
+	write_debug_symbols opt ds
 	return ()
 
 type Transformation = CallGraph -> Ast -> (Ast, DebugSymbols)
 
 select_transformation :: String -> Either [OcramError] Transformation
---select_transformation "inline" = Right Inline.transformation
+select_transformation "inline" = Right Inline.transformation
 select_transformation s = Left [new_error 1 ("unknown compilation scheme \"" ++ s ++ "\".") Nothing]
 
 exitOnError :: String -> Either [OcramError] a -> IO a

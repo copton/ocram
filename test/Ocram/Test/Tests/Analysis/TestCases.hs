@@ -11,16 +11,6 @@ import Ocram.Test.Tests.Analysis.Types
 -- test_cases :: [TCase] {{{1
 test_cases :: [TCase]
 test_cases = [
---	Code
---	Options
---	DefinedFunctions
---	BlockingFunctions
---	StartRoutines
---	CriticalFunctions
---	CallGraph
---	Sanity
---	ADG
---	Constraints
 -- empty code {{{2
 	 TCase 
 		""
@@ -29,9 +19,7 @@ test_cases = [
 		[]
 		[]
 		[]
-		[]
-		[]
-		[2]
+		[3]
 		[]
 -- single function declaration {{{2
 	,TCase
@@ -40,16 +28,12 @@ test_cases = [
 		[]
 		[]
 		[]
-		[]
 		[]		
-		[]
 		[2]
 		[]
 -- single function definition {{{2
 	,TCase
 		"void foo() { }"
-		["foo"]
-		[]
 		[]
 		[]
 		[]
@@ -60,11 +44,9 @@ test_cases = [
 -- single blocking function declaration, 1 {{{2
 	,TCase
 		"__attribute__((tc_blocking)) void foo();"
-		[]
 		["foo"]
 		[]
 		["foo"]
-		[]
 		[]
 		[]
 		[2]
@@ -72,11 +54,9 @@ test_cases = [
 -- single blocking function declaration, 2 {{{2
 	,TCase
 		"int __attribute__((tc_blocking)) foo(char);"
-		[]
 		["foo"]
 		[]
 		["foo"]
-		[]
 		[]
 		[]
 		[2]
@@ -84,11 +64,9 @@ test_cases = [
 -- single blocking function declaration, 3 {{{2
 	,TCase
 		"__attribute__((tc_blocking)) void foo(int x, ...);"
-		[]
 		["foo"]
 		[]
 		["foo"]
-		[]
 		[]
 		[]
 		[2]
@@ -101,12 +79,10 @@ test_cases = [
 				block();
 			}
 		|]
-		["start"]
 		["block"]
 		["start"]
 		["block", "start"]
-		[("block", ["start"], []), ("start", [], ["block"])]
-		[]
+		[("start", "block")]
 		[]
 		[]
 		[]
@@ -118,12 +94,10 @@ test_cases = [
 				block();
 			}
 		|]
-		["start"]
 		["block"]
 		["start"]
 		["block", "start"]
-		[("block", ["start"], []), ("start", [], ["block"])]
-		[]
+		[("start", "block")]
 		[]
 		[]
 		[]
@@ -138,12 +112,10 @@ test_cases = [
 				critical();
 			}
 		|]
-		["critical", "start"]
 		["block"]
 		["start"]
 		["block", "critical", "start"]
-		[("block", ["critical"], []), ("critical", ["start"], ["block"]), ("start", [], ["critical"])]
-		[]
+		[("critical", "block"), ("start", "critical")]
 		[]
 		[]
 		[]
@@ -159,19 +131,10 @@ test_cases = [
 				c1();
 			}
 		|]
-		["c1", "c2", "c3", "c4", "start"]
 		["block"]
 		["start"]
 		["block", "c1", "c2", "c3", "c4", "start"]
-		[
-			("block",["c4"],[]),
-			("c1",["start"],["c2"]),
-			("c2",["c1"],["c3"]),
-			("c3",["c2"],["c4"]),
-			("c4",["c3"],["block"]),
-			("start",[],["c1"])
-		]
-		[]
+		[("start", "c1"), ("c1", "c2"), ("c2", "c3"), ("c3", "c4"), ("c4", "block")]
 		[]
 		[]
 		[]
@@ -185,12 +148,10 @@ test_cases = [
 				block();
 			}
 		|]
-		["non_critical", "start"]
 		["block"]
 		["start"]
 		["block", "start"]
-		[("block", ["start"], []), ("non_critical", ["start"], []), ("start", [], ["block","non_critical"])]
-		[]
+		[("start", "block"), ("start", "non_critical")]
 		[]
 		[]
 		[]
@@ -206,17 +167,10 @@ test_cases = [
 				block2();
 			}
 		|]
-		["start1", "start2"]
 		["block1", "block2"]
 		["start1", "start2"]
 		["block1", "block2", "start1", "start2"]
-		[
-			("block1", ["start1"], []),
-			("block2", ["start2"], []),
-			("start1", [], ["block1"]),
-			("start2", [], ["block2"])
-		]
-		[]
+		[("start1", "block1"), ("start2", "block2")]
 		[]
 		[]
 		[]
@@ -234,17 +188,10 @@ test_cases = [
 				critical();
 			}
 		|]
-		["critical", "start1", "start2"]
 		["block"]
 		["start1", "start2"]
 		["block", "critical", "start1", "start2"]
-		[
-			("block", ["critical"], []),
-			("critical", ["start1", "start2"], ["block"]),
-			("start1", [], ["critical"]),
-			("start2", [], ["critical"])
-		]
-		[]
+		[("critical", "block"), ("start1", "critical"), ("start2", "critical")]
 		[]
 		[]
 		[]
@@ -258,12 +205,10 @@ test_cases = [
 				block();
 			}
 		|]
-		["start"]
 		["block"]
 		["start"]
 		["block", "start"]
-		[("block", ["start"], []), ("start", [], ["block"])]
-		[]
+		[("start", "block")]
 		[]
 		[1]
 		[]
@@ -284,26 +229,19 @@ test_cases = [
 				c1();
 			}
 		|]
-		["c1", "c2", "start"]
 		["block"]
 		["start"]
 		undefined
-		[
-			("block", ["c2"], []),
-			("c1", ["c2", "start"], ["c2"]),
-			("c2", ["c1"], ["block", "c1"]),
-			("start", [], ["c1"])
-		]
+		[("c1", "c2"), ("c2", "c1"), ("start", "c1")]
 		[]
 		[1]
-		[]
 		[TTCriticalFunctions]
 -- function definition without parameter {{{2
 	,TCase
 		"void f { }"
-		undefined undefined undefined undefined undefined 
+		undefined undefined undefined undefined 
 		[1] 
-		undefined undefined
-		[TTDefinedFunctions, TTBlockingFunctions, TTStartRoutines, TTCriticalFunctions, TTCallGraph, TTADG, TTConstraints]
+		undefined
+		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
 -- finish {{{2
 	]

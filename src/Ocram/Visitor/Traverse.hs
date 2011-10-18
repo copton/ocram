@@ -14,15 +14,13 @@ module Ocram.Visitor.Traverse
 ) where
 
 -- import {{{1
-import Ocram.Visitor.Visitor
-import Ocram.Util (mapt2)
-
-import Language.C.Syntax.AST
-import Language.C.Data.Node (NodeInfo)
-import Language.C.Data.Ident (Ident)
-
+import Control.Arrow (first)
 import Data.Maybe (isJust, fromMaybe)
 import Data.Monoid (mappend, mempty, Monoid)
+import Language.C.Data.Ident (Ident)
+import Language.C.Data.Node (NodeInfo)
+import Language.C.Syntax.AST
+import Ocram.Visitor.Visitor
 
 -- types {{{1
 type Traverse o d u = o -> d -> (o, u)
@@ -337,7 +335,7 @@ recurseCBlockItem (CNestedFunDef i) d = let (i', u) = traverseCFunDef i d in (CN
 -- util {{{1
 maybeTrav :: (Monoid u) => Traverse o d u -> Traverse (Maybe o) d u
 maybeTrav _ Nothing _ = (Nothing, mempty)
-maybeTrav trav (Just o) d = mapt2 (Just, id) $ trav o d
+maybeTrav trav (Just o) d = first Just $ trav o d
 
 maybeDown :: DownHandler o d -> DownHandler (Maybe o) d
 maybeDown _ Nothing d = d
@@ -345,5 +343,5 @@ maybeDown downh (Just o) d = downh o d
 
 maybeUp :: (Monoid u) => UpHandler o d u -> UpHandler (Maybe o) d u
 maybeUp _ Nothing _ _ = (Nothing, mempty)
-maybeUp uph (Just o) d u = mapt2 (Just, id) $ uph o d u
+maybeUp uph (Just o) d u = first Just $ uph o d u
 

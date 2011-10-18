@@ -1,11 +1,13 @@
-module Ocram.Test.Tests.Visitor.Decl (
+module Ocram.Test.Tests.Visitor.Decl
+-- exports {{{1
+(
 	tests
 ) where
 
+-- imports {{{1
 import Ocram.Test.Tests.Visitor.Utils (runTests)
 import Ocram.Test.Lib (paste)
-import Ocram.Symbols (symbol)
-import Ocram.Types
+import Ocram.Symbols (symbol, Symbol)
 import Language.C.Syntax.AST
 import Language.C.Data.Node
 import Language.C.Data.Ident
@@ -15,6 +17,7 @@ import Data.Monoid (mempty)
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 
+-- tests {{{1
 tests = runTests "Decl" [
 		(
 			[paste|
