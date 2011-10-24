@@ -17,8 +17,6 @@ data FunctionInfo = FunctionInfo {
 		, fiBody :: Maybe CStat
 	} deriving (Show)
 
-type FunctionInfos = Map.Map Symbol FunctionInfo
-
 newtype WR a = WR {
 		runWR :: WriterT DebugSymbols (Reader CallGraph) a
  	} deriving (
@@ -29,4 +27,3 @@ newtype WR a = WR {
 
 execWR :: CallGraph -> WR a -> (a, DebugSymbols)
 execWR cg f = runReader (runWriterT (runWR f)) cg
-

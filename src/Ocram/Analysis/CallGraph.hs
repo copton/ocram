@@ -5,8 +5,8 @@ module Ocram.Analysis.CallGraph
 	, call_graph, from_test_graph, to_test_graph
 	, blocking_functions, critical_functions, start_functions
 	, is_blocking, is_start, is_critical
-	, get_function_declaration, get_function_definition
-	, get_call_chain
+	, function_declaration, function_definition
+	, call_chain, call_order, callees
 ) where
 
 -- imports {{{1
@@ -101,23 +101,39 @@ is_critical cg name = functionIs attrCritical cg name
 is_start :: CallGraph -> Symbol -> Bool
 is_start cg name = functionIs attrStart cg name
 
--- get_function_declaration :: CallGraph -> Symbol -> Maybe CDecl {{{1
-get_function_declaration :: CallGraph -> Symbol -> Maybe CDecl
-get_function_declaration (CallGraph gd gi) name = Map.lookup name gi >>= G.lab gd >>= extractFunctionDeclaration
+-- function_declaration :: CallGraph -> Symbol -> Maybe CDecl {{{1
+function_declaration :: CallGraph -> Symbol -> Maybe CDecl
+function_declaration (CallGraph gd gi) name = Map.lookup name gi >>= G.lab gd >>= extractFunctionDeclaration
 
--- get_function_definition :: CallGraph -> Symbol -> Maybe CFunDef {{{1
-get_function_definition :: CallGraph -> Symbol -> Maybe CFunDef
-get_function_definition (CallGraph gd gi) name = Map.lookup name gi >>= G.lab gd >>= extractFunctionDefinition
+-- function_definition :: CallGraph -> Symbol -> Maybe CFunDef {{{1
+function_definition :: CallGraph -> Symbol -> Maybe CFunDef
+function_definition (CallGraph gd gi) name = Map.lookup name gi >>= G.lab gd >>= extractFunctionDefinition
 
--- get_call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol] {{{1
-get_call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol]
-get_call_chain (CallGraph gd gi) start end = do
+-- call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol] {{{1
+call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol]
+call_chain (CallGraph gd gi) start end = do
 	gstart <- Map.lookup start gi
 	gend <- Map.lookup end gi
 	let path = G.esp gstart gend gd
-	return $ map (lblName . fromJust . (G.lab gd)) path
+	return $ map (gnode2symbol gd) path
+
+-- call_order :: CallGraph -> Symbol -> Maybe [Symbol] {{{1
+call_order :: CallGraph -> Symbol -> Maybe [Symbol]
+call_order (CallGraph gd gi) start = do
+  gstart <- Map.lookup start gi
+  return $ map (gnode2symbol gd) $ List.nub $ G.bfs gstart gd
+
+-- callees :: CallGraph -> Symbol -> Maybe [Symbol] {{{1
+callees :: CallGraph -> Symbol -> Maybe [Symbol]
+callees (CallGraph gd gi) caller = do
+  gcaller <- Map.lookup caller gi
+  return $ map (gnode2symbol gd) $ List.nub $ G.neighbors gd gcaller
+   
 
 -- utils {{{1
+gnode2symbol :: GraphData -> G.Node -> Symbol
+gnode2symbol gd = lblName . fromJust . G.lab gd
+
 createLabels :: Ast -> [Label]
 createLabels (CTranslUnit ds _) = foldr processExtDecl [] ds
 

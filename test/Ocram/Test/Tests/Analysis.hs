@@ -3,7 +3,7 @@ module Ocram.Test.Tests.Analysis (
 ) where
 
 import Data.Maybe (isJust, fromJust)
-import Ocram.Analysis (get_call_chain)
+import Ocram.Analysis (call_chain, call_order)
 import Ocram.Analysis.Fgl (find_loop)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
 import Ocram.Test.Lib
@@ -14,17 +14,17 @@ import qualified Data.Map as Map
 import qualified Ocram.Test.Tests.Analysis.TestSuites as T
 
 tests = TestLabel "Analysis" $ TestList $
-  getCallChainTests : findLoopTests : T.tests
+  getCallChainTests : findLoopTests : callOrderTests : T.tests
 
 getCallChainTests :: Test
-getCallChainTests = TestLabel "get_call_chain" $ TestList $ map runTest [
+getCallChainTests = TestLabel "call_chain" $ TestList $ map runTest [
 		([("a", "b")], ("a", "b"), ["a", "b"])
 	,	([("a", "b"), ("a", "c")], ("a", "b"), ["a", "b"])
 	,	([("a", "b"), ("a", "c")], ("a", "c"), ["a", "c"])
   ]
   where
     runTest (cg, (start, end), expected) = TestCase $ do
-			let result = get_call_chain (enrich cg) (enrich start) (enrich end)
+			let result = call_chain (enrich cg) (enrich start) (enrich end)
 			isJust result @? "could not determine call chain."
 			expected @=? (reduce $ fromJust result)
 
@@ -46,3 +46,15 @@ findLoopTests = TestLabel "find_loop" $ TestList $ map runTest [
       in
         expected @=? result
         
+
+callOrderTests :: Test
+callOrderTests = TestLabel "call_order" $ TestList $ map runTest [
+    ([("a", "b")], "a", ["a", "b"])
+  , ([("a", "b"), ("b", "c")], "a", ["a", "b", "c"])
+  , ([("a", "b"), ("a", "c")], "a", ["a", "b", "c"])
+  ]
+  where
+    runTest (cg, start, expected) = TestCase $ do
+      let result = call_order (enrich cg) (enrich start)
+      isJust result @? "could not determine call order"
+      expected @=? (reduce $ fromJust result)

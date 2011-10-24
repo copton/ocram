@@ -87,11 +87,11 @@ Executable Ocram
     Ocram.Parser
     Ocram.Symbols
     Ocram.Transformation.Inline
+    Ocram.Transformation.Inline.FunctionInfo
     Ocram.Transformation.Inline.Names
     Ocram.Transformation.Inline.Step1
     Ocram.Transformation.Inline.Step2
     Ocram.Transformation.Inline.Step3
-    Ocram.Transformation.Inline.Step4
     Ocram.Transformation.Inline.Types
     Ocram.Transformation.Util
     Ocram.Types

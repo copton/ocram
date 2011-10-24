@@ -6,20 +6,22 @@ module Ocram.Analysis.Filter
 
 -- imports {{{1
 import Data.Maybe (fromMaybe, fromJust, catMaybes)
+import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
-import Language.C.Data.Ident (Ident(Ident))
-import Ocram.Analysis.CallGraph (critical_functions, start_functions, CriticalFunctions, is_critical, get_function_definition)
+import Ocram.Analysis.CallGraph (critical_functions, start_functions, CriticalFunctions, is_critical, function_definition)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
 import Ocram.Text (OcramError, new_error)
 import Ocram.Types (Ast)
 import Ocram.Util (trd, tmap)
 import Ocram.Visitor (traverseCTranslUnit, emptyDownState, EmptyDownState, DownVisitor, UpVisitor(upCExtDecl, upCExpr), ListVisitor)
-import qualified Data.List as List
-import qualified Data.Set as Set
-import qualified Data.Map as Map
 import qualified Data.Graph.Inductive.Graph as G
+import qualified Data.List as List
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+
+import Debug.Trace (trace)
 
 -- errors {{{1
 newError :: ErrorCode -> Maybe String -> Maybe NodeInfo -> OcramError 
@@ -122,7 +124,7 @@ checkStartFunctions cg =
     sf = start_functions cg
     failures = Set.filter (not . (is_critical cg)) sf
     errors = Set.map (toError . getLocation) failures
-    getLocation name = (\(CFunDef _ _ _ _ x) -> x) $ fromJust $ get_function_definition cg name
+    getLocation name = (\(CFunDef _ _ _ _ x) -> x) $ fromJust $ function_definition cg name
     toError location = newError ThreadNotBlocking Nothing (Just location)
   in
     Set.toList errors

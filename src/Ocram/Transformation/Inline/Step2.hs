@@ -1,94 +1,82 @@
--- create function infos
+-- add tstack structures and variables
 module Ocram.Transformation.Inline.Step2
 -- exports {{{1
 (
-	step2
+  step2
 ) where
-step2 = undefined
----- imports {{{1
---import Ocram.Transformation.Inline.Types
---
---import Ocram.Types
---import Ocram.Visitor
---import Ocram.Symbols (symbol)
---
---import Language.C.Syntax.AST
---
---import Data.Monoid
---import qualified Data.Map as Map
---
----- step2 :: [CDecl] -> [CFunDef] -> WR FunctionInfos {{{1
---step2 :: [CDecl] -> [CFunDef] -> WR FunctionInfos
---step2 bfs cfs = return $ mconcat (bffis ++ cffis)
---	where
---		bffis = map decl2fi bfs
---		cffis = map cffi cfs
---		cffi cf = uFi $ snd $ traverseCFunDef cf $ DownState Map.empty []
---
---data DownState = DownState {
---		dSt :: SymTab
---	, dPs :: [CDecl]	
---	}
---
---data UpState = UpState {
---	  uFi	:: FunctionInfos
---	, uSt :: SymTab
---	}
---
---instance Monoid UpState where
---	mempty = UpState mempty mempty
---	mappend (UpState a b) (UpState a' b') = UpState (mappend a a') (mappend b b')
---
---instance DownVisitor DownState where
---	-- add parameters to symbol table {{{2
---	downCFunDef fd _ = DownState (params2SymTab params) params
---		where
---			params = extractParams fd
---
---	-- add declarations to symbol table {{{2
---	downCBlockItem (CBlockDecl cd) d = d {dSt = Map.insert (symbol cd) cd (dSt d)}
---
---	downCBlockItem _ d = d
---
---instance UpVisitor DownState UpState where
---	-- pass declarations from down state to up state {{{2
---	upCBlockItem o@(CBlockDecl _) d u = (o, u `mappend` UpState mempty (dSt d))
---
---	upCBlockItem o _ u = (o, u)
---
---	-- create function info entry {{{2
---	upCFunDef o@(CFunDef tss _ _ body _) d u = (o, UpState (Map.singleton name fi) mempty)
---		where
---			name = symbol o
---			fi = FunctionInfo (extractTypeSpec tss) (dPs d) (dSt d `mappend` uSt u) (Just body)
---
---instance ListVisitor DownState UpState where
---	-- remove variable declarations {{{2
---	nextCBlockItem (CBlockDecl _) d u = ([], d, u)
---
---	nextCBlockItem o d u = ([o], d, u)
---
----- utils {{{1
---extractParams :: CFunDef -> [CDecl]
---extractParams (CFunDef _ (CDeclr _ [cfd] _ _ _) [] _ _) = extractParams' cfd
---
---extractParams' :: CDerivedDeclr -> [CDecl]
---extractParams' (CFunDeclr (Right (ps, False)) _ _) = ps
---
---params2SymTab :: [CDecl] -> SymTab
---params2SymTab params = foldl add Map.empty params
---	where
---		add m cd = Map.insert (symbol cd) cd m
---
---decl2fi :: CDecl -> FunctionInfos
---decl2fi cd@(CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) = Map.singleton (symbol cd) fi
---	
---	where
---		fi = FunctionInfo (extractTypeSpec tss) params (params2SymTab params) Nothing	
---		params = extractParams' cfd
---
---extractTypeSpec :: [CDeclSpec] -> CTypeSpec
---extractTypeSpec [] = error "assertion failed: type specifier expected"
---extractTypeSpec ((CTypeSpec ts):xs) = ts
---extractTypeSpec (_:xs) = extractTypeSpec xs
---
+-- imports {{{1
+import Control.Monad.Reader (ask)
+import Data.Maybe (fromJust)
+import Language.C.Data.Ident
+import Language.C.Syntax.AST
+import Ocram.Analysis (start_functions, critical_functions, call_order, callees)
+import Ocram.Transformation.Inline.FunctionInfo (function_info)
+import Ocram.Transformation.Inline.Names
+import Ocram.Transformation.Inline.Types
+import Ocram.Transformation.Util (un, ident)
+import Ocram.Symbols (Symbol)
+import Ocram.Types (Ast)
+import Ocram.Util ((?:))
+import qualified Data.Set as Set
+import qualified Data.Map as Map
+import qualified Data.List as List
+
+-- step2 :: FunctionInfos -> Ast -> WR Ast {{{1
+step2 :: Ast -> WR Ast
+step2 (CTranslUnit decls ni) = do
+  frames <- createTStackFrames
+  cg <- ask
+  let stacks = map createTStack $ Set.toList $ start_functions cg
+  return $ CTranslUnit (frames ++ stacks ++ decls) ni
+
+-- createTStack :: Symbol -> CExtDecl {{{2
+createTStack :: Symbol -> CExtDecl
+createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
+
+-- createTStackFrames :: WR [CExtDecl] {{{2
+createTStackFrames :: WR [CExtDecl]
+createTStackFrames = do
+    fipairs <- createFiPairs
+    frames <- mapM createTStackFrame $ List.reverse fipairs
+    return frames
+
+createFiPairs :: WR [(Symbol, FunctionInfo)]
+createFiPairs = do
+  cg <- ask
+  return $ fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . fromJust . call_order cg) $ Set.toList $ start_functions cg
+  where
+    fld (lst, set) fname
+      | Set.member fname set = (lst, set)
+      | otherwise = case function_info fname of
+          Nothing -> (lst, set)
+          (Just fi) -> ((fname, fi) : lst, Set.insert fname set)
+
+
+createTStackFrame :: (Symbol, FunctionInfo) -> WR CExtDecl
+createTStackFrame (name, fi@(FunctionInfo resultType _ vars _)) = do
+  nestedFrames <- createNestedFramesUnion (name, fi)
+  cg <- ask
+  let sf = start_functions cg
+  return $ CDeclExt (CDecl [CStorageSpec (CTypedef un), CTypeSpec (CSUType (CStruct CStructTag Nothing (Just (
+       continuation (start_functions cg)
+    ?: result resultType
+    ?: nestedFrames
+    ?: Map.elems vars
+    )) [] un) un)] [(Just (CDeclr (Just (ident (frameType name))) [] Nothing [] un), Nothing, Nothing)] un)
+  where
+    result (CVoidType _) = Nothing
+    result x = Just $ CDecl [CTypeSpec x] [(Just (CDeclr (Just (ident resVar)) [] Nothing [] un), Nothing, Nothing)] un
+    continuation sf
+      | Set.member name sf = Nothing
+      | otherwise = Just (CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un)
+
+
+createNestedFramesUnion :: (Symbol, FunctionInfo) -> WR (Maybe CDecl)
+createNestedFramesUnion (name, fi) = do
+  cg <- ask
+  let cf = critical_functions cg
+  let createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
+                      [(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
+  let entries = map createEntry $ filter (flip Set.member cf) $ fromJust $ callees cg name
+  let createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
+  return $ if null entries then Nothing else Just createDecl
