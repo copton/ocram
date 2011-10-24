@@ -1,5 +1,4 @@
 module Ocram.Test.Tests.Analysis.Utils where
-
 -- imports {{{1
 import Ocram.Types (Ast)
 import Ocram.Test.Lib (parse)

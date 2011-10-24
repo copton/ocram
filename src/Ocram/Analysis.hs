@@ -2,13 +2,15 @@ module Ocram.Analysis
 -- export {{{1
 (
 		analysis
-	, module Ocram.Analysis.Functions
+	, module Ocram.Analysis.CallGraph
 	, module Ocram.Analysis.Filter
+	, CallGraph
 ) where
 
 -- import {{{1
-import Ocram.Analysis.Functions
+import Ocram.Analysis.CallGraph
 import Ocram.Analysis.Filter
+import Ocram.Analysis.Types (CallGraph)
 import Ocram.Types (Ast)
 import Ocram.Text (OcramError)
 

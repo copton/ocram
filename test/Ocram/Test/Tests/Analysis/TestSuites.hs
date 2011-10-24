@@ -12,40 +12,40 @@ import Ocram.Text (OcramError(errCode))
 import Ocram.Types
 
 -- tests {{{1
-tests = [sf_tests, bf_tests, cf_tests, cg_tests, con_tests, san_tests]
-
-sf_tests = runTests TTStartFunctions execute setup 
-	where
-		execute _ cg = reduce $ start_functions $ enrich cg
-		setup tc = (tcCallGraph tc, tcStartFunctions tc)
-
-bf_tests = runTests TTBlockingFunctions execute setup
-	where
-		execute _ cg = reduce $ blocking_functions $ enrich cg
-		setup tc = (tcCallGraph tc, tcBlockingFunctions tc)	
-
-cf_tests = runTests TTCriticalFunctions execute setup
-	where
-		execute _ cg = reduce $ critical_functions (enrich cg)
-		setup tc = (tcCallGraph tc, tcCriticalFunctions tc)
+tests = [cg_tests, sf_tests, bf_tests, cf_tests, con_tests, san_tests]
 
 cg_tests = runTests TTCallGraph execute setup
 	where
 		execute ast _ = reduce $ call_graph ast
 		setup tc = ((), tcCallGraph tc)
 
+sf_tests = runTests TTStartFunctions execute setup 
+	where
+		execute ast _ = reduce $ start_functions $ call_graph ast
+		setup tc = ((), tcStartFunctions tc)
+
+bf_tests = runTests TTBlockingFunctions execute setup
+	where
+		execute ast _ = reduce $ blocking_functions $ call_graph ast
+		setup tc = ((), tcBlockingFunctions tc)	
+
+cf_tests = runTests TTCriticalFunctions execute setup
+	where
+		execute ast _ = reduce $ critical_functions $ call_graph ast
+		setup tc = ((), tcCriticalFunctions tc)
+
 con_tests = runTests TTConstraints execute setup
 	where
-		execute ast cg = 
-			case check_constraints ast (enrich cg) of
-				Left es -> map errCode es
+		execute ast _ = 
+			case check_constraints ast $ call_graph ast of
+				Left es -> enrich $ map errCode es
 				Right _ -> []
-		setup tc = (tcCallGraph tc, tcConstraints tc)
+		setup tc = ((), tcConstraints tc)
 
 san_tests = runTests TTSanity execute setup
 	where
 		execute ast _ =
 			case check_sanity ast of
-				Left es -> map errCode es
+				Left es -> enrich $ map errCode es
 				Right _ -> [] 
 		setup tc = ((), tcSanity tc)

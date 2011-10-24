@@ -43,21 +43,21 @@ Executable Test
     bytestring >= 0.9.1.5,
     fgl >= 5.4.2.4
   Other-modules:
+    Ocram.Test.Lib
     Ocram.Test.Main
-    Ocram.Test.Tests.Visitor
     Ocram.Test.Tests.Analysis
-    Ocram.Test.Tests.Symbol
-    Ocram.Test.Tests.Visitor.Stat
-    Ocram.Test.Tests.Visitor.Utils
-    Ocram.Test.Tests.Visitor.TranslUnit
-    Ocram.Test.Tests.Visitor.Decl
-    Ocram.Test.Tests.Transformation.Inline
-    Ocram.Test.Tests.Transformation
+    Ocram.Test.Tests.Analysis.TestCases
     Ocram.Test.Tests.Analysis.TestSuites
     Ocram.Test.Tests.Analysis.Types
     Ocram.Test.Tests.Analysis.Utils
-    Ocram.Test.Tests.Analysis.TestCases
-    Ocram.Test.Lib
+    Ocram.Test.Tests.Symbol
+    Ocram.Test.Tests.Transformation
+    Ocram.Test.Tests.Transformation.Inline
+    Ocram.Test.Tests.Visitor
+    Ocram.Test.Tests.Visitor.Decl
+    Ocram.Test.Tests.Visitor.Stat
+    Ocram.Test.Tests.Visitor.TranslUnit
+    Ocram.Test.Tests.Visitor.Utils
 
 Executable Ocram
   Hs-Source-Dirs: src
@@ -75,26 +75,28 @@ Executable Ocram
     mtl >= 1.1.0.2,
     fgl >= 5.4.2.4
   Other-modules:
-    Ocram.Visitor
-    Ocram.Main
     Ocram.Analysis
-    Ocram.Parser
-    Ocram.Symbols
-    Ocram.Output
-    Ocram.Types
+    Ocram.Analysis.CallGraph
+    Ocram.Analysis.Fgl
+    Ocram.Analysis.Filter
+    Ocram.Analysis.Types
+    Ocram.Main
     Ocram.Names
     Ocram.Options
-    Ocram.Visitor.Visitor
-    Ocram.Visitor.DefaultStates
-    Ocram.Visitor.Traverse
-    Ocram.Transformation.Inline.Step2
-    Ocram.Transformation.Inline.Types
+    Ocram.Output
+    Ocram.Parser
+    Ocram.Symbols
+    Ocram.Transformation.Inline
     Ocram.Transformation.Inline.Names
+    Ocram.Transformation.Inline.Step1
+    Ocram.Transformation.Inline.Step2
     Ocram.Transformation.Inline.Step3
     Ocram.Transformation.Inline.Step4
-    Ocram.Transformation.Inline.Step1
+    Ocram.Transformation.Inline.Types
     Ocram.Transformation.Util
-    Ocram.Transformation.Inline
+    Ocram.Types
     Ocram.Util
-    Ocram.Analysis.Functions
-    Ocram.Analysis.Filter
+    Ocram.Visitor
+    Ocram.Visitor.DefaultStates
+    Ocram.Visitor.Traverse
+    Ocram.Visitor.Visitor

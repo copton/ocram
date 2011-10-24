@@ -1,7 +1,7 @@
-module Ocram.Analysis.Functions
+module Ocram.Analysis.CallGraph
 -- exports {{{1
 (
-		CallGraph, CriticalFunctions, BlockingFunctions, StartFunctions
+		CriticalFunctions, BlockingFunctions, StartFunctions
 	, call_graph, from_test_graph, to_test_graph
 	, blocking_functions, critical_functions, start_functions
 	, is_blocking, is_start, is_critical
@@ -10,51 +10,28 @@ module Ocram.Analysis.Functions
 ) where
 
 -- imports {{{1
-import Control.Arrow ((***))
 import Data.Graph.Inductive.Graph (mkGraph)
 import Data.Graph.Inductive.Query.BFS (bfs)
 import Data.Maybe (fromJust)
 import Data.Monoid (mempty)
 import Language.C.Data.Ident (Ident(Ident))
+import Language.C.Data.Node (NodeInfo, undefNode)
 import Language.C.Syntax.AST
+import Ocram.Analysis.Types
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Types (Ast)
+import Ocram.Util (tmap)
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCFunDef, ListVisitor, EmptyDownState, emptyDownState)
+import qualified Data.Graph.Inductive.Basic as G
 import qualified Data.Graph.Inductive.Graph as G
-import qualified Data.Graph.Inductive.PatriciaTree as PT
-import qualified Data.Graph.Inductive.Query.BFS as BFS
+import qualified Data.Graph.Inductive.Query.BFS as G
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
+import Debug.Trace (trace)
+
 -- types {{{1
-data Attribute =
-		Blocking
-	| Critical
-	| Start
-
-data AstNode =
-		FunDef CFunDef
-	| FunDecl CDecl
-
-data Label = Label {
-		lblName :: Symbol
-	, lblAttr :: [Attribute]
-	, lblAstNode :: Maybe AstNode
-}
-
-type Node = (G.Node, Label)
-
-type Edge = (G.Node, G.Node, ())
-
-type GraphData = PT.Gr Label ()
-
-type GraphIndex = Map.Map Symbol G.Node
-
-data CallGraph = CallGraph {
-		grData :: GraphData
-	, grIndex :: GraphIndex
-}
 
 type CriticalFunctions = Set.Set Symbol
 
@@ -72,8 +49,8 @@ call_graph ast =
 		edges = createEdges gi nodes
 		gd = G.mkGraph nodes edges
 		cg = CallGraph gd gi
-		sfs = start_functions cg
-		cf = getCriticalFunctions cg sfs
+		bf = blocking_functions cg
+		cf = getCriticalFunctions cg bf
 		gd' = flagCriticalFunctions gd cf
 	in
 		CallGraph gd' gi
@@ -87,7 +64,7 @@ from_test_graph edges =
 		nodes = createNodes labels
 		gi = createGraphIndex nodes
 		resolve symbol = gi Map.! symbol
-		edges' = map (\e -> ((resolve . fst) e, (resolve . snd) e, ())) edges
+		edges' = map (\e -> ((resolve . fst) e, (resolve . snd) e, undefNode)) edges
 		gd = G.mkGraph nodes edges'
 	in
 		CallGraph gd gi
@@ -137,12 +114,10 @@ get_call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol]
 get_call_chain (CallGraph gd gi) start end = do
 	gstart <- Map.lookup start gi
 	gend <- Map.lookup end gi
-	let path = BFS.esp gstart gend gd
+	let path = G.esp gstart gend gd
 	return $ map (lblName . fromJust . (G.lab gd)) path
 
 -- utils {{{1
-tmap f = f *** f
-
 createLabels :: Ast -> [Label]
 createLabels (CTranslUnit ds _) = foldr processExtDecl [] ds
 
@@ -190,31 +165,33 @@ processEdge _ es (_, (Label _ _ (Just (FunDecl _)))) = es
 
 processEdge gi es (caller, (Label _ _ (Just (FunDef fd)))) =
 	let
-		callees = snd $ traverseCFunDef fd emptyDownState
-		edges = map (\callee -> (caller, gi Map.! callee, ())) callees
+		us = snd $ traverseCFunDef fd emptyDownState
+		edges = map (\(callee, ni) -> (caller, gi Map.! callee, ni)) us
 	in
 		es ++ edges
 
 
-type CgUpState = [Symbol]
+type CgUpState = [(Symbol, NodeInfo)]
 
 instance UpVisitor EmptyDownState CgUpState where
-	upCExpr o@(CCall (CVar (Ident callee _ _) _)  _ _) _ _ = (o, [callee])
+	upCExpr o@(CCall (CVar (Ident callee _ _) _)  _ ni) _ _ = (o, [(callee, ni)])
 	upCExpr o _ u = (o, u)
 
 instance ListVisitor EmptyDownState CgUpState
 
 
-getCriticalFunctions :: CallGraph -> StartFunctions -> CriticalFunctions
-getCriticalFunctions cg sf = Set.fold (subGraph cg) Set.empty sf
+getCriticalFunctions :: CallGraph -> BlockingFunctions -> CriticalFunctions
+getCriticalFunctions cg bf =
+	let cg' = CallGraph (G.grev (grData cg)) (grIndex cg) in
+	Set.fold (subGraph cg') Set.empty bf
 
 
 subGraph :: CallGraph -> Symbol -> CriticalFunctions -> CriticalFunctions
-subGraph cg start cf =
+subGraph cg end cf = -- call graph has reversed edges
 	let
 		gi = grIndex cg
 		gd = grData cg
-		gnode = gi Map.! start
+		gnode = gi Map.! end
 		gnodes = bfs gnode gd
 		labels = map (fromJust . (G.lab gd)) gnodes
 		symbols = map lblName labels
@@ -227,7 +204,9 @@ flagCriticalFunctions gd cf = G.nmap (flagCriticalFunction cf) gd
 
 
 flagCriticalFunction :: CriticalFunctions -> Label -> Label
-flagCriticalFunction cf (Label x attr y) = (Label x (Critical : attr) y)
+flagCriticalFunction cf label@(Label x attr y)
+	| Set.member x cf = (Label x (Critical : attr) y)
+	| otherwise = label
 
 
 functionsWith :: (Attribute -> Bool) -> CallGraph -> Set.Set Symbol

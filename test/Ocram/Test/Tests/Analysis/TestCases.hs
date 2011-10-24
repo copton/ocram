@@ -5,6 +5,7 @@ module Ocram.Test.Tests.Analysis.TestCases
 ) where
 
 -- import {{{1
+import Ocram.Analysis.Filter (ErrorCode(..))
 import Ocram.Test.Lib (paste)
 import Ocram.Test.Tests.Analysis.Types
 
@@ -19,7 +20,7 @@ test_cases = [
 		[]
 		[]
 		[]
-		[3]
+		[NoThreads]
 		[]
 -- single function declaration {{{2
 	,TCase
@@ -29,7 +30,7 @@ test_cases = [
 		[]
 		[]
 		[]		
-		[2]
+		[NoThreads]
 		[]
 -- single function definition {{{2
 	,TCase
@@ -39,7 +40,7 @@ test_cases = [
 		[]
 		[]
 		[]
-		[2]
+		[NoThreads]
 		[]
 -- single blocking function declaration, 1 {{{2
 	,TCase
@@ -49,7 +50,7 @@ test_cases = [
 		["foo"]
 		[]
 		[]
-		[2]
+		[NoThreads]
 		[]
 -- single blocking function declaration, 2 {{{2
 	,TCase
@@ -59,7 +60,7 @@ test_cases = [
 		["foo"]
 		[]
 		[]
-		[2]
+		[NoThreads]
 		[]
 -- single blocking function declaration, 3 {{{2
 	,TCase
@@ -69,7 +70,7 @@ test_cases = [
 		["foo"]
 		[]
 		[]
-		[2]
+		[NoThreads]
 		[]
 -- minimal thread, 1 {{{2
 	,TCase
@@ -134,7 +135,7 @@ test_cases = [
 		["block"]
 		["start"]
 		["block", "c1", "c2", "c3", "c4", "start"]
-		[("start", "c1"), ("c1", "c2"), ("c2", "c3"), ("c3", "c4"), ("c4", "block")]
+		[("c1", "c2"), ("c2", "c3"), ("c3", "c4"), ("c4", "block"), ("start", "c1")]
 		[]
 		[]
 		[]
@@ -208,9 +209,9 @@ test_cases = [
 		["block"]
 		["start"]
 		["block", "start"]
-		[("start", "block")]
+		[("start", "block"), ("start", "f")]
 		[]
-		[1]
+		[PointerToCriticalFunction]
 		[]
 -- cyclic call graph {{{2
 	,TCase
@@ -232,16 +233,25 @@ test_cases = [
 		["block"]
 		["start"]
 		undefined
-		[("c1", "c2"), ("c2", "c1"), ("start", "c1")]
+		[("c1", "c2"), ("c2", "block"), ("c2", "c1"), ("start", "c1")]
 		[]
-		[1]
+		[CriticalRecursion]
 		[TTCriticalFunctions]
 -- function definition without parameter {{{2
 	,TCase
 		"void f { }"
 		undefined undefined undefined undefined 
-		[1] 
+		[NoParameterList] 
 		undefined
 		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
--- finish {{{2
+-- thread does not block {{{2
+	,TCase
+		"__attribute__((tc_run_thread)) void start() { }"
+		[]
+		["start"]
+		[]
+		[]
+		[]
+		[ThreadNotBlocking]
+		[]
 	]
