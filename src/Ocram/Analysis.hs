@@ -4,13 +4,13 @@ module Ocram.Analysis
 		analysis
 	, module Ocram.Analysis.CallGraph
 	, module Ocram.Analysis.Filter
-	, CallGraph
+	, CallGraph, FunctionInfo(..), SymTab
 ) where
 
 -- import {{{1
 import Ocram.Analysis.CallGraph
 import Ocram.Analysis.Filter
-import Ocram.Analysis.Types (CallGraph)
+import Ocram.Analysis.Types
 import Ocram.Types (Ast)
 import Ocram.Text (OcramError)
 

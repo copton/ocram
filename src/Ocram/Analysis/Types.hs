@@ -1,11 +1,20 @@
 module Ocram.Analysis.Types where
 
-import Language.C.Syntax.AST (CFunDef, CDecl)
+import Language.C.Syntax.AST (CFunDef, CDecl, CTypeSpec, CStat)
 import Language.C.Data.Node (NodeInfo)
 import Ocram.Symbols (Symbol)
 import qualified Data.Graph.Inductive.Graph as G
 import qualified Data.Graph.Inductive.PatriciaTree as G
 import qualified Data.Map as Map
+
+type SymTab = Map.Map Symbol CDecl
+
+data FunctionInfo = FunctionInfo {
+			fiResultType :: CTypeSpec
+		, fiParams :: [CDecl]
+		, fiVariables :: SymTab
+		, fiBody :: Maybe CStat
+	} deriving (Show)
 
 data Attribute =
 		Blocking
@@ -20,6 +29,7 @@ data Label = Label {
 		lblName :: Symbol
 	, lblAttr :: [Attribute]
 	, lblAstNode :: Maybe AstNode
+  , lblFi :: Maybe FunctionInfo
 }
 
 type Node = (G.Node, Label)

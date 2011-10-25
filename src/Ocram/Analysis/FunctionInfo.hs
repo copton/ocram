@@ -1,24 +1,17 @@
-module Ocram.Transformation.Inline.FunctionInfo
+module Ocram.Analysis.FunctionInfo
 -- exports {{{1
 (
-  function_info
+  decl2fi, def2fi
 ) where
 -- imports {{{1
 import Data.Monoid
 import Language.C.Syntax.AST
-import Ocram.Analysis (function_definition, function_declaration, CallGraph, is_critical, is_blocking)
+import Ocram.Analysis.Types (FunctionInfo(FunctionInfo), SymTab)
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Transformation.Inline.Types
 import Ocram.Types (Ast)
 import Ocram.Util (fromJust_s, abort)
 import Ocram.Visitor
 import qualified Data.Map as Map
-
-function_info :: CallGraph -> Symbol -> Maybe FunctionInfo -- {{{1
-function_info cg fname
-  | is_blocking cg fname = fmap decl2fi $ function_declaration cg fname
-  | is_critical cg fname = fmap def2fi $ function_definition cg fname
-  | otherwise = Nothing
 
 decl2fi :: CDecl -> FunctionInfo -- {{{2
 decl2fi cd@(CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) =
