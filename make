@@ -40,7 +40,8 @@ def diff_code(text):
             (pre, code, post) = line.split('"')
             got.append(code)
             
-    assert len(expected) == len(got), str(expected) + "\n" + str(got)
+    if len(expected) != len(got):
+        sys.stderr.write("warning: expected != got: " + str((len(expected), len(got))) + "\n")
 
     def paste(name, code):
         f = open(name, "w")

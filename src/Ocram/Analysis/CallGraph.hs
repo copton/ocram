@@ -4,7 +4,7 @@ module Ocram.Analysis.CallGraph
 		CriticalFunctions, BlockingFunctions, StartFunctions
 	, call_graph, from_test_graph, to_test_graph
 	, blocking_functions, critical_functions, start_functions
-	, is_blocking, is_start, is_critical
+	, is_blocking, is_start, is_critical, is_critical_not_blocking
 	, function_declaration, function_definition
 	, call_chain, call_order, callees
 ) where
@@ -12,7 +12,6 @@ module Ocram.Analysis.CallGraph
 -- imports {{{1
 import Data.Graph.Inductive.Graph (mkGraph)
 import Data.Graph.Inductive.Query.BFS (bfs)
-import Data.Maybe (fromJust)
 import Data.Monoid (mempty)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo, undefNode)
@@ -20,7 +19,7 @@ import Language.C.Syntax.AST
 import Ocram.Analysis.Types
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Types (Ast)
-import Ocram.Util (tmap)
+import Ocram.Util (tmap, fromJust_s)
 import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCFunDef, ListVisitor, EmptyDownState, emptyDownState)
 import qualified Data.Graph.Inductive.Basic as G
 import qualified Data.Graph.Inductive.Graph as G
@@ -72,10 +71,7 @@ from_test_graph edges =
 -- to_test_graph :: CallGraph -> [(Symbol, Symbol)] {{{1
 to_test_graph :: CallGraph -> [(Symbol, Symbol)]
 to_test_graph (CallGraph gd _) =
-	map (tmap convert) $ G.edges gd
-	where
-		convert gnode = lblName $ fromJust $ G.lab gd gnode
-
+	map (tmap (gnode2symbol gd)) $ G.edges gd
 
 -- blocking_functions :: CallGraph -> BlockingFunctions {{{1
 blocking_functions :: CallGraph -> BlockingFunctions
@@ -96,6 +92,10 @@ is_blocking cg name = functionIs attrBlocking cg name
 -- is_critical :: CallGraph -> Symbol -> Bool {{{1
 is_critical :: CallGraph -> Symbol -> Bool
 is_critical cg name = functionIs attrCritical cg name
+
+-- is_critical_not_blocking :: CallGraph -> Symbol -> Bool {{{1
+is_critical_not_blocking :: CallGraph -> Symbol -> Bool
+is_critical_not_blocking cg name = is_critical cg name && not (is_blocking cg name)
 
 -- is_start :: CallGraph -> Symbol -> Bool {{{1
 is_start :: CallGraph -> Symbol -> Bool
@@ -127,12 +127,12 @@ call_order (CallGraph gd gi) start = do
 callees :: CallGraph -> Symbol -> Maybe [Symbol]
 callees (CallGraph gd gi) caller = do
   gcaller <- Map.lookup caller gi
-  return $ map (gnode2symbol gd) $ List.nub $ G.neighbors gd gcaller
+  return $ map (gnode2symbol gd) $ List.nub $ G.suc gd gcaller
    
 
 -- utils {{{1
 gnode2symbol :: GraphData -> G.Node -> Symbol
-gnode2symbol gd = lblName . fromJust . G.lab gd
+gnode2symbol gd = lblName . fromJust_s "CallGraph/1" . G.lab gd
 
 createLabels :: Ast -> [Label]
 createLabels (CTranslUnit ds _) = foldr processExtDecl [] ds
@@ -209,8 +209,7 @@ subGraph cg end cf = -- call graph has reversed edges
 		gd = grData cg
 		gnode = gi Map.! end
 		gnodes = bfs gnode gd
-		labels = map (fromJust . (G.lab gd)) gnodes
-		symbols = map lblName labels
+		symbols = map (gnode2symbol gd) gnodes
 	in
 		Set.union cf $ Set.fromList symbols
 
@@ -244,7 +243,7 @@ functionIs pred (CallGraph gd gi) name =
 	case Map.lookup name gi of
 		Nothing -> False
 		Just gnode ->
-			let (Label _ attr _) = fromJust $ G.lab gd gnode
+			let (Label _ attr _) = fromJust_s "CallGraph/2" $ G.lab gd gnode
 			in any pred attr
 
 

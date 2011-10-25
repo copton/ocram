@@ -5,7 +5,7 @@ module Ocram.Analysis.Filter
 ) where
 
 -- imports {{{1
-import Data.Maybe (fromMaybe, fromJust, catMaybes)
+import Data.Maybe (fromMaybe, catMaybes)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
@@ -14,7 +14,7 @@ import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
 import Ocram.Text (OcramError, new_error)
 import Ocram.Types (Ast)
-import Ocram.Util (trd, tmap)
+import Ocram.Util (trd, tmap, fromJust_s, head_s)
 import Ocram.Visitor (traverseCTranslUnit, emptyDownState, EmptyDownState, DownVisitor, UpVisitor(upCExtDecl, upCExpr), ListVisitor)
 import qualified Data.Graph.Inductive.Graph as G
 import qualified Data.List as List
@@ -50,7 +50,7 @@ errors = [
   ]
 
 errorText :: ErrorCode -> String
-errorText code = fromJust $ List.lookup code errors
+errorText code = fromJust_s "Filter/1" $ List.lookup code errors
 
 -- check_sanity :: Ast -> Either OcramError () {{{1
 check_sanity :: Ast -> Either [OcramError] ()
@@ -113,9 +113,9 @@ createRecError (CallGraph gd gi) call_stack =
   newError CriticalRecursion (Just errText) (Just location)
   where
     errText = concat $ List.intersperse " -> " $
-      map (show . lblName . fromJust . G.lab gd) call_stack
+      map (show . lblName . fromJust_s "Filter/2" . G.lab gd) call_stack
     (callee:caller:[]) = take 2 $ List.reverse call_stack 
-    location = head $ edge_label gd caller callee
+    location = head_s "Filter/3" $ edge_label gd caller callee
       
 
 checkStartFunctions :: CallGraph -> [OcramError]
@@ -124,7 +124,7 @@ checkStartFunctions cg =
     sf = start_functions cg
     failures = Set.filter (not . (is_critical cg)) sf
     errors = Set.map (toError . getLocation) failures
-    getLocation name = (\(CFunDef _ _ _ _ x) -> x) $ fromJust $ function_definition cg name
+    getLocation name = (\(CFunDef _ _ _ _ x) -> x) $ fromJust_s "Filter/3" $ function_definition cg name
     toError location = newError ThreadNotBlocking Nothing (Just location)
   in
     Set.toList errors

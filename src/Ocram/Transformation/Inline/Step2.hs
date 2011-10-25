@@ -6,17 +6,16 @@ module Ocram.Transformation.Inline.Step2
 ) where
 -- imports {{{1
 import Control.Monad.Reader (ask)
-import Data.Maybe (fromJust)
 import Language.C.Data.Ident
 import Language.C.Syntax.AST
-import Ocram.Analysis (start_functions, critical_functions, call_order, callees)
+import Ocram.Analysis (start_functions, critical_functions, call_order, callees, is_critical)
 import Ocram.Transformation.Inline.FunctionInfo (function_info)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Symbols (Symbol)
 import Ocram.Types (Ast)
-import Ocram.Util ((?:))
+import Ocram.Util ((?:), fromJust_s)
 import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List as List
@@ -43,11 +42,11 @@ createTStackFrames = do
 createFiPairs :: WR [(Symbol, FunctionInfo)]
 createFiPairs = do
   cg <- ask
-  return $ fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . fromJust . call_order cg) $ Set.toList $ start_functions cg
+  return $ fst $ foldl (fld cg) ([], Set.empty) $ concatMap (List.reverse . List.filter (is_critical cg) . fromJust_s "Step2/1" . call_order cg) $ Set.toList $ start_functions cg
   where
-    fld (lst, set) fname
+    fld cg (lst, set) fname
       | Set.member fname set = (lst, set)
-      | otherwise = case function_info fname of
+      | otherwise = case function_info cg fname of
           Nothing -> (lst, set)
           (Just fi) -> ((fname, fi) : lst, Set.insert fname set)
 
@@ -77,6 +76,6 @@ createNestedFramesUnion (name, fi) = do
   let cf = critical_functions cg
   let createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
                       [(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
-  let entries = map createEntry $ filter (flip Set.member cf) $ fromJust $ callees cg name
+  let entries = map createEntry $ filter (flip Set.member cf) $ fromJust_s "Step2/2" $ callees cg name
   let createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
   return $ if null entries then Nothing else Just createDecl
