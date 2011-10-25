@@ -242,8 +242,7 @@ tests = runTests [
 				ec_stack_start->s2 = non_critical(ec_stack_start->s1);
 				ec_stack_start->ec_frames.critical.c = ec_stack_start->s2;
 				ec_stack_start->ec_frames.critical.ec_cont = &ec_label_start_1;
-				critical(&ec_stack_start->ec_frames.critical);
-				return;
+				goto ec_label_critical_0;
 			ec_label_start_1: ;
 				return;	
 			
@@ -253,7 +252,7 @@ tests = runTests [
 				block(&ec_stack_start->ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
-				return;
+				goto *ec_stack_start->ec_frames.critical.ec_cont;
 		}
 	|])
 -- two threads {{{2
@@ -384,8 +383,7 @@ tests = runTests [
 			ec_label_run_0: ;
 				ec_stack_run->ec_frames.critical.c = 1;
 				ec_stack_run->ec_frames.critical.ec_cont = &ec_label_run_1;
-				critical(&ec_stack_run->ec_frames.critical);
-				return;
+				goto ec_label_critical_0;
 			ec_label_run_1: ;
 				return;	
 			
@@ -395,7 +393,7 @@ tests = runTests [
 				block(&ec_stack_run->ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
-				return;
+				goto *ec_stack_run->ec_frames.critical.ec_cont;
 		}
 
 		void ec_thread_2(void* ec_cont)
@@ -406,8 +404,7 @@ tests = runTests [
 			ec_label_start_0: ;
 				ec_stack_start->ec_frames.critical.c = 2;
 				ec_stack_start->ec_frames.critical.ec_cont = &ec_label_start_1;
-				critical(&ec_stack_start->ec_frames.critical);
-				return;
+			  goto ec_label_critical_0;
 			ec_label_start_1: ;
 				return;	
 			
@@ -417,7 +414,7 @@ tests = runTests [
 				block(&ec_stack_start->ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
-				return;
+				goto *ec_stack_start->ec_frames.critical.ec_cont;
 		}
 	|])
 

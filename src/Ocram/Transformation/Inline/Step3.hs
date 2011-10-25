@@ -41,13 +41,17 @@ createThreadFunction (tid, startFunction) = do
 inlineCriticalFunction :: Symbol -> Symbol -> WR [CBlockItem] -- {{{2
 inlineCriticalFunction startFunction inlinedFunction = do
   cg <- ask
-  let lbl = createLabel inlinedFunction 0
   let fi = fromJust_s "Step3/1" $ function_info cg inlinedFunction
   let currentBody = fromJust_s "Step3/2" $ fiBody fi
   let initialDownState = DownState cg startFunction inlinedFunction (fiVariables fi) 1
   let inlinedBody = (\(CCompound _ body _) -> body) $ fst $ (traverseCStat currentBody initialDownState :: (CStat, UpState)) 
-  let close = CBlockStmt $ CReturn Nothing un
-  return $ lbl : inlinedBody ++ close : []
+  let callChain = fromJust_s "Step3/9" $ call_chain cg startFunction inlinedFunction
+  return $ lbl : inlinedBody ++ (close callChain) : []
+    where
+      close callChain = CBlockStmt $ if startFunction == inlinedFunction
+        then CReturn Nothing un
+        else CGotoPtr (stackAccess callChain (Just contVar)) un
+      lbl = createLabel inlinedFunction 0
 
 data DownState = DownState {
     dCg :: CallGraph
@@ -91,17 +95,25 @@ instance ListVisitor DownState UpState where
 
 criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> Maybe CExpr -> [CBlockItem]
 criticalFunctionCall (DownState cg startFunction inlinedFunction _ lid) calledFunction params resultLhs =
-  parameters ++ continuation : call : return : lbl : result ?: []
+  parameters ++ continuation : call : return ?: lbl : result ?: []
   where
+    blocking = is_blocking cg calledFunction
     callChain = fromJust_s "Step3/8" $ call_chain cg startFunction calledFunction
     fi = fromJust_s "Step3/5" $ function_info cg calledFunction
     parameters = map (createParamAssign callChain) $ zip params $ fiParams fi
     continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just contVar)) (CUnary CAdrOp (CVar (ident $ label inlinedFunction lid) un) un) un)) un)
-    call = CBlockStmt (CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain Nothing) un] un)) un)
-    return = CBlockStmt (CReturn Nothing un)
     lbl = createLabel inlinedFunction lid
     result = fmap assignResult resultLhs
     assignResult lhs = createAssign lhs (stackAccess callChain (Just resVar))
+
+    call = CBlockStmt $ if blocking
+      then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain Nothing) un] un)) un
+      else CGoto (ident $ label calledFunction 0) un
+
+    return = if blocking
+      then Just (CBlockStmt (CReturn Nothing un))
+      else Nothing
+
 
 createParamAssign :: [Symbol] -> (CExpr, CDecl) -> CBlockItem
 createParamAssign chain (exp, decl) = createAssign lhs rhs
