@@ -80,7 +80,6 @@ Executable Ocram
     Ocram.Analysis.CallGraph
     Ocram.Analysis.Fgl
     Ocram.Analysis.Filter
-    Ocram.Analysis.FunctionInfo
     Ocram.Analysis.Types
     Ocram.Main
     Ocram.Names
@@ -89,6 +88,7 @@ Executable Ocram
     Ocram.Parser
     Ocram.Symbols
     Ocram.Transformation.Inline
+    Ocram.Transformation.Inline.FunctionInfo
     Ocram.Transformation.Inline.Names
     Ocram.Transformation.Inline.Step1
     Ocram.Transformation.Inline.Step2

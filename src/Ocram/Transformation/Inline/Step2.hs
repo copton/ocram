@@ -8,7 +8,8 @@ module Ocram.Transformation.Inline.Step2
 import Control.Monad.Reader (ask)
 import Language.C.Data.Ident
 import Language.C.Syntax.AST
-import Ocram.Analysis (start_functions, critical_functions, call_order, callees, is_critical, function_info, FunctionInfo(FunctionInfo))
+import Ocram.Analysis (start_functions, critical_functions, call_order, callees, is_critical)
+import Ocram.Transformation.Inline.FunctionInfo (function_info)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
@@ -19,17 +20,20 @@ import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List as List
 
-step2 :: Ast -> WR Ast -- {{{1
+-- step2 :: FunctionInfos -> Ast -> WR Ast {{{1
+step2 :: Ast -> WR Ast
 step2 (CTranslUnit decls ni) = do
   frames <- createTStackFrames
   cg <- ask
   let stacks = map createTStack $ Set.toList $ start_functions cg
   return $ CTranslUnit (frames ++ stacks ++ decls) ni
 
-createTStack :: Symbol -> CExtDecl -- {{{2
+-- createTStack :: Symbol -> CExtDecl {{{2
+createTStack :: Symbol -> CExtDecl
 createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
 
-createTStackFrames :: WR [CExtDecl] -- {{{2
+-- createTStackFrames :: WR [CExtDecl] {{{2
+createTStackFrames :: WR [CExtDecl]
 createTStackFrames = do
     fipairs <- createFiPairs
     frames <- mapM createTStackFrame $ List.reverse fipairs

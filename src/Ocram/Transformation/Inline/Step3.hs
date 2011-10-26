@@ -11,10 +11,11 @@ import Control.Monad (liftM)
 import Data.Maybe (isJust, fromJust)
 import Data.Monoid (mempty)
 import Language.C.Syntax.AST
-import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph, function_info, FunctionInfo(..), SymTab)
+import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
+import Ocram.Transformation.Inline.FunctionInfo (function_info)
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types (Ast)
 import Ocram.Symbols (Symbol)

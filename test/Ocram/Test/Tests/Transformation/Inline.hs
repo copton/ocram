@@ -3,12 +3,14 @@ module Ocram.Test.Tests.Transformation.Inline (
 ) where
 import Test.HUnit
 -- imports {{{1
-import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
-import Ocram.Analysis (analysis)
-import Ocram.Test.Lib
-import Ocram.Text (show_errors)
-import Ocram.Transformation.Inline (transformation)
 import Ocram.Types
+import Ocram.Test.Lib
+import Ocram.Transformation.Inline (transformation)
+import Ocram.Analysis (analysis)
+import Ocram.Text (show_errors)
+
+import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
+
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
 -- tests {{{1
