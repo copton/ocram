@@ -86,13 +86,13 @@ Executable Ocram
     Ocram.Options
     Ocram.Output
     Ocram.Parser
+    Ocram.Query
     Ocram.Symbols
     Ocram.Transformation.Inline
-    Ocram.Transformation.Inline.FunctionInfo
+    Ocram.Transformation.Inline.Finalize
     Ocram.Transformation.Inline.Names
-    Ocram.Transformation.Inline.Step1
-    Ocram.Transformation.Inline.Step2
-    Ocram.Transformation.Inline.Step3
+    Ocram.Transformation.Inline.ThreadFunction
+    Ocram.Transformation.Inline.TStack
     Ocram.Transformation.Inline.Types
     Ocram.Transformation.Util
     Ocram.Types

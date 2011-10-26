@@ -1,14 +1,14 @@
 -- add tstack structures and variables
-module Ocram.Transformation.Inline.Step2
+module Ocram.Transformation.Inline.TStack
 -- exports {{{1
 (
-  step2
+  addTStacks
 ) where
 -- imports {{{1
 import Control.Monad.Reader (ask)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, critical_functions, call_order, get_callees, is_critical)
-import Ocram.Transformation.Inline.FunctionInfo (function_info)
+import Ocram.Query (function_info, FunctionInfo(FunctionInfo))
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
@@ -19,10 +19,9 @@ import qualified Data.Set as Set
 import qualified Data.Map as Map
 import qualified Data.List as List
 
--- step2 :: FunctionInfos -> Ast -> WR Ast {{{1
-step2 :: Ast -> WR Ast
-step2 (CTranslUnit decls ni) = do
-  frames <- createTStackFrames
+addTStacks :: Ast -> WR Ast -- {{{1
+addTStacks ast@(CTranslUnit decls ni) = do
+  frames <- createTStackFrames ast
   cg <- ask
   let stacks = map createTStack $ Set.toList $ start_functions cg
   return $ CTranslUnit (frames ++ stacks ++ decls) ni
@@ -32,20 +31,20 @@ createTStack :: Symbol -> CExtDecl
 createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
 
 -- createTStackFrames :: WR [CExtDecl] {{{2
-createTStackFrames :: WR [CExtDecl]
-createTStackFrames = do
-    fipairs <- createFiPairs
+createTStackFrames :: Ast -> WR [CExtDecl]
+createTStackFrames ast = do
+    fipairs <- createFiPairs ast
     frames <- mapM createTStackFrame $ List.reverse fipairs
     return frames
 
-createFiPairs :: WR [(Symbol, FunctionInfo)]
-createFiPairs = do
+createFiPairs :: Ast -> WR [(Symbol, FunctionInfo)]
+createFiPairs ast = do
   cg <- ask
-  return $ fst $ foldl (fld cg) ([], Set.empty) $ concatMap (List.reverse . List.filter (is_critical cg) . fromJust_s "Step2/1" . call_order cg) $ Set.toList $ start_functions cg
+  return $ fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . List.filter (is_critical cg) . fromJust_s "Step2/1" . call_order cg) $ Set.toList $ start_functions cg
   where
-    fld cg (lst, set) fname
+    fld (lst, set) fname
       | Set.member fname set = (lst, set)
-      | otherwise = case function_info cg fname of
+      | otherwise = case function_info ast fname of
           Nothing -> (lst, set)
           (Just fi) -> ((fname, fi) : lst, Set.insert fname set)
 

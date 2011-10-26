@@ -8,8 +8,7 @@ module Ocram.Types
 -- import {{{1
 import Language.C.Syntax.AST (CTranslUnit)
 
--- types {{{1
-type Ast = CTranslUnit
+type Ast = CTranslUnit -- {{{1
 
-type DebugSymbol = () -- TODO
+type DebugSymbol = () -- TODO -- {{{1
 type DebugSymbols = [DebugSymbol]

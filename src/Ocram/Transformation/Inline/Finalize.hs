@@ -1,9 +1,9 @@
 -- rewrite declarations of blocking functions
 -- remove critical functions
-module Ocram.Transformation.Inline.Step1
+module Ocram.Transformation.Inline.Finalize
 -- exports {{{1
 (
-  step1
+  finalize
 ) where
 
 -- imports {{{1
@@ -18,9 +18,8 @@ import Ocram.Transformation.Util (un, ident)
 import Ocram.Types (Ast)
 import Ocram.Visitor
 
--- step1 :: Ast -> WR (Ast) {{{1
-step1 :: Ast -> WR (Ast)
-step1 ast = do
+finalize :: Ast -> WR (Ast) -- {{{1
+finalize ast = do
   cg <- ask
   return $ fst $ (traverseCTranslUnit ast (DownState cg) :: (Ast, ()))
 

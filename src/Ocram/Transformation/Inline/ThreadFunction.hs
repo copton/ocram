@@ -1,8 +1,8 @@
 -- add thread functions
-module Ocram.Transformation.Inline.Step3
+module Ocram.Transformation.Inline.ThreadFunction
 -- exports {{{1
 (
-  step3
+  addThreadFunctions
 ) where
 
 -- imports {{{1
@@ -12,10 +12,10 @@ import Data.Maybe (isJust, fromJust)
 import Data.Monoid (mempty)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
+import Ocram.Query (function_info, FunctionInfo(fiBody, fiVariables, fiParams), SymTab)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
-import Ocram.Transformation.Inline.FunctionInfo (function_info)
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types (Ast)
 import Ocram.Symbols (Symbol)
@@ -25,26 +25,26 @@ import Prelude hiding (exp, id)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-step3 :: Ast -> WR Ast -- {{{1
-step3 (CTranslUnit decls ni) = do
+addThreadFunctions :: Ast -> WR Ast -- {{{1
+addThreadFunctions ast@(CTranslUnit decls ni) = do
   cg <- ask
-  thread_functions <- mapM (liftM CFDefExt . createThreadFunction) $ zip [1..] $ Set.elems $ start_functions cg
+  thread_functions <- mapM (liftM CFDefExt . createThreadFunction ast) $ zip [1..] $ Set.elems $ start_functions cg
   return $ CTranslUnit (decls ++ thread_functions) ni
 
-createThreadFunction :: (Int, Symbol) -> WR CFunDef -- {{{2
-createThreadFunction (tid, startFunction) = do
+createThreadFunction :: Ast -> (Int, Symbol) -> WR CFunDef -- {{{2
+createThreadFunction ast (tid, startFunction) = do
   cg <- ask
   let intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
   let onlyDefs name = (not $ is_blocking cg name) && (is_critical cg name)
-  functions <- mapM (inlineCriticalFunction startFunction) $ filter onlyDefs $ fromJust_s "Step3/7" $ call_order cg startFunction
+  functions <- mapM (inlineCriticalFunction ast startFunction) $ filter onlyDefs $ fromJust_s "Step3/7" $ call_order cg startFunction
   return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (handlerFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
 
-inlineCriticalFunction :: Symbol -> Symbol -> WR [CBlockItem] -- {{{2
-inlineCriticalFunction startFunction inlinedFunction = do
+inlineCriticalFunction :: Ast -> Symbol -> Symbol -> WR [CBlockItem] -- {{{2
+inlineCriticalFunction ast startFunction inlinedFunction = do
   cg <- ask
-  let fi = fromJust_s "Step3/1" $ function_info cg inlinedFunction
+  let fi = fromJust_s "Step3/1" $ function_info ast inlinedFunction
   let currentBody = fromJust_s "Step3/2" $ fiBody fi
-  let initialDownState = DownState cg startFunction inlinedFunction (fiVariables fi) 1
+  let initialDownState = DownState cg ast startFunction inlinedFunction (fiVariables fi) 1
   let inlinedBody = extractBody $ fst $ (traverseCStat currentBody initialDownState :: (CStat, UpState)) 
   let callChain = fromJust_s "Step3/9" $ call_chain cg startFunction inlinedFunction
   return $ lbl : inlinedBody ++ (close callChain) : []
@@ -58,6 +58,7 @@ inlineCriticalFunction startFunction inlinedFunction = do
 
 data DownState = DownState {
     dCg :: CallGraph
+  , dAst :: Ast
   , dSf :: Symbol -- start function
   , dIf :: Symbol -- inlined function
   , dSt :: SymTab -- local variables
@@ -97,15 +98,15 @@ instance ListVisitor DownState UpState where
   nextCBlockItem o d u = ([o], d, u)
 
 criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> Maybe CExpr -> [CBlockItem]
-criticalFunctionCall (DownState cg startFunction inlinedFunction _ lid) calledFunction params resultLhs =
+criticalFunctionCall d calledFunction params resultLhs =
   parameters ++ continuation : callExp : returnExp ?: lbl : resultExp ?: []
   where
-    blocking = is_blocking cg calledFunction
-    callChain = fromJust_s "Step3/8" $ call_chain cg startFunction calledFunction
-    fi = fromJust_s "Step3/5" $ function_info cg calledFunction
+    blocking = is_blocking (dCg d) calledFunction
+    callChain = fromJust_s "Step3/8" $ call_chain (dCg d) (dSf d) calledFunction
+    fi = fromJust_s "Step3/5" $ function_info (dAst d) calledFunction
     parameters = map (createParamAssign callChain) $ zip params $ fiParams fi
-    continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just contVar)) (CUnary CAdrOp (CVar (ident $ label inlinedFunction lid) un) un) un)) un)
-    lbl = createLabel inlinedFunction lid
+    continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just contVar)) (CUnary CAdrOp (CVar (ident $ label (dIf d) (dLbl d)) un) un) un)) un)
+    lbl = createLabel (dIf d) (dLbl d)
     resultExp = fmap assignResult resultLhs
     assignResult lhs = createAssign lhs (stackAccess callChain (Just resVar))
 

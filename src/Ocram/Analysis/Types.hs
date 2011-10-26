@@ -1,6 +1,5 @@
 module Ocram.Analysis.Types where
 
-import Language.C.Syntax.AST (CFunDef, CDecl)
 import Language.C.Data.Node (NodeInfo)
 import Ocram.Symbols (Symbol)
 import qualified Data.Graph.Inductive.Graph as G
@@ -12,14 +11,9 @@ data Attribute =
   | Critical
   | Start
 
-data AstNode =
-    FunDef CFunDef
-  | FunDecl CDecl
-
 data Label = Label {
     lblName :: Symbol
   , lblAttr :: [Attribute]
-  , lblAstNode :: Maybe AstNode
 }
 
 type Node = (G.Node, Label)
