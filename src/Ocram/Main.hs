@@ -11,17 +11,18 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
 
+main :: IO ()
 main = do
-	argv <- getArgs	
-	prg <- getProgName
-	opt <- exitOnError "options" $ options prg argv	
-	ast <- exitOnError "parser" =<< parse opt
-	ana <- exitOnError "analysis" $ analysis ast
-	trans <- exitOnError "options" $ select_transformation $ optScheme opt
-	let (ast', ds) = trans ana ast
-	pretty_print opt ast'
-	write_debug_symbols opt ds
-	return ()
+  argv <- getArgs 
+  prg <- getProgName
+  opt <- exitOnError "options" $ options prg argv 
+  ast <- exitOnError "parser" =<< parse opt
+  ana <- exitOnError "analysis" $ analysis ast
+  trans <- exitOnError "options" $ select_transformation $ optScheme opt
+  let (ast', ds) = trans ana ast
+  pretty_print opt ast'
+  write_debug_symbols opt ds
+  return ()
 
 type Transformation = CallGraph -> Ast -> (Ast, DebugSymbols)
 

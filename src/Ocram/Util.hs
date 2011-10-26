@@ -1,31 +1,27 @@
 module Ocram.Util (
-	(?:), tmap, trd, fromJust_s, head_s, abort
+  (?:), tmap, trd, fromJust_s, head_s, abort
 ) where
 
-import Control.Arrow ((***))
+import Control.Arrow ((***), Arrow)
 
 (?:) :: Maybe a -> [a] -> [a]
 (Just x) ?: xs = x : xs
 Nothing ?:  xs = xs
 infixr 5 ?:
 
-
+tmap :: Arrow a => a b c -> a (b, b) (c, c)
 tmap f = f *** f
-
 
 trd :: (a, b, c) -> c
 trd (_, _, x) = x
-
 
 fromJust_s :: String -> Maybe a -> a
 fromJust_s _ (Just x) = x
 fromJust_s location Nothing = abort $ "fromJust failed: " ++ location
 
-
 head_s :: String -> [a] -> a
 head_s _ (x:_) = x
 head_s location _ = abort $ "head failed: " ++ location
-
 
 abort :: String -> a
 abort string =

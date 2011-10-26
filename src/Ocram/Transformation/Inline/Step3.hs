@@ -19,9 +19,9 @@ import Ocram.Transformation.Inline.FunctionInfo (function_info)
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types (Ast)
 import Ocram.Symbols (Symbol)
-import Ocram.Util ((?:), fromJust_s)
+import Ocram.Util ((?:), fromJust_s, abort)
 import Ocram.Visitor
-import Prelude hiding (exp)
+import Prelude hiding (exp, id)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
@@ -31,7 +31,7 @@ step3 (CTranslUnit decls ni) = do
   thread_functions <- mapM (liftM CFDefExt . createThreadFunction) $ zip [1..] $ Set.elems $ start_functions cg
   return $ CTranslUnit (decls ++ thread_functions) ni
 
-createThreadFunction :: (Integer, Symbol) -> WR CFunDef -- {{{2
+createThreadFunction :: (Int, Symbol) -> WR CFunDef -- {{{2
 createThreadFunction (tid, startFunction) = do
   cg <- ask
   let intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
@@ -45,7 +45,7 @@ inlineCriticalFunction startFunction inlinedFunction = do
   let fi = fromJust_s "Step3/1" $ function_info cg inlinedFunction
   let currentBody = fromJust_s "Step3/2" $ fiBody fi
   let initialDownState = DownState cg startFunction inlinedFunction (fiVariables fi) 1
-  let inlinedBody = (\(CCompound _ body _) -> body) $ fst $ (traverseCStat currentBody initialDownState :: (CStat, UpState)) 
+  let inlinedBody = extractBody $ fst $ (traverseCStat currentBody initialDownState :: (CStat, UpState)) 
   let callChain = fromJust_s "Step3/9" $ call_chain cg startFunction inlinedFunction
   return $ lbl : inlinedBody ++ (close callChain) : []
     where
@@ -53,6 +53,8 @@ inlineCriticalFunction startFunction inlinedFunction = do
         then CReturn Nothing un
         else CGotoPtr (stackAccess callChain (Just contVar)) un
       lbl = createLabel inlinedFunction 0
+      extractBody (CCompound _ body _) = body
+      extractBody _ = abort "unexpected parameter to extractBody"
 
 data DownState = DownState {
     dCg :: CallGraph
@@ -96,7 +98,7 @@ instance ListVisitor DownState UpState where
 
 criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> Maybe CExpr -> [CBlockItem]
 criticalFunctionCall (DownState cg startFunction inlinedFunction _ lid) calledFunction params resultLhs =
-  parameters ++ continuation : call : return ?: lbl : result ?: []
+  parameters ++ continuation : callExp : returnExp ?: lbl : resultExp ?: []
   where
     blocking = is_blocking cg calledFunction
     callChain = fromJust_s "Step3/8" $ call_chain cg startFunction calledFunction
@@ -104,14 +106,14 @@ criticalFunctionCall (DownState cg startFunction inlinedFunction _ lid) calledFu
     parameters = map (createParamAssign callChain) $ zip params $ fiParams fi
     continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just contVar)) (CUnary CAdrOp (CVar (ident $ label inlinedFunction lid) un) un) un)) un)
     lbl = createLabel inlinedFunction lid
-    result = fmap assignResult resultLhs
+    resultExp = fmap assignResult resultLhs
     assignResult lhs = createAssign lhs (stackAccess callChain (Just resVar))
 
-    call = CBlockStmt $ if blocking
+    callExp = CBlockStmt $ if blocking
       then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain Nothing) un] un)) un
       else CGoto (ident $ label calledFunction 0) un
 
-    return = if blocking
+    returnExp = if blocking
       then Just (CBlockStmt (CReturn Nothing un))
       else Nothing
 
@@ -127,14 +129,16 @@ createAssign lhs rhs = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) u
 
 stackAccess :: [Symbol] -> Maybe Symbol -> CExpr
 stackAccess (sf:chain) variable = foldl create base $ zip pointers members
-	where
-		variables = if isJust variable then [fromJust variable] else []
-		base = CVar (ident $ stackVar sf) un
-		pointers = True : cycle [False]
-		members = foldr (\x l -> frameUnion : x : l) [] chain ++ variables
-		create inner (pointer, member) = CMember inner (ident member) pointer un 
+  where
+    variables = if isJust variable then [fromJust variable] else []
+    base = CVar (ident $ stackVar sf) un
+    pointers = True : cycle [False]
+    members = foldr (\x l -> frameUnion : x : l) [] chain ++ variables
+    create inner (pointer, member) = CMember inner (ident member) pointer un 
+stackAccess [] _ = abort "called stackAccess with empty call chain"
 
 createLabel :: Symbol -> Int -> CBlockItem
 createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un
 
+nextLabel :: DownState -> DownState
 nextLabel d = d {dLbl = (dLbl d) + 1}

@@ -14,14 +14,12 @@ import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
 import Ocram.Text (OcramError, new_error)
 import Ocram.Types (Ast)
-import Ocram.Util (trd, tmap, fromJust_s, head_s)
-import Ocram.Visitor (traverseCTranslUnit, emptyDownState, EmptyDownState, DownVisitor, UpVisitor(upCExtDecl, upCExpr), ListVisitor)
+import Ocram.Util (fromJust_s, head_s)
+import Ocram.Visitor (traverseCTranslUnit, DownVisitor, UpVisitor(upCExtDecl, upCExpr), ListVisitor)
 import qualified Data.Graph.Inductive.Graph as G
 import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-
-import Debug.Trace (trace)
 
 -- errors {{{1
 newError :: ErrorCode -> Maybe String -> Maybe NodeInfo -> OcramError 
@@ -54,16 +52,19 @@ errorText code = fromJust_s "Filter/1" $ List.lookup code errors
 
 -- check_sanity :: Ast -> Either OcramError () {{{1
 check_sanity :: Ast -> Either [OcramError] ()
-check_sanity ast = failOrPass $ snd $ traverseCTranslUnit ast emptyDownState
+check_sanity ast = failOrPass $ snd $ traverseCTranslUnit ast CsDownState
 
+data CsDownState = CsDownState
 type CsUpState = [OcramError]
 
-instance UpVisitor EmptyDownState CsUpState where
+instance DownVisitor CsDownState 
+
+instance UpVisitor CsDownState CsUpState where
   upCExtDecl o@(CFDefExt (CFunDef _ (CDeclr _ [] _ _ _) _ _ ni)) _ u =
     (o, (newError NoParameterList Nothing (Just ni)) : u)
   upCExtDecl o _ u = (o, u)
 
-instance ListVisitor EmptyDownState CsUpState
+instance ListVisitor CsDownState CsUpState
 
 
 -- check_constraints :: Ast -> CallGraph -> Either [OcramError] () {{{1
@@ -109,7 +110,7 @@ checkRecursion cg@(CallGraph gd gi) = map (createRecError cg) $ catMaybes $ map 
 
 
 createRecError :: CallGraph -> [G.Node] -> OcramError
-createRecError (CallGraph gd gi) call_stack =
+createRecError (CallGraph gd _) call_stack =
   newError CriticalRecursion (Just errText) (Just location)
   where
     errText = concat $ List.intersperse " -> " $
@@ -123,11 +124,11 @@ checkStartFunctions cg =
   let
     sf = start_functions cg
     failures = Set.filter (not . (is_critical cg)) sf
-    errors = Set.map (toError . getLocation) failures
+    errs = Set.map (toError . getLocation) failures
     getLocation name = (\(CFunDef _ _ _ _ x) -> x) $ fromJust_s "Filter/3" $ function_definition cg name
     toError location = newError ThreadNotBlocking Nothing (Just location)
   in
-    Set.toList errors
+    Set.toList errs
 
 
 -- util {{{1

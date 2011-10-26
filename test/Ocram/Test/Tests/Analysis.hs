@@ -3,7 +3,7 @@ module Ocram.Test.Tests.Analysis (
 ) where
 
 import Data.Maybe (isJust, fromJust)
-import Ocram.Analysis (call_chain, call_order, callees)
+import Ocram.Analysis (call_chain, call_order, get_callees)
 import Ocram.Analysis.Fgl (find_loop)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
 import Ocram.Test.Lib
@@ -68,6 +68,6 @@ calleesTests = TestLabel "callees" $ TestList $ map runTest [
   ]
   where
     runTest (cg, function, expected) = TestCase $ do
-      let result = callees (enrich cg) (enrich function)
+      let result = get_callees (enrich cg) (enrich function)
       isJust result @? "could not determine callees"
       expected @=? (reduce $ fromJust result)

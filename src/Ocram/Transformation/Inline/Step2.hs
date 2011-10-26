@@ -6,9 +6,8 @@ module Ocram.Transformation.Inline.Step2
 ) where
 -- imports {{{1
 import Control.Monad.Reader (ask)
-import Language.C.Data.Ident
 import Language.C.Syntax.AST
-import Ocram.Analysis (start_functions, critical_functions, call_order, callees, is_critical)
+import Ocram.Analysis (start_functions, critical_functions, call_order, get_callees, is_critical)
 import Ocram.Transformation.Inline.FunctionInfo (function_info)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
@@ -52,10 +51,9 @@ createFiPairs = do
 
 
 createTStackFrame :: (Symbol, FunctionInfo) -> WR CExtDecl
-createTStackFrame (name, fi@(FunctionInfo resultType _ vars _)) = do
-  nestedFrames <- createNestedFramesUnion (name, fi)
+createTStackFrame (name, FunctionInfo resultType _ vars _) = do
+  nestedFrames <- createNestedFramesUnion name
   cg <- ask
-  let sf = start_functions cg
   return $ CDeclExt (CDecl [CStorageSpec (CTypedef un), CTypeSpec (CSUType (CStruct CStructTag Nothing (Just (
        continuation (start_functions cg)
     ?: result resultType
@@ -70,12 +68,12 @@ createTStackFrame (name, fi@(FunctionInfo resultType _ vars _)) = do
       | otherwise = Just (CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un)
 
 
-createNestedFramesUnion :: (Symbol, FunctionInfo) -> WR (Maybe CDecl)
-createNestedFramesUnion (name, fi) = do
+createNestedFramesUnion :: Symbol -> WR (Maybe CDecl)
+createNestedFramesUnion name = do
   cg <- ask
   let cf = critical_functions cg
   let createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
                       [(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
-  let entries = map createEntry $ filter (flip Set.member cf) $ fromJust_s "Step2/2" $ callees cg name
+  let entries = map createEntry $ filter (flip Set.member cf) $ fromJust_s "Step2/2" $ get_callees cg name
   let createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
   return $ if null entries then Nothing else Just createDecl

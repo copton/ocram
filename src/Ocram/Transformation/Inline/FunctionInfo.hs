@@ -9,7 +9,6 @@ import Language.C.Syntax.AST
 import Ocram.Analysis (function_definition, function_declaration, CallGraph, is_critical, is_blocking)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Types
-import Ocram.Types (Ast)
 import Ocram.Util (fromJust_s, abort)
 import Ocram.Visitor
 import qualified Data.Map as Map
@@ -21,10 +20,11 @@ function_info cg fname
   | otherwise = Nothing
 
 decl2fi :: CDecl -> FunctionInfo -- {{{2
-decl2fi cd@(CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) =
+decl2fi (CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) =
   FunctionInfo (extractTypeSpec tss) params (params2SymTab params) Nothing
   where
     params = extractParams' cfd
+decl2fi _ = abort "unexpected parameter to decl2fi"
 
 def2fi :: CFunDef -> FunctionInfo -- {{{2
 def2fi fd = fromJust_s "FunctionInfo/1" $ uFi $ snd $ traverseCFunDef fd $ DownState Map.empty []
@@ -67,7 +67,6 @@ instance UpVisitor DownState UpState where
   -- create function info entry
   upCFunDef o@(CFunDef tss _ _ body _) d u = (o, UpState (Just fi) mempty)
     where
-      name = symbol o
       fi = FunctionInfo (extractTypeSpec tss) (dPs d) (dSt d `mappend` uSt u) (Just body)
 
 instance ListVisitor DownState UpState where
@@ -78,9 +77,11 @@ instance ListVisitor DownState UpState where
 -- utils {{{2
 extractParams :: CFunDef -> [CDecl]
 extractParams (CFunDef _ (CDeclr _ [cfd] _ _ _) [] _ _) = extractParams' cfd
+extractParams _ = abort "unexpected parameter to extractParams"
 
 extractParams' :: CDerivedDeclr -> [CDecl]
 extractParams' (CFunDeclr (Right (ps, False)) _ _) = ps
+extractParams' _ = abort "unexpected parameter to extractParams'"
 
 params2SymTab :: [CDecl] -> SymTab
 params2SymTab params = foldl add Map.empty params
@@ -89,5 +90,5 @@ params2SymTab params = foldl add Map.empty params
 
 extractTypeSpec :: [CDeclSpec] -> CTypeSpec
 extractTypeSpec [] = abort "type specifier expected"
-extractTypeSpec ((CTypeSpec ts):xs) = ts
+extractTypeSpec ((CTypeSpec ts):_) = ts
 extractTypeSpec (_:xs) = extractTypeSpec xs

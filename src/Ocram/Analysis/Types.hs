@@ -8,18 +8,18 @@ import qualified Data.Graph.Inductive.PatriciaTree as G
 import qualified Data.Map as Map
 
 data Attribute =
-		Blocking
-	| Critical
-	| Start
+    Blocking
+  | Critical
+  | Start
 
 data AstNode =
-		FunDef CFunDef
-	| FunDecl CDecl
+    FunDef CFunDef
+  | FunDecl CDecl
 
 data Label = Label {
-		lblName :: Symbol
-	, lblAttr :: [Attribute]
-	, lblAstNode :: Maybe AstNode
+    lblName :: Symbol
+  , lblAttr :: [Attribute]
+  , lblAstNode :: Maybe AstNode
 }
 
 type Node = (G.Node, Label)
@@ -31,6 +31,6 @@ type GraphData = G.Gr Label NodeInfo
 type GraphIndex = Map.Map Symbol G.Node
 
 data CallGraph = CallGraph {
-		grData :: GraphData
-	, grIndex :: GraphIndex
+    grData :: GraphData
+  , grIndex :: GraphIndex
 }
