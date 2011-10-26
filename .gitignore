@@ -5,3 +5,4 @@ bin
 *.swp
 .quickfix
 dist/
+cabal-dev/

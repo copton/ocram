@@ -20,9 +20,9 @@ import Ocram.Types (Ast)
 import Ocram.Symbols (Symbol)
 import Ocram.Util ((?:), fromJust_s)
 import Ocram.Visitor
+import Prelude hiding (exp)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.List as List
 
 step3 :: Ast -> WR Ast -- {{{1
 step3 (CTranslUnit decls ni) = do
@@ -133,6 +133,7 @@ stackAccess (sf:chain) variable = foldl create base $ zip pointers members
 		members = foldr (\x l -> frameUnion : x : l) [] chain ++ variables
 		create inner (pointer, member) = CMember inner (ident member) pointer un 
 
+createLabel :: Symbol -> Int -> CBlockItem
 createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un
 
 nextLabel d = d {dLbl = (dLbl d) + 1}

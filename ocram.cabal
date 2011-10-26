@@ -34,7 +34,7 @@ Executable Test
     QuasiQuotes,
     GeneralizedNewtypeDeriving
   Build-depends:       
-    language-c >= 0.4.1,
+    language-c >= 0.4.2,
     base >= 4.0,
     containers >= 0.3.0.0,
     mtl >= 1.1.0.2,
@@ -61,6 +61,7 @@ Executable Test
 
 Executable Ocram
   Hs-Source-Dirs: src
+  Ghc-Options: -Wall
   Main-is: Main.hs
   Default-language: Haskell98
   Default-extensions: 
