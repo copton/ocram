@@ -68,7 +68,7 @@ decl2fi (CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) =
 decl2fi _ = abort "unexpected parameter to decl2fi"
 
 def2fi :: CFunDef -> FunctionInfo -- {{{2
-def2fi fd = fromJust_s "Query/1" $ uFi $ snd $ traverseCFunDef fd $ DownState Map.empty []
+def2fi fd = fromJust_s "zeewiekues" $ uFi $ snd $ traverseCFunDef fd $ DownState Map.empty []
 
 data DownState = DownState {
     dSt :: SymTab

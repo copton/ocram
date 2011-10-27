@@ -36,17 +36,17 @@ createThreadFunction ast (tid, startFunction) = do
   cg <- ask
   let intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
   let onlyDefs name = (not $ is_blocking cg name) && (is_critical cg name)
-  functions <- mapM (inlineCriticalFunction ast startFunction) $ filter onlyDefs $ fromJust_s "Step3/7" $ call_order cg startFunction
+  functions <- mapM (inlineCriticalFunction ast startFunction) $ filter onlyDefs $ fromJust_s "wangieveiz" $ call_order cg startFunction
   return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (handlerFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
 
 inlineCriticalFunction :: Ast -> Symbol -> Symbol -> WR [CBlockItem] -- {{{2
 inlineCriticalFunction ast startFunction inlinedFunction = do
   cg <- ask
-  let fi = fromJust_s "Step3/1" $ function_info ast inlinedFunction
-  let currentBody = fromJust_s "Step3/2" $ fiBody fi
+  let fi = fromJust_s "aedeeweesh" $ function_info ast inlinedFunction
+  let currentBody = fromJust_s "quahphaihe" $ fiBody fi
   let initialDownState = DownState cg ast startFunction inlinedFunction (fiVariables fi) 1
   let inlinedBody = extractBody $ fst $ (traverseCStat currentBody initialDownState :: (CStat, UpState)) 
-  let callChain = fromJust_s "Step3/9" $ call_chain cg startFunction inlinedFunction
+  let callChain = fromJust_s "ephinoozie" $ call_chain cg startFunction inlinedFunction
   return $ lbl : inlinedBody ++ (close callChain) : []
     where
       close callChain = CBlockStmt $ if startFunction == inlinedFunction
@@ -76,7 +76,7 @@ instance UpVisitor DownState UpState where
     | otherwise = (o, mempty)
     where
       name = symbol iden
-      callChain = fromJust_s "Step3/6" $ call_chain (dCg d) (dSf d) (dIf d)
+      callChain = fromJust_s "vahxiexahk" $ call_chain (dCg d) (dSf d) (dIf d)
 
   upCExpr o _ _ = (o, mempty)
 
@@ -102,8 +102,8 @@ criticalFunctionCall d calledFunction params resultLhs =
   parameters ++ continuation : callExp : returnExp ?: lbl : resultExp ?: []
   where
     blocking = is_blocking (dCg d) calledFunction
-    callChain = fromJust_s "Step3/8" $ call_chain (dCg d) (dSf d) calledFunction
-    fi = fromJust_s "Step3/5" $ function_info (dAst d) calledFunction
+    callChain = fromJust_s "kauphinguo" $ call_chain (dCg d) (dSf d) calledFunction
+    fi = fromJust_s "koyoosoong" $ function_info (dAst d) calledFunction
     parameters = map (createParamAssign callChain) $ zip params $ fiParams fi
     continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just contVar)) (CUnary CAdrOp (CVar (ident $ label (dIf d) (dLbl d)) un) un) un)) un)
     lbl = createLabel (dIf d) (dLbl d)

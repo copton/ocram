@@ -26,11 +26,9 @@ addTStacks ast@(CTranslUnit decls ni) = do
   let stacks = map createTStack $ Set.toList $ start_functions cg
   return $ CTranslUnit (frames ++ stacks ++ decls) ni
 
--- createTStack :: Symbol -> CExtDecl {{{2
 createTStack :: Symbol -> CExtDecl
 createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
 
--- createTStackFrames :: WR [CExtDecl] {{{2
 createTStackFrames :: Ast -> WR [CExtDecl]
 createTStackFrames ast = do
     fipairs <- createFiPairs ast
@@ -40,7 +38,7 @@ createTStackFrames ast = do
 createFiPairs :: Ast -> WR [(Symbol, FunctionInfo)]
 createFiPairs ast = do
   cg <- ask
-  return $ fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . List.filter (is_critical cg) . fromJust_s "Step2/1" . call_order cg) $ Set.toList $ start_functions cg
+  return $ fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . List.filter (is_critical cg) . fromJust_s "raethechue" . call_order cg) $ Set.toList $ start_functions cg
   where
     fld (lst, set) fname
       | Set.member fname set = (lst, set)
@@ -73,6 +71,6 @@ createNestedFramesUnion name = do
   let cf = critical_functions cg
   let createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
                       [(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
-  let entries = map createEntry $ filter (flip Set.member cf) $ fromJust_s "Step2/2" $ get_callees cg name
+  let entries = map createEntry $ filter (flip Set.member cf) $ fromJust_s "eebuyephov" $ get_callees cg name
   let createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
   return $ if null entries then Nothing else Just createDecl

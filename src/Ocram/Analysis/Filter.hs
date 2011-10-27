@@ -48,7 +48,7 @@ errors = [
   ]
 
 errorText :: ErrorCode -> String
-errorText code = fromJust_s "Filter/1" $ List.lookup code errors
+errorText code = fromJust_s "iwojaexuph" $ List.lookup code errors
 
 -- check_sanity :: Ast -> Either OcramError () {{{1
 check_sanity :: Ast -> Either [OcramError] ()
