@@ -34,14 +34,14 @@ Executable Test
     QuasiQuotes,
     GeneralizedNewtypeDeriving
   Build-depends:       
-    language-c >= 0.4.2,
-    base >= 4.0,
-    containers >= 0.3.0.0,
-    mtl >= 1.1.0.2,
-    HUnit >= 1.2.2.1,
-    template-haskell,
-    bytestring >= 0.9.1.5,
-    fgl >= 5.4.2.4
+    base >= 4 && < 5,
+    language-c == 0.4.*,
+    containers == 0.3.*,
+    mtl == 1.1.*,
+    HUnit == 1.2.*,
+    bytestring == 0.9.*,
+    fgl == 5.4.*,
+    template-haskell
   Other-modules:
     Ocram.Test.Lib
     Ocram.Test.Main
@@ -70,11 +70,11 @@ Executable Ocram
     TypeSynonymInstances,
     GeneralizedNewtypeDeriving
   Build-depends:       
-    language-c >= 0.4.1,
-    base >= 4.0,
-    containers >= 0.3.0.0,
-    mtl >= 1.1.0.2,
-    fgl >= 5.4.2.4
+    base >= 4 && < 5,
+    language-c == 0.4.*,
+    containers == 0.3.*,
+    mtl == 1.1.*,
+    fgl == 5.4.*
   Other-modules:
     Ocram.Analysis
     Ocram.Analysis.CallGraph
