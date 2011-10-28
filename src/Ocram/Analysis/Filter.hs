@@ -16,7 +16,7 @@ import Ocram.Query (function_definition)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Types (Ast)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
-import Ocram.Visitor (traverseCTranslUnit, DownVisitor, UpVisitor(upCExtDecl, upCExpr), ListVisitor)
+import Ocram.Visitor (traverseCTranslUnit, DownVisitor, UpVisitor(upCExtDecl, upCExpr, upCStat), ListVisitor)
 import qualified Data.Graph.Inductive.Graph as G
 import qualified Data.List as List
 import qualified Data.Set as Set
@@ -32,6 +32,7 @@ newError code extraWhat where_ =
 
 data ErrorCode =
     NoParameterList
+  | AssemblerCode
   | PointerToCriticalFunction
   | NoThreads
   | ThreadNotBlocking
@@ -41,6 +42,7 @@ data ErrorCode =
 errors :: [(ErrorCode, String)]
 errors = [
     (NoParameterList, "function without parameter list")
+  , (AssemblerCode, "transformation of assembler code is not supported")
   , (PointerToCriticalFunction, "taking pointer from critical function")
   , (NoThreads, "at least one thread must be started")
   , (ThreadNotBlocking, "thread does not call any blocking functions")
@@ -62,7 +64,17 @@ instance DownVisitor CsDownState
 instance UpVisitor CsDownState CsUpState where
   upCExtDecl o@(CFDefExt (CFunDef _ (CDeclr _ [] _ _ _) _ _ ni)) _ u =
     (o, (newError NoParameterList Nothing (Just ni)) : u)
+
+  upCExtDecl o@(CAsmExt _ ni) _ u =
+    (o, (newError AssemblerCode Nothing (Just ni)) : u)
+
   upCExtDecl o _ u = (o, u)
+
+
+  upCStat o@(CAsm _ ni) _ u =
+    (o, (newError AssemblerCode Nothing (Just ni)) : u)
+
+  upCStat o _ u = (o, u)
 
 instance ListVisitor CsDownState CsUpState
 
