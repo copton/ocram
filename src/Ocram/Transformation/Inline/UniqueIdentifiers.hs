@@ -7,9 +7,9 @@ module Ocram.Transformation.Inline.UniqueIdentifiers
 
 -- import {{{1
 import Control.Monad.Reader (ask)
+import Data.Maybe (catMaybes)
 import Data.Monoid (mempty)
 import Language.C.Syntax.AST
-import Language.C.Pretty (pretty)
 import Ocram.Query (function_parameters)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Util (ident, map_critical_functions)
@@ -55,19 +55,21 @@ newIdentifier (Identifiers es rt) identifier = case Map.lookup identifier rt of
 getIdentifier :: Identifiers -> Symbol -> Symbol
 getIdentifier (Identifiers _ rt) name = $lookup_s rt name
 
+addDecls :: Identifiers -> CDecl -> Identifiers
+addDecls ids (CDecl _ ds _) = 
+  foldl newIdentifier ids $ map symbol $ catMaybes $ map (\(x, _, _) -> x) ds
+
 type UpState = ()
 
 instance DownVisitor Identifiers where
   downCFunDef fd ids =
     foldl newIdentifier ids $ map symbol $ function_parameters fd
 
-  downCBlockItem (CBlockDecl cd) ids =
-    newIdentifier ids (symbol cd)
+  downCBlockItem (CBlockDecl cd) ids = addDecls ids cd
 
   downCBlockItem _ d = d
 
-  downCStat (CFor (Right cd) _ _ _ _) ids =
-    newIdentifier ids (symbol cd)
+  downCStat (CFor (Right cd) _ _ _ _) ids = addDecls ids cd
 
   downCStat _ d = d
 
@@ -89,7 +91,12 @@ instance UpVisitor Identifiers UpState where
 instance ListVisitor Identifiers UpState
 
 renameDecl :: Identifiers -> CDecl -> CDecl
-renameDecl ids (CDecl x1 [(Just (CDeclr (Just oldIdent) x2 x3 x4 x5), x6, x7)] x8) =
+renameDecl ids (CDecl x1 ds x2) = CDecl x1 ds' x2
+  where
+    ds' = map (\(d, x, y) -> (fmap (renameDeclr ids) d, x, y)) ds
+
+renameDeclr :: Identifiers -> CDeclr -> CDeclr
+renameDeclr ids (CDeclr (Just oldIdent) x2 x3 x4 x5) =
   let newIdent = ident $ getIdentifier ids (symbol oldIdent) in
-  CDecl x1 [(Just (CDeclr (Just newIdent) x2 x3 x4 x5), x6, x7)] x8
-renameDecl _ cd = $abort $ "unexpected parameters: " ++ show (pretty cd) 
+  CDeclr (Just newIdent) x2 x3 x4 x5
+renameDeclr _ _ = $abort $ "unexpected parameters"

@@ -23,15 +23,18 @@ instance CSymbol Ident where
   symbol (Ident name _ _) = name
 
 instance CSymbol CFunDef where
-  symbol (CFunDef _ (CDeclr (Just (Ident name _ _)) _ _ _ _) _ _ _ ) = name
-  symbol _ = $abort "unexpected parameter to symbol for CFunDef"
+  symbol (CFunDef _ declr  _ _ _ ) = symbol declr
+
+instance CSymbol CDeclr where
+  symbol (CDeclr (Just (Ident name _ _)) _ _ _ _) = name
+  symbol _ = $abort "unexpected parameters"
 
 instance CSymbol CDecl where
-  symbol (CDecl _ [(Just (CDeclr (Just (Ident name _ _ )) _  _ _ _), _, _)] _) = name
+  symbol (CDecl _ [(Just declr, _, _)] _) = symbol declr
   symbol (CDecl [CTypeSpec (CSUType (CStruct _ (Just (Ident name _ _ )) _ _ _) _)] [] _) = name
   symbol (CDecl [CTypeSpec (CEnumType (CEnum (Just (Ident name _ _)) _ _ _) _)] [] _) = name
   symbol (CDecl [CTypeSpec (CEnumType (CEnum Nothing _ _ _) _)] [] _) = no_name
-  symbol _ = $abort "unexpected parameter to symbol for CDecl"
+  symbol _ = $abort "unexpected parameters"
 
 no_name :: String
 no_name = "<<no_name>>"

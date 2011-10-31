@@ -71,6 +71,30 @@ tests = runTests [ -- {{{1
       }
       block(k_0);
     }
+  |]),
+-- multi decl -- {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    int h;
+    int k;
+    __attribute__((tc_run_thread)) void start() {
+      int k, j;
+      int a, b;
+      for(int i=0, h=0;;) {
+        block(h);
+      }
+    }
+  |], [paste|
+    __attribute__((tc_blocking)) void block();
+    int h;
+    int k;
+    __attribute__((tc_run_thread)) void start() {
+      int k_0, j;
+      int a, b;
+      for(int i=0, h_0=0;;) {
+        block(h_0);
+      }
+    }
   |])
   ]
 
