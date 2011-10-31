@@ -5,7 +5,7 @@ module Ocram.Analysis.CallGraph
     CriticalFunctions, BlockingFunctions, StartFunctions
   , call_graph, from_test_graph, to_test_graph
   , blocking_functions, critical_functions, start_functions
-  , is_blocking, is_start, is_critical, is_critical_not_blocking
+  , is_blocking, is_start, is_critical
   , call_chain, call_order, get_callees
 ) where
 
@@ -82,9 +82,6 @@ is_blocking cg name = functionIs attrBlocking cg name
 
 is_critical :: CallGraph -> Symbol -> Bool -- {{{1
 is_critical cg name = functionIs attrCritical cg name
-
-is_critical_not_blocking :: CallGraph -> Symbol -> Bool -- {{{1
-is_critical_not_blocking cg name = is_critical cg name && not (is_blocking cg name)
 
 is_start :: CallGraph -> Symbol -> Bool -- {{{1
 is_start cg name = functionIs attrStart cg name

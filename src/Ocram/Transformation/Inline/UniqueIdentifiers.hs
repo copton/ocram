@@ -10,25 +10,31 @@ import Control.Monad.Reader (ask)
 import Data.Monoid (mempty)
 import Language.C.Syntax.AST
 import Language.C.Pretty (pretty)
-import Ocram.Analysis (is_critical, CallGraph)
 import Ocram.Query (function_parameters)
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Transformation.Util (ident)
+import Ocram.Transformation.Util (ident, map_critical_functions)
 import Ocram.Transformation.Inline.Types (WR)
 import Ocram.Types (Ast)
 import Ocram.Util (lookup_s, abort)
-import Ocram.Visitor (DownVisitor(..), UpVisitor(..), ListVisitor, traverseCTranslUnit, traverseCFunDef)
+import Ocram.Visitor (DownVisitor(..), UpVisitor(..), ListVisitor, traverseCFunDef)
 import qualified Data.Map as Map
 
 unique_identifiers :: Ast -> WR Ast -- {{{1
-unique_identifiers ast = do
+unique_identifiers ast@(CTranslUnit ds _) = do
   cg <- ask
-  return $ fst $ (traverseCTranslUnit ast $ DownState cg (Identifiers Map.empty Map.empty) :: (CTranslUnit, UpState))
+  let ids = Identifiers Map.empty Map.empty
+  let ids' = foldl newIdentifier ids $ map getSymbol ds
+  let f = flip traverseCFunDef ids' :: (CFunDef -> (CFunDef, UpState))
+  return $ map_critical_functions cg ast $ fst . f
+  where
+    getSymbol (CDeclExt cd) = symbol cd
+    getSymbol (CFDefExt fd) = symbol fd
+    getSymbol _ = $abort "unexpected parameters"
 
 type ExtraSymbols = Map.Map Symbol Int
 type RenameTable = Map.Map Symbol Symbol
 
-data Identifiers = Identifiers ExtraSymbols RenameTable
+data Identifiers = Identifiers ExtraSymbols RenameTable deriving (Show)
 
 newExtraSymbol :: ExtraSymbols -> Symbol -> (ExtraSymbols, Symbol)
 newExtraSymbol es name = case Map.lookup name es of
@@ -49,28 +55,7 @@ newIdentifier (Identifiers es rt) identifier = case Map.lookup identifier rt of
 getIdentifier :: Identifiers -> Symbol -> Symbol
 getIdentifier (Identifiers _ rt) name = $lookup_s rt name
 
-data DownState = DownState {
-  dCg :: CallGraph,
-  dIds :: Identifiers
-  }
-
 type UpState = ()
-
-instance DownVisitor DownState where
-  downCExtDecl (CDeclExt cd) d = d {dIds = newIdentifier (dIds d) (symbol cd)}
-  downCExtDecl (CFDefExt fd) d = d {dIds = newIdentifier (dIds d) (symbol fd)}
-  downCExtDecl _ _ = $abort "unexpected parameters"
-
-instance UpVisitor DownState UpState where
-  upCFunDef fd d _
-    | is_critical (dCg d) (symbol fd) = (fst travRes, mempty)
-    | otherwise = (fd, mempty)
-      where
-        travRes :: (CFunDef, UpState)
-        travRes = traverseCFunDef fd (dIds d)
-
-instance ListVisitor DownState UpState
-
 
 instance DownVisitor Identifiers where
   downCFunDef fd ids =
