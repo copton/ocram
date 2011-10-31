@@ -23,6 +23,51 @@ Extra-source-files:
   util/pretty_ast/DumpAst.hs
   util/view_ast/ViewAst.hs
 
+Executable Ocram
+  Hs-Source-Dirs: src
+  Ghc-Options: -Wall -Werror
+  Main-is: Main.hs
+  Default-language: Haskell98
+  Default-extensions: 
+    MultiParamTypeClasses,
+    FlexibleInstances,
+    TypeSynonymInstances,
+    GeneralizedNewtypeDeriving,
+    TemplateHaskell
+  Build-depends:       
+    base >= 4 && < 5,
+    language-c == 0.4.*,
+    containers == 0.3.*,
+    mtl == 1.1.*,
+    fgl == 5.4.*,
+    template-haskell
+  Other-modules:
+    Ocram.Analysis
+    Ocram.Analysis.CallGraph
+    Ocram.Analysis.Fgl
+    Ocram.Analysis.Filter
+    Ocram.Analysis.Types
+    Ocram.Main
+    Ocram.Names
+    Ocram.Options
+    Ocram.Output
+    Ocram.Parser
+    Ocram.Query
+    Ocram.Symbols
+    Ocram.Transformation.Inline
+    Ocram.Transformation.Inline.Finalize
+    Ocram.Transformation.Inline.Names
+    Ocram.Transformation.Inline.ThreadFunction
+    Ocram.Transformation.Inline.TStack
+    Ocram.Transformation.Inline.Types
+    Ocram.Transformation.Inline.UniqueIdentifiers
+    Ocram.Transformation.Util
+    Ocram.Types
+    Ocram.Util
+    Ocram.Visitor
+    Ocram.Visitor.Traverse
+    Ocram.Visitor.Visitor
+
 Executable Test
   Hs-Source-Dirs: src, test
   Main-is: Test.hs
@@ -53,50 +98,9 @@ Executable Test
     Ocram.Test.Tests.Symbol
     Ocram.Test.Tests.Transformation
     Ocram.Test.Tests.Transformation.Inline
+    Ocram.Test.Tests.Transformation.UniqueIdentifiers
     Ocram.Test.Tests.Visitor
     Ocram.Test.Tests.Visitor.Decl
     Ocram.Test.Tests.Visitor.Stat
     Ocram.Test.Tests.Visitor.TranslUnit
     Ocram.Test.Tests.Visitor.Utils
-
-Executable Ocram
-  Hs-Source-Dirs: src
-  Ghc-Options: -Wall -Werror
-  Main-is: Main.hs
-  Default-language: Haskell98
-  Default-extensions: 
-    MultiParamTypeClasses,
-    FlexibleInstances,
-    TypeSynonymInstances,
-    GeneralizedNewtypeDeriving
-  Build-depends:       
-    base >= 4 && < 5,
-    language-c == 0.4.*,
-    containers == 0.3.*,
-    mtl == 1.1.*,
-    fgl == 5.4.*
-  Other-modules:
-    Ocram.Analysis
-    Ocram.Analysis.CallGraph
-    Ocram.Analysis.Fgl
-    Ocram.Analysis.Filter
-    Ocram.Analysis.Types
-    Ocram.Main
-    Ocram.Names
-    Ocram.Options
-    Ocram.Output
-    Ocram.Parser
-    Ocram.Query
-    Ocram.Symbols
-    Ocram.Transformation.Inline
-    Ocram.Transformation.Inline.Finalize
-    Ocram.Transformation.Inline.Names
-    Ocram.Transformation.Inline.ThreadFunction
-    Ocram.Transformation.Inline.TStack
-    Ocram.Transformation.Inline.Types
-    Ocram.Transformation.Util
-    Ocram.Types
-    Ocram.Util
-    Ocram.Visitor
-    Ocram.Visitor.Traverse
-    Ocram.Visitor.Visitor

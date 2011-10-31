@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 -- add thread functions
 module Ocram.Transformation.Inline.ThreadFunction
 -- exports {{{1
@@ -12,7 +13,7 @@ import Data.Maybe (isJust, fromJust)
 import Data.Monoid (mempty)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Query (function_info, FunctionInfo(fiBody, fiVariables, fiParams), SymTab)
+import Ocram.Query (function_info, FunctionInfo(fiBody, fiVariables, fiParams), SymbolTable)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
@@ -36,17 +37,17 @@ createThreadFunction ast (tid, startFunction) = do
   cg <- ask
   let intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
   let onlyDefs name = (not $ is_blocking cg name) && (is_critical cg name)
-  functions <- mapM (inlineCriticalFunction ast startFunction) $ filter onlyDefs $ fromJust_s "wangieveiz" $ call_order cg startFunction
+  functions <- mapM (inlineCriticalFunction ast startFunction) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
   return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (handlerFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
 
 inlineCriticalFunction :: Ast -> Symbol -> Symbol -> WR [CBlockItem] -- {{{2
 inlineCriticalFunction ast startFunction inlinedFunction = do
   cg <- ask
-  let fi = fromJust_s "aedeeweesh" $ function_info ast inlinedFunction
-  let currentBody = fromJust_s "quahphaihe" $ fiBody fi
+  let fi = $fromJust_s $ function_info ast inlinedFunction
+  let currentBody = $fromJust_s $ fiBody fi
   let initialDownState = DownState cg ast startFunction inlinedFunction (fiVariables fi) 1
   let inlinedBody = extractBody $ fst $ (traverseCStat currentBody initialDownState :: (CStat, UpState)) 
-  let callChain = fromJust_s "ephinoozie" $ call_chain cg startFunction inlinedFunction
+  let callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
   return $ lbl : inlinedBody ++ (close callChain) : []
     where
       close callChain = CBlockStmt $ if startFunction == inlinedFunction
@@ -54,14 +55,14 @@ inlineCriticalFunction ast startFunction inlinedFunction = do
         else CGotoPtr (stackAccess callChain (Just contVar)) un
       lbl = createLabel inlinedFunction 0
       extractBody (CCompound _ body _) = body
-      extractBody _ = abort "unexpected parameter to extractBody"
+      extractBody _ = $abort "unexpected parameters"
 
 data DownState = DownState {
     dCg :: CallGraph
   , dAst :: Ast
   , dSf :: Symbol -- start function
   , dIf :: Symbol -- inlined function
-  , dSt :: SymTab -- local variables
+  , dSt :: SymbolTable -- local variables
   , dLbl :: Int
   }
 
@@ -76,7 +77,7 @@ instance UpVisitor DownState UpState where
     | otherwise = (o, mempty)
     where
       name = symbol iden
-      callChain = fromJust_s "vahxiexahk" $ call_chain (dCg d) (dSf d) (dIf d)
+      callChain = $fromJust_s $ call_chain (dCg d) (dSf d) (dIf d)
 
   upCExpr o _ _ = (o, mempty)
 
@@ -102,8 +103,8 @@ criticalFunctionCall d calledFunction params resultLhs =
   parameters ++ continuation : callExp : returnExp ?: lbl : resultExp ?: []
   where
     blocking = is_blocking (dCg d) calledFunction
-    callChain = fromJust_s "kauphinguo" $ call_chain (dCg d) (dSf d) calledFunction
-    fi = fromJust_s "koyoosoong" $ function_info (dAst d) calledFunction
+    callChain = $fromJust_s $ call_chain (dCg d) (dSf d) calledFunction
+    fi = $fromJust_s $ function_info (dAst d) calledFunction
     parameters = map (createParamAssign callChain) $ zip params $ fiParams fi
     continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just contVar)) (CUnary CAdrOp (CVar (ident $ label (dIf d) (dLbl d)) un) un) un)) un)
     lbl = createLabel (dIf d) (dLbl d)
@@ -136,7 +137,7 @@ stackAccess (sf:chain) variable = foldl create base $ zip pointers members
     pointers = True : cycle [False]
     members = foldr (\x l -> frameUnion : x : l) [] chain ++ variables
     create inner (pointer, member) = CMember inner (ident member) pointer un 
-stackAccess [] _ = abort "called stackAccess with empty call chain"
+stackAccess [] _ = $abort "called stackAccess with empty call chain"
 
 createLabel :: Symbol -> Int -> CBlockItem
 createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un

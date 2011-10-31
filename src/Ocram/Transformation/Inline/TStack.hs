@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 -- add tstack structures and variables
 module Ocram.Transformation.Inline.TStack
 -- exports {{{1
@@ -38,7 +39,7 @@ createTStackFrames ast = do
 createFiPairs :: Ast -> WR [(Symbol, FunctionInfo)]
 createFiPairs ast = do
   cg <- ask
-  return $ fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . List.filter (is_critical cg) . fromJust_s "raethechue" . call_order cg) $ Set.toList $ start_functions cg
+  return $ fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . List.filter (is_critical cg) . $fromJust_s . call_order cg) $ Set.toList $ start_functions cg
   where
     fld (lst, set) fname
       | Set.member fname set = (lst, set)
@@ -71,6 +72,6 @@ createNestedFramesUnion name = do
   let cf = critical_functions cg
   let createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
                       [(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
-  let entries = map createEntry $ filter (flip Set.member cf) $ fromJust_s "eebuyephov" $ get_callees cg name
+  let entries = map createEntry $ filter (flip Set.member cf) $ $fromJust_s $ get_callees cg name
   let createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
   return $ if null entries then Nothing else Just createDecl

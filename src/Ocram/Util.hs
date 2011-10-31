@@ -1,43 +1,81 @@
-module Ocram.Util (
+{-# LANGUAGE TemplateHaskell #-}
+module Ocram.Util
+-- export {{{1
+(
   (?:), tmap, trd, fromJust_s, head_s, lookup_s, abort
 ) where
 
+-- import {{{1
 import Control.Arrow ((***), Arrow)
 import qualified Data.Map as Map
+import Language.Haskell.TH
+import Language.Haskell.TH.Syntax ()
 
-(?:) :: Maybe a -> [a] -> [a]
+(?:) :: Maybe a -> [a] -> [a] -- {{{1
 (Just x) ?: xs = x : xs
 Nothing ?:  xs = xs
 infixr 5 ?:
 
-tmap :: Arrow a => a b c -> a (b, b) (c, c)
+tmap :: Arrow a => a b c -> a (b, b) (c, c) -- {{{1
 tmap f = f *** f
 
-trd :: (a, b, c) -> c
+trd :: (a, b, c) -> c -- {{{1
 trd (_, _, x) = x
 
-fromJust_s :: String -> Maybe a -> a
-fromJust_s _ (Just x) = x
-fromJust_s location Nothing = abort $ "fromJust failed: " ++ location
+fromJust_s :: Q Exp -- {{{1
+fromJust_s = withLocatedError [| fromJust' |]
 
-head_s :: String -> [a] -> a
-head_s _ (x:_) = x
-head_s location _ = abort $ "head failed: " ++ location
+head_s :: Q Exp -- {{{1
+head_s = withLocatedError [| head' |]
 
-lookup_s :: Ord k => String -> Map.Map k a -> k -> a
-lookup_s location map_ key =
+lookup_s :: Q Exp -- {{{1
+lookup_s = withLocatedError [| lookup' |]
+
+abort :: Q Exp -- {{{1
+abort = withLocatedError [| abort' |]
+
+-- impl {{{1
+fromJust' :: (String -> a) -> Maybe a -> a
+fromJust' _ (Just x) = x
+fromJust' err Nothing = err "fromJust failed"
+
+head' :: (String -> a) -> [a] -> a
+head' _ (x:_) = x
+head' err _ = err "head failed"
+
+lookup' :: Ord k => (String -> a) -> Map.Map k a -> k -> a
+lookup' err map_ key =
   case Map.lookup key map_ of
-    Nothing -> abort $ "lookup failed: " ++ location
+    Nothing -> err $ "lookup failed"
     Just x -> x
 
-abort :: String -> a
-abort string =
+abort' :: (String -> b) -> String -> b
+abort' err what = err what
+
+-- util {{{1
+internalError :: String -> String -> a
+internalError where_ what =
   let
-    header = "internal error: "
-    message = header ++ string
+    message = "internal error: " ++ where_ ++ ": " ++ what
     l = length message
     border = "+" ++ (replicate (l+2) '-') ++ "+"
     text = "\n" ++ border ++ "\n| " ++ message ++ " |\n" ++ border ++ "\n"
   in
     error text
-  
+
+withLocatedError :: Q Exp -> Q Exp
+withLocatedError f = do
+    let err = locatedError =<< location
+    appE f err
+
+locatedError :: Loc -> Q Exp
+locatedError loc = [| \what ->
+  internalError $(litE $ stringL (formatLoc loc)) what |]
+
+formatLoc :: Loc -> String
+formatLoc loc =
+  let
+    file = loc_filename loc
+    (line, col) = loc_start loc
+  in
+    concat [file, ":", show line, ":", show col]

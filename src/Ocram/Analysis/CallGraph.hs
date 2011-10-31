@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Analysis.CallGraph
 -- exports {{{1
 (
@@ -57,7 +58,7 @@ from_test_graph edges =
     labels = map (\name -> Label name []) $ List.nub $ callers ++ callees
     nodes = createNodes labels
     gi = createGraphIndex nodes
-    resolve sym = lookup_s "eengiopuch" gi sym
+    resolve sym = $lookup_s gi sym
     edges' = map (\e -> ((resolve . fst) e, (resolve . snd) e, undefNode)) edges
     gd = G.mkGraph nodes edges'
   in
@@ -108,7 +109,7 @@ get_callees (CallGraph gd gi) caller = do
 
 -- utils {{{1
 gnode2symbol :: GraphData -> G.Node -> Symbol
-gnode2symbol gd = lblName . fromJust_s "maechahjie" . G.lab gd
+gnode2symbol gd = lblName . $fromJust_s . G.lab gd
 
 createLabels :: Ast -> [Label]
 createLabels (CTranslUnit ds _) = foldr processExtDecl [] ds
@@ -150,7 +151,7 @@ createEdges ast gi nodes = foldl processEdge [] nodes
         Just fd ->
           es ++ (map createEdge $ snd $ traverseCFunDef fd CgDownState)
        where
-          createEdge (callee, ni) = (gcaller, lookup_s "keyiequiey" gi callee, ni)
+          createEdge (callee, ni) = (gcaller, $lookup_s gi callee, ni)
 
 type CgUpState = [(Symbol, NodeInfo)]
 data CgDownState = CgDownState
@@ -173,7 +174,7 @@ subGraph cg end cf = -- call graph has reversed edges
   let
     gi = grIndex cg
     gd = grData cg
-    gnode = lookup_s "eiyoeshish" gi end
+    gnode = $lookup_s gi end
     gnodes = bfs gnode gd
     symbols = map (gnode2symbol gd) gnodes
   in
@@ -210,5 +211,5 @@ functionIs pred (CallGraph gd gi) name =
   case Map.lookup name gi of
     Nothing -> False
     Just gnode ->
-      let (Label _ attr) = fromJust_s "oojadietai" $ G.lab gd gnode
+      let (Label _ attr) = $fromJust_s $ G.lab gd gnode
       in any pred attr

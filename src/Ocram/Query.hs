@@ -1,10 +1,12 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Query
 -- export {{{1
 (
     function_definition, function_declaration, function_info
   , is_blocking_function, is_start_function
   , is_blocking_function', is_start_function'
-  , FunctionInfo(..), SymTab
+  , FunctionInfo(..), SymbolTable
+  , function_parameters, function_parameters'
 ) where
 
 -- import {{{1
@@ -23,11 +25,11 @@ import qualified Data.Map as Map
 data FunctionInfo = FunctionInfo { -- {{{1
       fiResultType :: CTypeSpec
     , fiParams :: [CDecl]
-    , fiVariables :: SymTab
+    , fiVariables :: SymbolTable
     , fiBody :: Maybe CStat
   } deriving (Show)
 
-type SymTab = Map.Map Symbol CDecl
+type SymbolTable = Map.Map Symbol CDecl
 
 function_declaration :: Ast -> Symbol -> Maybe CDecl -- {{{1
 function_declaration (CTranslUnit eds _) name =
@@ -52,6 +54,14 @@ is_start_function :: Ast -> Symbol -> Bool -- {{{1
 is_start_function ast name =
   maybe False is_start_function' $ function_definition ast name
 
+function_parameters :: CFunDef -> [CDecl] -- {{{1
+function_parameters (CFunDef _ (CDeclr _ [cfd] _ _ _) [] _ _) = function_parameters' cfd
+function_parameters _ = $abort "unexpected parameters" 
+
+function_parameters' :: CDerivedDeclr -> [CDecl] -- {{{1
+function_parameters' (CFunDeclr (Right (ps, False)) _ _) = ps
+function_parameters' _ = $abort "unexpected parameters"
+
 function_info :: Ast -> Symbol -> Maybe FunctionInfo -- {{{1
 function_info ast name = 
   let
@@ -64,20 +74,20 @@ decl2fi :: CDecl -> FunctionInfo -- {{{2
 decl2fi (CDecl tss [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) =
   FunctionInfo (extractTypeSpec tss) params (params2SymTab params) Nothing
   where
-    params = extractParams' cfd
-decl2fi _ = abort "unexpected parameter to decl2fi"
+    params = function_parameters' cfd
+decl2fi _ = $abort "unexpected parameters"
 
 def2fi :: CFunDef -> FunctionInfo -- {{{2
-def2fi fd = fromJust_s "zeewiekues" $ uFi $ snd $ traverseCFunDef fd $ DownState Map.empty []
+def2fi fd = $fromJust_s $ uFi $ snd $ traverseCFunDef fd $ DownState Map.empty []
 
 data DownState = DownState {
-    dSt :: SymTab
+    dSt :: SymbolTable
   , dPs :: [CDecl]
   }
 
 data UpState = UpState {
     uFi :: Maybe FunctionInfo
-  , uSt :: SymTab
+  , uSt :: SymbolTable
   }
 
 instance Monoid UpState where
@@ -87,13 +97,13 @@ instance Monoid UpState where
       merge Nothing Nothing = Nothing
       merge (Just x) Nothing = Just x
       merge Nothing (Just x) = Just x
-      merge (Just _) (Just _) = abort "got two distinct function infos from one function"
+      merge (Just _) (Just _) = $abort "got two distinct function infos from one function"
 
 instance DownVisitor DownState where
   -- add parameters to symbol table
   downCFunDef fd _ = DownState (params2SymTab params) params
     where
-      params = extractParams fd
+      params = function_parameters fd
 
   -- add declarations to symbol table
   downCBlockItem (CBlockDecl cd) d = d {dSt = Map.insert (symbol cd) cd (dSt d)}
@@ -134,20 +144,13 @@ functionDefinition :: CExtDecl -> Maybe CFunDef
 functionDefinition (CFDefExt x) = Just x
 functionDefinition _ = Nothing
 
-extractParams :: CFunDef -> [CDecl]
-extractParams (CFunDef _ (CDeclr _ [cfd] _ _ _) [] _ _) = extractParams' cfd
-extractParams _ = abort "unexpected parameter to extractParams"
 
-extractParams' :: CDerivedDeclr -> [CDecl]
-extractParams' (CFunDeclr (Right (ps, False)) _ _) = ps
-extractParams' _ = abort "unexpected parameter to extractParams'"
-
-params2SymTab :: [CDecl] -> SymTab
+params2SymTab :: [CDecl] -> SymbolTable
 params2SymTab params = foldl add Map.empty params
   where
     add m cd = Map.insert (symbol cd) cd m
 
 extractTypeSpec :: [CDeclSpec] -> CTypeSpec
-extractTypeSpec [] = abort "type specifier expected"
+extractTypeSpec [] = $abort "type specifier expected"
 extractTypeSpec ((CTypeSpec ts):_) = ts
 extractTypeSpec (_:xs) = extractTypeSpec xs
