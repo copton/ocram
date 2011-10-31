@@ -1,8 +1,10 @@
-module Ocram.Test.Tests.Transformation.Inline (
+module Ocram.Test.Tests.Transformation.Inline 
+-- export {{{1
+(
 	tests
 ) where
+-- import {{{1
 import Test.HUnit
--- imports {{{1
 import Ocram.Types
 import Ocram.Test.Lib
 import Ocram.Transformation.Inline (transformation)
@@ -13,8 +15,7 @@ import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
 
 import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
--- tests {{{1
-tests = runTests [
+tests = runTests [ -- {{{1
 -- setup {{{2
 	([paste|
 		__attribute__((tc_blocking)) void block(int i);
@@ -462,11 +463,9 @@ tests = runTests [
 				return;	
 		}
 	|])
--- end {{{2
 	]
--- util {{{1
--- runTests :: [(String, String)] -> Test {{{2
-runTests :: [(String, String)] -> Test
+
+runTests :: [(String, String)] -> Test -- {{{2
 runTests cases = TestLabel "Inline" $ TestList $ map runTest cases
   where
     runTest (code, expected) = TestCase $
