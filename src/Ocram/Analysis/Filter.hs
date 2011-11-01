@@ -33,6 +33,7 @@ newError code extraWhat where_ =
 
 data ErrorCode =
     NoParameterList
+  | NoReturnType
   | AssemblerCode
   | PointerToCriticalFunction
   | NoThreads
@@ -43,6 +44,7 @@ data ErrorCode =
 errors :: [(ErrorCode, String)]
 errors = [
     (NoParameterList, "function without parameter list")
+  , (NoReturnType, "function without explicit return type")
   , (AssemblerCode, "transformation of assembler code is not supported")
   , (PointerToCriticalFunction, "taking pointer from critical function")
   , (NoThreads, "at least one thread must be started")
@@ -62,14 +64,24 @@ type CsUpState = [OcramError]
 
 instance DownVisitor CsDownState 
 
+hasReturnType :: [CDeclSpec] -> Bool
+hasReturnType = any isTypeSpec
+  where
+    isTypeSpec (CTypeSpec _) = True
+    isTypeSpec _ = False
+
 instance UpVisitor CsDownState CsUpState where
-  upCExtDecl o@(CFDefExt (CFunDef _ (CDeclr _ [] _ _ _) _ _ ni)) _ u =
-    (o, (newError NoParameterList Nothing (Just ni)) : u)
+  upCExtDecl o@(CFDefExt (CFunDef ts (CDeclr _ ps _ _ _) _ _ ni)) _ u
+    | null ps = (o, (newError NoParameterList Nothing (Just ni)) : u)
+    | not (hasReturnType ts) = (o, (newError NoReturnType Nothing (Just ni)) : u)
+    | otherwise = (o, u) 
+
+  upCExtDecl o@(CDeclExt (CDecl ts _ ni)) _ u
+    | not (hasReturnType ts) = (o, (newError NoReturnType Nothing (Just ni)) : u)
+    | otherwise = (o, u)
 
   upCExtDecl o@(CAsmExt _ ni) _ u =
     (o, (newError AssemblerCode Nothing (Just ni)) : u)
-
-  upCExtDecl o _ u = (o, u)
 
 
   upCStat o@(CAsm _ ni) _ u =

@@ -244,6 +244,20 @@ test_cases = [
 		[NoParameterList] 
 		undefined
 		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
+-- function definition without return type {{{2
+	,TCase
+		"__attribute__((foo)) f() { }"
+		undefined undefined undefined undefined 
+		[NoReturnType] 
+		undefined
+		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
+-- function declaration without return type {{{2
+	,TCase
+		"__attribute__((foo)) f();"
+		undefined undefined undefined undefined 
+		[NoReturnType] 
+		undefined
+		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
 -- thread does not block {{{2
 	,TCase
 		"__attribute__((tc_run_thread)) void start() { }"
