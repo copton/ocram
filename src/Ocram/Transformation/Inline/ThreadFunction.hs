@@ -140,13 +140,12 @@ createAssign :: CExpr -> CExpr -> CBlockItem
 createAssign lhs rhs = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) un)
 
 stackAccess :: [Symbol] -> Maybe Symbol -> CExpr
-stackAccess (sf:chain) variable = foldl create base $ zip pointers members
+stackAccess (sf:chain) variable = foldl create base members
   where
     variables = if isJust variable then [fromJust variable] else []
     base = CVar (ident $ stackVar sf) un
-    pointers = True : cycle [False]
     members = foldr (\x l -> frameUnion : x : l) [] chain ++ variables
-    create inner (pointer, member) = CMember inner (ident member) pointer un 
+    create inner member = CMember inner (ident member) False un 
 stackAccess [] _ = $abort "called stackAccess with empty call chain"
 
 createLabel :: Symbol -> Int -> CBlockItem

@@ -44,9 +44,9 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 			ec_label_start_0: ;
-				ec_stack_start->ec_frames.block.i = 23;
-				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
-				block(&ec_stack_start->ec_frames.block);
+				ec_stack_start.ec_frames.block.i = 23;
+				ec_stack_start.ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				return;	
@@ -84,9 +84,9 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 			ec_label_start_0: ;
-				ec_stack_start->ec_frames.block.i = ec_stack_start->i;
-				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
-				block(&ec_stack_start->ec_frames.block);
+				ec_stack_start.ec_frames.block.i = ec_stack_start.i;
+				ec_stack_start.ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				return;	
@@ -129,10 +129,10 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 			ec_label_start_0: ;
-				ec_stack_start->ec_frames.block.i1 = ec_stack_start->j;
-				ec_stack_start->ec_frames.block.i2 = k;
-				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
-				block(&ec_stack_start->ec_frames.block);
+				ec_stack_start.ec_frames.block.i1 = ec_stack_start.j;
+				ec_stack_start.ec_frames.block.i2 = k;
+				ec_stack_start.ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				return;	
@@ -174,17 +174,17 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 		ec_label_start_0: ;
-				ec_stack_start->i = 0;
-				while (ec_stack_start->i < 10) {
-					ec_stack_start->i++;
-					ec_stack_start->ec_frames.block.j = ec_stack_start->i;
-					ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
-					block(&ec_stack_start->ec_frames.block);
+				ec_stack_start.i = 0;
+				while (ec_stack_start.i < 10) {
+					ec_stack_start.i++;
+					ec_stack_start.ec_frames.block.j = ec_stack_start.i;
+					ec_stack_start.ec_frames.block.ec_cont = &ec_label_start_1;
+					block(&ec_stack_start.ec_frames.block);
 					return;
 		ec_label_start_1: ;
-					ec_stack_start->i++;
+					ec_stack_start.i++;
 				}
-				ec_stack_start->i = 0;
+				ec_stack_start.i = 0;
 				return;	
 		}
 	|])
@@ -242,20 +242,20 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 			ec_label_start_0: ;
-				ec_stack_start->s2 = non_critical(ec_stack_start->s1);
-				ec_stack_start->ec_frames.critical.c = ec_stack_start->s2;
-				ec_stack_start->ec_frames.critical.ec_cont = &ec_label_start_1;
+				ec_stack_start.s2 = non_critical(ec_stack_start.s1);
+				ec_stack_start.ec_frames.critical.c = ec_stack_start.s2;
+				ec_stack_start.ec_frames.critical.ec_cont = &ec_label_start_1;
 				goto ec_label_critical_0;
 			ec_label_start_1: ;
 				return;	
 			
 			ec_label_critical_0: ;
-				ec_stack_start->ec_frames.critical.ec_frames.block.b = ec_stack_start->ec_frames.critical.c + 1;
-				ec_stack_start->ec_frames.critical.ec_frames.block.ec_cont = &ec_label_critical_1;
-				block(&ec_stack_start->ec_frames.critical.ec_frames.block);
+				ec_stack_start.ec_frames.critical.ec_frames.block.b = ec_stack_start.ec_frames.critical.c + 1;
+				ec_stack_start.ec_frames.critical.ec_frames.block.ec_cont = &ec_label_critical_1;
+				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
-				goto *ec_stack_start->ec_frames.critical.ec_cont;
+				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
 	|])
 -- two threads {{{2
@@ -307,9 +307,9 @@ tests = runTests [ -- {{{1
 
 			ec_label_run_0: ;
 				while (1) {
-				ec_stack_run->ec_frames.block.b = ec_stack_run->r;
-				ec_stack_run->ec_frames.block.ec_cont = &ec_label_run_1;
-				block(&ec_stack_run->ec_frames.block);
+				ec_stack_run.ec_frames.block.b = ec_stack_run.r;
+				ec_stack_run.ec_frames.block.ec_cont = &ec_label_run_1;
+				block(&ec_stack_run.ec_frames.block);
 				return;
 			ec_label_run_1: ;
 				}
@@ -323,9 +323,9 @@ tests = runTests [ -- {{{1
 
 			ec_label_start_0: ;
 				while (1) {
-				ec_stack_start->ec_frames.block.b = ec_stack_start->s;
-				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
-				block(&ec_stack_start->ec_frames.block);
+				ec_stack_start.ec_frames.block.b = ec_stack_start.s;
+				ec_stack_start.ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				}
@@ -384,19 +384,19 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 			ec_label_run_0: ;
-				ec_stack_run->ec_frames.critical.c = 1;
-				ec_stack_run->ec_frames.critical.ec_cont = &ec_label_run_1;
+				ec_stack_run.ec_frames.critical.c = 1;
+				ec_stack_run.ec_frames.critical.ec_cont = &ec_label_run_1;
 				goto ec_label_critical_0;
 			ec_label_run_1: ;
 				return;	
 			
 			ec_label_critical_0: ;
-				ec_stack_run->ec_frames.critical.ec_frames.block.b = ec_stack_run->ec_frames.critical.c + 1;
-				ec_stack_run->ec_frames.critical.ec_frames.block.ec_cont = &ec_label_critical_1;
-				block(&ec_stack_run->ec_frames.critical.ec_frames.block);
+				ec_stack_run.ec_frames.critical.ec_frames.block.b = ec_stack_run.ec_frames.critical.c + 1;
+				ec_stack_run.ec_frames.critical.ec_frames.block.ec_cont = &ec_label_critical_1;
+				block(&ec_stack_run.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
-				goto *ec_stack_run->ec_frames.critical.ec_cont;
+				goto *ec_stack_run.ec_frames.critical.ec_cont;
 		}
 
 		void ec_thread_2(void* ec_cont)
@@ -405,19 +405,19 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 			ec_label_start_0: ;
-				ec_stack_start->ec_frames.critical.c = 2;
-				ec_stack_start->ec_frames.critical.ec_cont = &ec_label_start_1;
+				ec_stack_start.ec_frames.critical.c = 2;
+				ec_stack_start.ec_frames.critical.ec_cont = &ec_label_start_1;
 			  goto ec_label_critical_0;
 			ec_label_start_1: ;
 				return;	
 			
 			ec_label_critical_0: ;
-				ec_stack_start->ec_frames.critical.ec_frames.block.b = ec_stack_start->ec_frames.critical.c + 1;
-				ec_stack_start->ec_frames.critical.ec_frames.block.ec_cont = &ec_label_critical_1;
-				block(&ec_stack_start->ec_frames.critical.ec_frames.block);
+				ec_stack_start.ec_frames.critical.ec_frames.block.b = ec_stack_start.ec_frames.critical.c + 1;
+				ec_stack_start.ec_frames.critical.ec_frames.block.ec_cont = &ec_label_critical_1;
+				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
-				goto *ec_stack_start->ec_frames.critical.ec_cont;
+				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
 	|])
 -- return value {{{2
@@ -453,12 +453,12 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 			ec_label_start_0: ;
-				ec_stack_start->ec_frames.block.i = ec_stack_start->i;
-				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
-				block(&ec_stack_start->ec_frames.block);
+				ec_stack_start.ec_frames.block.i = ec_stack_start.i;
+				ec_stack_start.ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
-				ec_stack_start->i = ec_stack_start->ec_frames.block.ec_result;
+				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
 	|])
@@ -496,12 +496,12 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 			ec_label_start_0: ;
-				ec_stack_start->ec_frames.block.i = ec_stack_start->j;
-				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
-				block(&ec_stack_start->ec_frames.block);
+				ec_stack_start.ec_frames.block.i = ec_stack_start.j;
+				ec_stack_start.ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
-				ec_stack_start->i = ec_stack_start->ec_frames.block.ec_result;
+				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
   |])
@@ -537,13 +537,13 @@ tests = runTests [ -- {{{1
         goto *ec_cont;
 
       ec_label_start_0: ;
-        ec_stack_start->j = 23;
-        ec_stack_start->ec_frames.block.i = ec_stack_start->j;
-        ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
-        block(&ec_stack_start->ec_frames.block);
+        ec_stack_start.j = 23;
+        ec_stack_start.ec_frames.block.i = ec_stack_start.j;
+        ec_stack_start.ec_frames.block.ec_cont = &ec_label_start_1;
+        block(&ec_stack_start.ec_frames.block);
         return;
       ec_label_start_1: ;
-        ec_stack_start->i = ec_stack_start->ec_frames.block.ec_result;
+        ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
         return;
     }
     |])
