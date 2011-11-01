@@ -9,11 +9,11 @@ module Ocram.Transformation.Inline.ThreadFunction
 -- imports {{{1
 import Control.Monad.Reader (ask)
 import Control.Monad (liftM)
-import Data.Maybe (isJust, fromJust)
+import Data.Maybe (isJust, fromJust, catMaybes)
 import Data.Monoid (mempty)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Query (function_info, FunctionInfo(fiBody, fiVariables, fiParams), SymbolTable)
+import Ocram.Query (function_definition, function_parameters, local_variables_fd, SymbolTable, unlist_decl)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
@@ -43,9 +43,10 @@ createThreadFunction ast (tid, startFunction) = do
 inlineCriticalFunction :: Ast -> Symbol -> Symbol -> WR [CBlockItem] -- {{{2
 inlineCriticalFunction ast startFunction inlinedFunction = do
   cg <- ask
-  let fi = $fromJust_s $ function_info ast inlinedFunction
-  let currentBody = $fromJust_s $ fiBody fi
-  let initialDownState = DownState cg ast startFunction inlinedFunction (fiVariables fi) 1
+  let fd = $fromJust_s $ function_definition ast inlinedFunction
+  let currentBody = (\(CFunDef _ _ _ x _) -> x) fd
+  let localVariables = local_variables_fd fd
+  let initialDownState = DownState cg ast startFunction inlinedFunction localVariables 1
   let inlinedBody = extractBody $ fst $ (traverseCStat currentBody initialDownState :: (CStat, UpState)) 
   let callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
   return $ lbl : inlinedBody ++ (close callChain) : []
@@ -96,6 +97,16 @@ instance ListVisitor DownState UpState where
     where
       calledFunction = symbol fName
 
+  -- remove/rewrite local variable declarations
+  nextCBlockItem (CBlockDecl cd) d u = (os, d, u)
+    where
+      os = catMaybes $ map initialize $ unlist_decl cd
+      initialize cd'@(CDecl _ [(_, Just(CInitExpr expr _), _)] _) = Just $
+        CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd') expr un)) un)
+      initialize _ = Nothing
+      var cd' = stackAccess callChain (Just (symbol cd'))
+      callChain = $fromJust_s $ call_chain (dCg d) (dSf d) (dIf d)
+
   nextCBlockItem o d u = ([o], d, u)
 
 criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> Maybe CExpr -> [CBlockItem]
@@ -104,8 +115,7 @@ criticalFunctionCall d calledFunction params resultLhs =
   where
     blocking = is_blocking (dCg d) calledFunction
     callChain = $fromJust_s $ call_chain (dCg d) (dSf d) calledFunction
-    fi = $fromJust_s $ function_info (dAst d) calledFunction
-    parameters = map (createParamAssign callChain) $ zip params $ fiParams fi
+    parameters = map (createParamAssign callChain) $ zip params $ $fromJust_s $ function_parameters (dAst d) calledFunction
     continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just contVar)) (CUnary CAdrOp (CVar (ident $ label (dIf d) (dLbl d)) un) un) un)) un)
     lbl = createLabel (dIf d) (dLbl d)
     resultExp = fmap assignResult resultLhs

@@ -8,17 +8,16 @@ module Ocram.Transformation.Inline.TStack
 -- imports {{{1
 import Control.Monad.Reader (ask)
 import Language.C.Syntax.AST
-import Ocram.Analysis (start_functions, critical_functions, call_order, get_callees, is_critical)
-import Ocram.Query (function_info, FunctionInfo(FunctionInfo))
+import Ocram.Analysis (start_functions, critical_functions, get_callees, critical_function_dependency_list)
+import Ocram.Query (local_variables, return_type)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Symbols (Symbol)
 import Ocram.Types (Ast)
-import Ocram.Util ((?:), fromJust_s)
+import Ocram.Util ((?:), fromJust_s, abort)
 import qualified Data.Set as Set
 import qualified Data.Map as Map
-import qualified Data.List as List
 
 addTStacks :: Ast -> WR Ast -- {{{1
 addTStacks ast@(CTranslUnit decls ni) = do
@@ -32,31 +31,18 @@ createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fNam
 
 createTStackFrames :: Ast -> WR [CExtDecl]
 createTStackFrames ast = do
-    fipairs <- createFiPairs ast
-    frames <- mapM createTStackFrame $ List.reverse fipairs
-    return frames
-
-createFiPairs :: Ast -> WR [(Symbol, FunctionInfo)]
-createFiPairs ast = do
   cg <- ask
-  return $ fst $ foldl fld ([], Set.empty) $ concatMap (List.reverse . List.filter (is_critical cg) . $fromJust_s . call_order cg) $ Set.toList $ start_functions cg
-  where
-    fld (lst, set) fname
-      | Set.member fname set = (lst, set)
-      | otherwise = case function_info ast fname of
-          Nothing -> (lst, set)
-          (Just fi) -> ((fname, fi) : lst, Set.insert fname set)
+  mapM (createTStackFrame ast) $ critical_function_dependency_list cg
 
-
-createTStackFrame :: (Symbol, FunctionInfo) -> WR CExtDecl
-createTStackFrame (name, FunctionInfo resultType _ vars _) = do
+createTStackFrame :: Ast -> Symbol -> WR CExtDecl
+createTStackFrame ast name = do
   nestedFrames <- createNestedFramesUnion name
   cg <- ask
   return $ CDeclExt (CDecl [CStorageSpec (CTypedef un), CTypeSpec (CSUType (CStruct CStructTag Nothing (Just (
-       continuation (start_functions cg)
-    ?: result resultType
-    ?: nestedFrames
-    ?: Map.elems vars
+    continuation (start_functions cg) ?:
+    result ($fromJust_s (return_type ast name)) ?:
+    nestedFrames ?:
+    localVariables
     )) [] un) un)] [(Just (CDeclr (Just (ident (frameType name))) [] Nothing [] un), Nothing, Nothing)] un)
   where
     result (CVoidType _) = Nothing
@@ -64,7 +50,9 @@ createTStackFrame (name, FunctionInfo resultType _ vars _) = do
     continuation sf
       | Set.member name sf = Nothing
       | otherwise = Just (CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un)
-
+    localVariables = map removeInit $ Map.elems ($fromJust_s (local_variables ast name))
+    removeInit (CDecl x1 [(x2, _, x3)] x4) = CDecl x1 [(x2, Nothing, x3)] x4
+    removeInit _ = $abort "unexpected parameters"
 
 createNestedFramesUnion :: Symbol -> WR (Maybe CDecl)
 createNestedFramesUnion name = do

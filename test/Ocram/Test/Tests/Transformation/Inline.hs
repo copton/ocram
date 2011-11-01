@@ -420,7 +420,6 @@ tests = runTests [ -- {{{1
 				goto *ec_stack_start->ec_frames.critical.ec_cont;
 		}
 	|])
-
 -- return value {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) int block(int i);
@@ -463,6 +462,91 @@ tests = runTests [ -- {{{1
 				return;	
 		}
 	|])
+-- multiple declarations {{{2
+  , ([paste|
+		__attribute__((tc_blocking)) int block(int i);
+
+		__attribute__((tc_run_thread)) void start() 
+		{
+			int i, j;
+			i = block(j);
+		}
+	|],[paste|
+		typedef struct {
+			void* ec_cont;
+			int ec_result;
+			int i;
+		} ec_frame_block_t;
+
+		typedef struct {
+			union {
+					ec_frame_block_t block;
+			} ec_frames;
+			int i;
+      int j;
+		} ec_frame_start_t;
+
+		ec_frame_start_t ec_stack_start;
+
+		void block(ec_frame_block_t* frame);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont != null)
+				goto *ec_cont;
+
+			ec_label_start_0: ;
+				ec_stack_start->ec_frames.block.i = ec_stack_start->j;
+				ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
+				block(&ec_stack_start->ec_frames.block);
+				return;
+			ec_label_start_1: ;
+				ec_stack_start->i = ec_stack_start->ec_frames.block.ec_result;
+				return;	
+		}
+  |])
+-- multiple declarations with initialization {{{2
+  , ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+
+    __attribute__((tc_run_thread)) void start() {
+      int i, j=23;
+      i = block(j);
+    }
+  |],[paste|
+    typedef struct {
+      void* ec_cont;
+      int ec_result;
+      int i;
+    } ec_frame_block_t;
+
+    typedef struct {
+      union {
+        ec_frame_block_t block;
+      } ec_frames;
+      int i;
+      int j;
+    } ec_frame_start_t;
+
+    ec_frame_start_t ec_stack_start;
+
+    void block(ec_frame_block_t* frame);
+
+    void ec_thread_1(void* ec_cont) {
+      if (ec_cont != null)
+        goto *ec_cont;
+
+      ec_label_start_0: ;
+        ec_stack_start->j = 23;
+        ec_stack_start->ec_frames.block.i = ec_stack_start->j;
+        ec_stack_start->ec_frames.block.ec_cont = &ec_label_start_1;
+        block(&ec_stack_start->ec_frames.block);
+        return;
+      ec_label_start_1: ;
+        ec_stack_start->i = ec_stack_start->ec_frames.block.ec_result;
+        return;
+    }
+    |])
 	]
 
 runTests :: [(String, String)] -> Test -- {{{2

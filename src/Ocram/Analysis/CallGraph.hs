@@ -7,6 +7,7 @@ module Ocram.Analysis.CallGraph
   , blocking_functions, critical_functions, start_functions
   , is_blocking, is_start, is_critical
   , call_chain, call_order, get_callees
+  , critical_function_dependency_list
 ) where
 
 -- imports {{{1
@@ -73,6 +74,12 @@ blocking_functions = functionsWith attrBlocking
 
 critical_functions :: CallGraph -> CriticalFunctions -- {{{1
 critical_functions = functionsWith attrCritical
+
+critical_function_dependency_list :: CallGraph -> [Symbol] -- {{{1
+critical_function_dependency_list cg@(CallGraph gd gi) = 
+  List.nub $ concatMap depList $ Set.toList $ start_functions cg
+  where
+    depList start = List.reverse $ filter (is_critical cg) $ map (gnode2symbol gd) $ G.bfs ($lookup_s gi start) gd
 
 start_functions :: CallGraph -> StartFunctions -- {{{1
 start_functions = functionsWith attrStart

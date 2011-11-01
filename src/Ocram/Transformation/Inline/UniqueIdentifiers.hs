@@ -10,7 +10,7 @@ import Control.Monad.Reader (ask)
 import Data.Maybe (catMaybes)
 import Data.Monoid (mempty)
 import Language.C.Syntax.AST
-import Ocram.Query (function_parameters)
+import Ocram.Query (function_parameters_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Util (ident, map_critical_functions)
 import Ocram.Transformation.Inline.Types (WR)
@@ -63,7 +63,7 @@ type UpState = ()
 
 instance DownVisitor Identifiers where
   downCFunDef fd ids =
-    foldl newIdentifier ids $ map symbol $ function_parameters fd
+    foldl newIdentifier ids $ map symbol $ function_parameters_fd fd
 
   downCBlockItem (CBlockDecl cd) ids = addDecls ids cd
 
