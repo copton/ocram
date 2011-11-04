@@ -6,18 +6,18 @@ module Ocram.Analysis.Filter
 ) where
 
 -- imports {{{1
+import Data.Generics (mkQ, everything, extQ)
 import Data.Maybe (fromMaybe, catMaybes)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Analysis.CallGraph (critical_functions, start_functions, CriticalFunctions, is_critical)
+import Ocram.Analysis.CallGraph (critical_functions, start_functions, is_critical)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
 import Ocram.Query (function_definition)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Types (Ast)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
-import Ocram.Visitor (traverseCTranslUnit, DownVisitor, UpVisitor(upCExtDecl, upCExpr, upCStat), ListVisitor)
 import qualified Data.Graph.Inductive.Graph as G
 import qualified Data.List as List
 import qualified Data.Set as Set
@@ -55,14 +55,25 @@ errors = [
 errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors
 
--- check_sanity :: Ast -> Either OcramError () {{{1
-check_sanity :: Ast -> Either [OcramError] ()
-check_sanity ast = failOrPass $ snd $ traverseCTranslUnit ast CsDownState
+check_sanity :: Ast -> Either [OcramError] () -- {{{1
+check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStats) ast
 
-data CsDownState = CsDownState
-type CsUpState = [OcramError]
+saneExtDecls :: CExtDecl -> [OcramError]
 
-instance DownVisitor CsDownState 
+saneExtDecls (CDeclExt (CDecl ts _ ni))
+  | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
+  | otherwise = []
+
+saneExtDecls (CFDefExt (CFunDef ts (CDeclr _ ps _ _ _) _ _ ni))
+  | null ps = [newError NoParameterList Nothing (Just ni)]
+  | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
+  | otherwise = []
+
+saneExtDecls (CAsmExt _ ni) = [newError AssemblerCode Nothing (Just ni)]
+
+saneStats :: CStat -> [OcramError]
+saneStats (CAsm _ ni) = [newError AssemblerCode Nothing (Just ni)]
+saneStats _ = []
 
 hasReturnType :: [CDeclSpec] -> Bool
 hasReturnType = any isTypeSpec
@@ -70,30 +81,7 @@ hasReturnType = any isTypeSpec
     isTypeSpec (CTypeSpec _) = True
     isTypeSpec _ = False
 
-instance UpVisitor CsDownState CsUpState where
-  upCExtDecl o@(CFDefExt (CFunDef ts (CDeclr _ ps _ _ _) _ _ ni)) _ u
-    | null ps = (o, (newError NoParameterList Nothing (Just ni)) : u)
-    | not (hasReturnType ts) = (o, (newError NoReturnType Nothing (Just ni)) : u)
-    | otherwise = (o, u) 
-
-  upCExtDecl o@(CDeclExt (CDecl ts _ ni)) _ u
-    | not (hasReturnType ts) = (o, (newError NoReturnType Nothing (Just ni)) : u)
-    | otherwise = (o, u)
-
-  upCExtDecl o@(CAsmExt _ ni) _ u =
-    (o, (newError AssemblerCode Nothing (Just ni)) : u)
-
-
-  upCStat o@(CAsm _ ni) _ u =
-    (o, (newError AssemblerCode Nothing (Just ni)) : u)
-
-  upCStat o _ u = (o, u)
-
-instance ListVisitor CsDownState CsUpState
-
-
--- check_constraints :: Ast -> CallGraph -> Either [OcramError] () {{{1
-check_constraints :: Ast -> CallGraph -> Either [OcramError] ()
+check_constraints :: Ast -> CallGraph -> Either [OcramError] () -- {{{1
 check_constraints ast cg = failOrPass $
      checkFunctionPointer cg ast
   ++ checkThreads cg
@@ -101,27 +89,13 @@ check_constraints ast cg = failOrPass $
   ++ checkStartFunctions cg ast
 
 checkFunctionPointer :: CallGraph -> Ast -> [OcramError]
-checkFunctionPointer cg ast =
-  let
+checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
+  where
     cf = critical_functions cg
-  in
-    snd $ traverseCTranslUnit ast $ FpDownState cf
-
-
-newtype FpDownState = FpDownState CriticalFunctions
-
-instance DownVisitor FpDownState
-
-type FpUpState = [OcramError]
-
-instance UpVisitor FpDownState FpUpState where
-  upCExpr o@(CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni) (FpDownState cf) u
-    | name `Set.member` cf = (o, newError PointerToCriticalFunction Nothing (Just ni) : u)
-    | otherwise = (o, u)
-  upCExpr o _ u = (o, u)
-
-instance ListVisitor FpDownState FpUpState
-
+    check (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni)
+      | name `Set.member` cf = [newError PointerToCriticalFunction Nothing (Just ni)]
+      | otherwise = []
+    check _ = []
 
 checkThreads :: CallGraph -> [OcramError]
 checkThreads cg
@@ -153,7 +127,6 @@ checkStartFunctions cg ast =
     toError location = newError ThreadNotBlocking Nothing (Just location)
   in
     Set.toList errs
-
 
 -- util {{{1
 failOrPass :: [a] -> Either [a] ()

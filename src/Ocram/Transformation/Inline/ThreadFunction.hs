@@ -8,12 +8,13 @@ module Ocram.Transformation.Inline.ThreadFunction
 
 -- imports {{{1
 import Control.Monad.Reader (ask)
+import Control.Monad.State (get, put, State, runState)
 import Control.Monad (liftM)
+import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (isJust, fromJust, catMaybes)
-import Data.Monoid (mempty)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Query (function_definition, function_parameters, local_variables_fd, SymbolTable, unlist_decl)
+import Ocram.Query (function_definition, function_parameters, local_variables_fd, unlist_decl)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
@@ -21,7 +22,6 @@ import Ocram.Transformation.Util (un, ident)
 import Ocram.Types (Ast)
 import Ocram.Symbols (Symbol)
 import Ocram.Util ((?:), fromJust_s, abort)
-import Ocram.Visitor
 import Prelude hiding (exp, id)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
@@ -37,109 +37,101 @@ createThreadFunction ast (tid, startFunction) = do
   cg <- ask
   let intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
   let onlyDefs name = (not $ is_blocking cg name) && (is_critical cg name)
-  functions <- mapM (inlineCriticalFunction ast startFunction) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
+  let functions = map (inlineCriticalFunction cg ast startFunction) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
   return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (handlerFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
 
-inlineCriticalFunction :: Ast -> Symbol -> Symbol -> WR [CBlockItem] -- {{{2
-inlineCriticalFunction ast startFunction inlinedFunction = do
-  cg <- ask
-  let fd = $fromJust_s $ function_definition ast inlinedFunction
-  let currentBody = (\(CFunDef _ _ _ x _) -> x) fd
-  let localVariables = local_variables_fd fd
-  let initialDownState = DownState cg ast startFunction inlinedFunction localVariables 1
-  let inlinedBody = extractBody $ fst $ (traverseCStat currentBody initialDownState :: (CStat, UpState)) 
-  let callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
-  return $ lbl : inlinedBody ++ (close callChain) : []
-    where
-      close callChain = CBlockStmt $ if startFunction == inlinedFunction
-        then CReturn Nothing un
-        else CGotoPtr (stackAccess callChain (Just contVar)) un
-      lbl = createLabel inlinedFunction 0
-      extractBody (CCompound _ body _) = body
-      extractBody _ = $abort "unexpected parameters"
-
-data DownState = DownState {
-    dCg :: CallGraph
-  , dAst :: Ast
-  , dSf :: Symbol -- start function
-  , dIf :: Symbol -- inlined function
-  , dSt :: SymbolTable -- local variables
-  , dLbl :: Int
-  }
-
-type UpState = ()
-
-instance DownVisitor DownState
-
-instance UpVisitor DownState UpState where
-  -- rewrite access to local variables
-  upCExpr o@(CVar iden _) d  _
-    | Map.member name (dSt d) = (stackAccess callChain (Just name), mempty)
-    | otherwise = (o, mempty)
-    where
-      name = symbol iden
-      callChain = $fromJust_s $ call_chain (dCg d) (dSf d) (dIf d)
-
-  upCExpr o _ _ = (o, mempty)
-
-instance ListVisitor DownState UpState where
-  -- rewrite critical function calls
-  nextCBlockItem o@(CBlockStmt (CExpr (Just (CCall (CVar iden _) params _)) _)) d u
-    | is_critical (dCg d) calledFunction =
-        (criticalFunctionCall d calledFunction params Nothing, nextLabel d, u)
-    | otherwise = ([o], d, u)
-    where
-      calledFunction = symbol iden
-
-  nextCBlockItem o@(CBlockStmt (CExpr (Just (CAssign CAssignOp lhs (CCall (CVar fName _) params _) _)) _)) d u
-    | is_critical (dCg d) calledFunction = (criticalFunctionCall d calledFunction params (Just lhs), nextLabel d, u)
-    | otherwise = ([o], d, u)
-    where
-      calledFunction = symbol fName
-
-  -- remove/rewrite local variable declarations
-  nextCBlockItem (CBlockDecl cd) d u = (os, d, u)
-    where
-      os = catMaybes $ map initialize $ unlist_decl cd
-      initialize cd'@(CDecl _ [(_, Just(CInitExpr expr _), _)] _) = Just $
-        CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd') expr un)) un)
-      initialize _ = Nothing
-      var cd' = stackAccess callChain (Just (symbol cd'))
-      callChain = $fromJust_s $ call_chain (dCg d) (dSf d) (dIf d)
-
-  nextCBlockItem o d u = ([o], d, u)
-
-criticalFunctionCall :: DownState -> Symbol -> [CExpr] -> Maybe CExpr -> [CBlockItem]
-criticalFunctionCall d calledFunction params resultLhs =
-  parameters ++ continuation : callExp : returnExp ?: lbl : resultExp ?: []
+inlineCriticalFunction :: CallGraph ->  Ast -> Symbol -> Symbol -> [CBlockItem] -- {{{2
+inlineCriticalFunction cg ast startFunction inlinedFunction = lbl : inlinedBody ++ close : []
   where
-    blocking = is_blocking (dCg d) calledFunction
-    callChain = $fromJust_s $ call_chain (dCg d) (dSf d) calledFunction
-    parameters = map (createParamAssign callChain) $ zip params $ $fromJust_s $ function_parameters (dAst d) calledFunction
-    continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just contVar)) (CUnary CAdrOp (CVar (ident $ label (dIf d) (dLbl d)) un) un) un)) un)
-    lbl = createLabel (dIf d) (dLbl d)
-    resultExp = fmap assignResult resultLhs
-    assignResult lhs = createAssign lhs (stackAccess callChain (Just resVar))
+    callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
+    fd = $fromJust_s $ function_definition ast inlinedFunction
+    localVariables = local_variables_fd fd
 
-    callExp = CBlockStmt $ if blocking
-      then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain Nothing) un] un)) un
-      else CGoto (ident $ label calledFunction 0) un
+    lbl = createLabel inlinedFunction 0
 
-    returnExp = if blocking
-      then Just (CBlockStmt (CReturn Nothing un))
-      else Nothing
+    close = CBlockStmt $ if startFunction == inlinedFunction
+      then CReturn Nothing un
+      else CGotoPtr (stackAccess callChain (Just contVar)) un
 
+    inlinedBody = extractBody $ (rewriteCriticalFunctionCalls . rewriteLocalVariableAccess  . rewriteLocalVariableDecls) fd
 
-createParamAssign :: [Symbol] -> (CExpr, CDecl) -> CBlockItem
-createParamAssign chain (exp, decl) = createAssign lhs rhs
-  where
-    lhs = stackAccess chain $ Just $ symbol decl
-    rhs = exp
+    extractBody (CFunDef _ _ _ (CCompound _ body _) _) = body
+    extractBody _ = $abort "unexpected parameters"
 
-createAssign :: CExpr -> CExpr -> CBlockItem
-createAssign lhs rhs = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) un)
+    rewriteLocalVariableAccess :: CFunDef -> CFunDef -- {{{3
+    rewriteLocalVariableAccess = everywhere (mkT rewrite)
+      where
+        rewrite o@(CVar iden _)
+          | Map.member name localVariables = stackAccess callChain (Just name)
+          | otherwise = o
+          where name = symbol iden
+        rewrite o = o
 
-stackAccess :: [Symbol] -> Maybe Symbol -> CExpr
+    rewriteLocalVariableDecls :: CFunDef -> CFunDef  -- {{{3
+    rewriteLocalVariableDecls = everywhere (mkT rewrite)
+      where
+        rewrite (CCompound x items y) = CCompound x (concatMap transform items) y
+        rewrite o = o
+
+        transform (CBlockDecl cd) = catMaybes $ map initialize $ unlist_decl cd
+        transform o = [o]
+
+        initialize cd@(CDecl _ [(_, Just(CInitExpr expr _), _)] _) =
+          Just $ CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd) expr un)) un)
+        initialize _ = Nothing
+
+        var cd = stackAccess callChain (Just (symbol cd))
+
+    rewriteCriticalFunctionCalls :: CFunDef -> CFunDef -- {{{3
+    rewriteCriticalFunctionCalls fd' = fst $ runState (everywhereM (mkM rewrite) fd') 1
+      where
+        rewrite (CCompound x items y) = do
+          items' <- mapM transform items
+          return $ CCompound x (concat items') y
+        rewrite o = return o
+
+        transform o@(CBlockStmt (CExpr (Just (CCall (CVar iden _) params _)) _))
+          | is_critical cg calledFunction = callSequence calledFunction params Nothing
+          | otherwise = return [o]
+          where calledFunction = symbol iden
+
+        transform o@(CBlockStmt (CExpr (Just (CAssign CAssignOp lhs (CCall (CVar iden _) params _) _)) _))
+          | is_critical cg calledFunction = callSequence calledFunction params (Just lhs)
+          | otherwise = return [o]
+          where calledFunction = symbol iden 
+
+        transform o = return [o]
+
+        callSequence calledFunction params resultLhs = do
+          lblIdx <- get
+          put (lblIdx + 1)  
+          return $ criticalFunctionCallSequence calledFunction lblIdx params resultLhs
+
+    criticalFunctionCallSequence :: Symbol -> Int -> [CExpr] -> Maybe CExpr -> [CBlockItem] -- {{{3
+    criticalFunctionCallSequence calledFunction lblIdx params resultLhs =
+      parameters ++ continuation : callExp : returnExp ?: lbl' : resultExp ?: []
+      where
+        callChain' = callChain ++ [calledFunction]
+        blocking = is_blocking cg calledFunction
+        parameters = map  createParamAssign  $ zip params $ $fromJust_s $ function_parameters ast calledFunction
+        continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain' (Just contVar)) (CUnary CAdrOp (CVar (ident $ label inlinedFunction lblIdx) un) un) un)) un)
+        lbl' = createLabel inlinedFunction lblIdx
+        resultExp = fmap assignResult resultLhs
+        assignResult lhs = createAssign lhs (stackAccess callChain' (Just resVar))
+
+        callExp = CBlockStmt $ if blocking
+          then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain' Nothing) un] un)) un
+          else CGoto (ident $ label calledFunction 0) un
+
+        returnExp = if blocking
+          then Just (CBlockStmt (CReturn Nothing un))
+          else Nothing
+
+        createParamAssign (exp, decl) = createAssign ((stackAccess callChain') (Just (symbol decl))) exp
+
+        createAssign lhs rhs = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) un)
+
+stackAccess :: [Symbol] -> Maybe Symbol -> CExpr -- {{{2
 stackAccess (sf:chain) variable = foldl create base members
   where
     variables = if isJust variable then [fromJust variable] else []
@@ -148,8 +140,6 @@ stackAccess (sf:chain) variable = foldl create base members
     create inner member = CMember inner (ident member) False un 
 stackAccess [] _ = $abort "called stackAccess with empty call chain"
 
-createLabel :: Symbol -> Int -> CBlockItem
+createLabel :: Symbol -> Int -> CBlockItem -- {{{2
 createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un
 
-nextLabel :: DownState -> DownState
-nextLabel d = d {dLbl = (dLbl d) + 1}

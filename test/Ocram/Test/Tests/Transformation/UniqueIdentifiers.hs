@@ -13,7 +13,7 @@ import Ocram.Analysis (analysis)
 import Ocram.Text (show_errors)
 import Test.HUnit
 
-tests = runTests [ -- {{{1
+tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
 -- simple decl -- {{{2
   ([paste|
     __attribute__((tc_blocking)) void block(int i);
@@ -97,9 +97,6 @@ tests = runTests [ -- {{{1
     }
   |])
   ]
-
-runTests :: [(String, String)] -> Test -- {{{2
-runTests cases = TestLabel "UniqueIdentifiers" $ TestList $ map runTest cases
   where
     runTest (code, expected) = TestCase $
       let ast = enrich code in

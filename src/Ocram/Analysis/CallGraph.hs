@@ -11,6 +11,7 @@ module Ocram.Analysis.CallGraph
 ) where
 
 -- imports {{{1
+import Data.Generics (mkQ, everything)
 import Data.Graph.Inductive.Query.BFS (bfs)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo, undefNode)
@@ -20,7 +21,6 @@ import Ocram.Query (is_blocking_function', is_start_function', function_definiti
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Types (Ast)
 import Ocram.Util (tmap, fromJust_s, lookup_s)
-import Ocram.Visitor (DownVisitor(..), UpVisitor(..), traverseCFunDef, ListVisitor)
 import Prelude hiding (pred)
 import qualified Data.Graph.Inductive.Basic as G
 import qualified Data.Graph.Inductive.Graph as G
@@ -153,20 +153,12 @@ createEdges ast gi nodes = foldl processEdge [] nodes
       case function_definition ast caller of
         Nothing -> es
         Just fd ->
-          es ++ (map createEdge $ snd $ traverseCFunDef fd CgDownState)
+          es ++ (map createEdge $ criticalCalls fd)
        where
           createEdge (callee, ni) = (gcaller, $lookup_s gi callee, ni)
-
-type CgUpState = [(Symbol, NodeInfo)]
-data CgDownState = CgDownState
-
-instance DownVisitor CgDownState
-
-instance UpVisitor CgDownState CgUpState where
-  upCExpr o@(CCall (CVar (Ident callee _ _) _)  _ ni) _ _ = (o, [(callee, ni)])
-  upCExpr o _ u = (o, u)
-
-instance ListVisitor CgDownState CgUpState
+          criticalCalls = everything (++) (mkQ [] criticalCall)
+          criticalCall (CCall (CVar (Ident callee _ _) _)  _ ni) = [(callee, ni)]
+          criticalCall _ = []
 
 getCriticalFunctions :: CallGraph -> BlockingFunctions -> CriticalFunctions
 getCriticalFunctions cg bf =

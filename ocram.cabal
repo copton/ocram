@@ -25,7 +25,7 @@ Extra-source-files:
 
 Executable Ocram
   Hs-Source-Dirs: src
-  Ghc-Options: -Wall -Werror
+  Ghc-Options: -Wall
   Main-is: Main.hs
   Default-language: Haskell98
   Default-extensions: 
@@ -40,6 +40,7 @@ Executable Ocram
     containers == 0.3.*,
     mtl == 1.1.*,
     fgl == 5.4.*,
+    syb == 0.3.*,
     template-haskell
   Other-modules:
     Ocram.Analysis
@@ -57,6 +58,7 @@ Executable Ocram
     Ocram.Transformation.Inline
     Ocram.Transformation.Inline.Finalize
     Ocram.Transformation.Inline.Names
+    Ocram.Transformation.Inline.Normalize
     Ocram.Transformation.Inline.ThreadFunction
     Ocram.Transformation.Inline.TStack
     Ocram.Transformation.Inline.Types
@@ -86,6 +88,7 @@ Executable Test
     HUnit == 1.2.*,
     bytestring == 0.9.*,
     fgl == 5.4.*,
+    syb == 0.3.*,
     template-haskell
   Other-modules:
     Ocram.Test.Lib
@@ -98,6 +101,7 @@ Executable Test
     Ocram.Test.Tests.Symbol
     Ocram.Test.Tests.Transformation
     Ocram.Test.Tests.Transformation.Inline
+    Ocram.Test.Tests.Transformation.Normalize
     Ocram.Test.Tests.Transformation.UniqueIdentifiers
     Ocram.Test.Tests.Visitor
     Ocram.Test.Tests.Visitor.Decl
