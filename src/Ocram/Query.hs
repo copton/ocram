@@ -14,14 +14,14 @@ module Ocram.Query
 ) where
 
 -- import {{{1
+import Data.Generics (everything, mkQ, extQ)
 import Data.Maybe (catMaybes)
-import Ocram.Symbols (Symbol, symbol)
+import Language.C.Data.Ident (Ident(Ident))
+import Language.C.Syntax.AST
 import Ocram.Names (blockingAttr, startAttr)
+import Ocram.Symbols (Symbol, symbol)
 import Ocram.Types (Ast)
 import Ocram.Util (abort)
-import Ocram.Visitor (traverseCFunDef, DownVisitor(..), UpVisitor(..), ListVisitor(..))
-import Language.C.Syntax.AST
-import Language.C.Data.Ident (Ident(Ident))
 import qualified Data.List as List
 import qualified Data.Map as Map
 type SymbolTable = Map.Map Symbol CDecl -- {{{1
@@ -73,19 +73,14 @@ local_variables :: Ast -> Symbol -> Maybe SymbolTable -- {{{1
 local_variables = apply local_variables_fd local_variables_cd
  
 local_variables_fd :: CFunDef -> SymbolTable -- {{{1
-local_variables_fd fd =
-  let st = snd $ traverseCFunDef fd DownState in
-  foldl addDecls st $ function_parameters_fd fd
-
-data DownState = DownState
-instance DownVisitor DownState
-instance ListVisitor DownState SymbolTable
-instance UpVisitor DownState SymbolTable where
-  upCBlockItem o@(CBlockDecl cd) _ st = (o, addDecls st cd)
-  upCBlockItem o _ u = (o, u)
-
-  upCStat o@(CFor (Right cd) _ _ _ _) _ st = (o, addDecls st cd)
-  upCStat o _ u = (o, u)
+local_variables_fd fd = foldl addDecls Map.empty ds
+  where
+    ds = function_parameters_fd fd ++ query
+    query = everything (++) ((mkQ [] queryBlockItem) `extQ` queryCExp) fd
+    queryBlockItem (CBlockDecl cd) = [cd]
+    queryBlockItem _ = []
+    queryCExp (CFor (Right cd) _ _ _ _) = [cd]
+    queryCExp _ = []
 
 local_variables_cd :: CDecl -> SymbolTable -- {{{1
 local_variables_cd cd = foldl addDecls Map.empty $ function_parameters_cd cd

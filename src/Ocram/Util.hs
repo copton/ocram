@@ -43,10 +43,10 @@ head' :: (String -> a) -> [a] -> a
 head' _ (x:_) = x
 head' err _ = err "head failed"
 
-lookup' :: Ord k => (String -> a) -> Map.Map k a -> k -> a
+lookup' :: (Show k, Ord k) => (String -> a) -> Map.Map k a -> k -> a
 lookup' err map_ key =
   case Map.lookup key map_ of
-    Nothing -> err $ "lookup failed"
+    Nothing -> err $ "lookup failed: " ++ show key
     Just x -> x
 
 abort' :: (String -> b) -> String -> b

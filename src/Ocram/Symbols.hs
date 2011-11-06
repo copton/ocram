@@ -36,5 +36,10 @@ instance CSymbol CDecl where
   symbol (CDecl [CTypeSpec (CEnumType (CEnum Nothing _ _ _) _)] [] _) = no_name
   symbol _ = $abort "unexpected parameters"
 
+instance CSymbol CExtDecl where
+  symbol (CDeclExt cd) = symbol cd
+  symbol (CFDefExt fd) = symbol fd
+  symbol _ = $abort "unexpected parameters"
+
 no_name :: String
 no_name = "<<no_name>>"

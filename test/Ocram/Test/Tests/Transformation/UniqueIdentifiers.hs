@@ -95,7 +95,25 @@ tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
         block(h_0);
       }
     }
-  |])
+  |]),
+-- function decl -- {{{2
+  ([paste|
+    __attribute__((tc_blocking)) int block();
+    int critical() {
+      return block();
+    }
+    __attribute__((tc_run_thread)) void start() {
+      critical();
+    }
+  |], [paste|
+    __attribute__((tc_blocking)) int block();
+    int critical() {
+      return block();
+    }
+    __attribute__((tc_run_thread)) void start() {
+      critical();
+    }
+  |]) 
   ]
   where
     runTest (code, expected) = TestCase $
