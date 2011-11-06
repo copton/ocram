@@ -67,9 +67,6 @@ Executable Ocram
     Ocram.Transformation.Util
     Ocram.Types
     Ocram.Util
-    Ocram.Visitor
-    Ocram.Visitor.Traverse
-    Ocram.Visitor.Visitor
 
 Executable Test
   Hs-Source-Dirs: src, test
@@ -105,8 +102,3 @@ Executable Test
     Ocram.Test.Tests.Transformation.Inline
     Ocram.Test.Tests.Transformation.Normalize
     Ocram.Test.Tests.Transformation.UniqueIdentifiers
-    Ocram.Test.Tests.Visitor
-    Ocram.Test.Tests.Visitor.Decl
-    Ocram.Test.Tests.Visitor.Stat
-    Ocram.Test.Tests.Visitor.TranslUnit
-    Ocram.Test.Tests.Visitor.Utils
