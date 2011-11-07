@@ -17,11 +17,31 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
     ([paste|
       __attribute__((tc_blocking)) int block();
       __attribute__((tc_run_thread)) void start() {
-        if (block()) {
+        if (1) {
+          return;
+        } else if (2) {
+          return;
+        }
+        block();
+      }
+    |], [paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        if (1) {
           return;
         } else {
-          return;
-        }  
+          if (2) {
+            return;
+          }
+        }
+        block();
+      }
+    |]),
+    ([paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        if (block()) return;
+        else return;
       }
     |], [paste|
       __attribute__((tc_blocking)) int block();

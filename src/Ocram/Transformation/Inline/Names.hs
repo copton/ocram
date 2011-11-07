@@ -31,3 +31,7 @@ frameParam = "frame"
 -- name of the variables that save the t-stack of a thread
 stackVar :: String -> String
 stackVar fName = "ec_stack_" ++ fName
+
+-- name of a temporary variable
+tempVar :: Int -> String
+tempVar count = "ec_tmp_" ++ show count
