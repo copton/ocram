@@ -5,6 +5,7 @@ module Ocram.Transformation.Inline
 ) where
 
 -- imports {{{1
+import Control.Monad.Writer (runWriter)
 import Ocram.Analysis (CallGraph)
 import Ocram.Transformation.Inline.Finalize (finalize)
 import Ocram.Transformation.Inline.Normalize (normalize)
@@ -16,12 +17,12 @@ import Ocram.Types (Ast, DebugSymbols)
 
 -- transformation :: Analysis -> Ast -> (Ast, DebugSymbols) {{{1
 transformation :: CallGraph -> Ast -> (Ast, DebugSymbols)
-transformation cg ast = execWR cg (transformation' ast)
+transformation cg ast = runWriter (transformation' cg ast)
 
-transformation' :: Ast -> WR Ast
-transformation' ast = return ast
-  >>= unique_identifiers
-  >>= normalize
-  >>= addTStacks
-  >>= addThreadFunctions
-  >>= finalize
+transformation' :: Transformation
+transformation' cg ast = return ast
+  >>= unique_identifiers cg
+  >>= normalize cg
+  >>= addTStacks cg
+  >>= addThreadFunctions cg
+  >>= finalize cg

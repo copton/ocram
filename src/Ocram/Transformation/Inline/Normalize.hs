@@ -5,12 +5,10 @@ module Ocram.Transformation.Inline.Normalize
 ) where
 
 -- import {{{1
-import Ocram.Transformation.Inline.Types (WR)
-import Ocram.Types (Ast)
-import Control.Monad.Reader (ask)
-import Ocram.Transformation.Util (ident, map_critical_functions)
+import Ocram.Transformation.Inline.Types (Transformation)
+import Ocram.Transformation.Util (map_critical_functions)
 import Language.C.Syntax.AST
 import Language.C.Data.Node (nodeInfo)
 
-normalize :: Ast -> WR Ast -- {{{1
-normalize ast = return ast
+normalize :: Transformation -- {{{1
+normalize cg ast = return $ map_critical_functions cg ast id

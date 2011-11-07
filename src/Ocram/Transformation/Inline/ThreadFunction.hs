@@ -7,7 +7,6 @@ module Ocram.Transformation.Inline.ThreadFunction
 ) where
 
 -- imports {{{1
-import Control.Monad.Reader (ask)
 import Control.Monad.State (get, put, State, runState)
 import Control.Monad (liftM)
 import Data.Generics (everywhereM, everywhere, mkT, mkM)
@@ -26,19 +25,18 @@ import Prelude hiding (exp, id)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-addThreadFunctions :: Ast -> WR Ast -- {{{1
-addThreadFunctions ast@(CTranslUnit decls ni) = do
-  cg <- ask
-  thread_functions <- mapM (liftM CFDefExt . createThreadFunction ast) $ zip [1..] $ Set.elems $ start_functions cg
+addThreadFunctions :: Transformation -- {{{1
+addThreadFunctions cg ast@(CTranslUnit decls ni) = do
+  thread_functions <- mapM (liftM CFDefExt . createThreadFunction cg ast) $ zip [1..] $ Set.elems $ start_functions cg
   return $ CTranslUnit (decls ++ thread_functions) ni
 
-createThreadFunction :: Ast -> (Int, Symbol) -> WR CFunDef -- {{{2
-createThreadFunction ast (tid, startFunction) = do
-  cg <- ask
-  let intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
-  let onlyDefs name = (not $ is_blocking cg name) && (is_critical cg name)
-  let functions = map (inlineCriticalFunction cg ast startFunction) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
+createThreadFunction :: CallGraph -> Ast -> (Int, Symbol) -> WR CFunDef -- {{{2
+createThreadFunction cg ast (tid, startFunction) =
   return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (handlerFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
+  where
+    intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "null") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
+    onlyDefs name = (not $ is_blocking cg name) && (is_critical cg name)
+    functions = map (inlineCriticalFunction cg ast startFunction) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
 
 inlineCriticalFunction :: CallGraph ->  Ast -> Symbol -> Symbol -> [CBlockItem] -- {{{2
 inlineCriticalFunction cg ast startFunction inlinedFunction = lbl : inlinedBody ++ close : []

@@ -5,10 +5,10 @@ module Ocram.Test.Tests.Transformation.UniqueIdentifiers
 ) where
 
 -- imports {{{1
+import Control.Monad.Writer (runWriter)
 import Ocram.Types
 import Ocram.Test.Lib
 import Ocram.Transformation.Inline.UniqueIdentifiers (unique_identifiers)
-import Ocram.Transformation.Inline.Types (execWR)
 import Ocram.Analysis (analysis)
 import Ocram.Text (show_errors)
 import Test.HUnit
@@ -72,6 +72,30 @@ tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
       block(k_0);
     }
   |]),
+-- left scope -- {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    int k;
+    __attribute__((tc_run_thread)) void start() {
+      {
+        int k;
+        block(k);
+      }
+      int k;
+      block(k);
+    }
+  |], [paste|
+    __attribute__((tc_blocking)) void block();
+    int k;
+    __attribute__((tc_run_thread)) void start() {
+      {
+        int k_0; 
+        block(k_0); 
+      }
+      int k_0;
+      block(k_0);
+    }
+  |]),
 -- multi decl -- {{{2
   ([paste|
     __attribute__((tc_blocking)) void block();
@@ -122,7 +146,7 @@ tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
         Left es -> assertFailure $ show_errors "analysis" es
         Right cg ->
           let
-            result = reduce $ fst $ execWR cg (unique_identifiers ast)
+            result = reduce $ fst $ runWriter (unique_identifiers cg ast)
             expected' = (reduce $ (enrich expected :: Ast) :: String)
           in
             expected' @=? result

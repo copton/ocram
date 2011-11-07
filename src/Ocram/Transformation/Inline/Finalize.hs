@@ -16,9 +16,8 @@ import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types (Ast)
 
-finalize :: Ast -> WR (Ast) -- {{{1
-finalize (CTranslUnit ds ni) = do
-  cg <- ask
+finalize :: Transformation -- {{{1
+finalize cg (CTranslUnit ds ni) =
   return $ CTranslUnit (concatMap (transform cg) ds) ni
   where
     transform cg o@(CDeclExt cd)

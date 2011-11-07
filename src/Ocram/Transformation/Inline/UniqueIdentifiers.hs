@@ -6,24 +6,22 @@ module Ocram.Transformation.Inline.UniqueIdentifiers
 ) where
 
 -- import {{{1
-import Control.Monad.Reader (ask)
 import Control.Monad.State (evalState, State, get, put)
 import Data.Generics (gmapM, mkQ, mkM, extM, GenericQ, GenericM, GenericT)
 import Data.Maybe (catMaybes)
 import Language.C.Syntax.AST
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Transformation.Inline.Types (WR)
+import Ocram.Transformation.Inline.Types (Transformation)
 import Ocram.Transformation.Util (ident, map_critical_functions)
-import Ocram.Types (Ast)
 import Ocram.Util (lookup_s, abort)
 import qualified Data.Map as Map
 
-unique_identifiers :: Ast -> WR Ast -- {{{1
-unique_identifiers ast@(CTranslUnit ds _) = do
-  cg <- ask
-  let ids = foldl newIdentifier emptyIds $ map symbol ds
-  return $ map_critical_functions cg ast (transform ids)
+unique_identifiers :: Transformation -- {{{1
+unique_identifiers cg ast@(CTranslUnit ds _) =
+  return $ map_critical_functions cg ast (transform globalIds)
   where
+    globalIds = foldl newIdentifier emptyIds $ map symbol ds
+
     traverse :: Monad m => GenericQ Bool -> GenericM m -> GenericM m
     traverse q f x
       | q x = f x

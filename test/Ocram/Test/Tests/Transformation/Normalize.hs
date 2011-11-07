@@ -5,10 +5,10 @@ module Ocram.Test.Tests.Transformation.Normalize
 ) where
 
 -- imports {{{1
+import Control.Monad.Writer (runWriter)
 import Ocram.Types
 import Ocram.Test.Lib
 import Ocram.Transformation.Inline.Normalize (normalize)
-import Ocram.Transformation.Inline.Types (execWR)
 import Ocram.Analysis (analysis)
 import Ocram.Text (show_errors)
 import Test.HUnit
@@ -42,7 +42,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         Left es -> assertFailure $ show_errors "analysis" es
         Right cg ->
           let
-            result = reduce $ fst $ execWR cg (normalize ast)
+            result = reduce $ fst $ runWriter (normalize cg ast)
             expected' = (reduce $ (enrich expected :: Ast) :: String)
           in
             expected' @=? result
