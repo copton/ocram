@@ -1,6 +1,5 @@
 module Ocram.Transformation.Inline.Types where
 
-import Control.Monad.Reader
 import Control.Monad.Writer
 import Ocram.Types (DebugSymbols, Ast)
 import Ocram.Analysis (CallGraph)

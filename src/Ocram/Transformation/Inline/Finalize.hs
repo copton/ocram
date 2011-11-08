@@ -1,5 +1,3 @@
--- rewrite declarations of blocking functions
--- remove critical functions
 module Ocram.Transformation.Inline.Finalize
 -- exports {{{1
 (
@@ -7,26 +5,24 @@ module Ocram.Transformation.Inline.Finalize
 ) where
 
 -- imports {{{1
-import Control.Monad.Reader (ask)
 import Language.C.Syntax.AST
 import Ocram.Analysis (is_blocking, is_critical)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
-import Ocram.Types (Ast)
 
 finalize :: Transformation -- {{{1
 finalize cg (CTranslUnit ds ni) =
-  return $ CTranslUnit (concatMap (transform cg) ds) ni
+  return $ CTranslUnit (concatMap transform ds) ni
   where
-    transform cg o@(CDeclExt cd)
+    transform o@(CDeclExt cd)
       | is_blocking cg (symbol cd) = [CDeclExt (createBlockingFunctionDeclr cd)]
       | otherwise = [o]
-    transform cg o@(CFDefExt fd)
+    transform o@(CFDefExt fd)
       | is_critical cg (symbol fd) = []
       | otherwise = [o]
-    transform _ o = [o]
+    transform o = [o]
 
 -- createBlockingFunctionDeclr :: CDecl -> CDecl {{{2
 createBlockingFunctionDeclr :: CDecl -> CDecl

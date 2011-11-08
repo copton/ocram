@@ -21,8 +21,38 @@ transformation cg ast = runWriter (transformation' cg ast)
 
 transformation' :: Transformation
 transformation' cg ast = return ast
-  >>= unique_identifiers cg
   >>= normalize cg
+  >>= unique_identifiers cg
   >>= addTStacks cg
   >>= addThreadFunctions cg
   >>= finalize cg
+
+
+------------------------
+-- Transformation steps
+-------------------------
+-- normalize:
+--   - wrap dangling statements into compound statements
+--   - force all critical calls into one of the three following forms:
+--     - call();
+--     - expression = call();
+--     - type variable_1, ... , variable_k = call(), ..., variable_n;
+--   - may introduce new temporary variables
+--
+-- unique_identifiers:
+--   - rename identifiers so that no shadowing occurs any more
+--
+-- addTStacks
+--   - add TStack structures and instances
+--
+-- addThreadFunctions
+--   - add thread functions
+--     - inline critical functions
+--     - remove local variable declarations
+--       - preserve initialization
+--     - rewrite access to local variables (use t-stacks)
+--     - replace critical call with split phase
+--
+-- finalize
+--   - remove original critical functions
+--   - rewrite declaration of blocking functions

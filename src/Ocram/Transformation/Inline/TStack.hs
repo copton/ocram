@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
--- add tstack structures and variables
 module Ocram.Transformation.Inline.TStack
 -- exports {{{1
 (

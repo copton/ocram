@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
--- add thread functions
 module Ocram.Transformation.Inline.ThreadFunction
 -- exports {{{1
 (
