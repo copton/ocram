@@ -6,8 +6,8 @@ module Ocram.Transformation.Inline.UniqueIdentifiers
 ) where
 
 -- import {{{1
-import Control.Monad.State (evalState, State, get, put)
-import Data.Generics (gmapM, mkQ, mkM, extM, GenericQ, GenericM, GenericT)
+import Control.Monad.State (runState, State, get, put)
+import Data.Generics (gmapM, mkQ, mkM, extM, GenericQ, GenericM, Data)
 import Data.Maybe (catMaybes)
 import Language.C.Syntax.AST
 import Ocram.Symbols (symbol, Symbol)
@@ -18,7 +18,7 @@ import qualified Data.Map as Map
 
 unique_identifiers :: Transformation -- {{{1
 unique_identifiers cg ast@(CTranslUnit ds _) =
-  return $ map_critical_functions cg ast (transform globalIds)
+  return $ map_critical_functions cg ast (fst . transform globalIds)
   where
     globalIds = foldl newIdentifier emptyIds $ map symbol ds
 
@@ -27,8 +27,8 @@ unique_identifiers cg ast@(CTranslUnit ds _) =
       | q x = f x
       | otherwise = f x >>= gmapM (traverse q f)
 
-    transform :: Identifiers -> GenericT
-    transform ids x = evalState (traverse (mkQ False quit) (mkM trDecl `extM` trStat `extM` trExpr) x) ids
+    transform :: Data a => Identifiers -> a -> (a, Identifiers)
+    transform ids x = runState (traverse (mkQ False quit) (mkM trDecl `extM` trStat `extM` trExpr) x) ids
 
     quit :: CStat -> Bool
     quit (CCompound _ _ _) = True
@@ -40,7 +40,8 @@ unique_identifiers cg ast@(CTranslUnit ds _) =
     trStat :: CStat -> State Identifiers CStat
     trStat (CCompound x1 items x2) = do
       ids <- get 
-      let items' = transform ids items
+      let (items', ids') = transform ids items
+      put (ids {idEs = idEs ids'} )
       return $ CCompound x1 items' x2
     
     trStat o = return o
@@ -55,7 +56,10 @@ unique_identifiers cg ast@(CTranslUnit ds _) =
   
 type ExtraSymbols = Map.Map Symbol Int
 type RenameTable = Map.Map Symbol Symbol
-data Identifiers = Identifiers ExtraSymbols RenameTable deriving (Show)
+data Identifiers = Identifiers {
+  idEs :: ExtraSymbols,
+  idRt :: RenameTable
+  } deriving (Show)
 
 emptyIds :: Identifiers
 emptyIds = Identifiers Map.empty Map.empty

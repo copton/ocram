@@ -92,8 +92,8 @@ tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
         int k_0; 
         block(k_0); 
       }
-      int k_0;
-      block(k_0);
+      int k_1;
+      block(k_1);
     }
   |]),
 -- multi decl -- {{{2
