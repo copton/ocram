@@ -53,15 +53,15 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
     |], [paste|
       __attribute__((tc_blocking)) int block();
       __attribute__((tc_run_thread)) void start() {
-        int ec_tmp_1 = block();
-        if (ec_tmp_1) {
+        int ec_tmp_0 = block();
+        if (ec_tmp_0) {
           ;
         } else {
           ;
         }
 
-        int ec_tmp_0 = block();
-        if (ec_tmp_0 < 23) {
+        int ec_tmp_1 = block();
+        if (ec_tmp_1 < 23) {
           ;
         }
       }
@@ -78,10 +78,10 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
       __attribute__((tc_blocking)) int block();
       __attribute__((tc_run_thread)) void start() {
         int i, *j;
-        int ec_tmp_1 = block();
-        i = ec_tmp_1 < 23;
         int ec_tmp_0 = block();
-        i = j[ec_tmp_0];
+        i = ec_tmp_0 < 23;
+        int ec_tmp_1 = block();
+        i = j[ec_tmp_1];
       }
     |]),
 -- critical call in condition of while loop -- {{{2
@@ -135,6 +135,32 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
           if (! (ec_tmp_0 < 23)) {
             break;
           }
+        }
+      } 
+    |]),
+-- interactions -- {{{2
+    ([paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        int *j;
+        j[block()] = 23;
+        while (block() < 23) {
+          j[block()] = 23;
+        }
+      } 
+    |], [paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        int *j;
+        int ec_tmp_0 = block();
+        j[ec_tmp_0] = 23;
+        while (1) {
+          int ec_tmp_1 = block();
+          if (! (ec_tmp_1 < 23)) {
+            break;
+          }
+          int ec_tmp_2 = block();
+          j[ec_tmp_2] = 23;
         }
       } 
     |])

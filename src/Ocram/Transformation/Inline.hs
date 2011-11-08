@@ -21,8 +21,8 @@ transformation cg ast = runWriter (transformation' cg ast)
 
 transformation' :: Transformation
 transformation' cg ast = return ast
-  >>= normalize cg
   >>= unique_identifiers cg
+  >>= normalize cg
   >>= addTStacks cg
   >>= addThreadFunctions cg
   >>= finalize cg
@@ -31,16 +31,18 @@ transformation' cg ast = return ast
 ------------------------
 -- Transformation steps
 -------------------------
+-- unique_identifiers:
+--   - rename identifiers so that
+--    - for each function no two identifiers have the same name
+--    - no shadowing occurs
+--
 -- normalize:
 --   - wrap dangling statements into compound statements
 --   - force all critical calls into one of the three following forms:
 --     - call();
 --     - expression = call();
 --     - type variable_1, ... , variable_k = call(), ..., variable_n;
---   - may introduce new temporary variables
---
--- unique_identifiers:
---   - rename identifiers so that no shadowing occurs any more
+--   - may introduce new temporary variables (with unique names)
 --
 -- addTStacks
 --   - add TStack structures and instances
