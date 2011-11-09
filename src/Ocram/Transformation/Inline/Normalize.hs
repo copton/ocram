@@ -26,7 +26,18 @@ import Ocram.Util (abort, fromJust_s)
 normalize :: Transformation -- {{{1
 normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
   where
-    trCriticalFunction = rewriteConditions . wrapDanglingStatements
+    trCriticalFunction = unlistDeclarations . normalizeStatements . wrapDanglingStatements
+
+    unlistDeclarations (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (trBlock s) x4 -- {{{2
+      where
+        trBlock (CCompound y1 items y2) = CCompound y1 (foldr trBlockItem [] items) y2
+        trBlock _ = $abort "unexpected parameters"
+
+        trBlockItem :: CBlockItem -> [CBlockItem] -> [CBlockItem]
+        trBlockItem (CBlockDecl decl) items = map CBlockDecl (unlistDecl decl) ++ items
+        trBlockItem o items = o : items 
+
+        unlistDecl (CDecl x ds z) = map (\y -> CDecl x [y] z) ds
 
     wrapDanglingStatements = everywhere $ mkT dsStat -- {{{2
       where
@@ -40,7 +51,7 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
         wrapInBlock s = CCompound [] [CBlockStmt s] (nodeInfo s)
 
 
-    rewriteConditions (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState (trBlock s) 0) x4 -- {{{2
+    normalizeStatements (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState (trBlock s) 0) x4 -- {{{2
       where
         trBlock :: CStat -> State Int CStat
         trBlock (CCompound y1 items y2) = do
@@ -200,3 +211,4 @@ exprStmt cexpr = [CBlockStmt $ CExpr (Just (cexpr)) un]
 
 trueCondition :: CExpr
 trueCondition = CConst (CIntConst (cInteger 1) un)
+

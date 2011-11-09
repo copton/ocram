@@ -38,11 +38,13 @@ transformation' cg ast = return ast
 --
 -- normalize:
 --   - wrap dangling statements into compound statements
---   - force all critical calls into one of the three following forms:
---     - call();
---     - expression = call();
---     - type variable_1, ... , variable_k = call(), ..., variable_n;
---   - may introduce new temporary variables (with unique names)
+--   - force all critical calls into normal form
+--     - possible forms:    
+--       - call();
+--       - expression = call();
+--       - type variable_k = call();
+--     - may introduce new temporary variables (with unique names)
+--   - exactly one identifier per declaration
 --
 -- addTStacks
 --   - add TStack structures and instances

@@ -12,7 +12,7 @@ import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (isJust, fromJust, catMaybes)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Query (function_definition, function_parameters, local_variables_fd, unlist_decl)
+import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
@@ -70,12 +70,12 @@ inlineCriticalFunction cg ast startFunction inlinedFunction = lbl : inlinedBody 
         rewrite (CCompound x items y) = CCompound x (concatMap transform items) y
         rewrite o = o
 
-        transform (CBlockDecl cd) = catMaybes $ map initialize $ unlist_decl cd
+        transform (CBlockDecl cd) = initialize cd
         transform o = [o]
 
         initialize cd@(CDecl _ [(_, Just(CInitExpr expr _), _)] _) =
-          Just $ CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd) expr un)) un)
-        initialize _ = Nothing
+          [CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd) expr un)) un)]
+        initialize _ = []
 
         var cd = stackAccess callChain (Just (symbol cd))
 

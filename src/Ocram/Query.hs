@@ -10,7 +10,6 @@ module Ocram.Query
   , is_blocking_function, is_start_function
   , is_blocking_function', is_start_function'
   , SymbolTable
-  , unlist_decl
 ) where
 
 -- import {{{1
@@ -85,9 +84,6 @@ local_variables_fd fd = foldl addDecls Map.empty ds
 local_variables_cd :: CDecl -> SymbolTable -- {{{1
 local_variables_cd cd = foldl addDecls Map.empty $ function_parameters_cd cd
 
-unlist_decl :: CDecl -> [CDecl]
-unlist_decl (CDecl x ds z) = map (\y -> CDecl x [y] z) ds
-
 -- utils {{{1
 
 isBlockingAttribute :: CDeclSpec -> Bool
@@ -124,8 +120,4 @@ apply fdf cdf ast name =
       Nothing -> Nothing
 
 addDecls :: SymbolTable -> CDecl -> SymbolTable
-addDecls st cd =
-  foldl insert st $ unlist_decl cd
-  where
-    insert st' cd' = Map.insert (symbol cd') cd' st'
-
+addDecls st cd = Map.insert (symbol cd) cd st

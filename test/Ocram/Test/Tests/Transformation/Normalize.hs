@@ -77,7 +77,8 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
     |], [paste|
       __attribute__((tc_blocking)) int block();
       __attribute__((tc_run_thread)) void start() {
-        int i, *j;
+        int i;
+        int *j;
         int ec_tmp_0 = block();
         i = ec_tmp_0 < 23;
         int ec_tmp_1 = block();
@@ -169,7 +170,8 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
       __attribute__((tc_run_thread)) void start() {
         int i = block();
         for (;;) {;}
-        int j=0, k=block();
+        int j=0;
+        int k=block();
         for (;;) {;}
       } 
     |]),
