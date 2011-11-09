@@ -138,6 +138,41 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         }
       } 
     |]),
+-- critical call in initial expression of for loop -- {{{2
+    ([paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        int i;
+        for (i = block(); ; ) ;
+        for (i = block() + 23; ;) ;
+      } 
+    |], [paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        int i;
+        i = block();
+        for (;;) {;}
+        int ec_tmp_0 = block();
+        i = ec_tmp_0 + 23;
+        for (;;) {;}
+      } 
+    |]),
+-- critical call in declaration of for loop -- {{{2
+    ([paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        for (int i = block(); ; ) ;
+        for (int j=0, k=block(); ;) ;
+      } 
+    |], [paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        int i = block();
+        for (;;) {;}
+        int j=0, k=block();
+        for (;;) {;}
+      } 
+    |]),
 -- interactions -- {{{2
     ([paste|
       __attribute__((tc_blocking)) int block();
@@ -155,12 +190,12 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         int ec_tmp_0 = block();
         j[ec_tmp_0] = 23;
         while (1) {
-          int ec_tmp_1 = block();
-          if (! (ec_tmp_1 < 23)) {
+          int ec_tmp_2 = block();
+          if (! (ec_tmp_2 < 23)) {
             break;
           }
-          int ec_tmp_2 = block();
-          j[ec_tmp_2] = 23;
+          int ec_tmp_1 = block();
+          j[ec_tmp_1] = 23;
         }
       } 
     |])

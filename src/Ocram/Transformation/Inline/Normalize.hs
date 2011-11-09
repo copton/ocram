@@ -6,9 +6,10 @@ module Ocram.Transformation.Inline.Normalize
 ) where
 
 -- import {{{1
-import Control.Monad (foldM)
+import Control.Monad (foldM, (<=<))
 import Control.Monad.State (runState, evalState, get, put, State)
-import Data.Generics (everywhere, mkT, everywhereM, mkM)
+import Data.Generics (everything, mkQ, everywhere, mkT, everywhereM, mkM)
+import Data.Monoid (Any(Any, getAny), mappend)
 import qualified Data.Traversable as T
 import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST
@@ -46,96 +47,118 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
           items' <- foldM trBlockItem [] items
           return $ CCompound y1 (reverse items') y2
         trBlock _ = $abort "unexpected parameters"
-        
-        -- this already is in normal form, so don't touch it. -- {{{3
-        trBlockItem items o@(CBlockStmt (CExpr (Just (CCall _ _ _)) _)) = return $ o : items
-        trBlockItem items o@(CBlockStmt (CExpr (Just (CAssign CAssignOp _ (CCall _ _ _) _)) _)) = return (o : items)
 
         -- critical calls in nested expressions -- {{{3
-        trBlockItem items (CBlockStmt (CExpr (Just cexpr) ni)) = do
-          (cexpr', extraDecls) <- extractCriticalCalls cexpr
-          let o = CBlockStmt $ CExpr (Just cexpr') ni
-          return $ o : extraDecls ++ items
+        trBlockItem items o@(CBlockStmt (CExpr (Just cexpr) ni))
+          | isInNormalForm cexpr = return $ o : items
+          | otherwise = do
+              (cexpr', extraDecls) <- extractCriticalCalls cexpr
+              let o' = CBlockStmt $ CExpr (Just cexpr') ni
+              return $ o' : extraDecls ++ items
 
         -- critical calls in conditions of if statements -- {{{3
         trBlockItem items (CBlockStmt (CIf condition thenBlock elseBlock ni)) = do
-          (condition', extraDecls) <- extractCriticalCalls condition
           thenBlock' <- trBlock thenBlock
           elseBlock' <- T.mapM trBlock elseBlock
-          let o = CBlockStmt $ CIf condition' thenBlock' elseBlock' ni
-          return $ o : extraDecls ++ items
+          if containsCriticalCall condition
+            then do
+              (condition', extraDecls) <- extractCriticalCalls condition
+              return $ CBlockStmt (CIf condition' thenBlock' elseBlock' ni) : extraDecls ++ items
+            else
+              return $ CBlockStmt (CIf condition thenBlock' elseBlock' ni) : items
 
         -- critical calls in conditions of while loops -- {{{3
-        trBlockItem items o@(CBlockStmt (CWhile condition body False ni)) = do
-          (condition', extraDecls) <- extractCriticalCalls condition
+        trBlockItem items (CBlockStmt (CWhile condition body False ni)) = do
           body' <- trBlock body
-          let body'' = prependBody (extraDecls ++ [breakIf condition']) body'
-          let o' = CBlockStmt $ CWhile trueCondition body'' False ni
-          return $ if null extraDecls
-            then o : items
-            else o' : items
+          o <- if containsCriticalCall condition
+            then do
+              (condition', extraDecls) <- extractCriticalCalls condition
+              let body'' = (extraDecls ++ breakIf condition') `prepend` body'
+              return $ CWhile trueCondition body'' False ni
+            else
+              return $ CWhile condition body' False ni
+          return $ CBlockStmt o : items
 
         -- critical calls in conditions of do loops -- {{{3
-        trBlockItem items o@(CBlockStmt (CWhile condition body True ni)) = do
-          (condition', extraDecls) <- extractCriticalCalls condition
+        trBlockItem items (CBlockStmt (CWhile condition body True ni)) = do
           body' <- trBlock body
-          let body'' = appendBody body' (extraDecls ++ [breakIf condition']) 
-          let o' = CBlockStmt $ CWhile trueCondition body'' True ni
-          return $ if null extraDecls
-            then o : items
-            else o' : items
+          o <- if containsCriticalCall condition
+            then do
+              (condition', extraDecls) <- extractCriticalCalls condition
+              let body'' = body' `append` (extraDecls ++ breakIf condition')
+              return $ CWhile trueCondition body'' True ni
+            else
+              return $ CWhile condition body' True ni
+          return $ CBlockStmt o : items
 
         -- critical calls in for loops -- {{{3
---        trBlockItem (CBlockStmt o@(CFor (Left Nothing) condition loopExpr body ni) (items, idx) =
---          let
---            o' = CFor (Left Nothing) condition loopExpr (trBlock body) ni
---            (o'', idx') = trForLoopExpr . trForCondition $ (o', idx)
---          in
---            (o'' : items, idx')
---          
---        trBlockItem (CBlockStmt o@(CFor (Left (Just cexpr)) condition loopExpr body ni) (items, idx) =
---          let
---            o' = CFor (Left Nothing) condition loopExpr (trBlock body) ni
---            (o'', idx') = trForLoopExpr . trForCondition $ (o', idx)
---            (condition', extraDecls) = extractCriticalCalls idx' 
---            
---          in
---            if idx' == idx
---              then (o' : items, idx)
---              else (o'' : items, idx')
-          
+        trBlockItem items (CBlockStmt o@(CFor (Left Nothing) _ _ _ _)) = do
+          (CFor _ condition loopExpr body ni) <- trForCommon o
+          let o' = CFor (Left Nothing) condition loopExpr body ni
+          return $ CBlockStmt o' : items
+
+        trBlockItem items (CBlockStmt o@(CFor (Left (Just cexpr)) _ _ _ _)) = do
+          (CFor _ condition loopExpr body ni) <- trForCommon o
+          if containsCriticalCall cexpr
+            then
+              let stmt = CBlockStmt $ CFor (Left Nothing) condition loopExpr body ni in
+              if isInNormalForm cexpr
+                then return $ stmt : exprStmt cexpr ++ items
+              else do
+                (cexpr', extraDecls) <- extractCriticalCalls cexpr
+                return $ stmt : exprStmt cexpr' ++ extraDecls ++ items
+            else
+              let stmt = CBlockStmt $ CFor (Left (Just cexpr)) condition loopExpr body ni in
+              return $ stmt : items
+
+        trBlockItem items (CBlockStmt o@(CFor (Right decl) _ _ _ _)) = do
+          (CFor _ condition loopExpr body ni) <- trForCommon o
+          if containsCriticalCall decl
+            then
+              let o' = CBlockStmt $ CFor (Left Nothing) condition loopExpr body ni in
+              return $ o' : CBlockDecl decl : items
+            else
+              let o' = CBlockStmt (CFor (Right decl) condition loopExpr body ni) in
+              return $ o' : items
+
         -- default case -- {{{3
         trBlockItem items o = return $ o : items
 
         -- transformers for loop expressions -- {{{2
---        trForLoopExpr t@(CFor _ _ Nothing _, _) = t
---        trForLoopExpr t@(CFor y1 y2 (Just loopExpr) body ni, idx) =
---          let
---            (loopExpr', extraDecls) = extractCriticalCalls idx
---            body' = appendBody body (extraDecls ++ loopExpr') 
---            o' = CFor y1 y2 Nothing body' ni
---          in
---            if null extraDecls
---              then t
---              else (o', idx + length extraDecls)
---
---        trForCondition t@(CFor _ Nothing _ _, _) = t
---        trForCondition t@(CFor y1 (Just condition) y3 body ni, idx) =
---          let
---            (condition', extraDecls) = extractCriticalCalls idx
---            body' = appendBody body (extraDecls ++ [breakIf condition'])
---            o' = CFor y1 Nothing y3 body' ni
---          in
---            if null extraDecls
---              then t
---              else (o', idx + length extraDecls)
+        trForCommon = trForLoopExpr <=< trForCondition <=< trForBlock
+
+        trForBlock (CFor y1 y2 y3 body ni) = do
+          body' <- trBlock body
+          return $ CFor y1 y2 y3 body' ni
+        trForBlock _ = $abort "unexpected parameters"
+
+        trForCondition o@(CFor _ Nothing _ _ _) = return o
+        trForCondition o@(CFor y1 (Just condition) y3 body ni) = do
+          (condition', extraDecls) <- extractCriticalCalls condition
+          let o' = CFor y1 Nothing y3 (body `append` (extraDecls ++ breakIf condition')) ni
+          return $ if null extraDecls then o else o'
+        trForCondition _ = $abort "unexpected parameters"
+
+        trForLoopExpr o@(CFor _ _ Nothing _ _) = return o
+        trForLoopExpr o@(CFor y1 y2 (Just loopExpr) body ni) = do
+          (loopExpr', extraDecls) <- extractCriticalCalls loopExpr
+          let o' = CFor y1 y2 Nothing (body `append` (extraDecls ++ exprStmt loopExpr')) ni
+          return $ if null extraDecls then o else o'
+        trForLoopExpr _ = $abort "unexpected parameters"
+
+        containsCriticalCall o = -- {{{2
+          getAny $ everything mappend (mkQ (Any False) isCriticalCall) o
+          where
+            isCriticalCall :: CExpr -> Any
+            isCriticalCall (CCall (CVar name _) _ _) = Any $ is_critical cg (symbol name)
+            isCriticalCall _ = Any False
 
         extractCriticalCalls cexp = do -- {{{2
           idx <- get
           let (cexp', (idx', decls)) = runState (everywhereM (mkM trCriticalCall) cexp) (idx, [])
           put idx'
           return (cexp', map CBlockDecl decls)
-        
+
           where
             trCriticalCall o@(CCall (CVar name _) _ _)
               | is_critical cg (symbol name) = do
@@ -156,16 +179,24 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
                 tmpVar = ident (tempVar tmpVarIdx)
 
 -- utils -- {{{1
-prependBody :: [CBlockItem] -> CStat -> CStat
-prependBody items' (CCompound x1 items x2) = CCompound x1 (items' ++ items) x2
-prependBody _ _ = $abort "unexpected parameters"
+isInNormalForm :: CExpr -> Bool
+isInNormalForm (CCall _ _ _) = True
+isInNormalForm (CAssign CAssignOp _ (CCall _ _ _) _) = True
+isInNormalForm _ = False
 
-appendBody :: CStat -> [CBlockItem] -> CStat
-appendBody (CCompound x1 items x2) items' = CCompound x1 (items ++ items') x2
-appendBody _ _ = $abort "unexpected parameters"
+prepend :: [CBlockItem] -> CStat -> CStat
+prepend items' (CCompound x1 items x2) = CCompound x1 (items' ++ items) x2
+prepend _ _ = $abort "unexpected parameters"
 
-breakIf :: CExpr -> CBlockItem
-breakIf condition = CBlockStmt $ CIf (CUnary CNegOp condition un) (CCompound [] [CBlockStmt (CBreak un)] un) Nothing un
+append :: CStat -> [CBlockItem] -> CStat
+append (CCompound x1 items x2) items' = CCompound x1 (items ++ items') x2
+append _ _ = $abort "unexpected parameters"
+
+breakIf :: CExpr -> [CBlockItem]
+breakIf condition = [CBlockStmt $ CIf (CUnary CNegOp condition un) (CCompound [] [CBlockStmt (CBreak un)] un) Nothing un]
+
+exprStmt :: CExpr -> [CBlockItem]
+exprStmt cexpr = [CBlockStmt $ CExpr (Just (cexpr)) un]
 
 trueCondition :: CExpr
 trueCondition = CConst (CIntConst (cInteger 1) un)
