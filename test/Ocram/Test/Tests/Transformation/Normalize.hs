@@ -168,10 +168,12 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
     |], [paste|
       __attribute__((tc_blocking)) int block();
       __attribute__((tc_run_thread)) void start() {
-        int i = block();
+        int i;
+        i = block();
         for (;;) {;}
         int j=0;
-        int k=block();
+        int k;
+        k = block();
         for (;;) {;}
       } 
     |]),

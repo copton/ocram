@@ -552,7 +552,7 @@ tests = runTests [ -- {{{1
     __attribute__((tc_blocking)) int block(int i);
 
     __attribute__((tc_run_thread)) void start() {
-      int i, j=block(1), k=23;
+      int i, j=block(1) + 3, k=23;
     }
   |],[paste|
     typedef struct {
@@ -565,6 +565,7 @@ tests = runTests [ -- {{{1
       union {
         ec_frame_block_t block;
       } ec_frames;
+      int ec_tmp_0;
       int i;
       int j;
       int k;
@@ -584,7 +585,8 @@ tests = runTests [ -- {{{1
         block(&ec_stack_start.ec_frames.block);
         return;
       ec_label_start_1: ;
-        ec_stack_start.j = ec_stack_start.ec_frames.block.ec_result;
+        ec_stack_start.ec_tmp_0 = ec_stack_start.ec_frames.block.ec_result;
+        ec_stack_start.j = ec_stack_start.ec_tmp_0 + 3;
         ec_stack_start.k = 23;
         return;
     }

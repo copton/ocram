@@ -6,7 +6,7 @@ module Ocram.Transformation.Inline.Normalize
 ) where
 
 -- import {{{1
-import Control.Monad (foldM, (<=<))
+import Control.Monad ((<=<))
 import Control.Monad.State (runState, evalState, get, put, State)
 import Data.Generics (everything, mkQ, everywhere, mkT, everywhereM, mkM)
 import Data.Monoid (Any(Any, getAny), mappend)
@@ -26,18 +26,7 @@ import Ocram.Util (abort, fromJust_s)
 normalize :: Transformation -- {{{1
 normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
   where
-    trCriticalFunction = unlistDeclarations . normalizeStatements . wrapDanglingStatements
-
-    unlistDeclarations (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (trBlock s) x4 -- {{{2
-      where
-        trBlock (CCompound y1 items y2) = CCompound y1 (foldr trBlockItem [] items) y2
-        trBlock _ = $abort "unexpected parameters"
-
-        trBlockItem :: CBlockItem -> [CBlockItem] -> [CBlockItem]
-        trBlockItem (CBlockDecl decl) items = map CBlockDecl (unlistDecl decl) ++ items
-        trBlockItem o items = o : items 
-
-        unlistDecl (CDecl x ds z) = map (\y -> CDecl x [y] z) ds
+    trCriticalFunction = normalizeStatements . deferCriticalInitializations . unlistDeclarations . wrapDanglingStatements
 
     wrapDanglingStatements = everywhere $ mkT dsStat -- {{{2
       where
@@ -50,36 +39,57 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
         wrapInBlock o@(CCompound _ _ _) = o
         wrapInBlock s = CCompound [] [CBlockStmt s] (nodeInfo s)
 
+    unlistDeclarations (CFunDef x1 x2 x3 (CCompound x4 items x5) x6) = -- {{{2
+      CFunDef x1 x2 x3 (CCompound x4 (concatMap trBlockItem items) x5) x6
+      where
+        trBlockItem (CBlockDecl decl) = map CBlockDecl (unlistDecl decl)
+        trBlockItem o@(CBlockStmt (CFor (Right decl) y1 y2 y3 y4))
+          | containsCriticalCall decl = map CBlockDecl (unlistDecl decl) ++ [CBlockStmt (CFor (Left Nothing) y1 y2 y3 y4)]
+          | otherwise = [o]
+        trBlockItem o = [o]
+    unlistDeclarations _ = $abort "unexpected parameters"
+
+    deferCriticalInitializations (CFunDef x1 x2 x3 (CCompound x4 items x5) x6) = -- {{{2
+      CFunDef x1 x2 x3 (CCompound x4 (concatMap trBlockItem items) x5) x6
+      where
+        trBlockItem o@(CBlockDecl (CDecl y1 [(Just declr, Just (CInitExpr cexpr _), y2)] y3))
+          | containsCriticalCall cexpr = [declare, initialize]
+          | otherwise = [o]
+          where
+            declare = CBlockDecl (CDecl y1 [(Just declr, Nothing, y2)] y3)
+            initialize = CBlockStmt (CExpr (Just (CAssign CAssignOp (CVar (ident (symbol declr)) un) cexpr un)) un)
+        trBlockItem o = [o]
+    deferCriticalInitializations _ = $abort "unexpected parameters"
 
     normalizeStatements (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState (trBlock s) 0) x4 -- {{{2
       where
         trBlock :: CStat -> State Int CStat
         trBlock (CCompound y1 items y2) = do
-          items' <- foldM trBlockItem [] items
-          return $ CCompound y1 (reverse items') y2
+          items' <- mapM trBlockItem items
+          return $ CCompound y1 (concat items') y2
         trBlock _ = $abort "unexpected parameters"
 
         -- critical calls in nested expressions -- {{{3
-        trBlockItem items o@(CBlockStmt (CExpr (Just cexpr) ni))
-          | isInNormalForm cexpr = return $ o : items
+        trBlockItem o@(CBlockStmt (CExpr (Just cexpr) ni))
+          | isInNormalForm cexpr = return [o]
           | otherwise = do
               (cexpr', extraDecls) <- extractCriticalCalls cexpr
               let o' = CBlockStmt $ CExpr (Just cexpr') ni
-              return $ o' : extraDecls ++ items
+              return $ extraDecls ++ [o']
 
         -- critical calls in conditions of if statements -- {{{3
-        trBlockItem items (CBlockStmt (CIf condition thenBlock elseBlock ni)) = do
+        trBlockItem (CBlockStmt (CIf condition thenBlock elseBlock ni)) = do
           thenBlock' <- trBlock thenBlock
           elseBlock' <- T.mapM trBlock elseBlock
           if containsCriticalCall condition
             then do
               (condition', extraDecls) <- extractCriticalCalls condition
-              return $ CBlockStmt (CIf condition' thenBlock' elseBlock' ni) : extraDecls ++ items
+              return $ extraDecls ++ [CBlockStmt (CIf condition' thenBlock' elseBlock' ni)]
             else
-              return $ CBlockStmt (CIf condition thenBlock' elseBlock' ni) : items
+              return [CBlockStmt (CIf condition thenBlock' elseBlock' ni)]
 
         -- critical calls in conditions of while loops -- {{{3
-        trBlockItem items (CBlockStmt (CWhile condition body False ni)) = do
+        trBlockItem (CBlockStmt (CWhile condition body False ni)) = do
           body' <- trBlock body
           o <- if containsCriticalCall condition
             then do
@@ -88,10 +98,10 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
               return $ CWhile trueCondition body'' False ni
             else
               return $ CWhile condition body' False ni
-          return $ CBlockStmt o : items
+          return [CBlockStmt o]
 
         -- critical calls in conditions of do loops -- {{{3
-        trBlockItem items (CBlockStmt (CWhile condition body True ni)) = do
+        trBlockItem (CBlockStmt (CWhile condition body True ni)) = do
           body' <- trBlock body
           o <- if containsCriticalCall condition
             then do
@@ -100,40 +110,34 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
               return $ CWhile trueCondition body'' True ni
             else
               return $ CWhile condition body' True ni
-          return $ CBlockStmt o : items
+          return [CBlockStmt o]
 
         -- critical calls in for loops -- {{{3
-        trBlockItem items (CBlockStmt o@(CFor (Left Nothing) _ _ _ _)) = do
+        trBlockItem (CBlockStmt o@(CFor (Left Nothing) _ _ _ _)) = do
           (CFor _ condition loopExpr body ni) <- trForCommon o
           let o' = CFor (Left Nothing) condition loopExpr body ni
-          return $ CBlockStmt o' : items
+          return [CBlockStmt o']
 
-        trBlockItem items (CBlockStmt o@(CFor (Left (Just cexpr)) _ _ _ _)) = do
+        trBlockItem (CBlockStmt o@(CFor (Left (Just cexpr)) _ _ _ _)) = do
           (CFor _ condition loopExpr body ni) <- trForCommon o
           if containsCriticalCall cexpr
             then
               let stmt = CBlockStmt $ CFor (Left Nothing) condition loopExpr body ni in
               if isInNormalForm cexpr
-                then return $ stmt : exprStmt cexpr ++ items
+                then return $ exprStmt cexpr ++ [stmt]
               else do
                 (cexpr', extraDecls) <- extractCriticalCalls cexpr
-                return $ stmt : exprStmt cexpr' ++ extraDecls ++ items
+                return $ extraDecls ++ exprStmt cexpr' ++ [stmt]
             else
               let stmt = CBlockStmt $ CFor (Left (Just cexpr)) condition loopExpr body ni in
-              return $ stmt : items
+              return [stmt]
 
-        trBlockItem items (CBlockStmt o@(CFor (Right decl) _ _ _ _)) = do
-          (CFor _ condition loopExpr body ni) <- trForCommon o
-          if containsCriticalCall decl
-            then
-              let o' = CBlockStmt $ CFor (Left Nothing) condition loopExpr body ni in
-              return $ o' : CBlockDecl decl : items
-            else
-              let o' = CBlockStmt (CFor (Right decl) condition loopExpr body ni) in
-              return $ o' : items
+        trBlockItem (CBlockStmt o@(CFor (Right _) _ _ _ _)) = do
+          o' <- trForCommon o
+          return [CBlockStmt o']
 
         -- default case -- {{{3
-        trBlockItem items o = return $ o : items
+        trBlockItem o = return [o]
 
         -- transformers for loop expressions -- {{{2
         trForCommon = trForLoopExpr <=< trForCondition <=< trForBlock
@@ -157,12 +161,6 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
           return $ if null extraDecls then o else o'
         trForLoopExpr _ = $abort "unexpected parameters"
 
-        containsCriticalCall o = -- {{{2
-          getAny $ everything mappend (mkQ (Any False) isCriticalCall) o
-          where
-            isCriticalCall :: CExpr -> Any
-            isCriticalCall (CCall (CVar name _) _ _) = Any $ is_critical cg (symbol name)
-            isCriticalCall _ = Any False
 
         extractCriticalCalls cexp = do -- {{{2
           idx <- get
@@ -189,6 +187,14 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
                 initializer = CInitExpr call un
                 tmpVar = ident (tempVar tmpVarIdx)
 
+    containsCriticalCall o = -- {{{2
+      getAny $ everything mappend (mkQ (Any False) isCriticalCall) o
+      where
+        isCriticalCall :: CExpr -> Any
+        isCriticalCall (CCall (CVar name _) _ _) = Any $ is_critical cg (symbol name)
+        isCriticalCall _ = Any False
+
+
 -- utils -- {{{1
 isInNormalForm :: CExpr -> Bool
 isInNormalForm (CCall _ _ _) = True
@@ -212,3 +218,5 @@ exprStmt cexpr = [CBlockStmt $ CExpr (Just (cexpr)) un]
 trueCondition :: CExpr
 trueCondition = CConst (CIntConst (cInteger 1) un)
 
+unlistDecl :: CDecl -> [CDecl]
+unlistDecl (CDecl x ds z) = map (\y -> CDecl x [y] z) ds

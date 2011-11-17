@@ -38,22 +38,21 @@ transformation' cg ast = return ast
 --
 -- normalize:
 --   - wrap dangling statements into compound statements
+--   - exactly one identifier per declaration
+--   - defer variable initialization with critical calls
 --   - force all critical calls into normal form
 --     - possible forms:    
 --       - call();
 --       - expression = call();
---       - type variable_k = call();
 --     - may introduce new temporary variables (with unique names)
---   - exactly one identifier per declaration
 --
 -- addTStacks
---   - add TStack structures and instances
+--   - add T-Stack structures and T-stacks
 --
 -- addThreadFunctions
 --   - add thread functions
 --     - inline critical functions
 --     - remove local variable declarations
---       - preserve initialization
 --     - rewrite access to local variables (use t-stacks)
 --     - replace critical call with split phase
 --
