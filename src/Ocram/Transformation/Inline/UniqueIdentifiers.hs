@@ -10,7 +10,7 @@ import Control.Monad.State (runState, State, get, put)
 import Data.Generics (gmapM, mkQ, mkM, extM, GenericQ, GenericM, Data)
 import Data.Maybe (catMaybes)
 import Language.C.Syntax.AST
-import Ocram.Symbols (symbol, Symbol)
+import Ocram.Symbols (symbol, Symbol, reserved_identifier)
 import Ocram.Transformation.Inline.Types (Transformation)
 import Ocram.Transformation.Util (ident, map_critical_functions)
 import Ocram.Util (lookup_s, abort)
@@ -47,10 +47,12 @@ unique_identifiers cg ast@(CTranslUnit ds _) =
     trStat o = return o
 
     trExpr :: CExpr -> State Identifiers CExpr
-    trExpr (CVar identifier ni) = do
-      ids <- get
-      let identifier' = getIdentifier ids (symbol identifier)
-      return $ CVar (ident identifier') ni
+    trExpr o@(CVar identifier ni)
+      | reserved_identifier (symbol identifier) = return o
+      | otherwise = do
+          ids <- get
+          let identifier' = getIdentifier ids (symbol identifier)
+          return $ CVar (ident identifier') ni
 
     trExpr o = return o
   

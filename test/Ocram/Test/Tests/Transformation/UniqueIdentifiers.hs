@@ -137,6 +137,18 @@ tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
     __attribute__((tc_run_thread)) void start() {
       critical();
     }
+  |]),
+-- reserved identifiers -- {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      block(__RESERVED__);
+    }
+  |], [paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      block(__RESERVED__);
+    }
   |]) 
   ]
   where

@@ -2,10 +2,11 @@
 module Ocram.Symbols 
 -- export {{{1
 (
-  Symbol, symbol
+  Symbol, symbol, reserved_identifier
 ) where
 
 -- import {{{1
+import Data.Char (isUpper)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident
 import Ocram.Util (abort)
@@ -43,3 +44,8 @@ instance CSymbol CExtDecl where
 
 no_name :: String
 no_name = "<<no_name>>"
+
+reserved_identifier :: String -> Bool
+reserved_identifier ('_':'_': _) = True
+reserved_identifier ('_':x:_) = isUpper x
+reserved_identifier _ = False
