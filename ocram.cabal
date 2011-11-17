@@ -23,7 +23,7 @@ Extra-source-files:
   util/pretty_ast/DumpAst.hs
   util/view_ast/ViewAst.hs
 
-Executable Ocram
+Executable ocram
   Hs-Source-Dirs: src
   Ghc-Options: -Wall
   Main-is: Main.hs
