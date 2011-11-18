@@ -20,7 +20,7 @@ unique_identifiers :: Transformation -- {{{1
 unique_identifiers cg ast@(CTranslUnit ds _) =
   return $ map_critical_functions cg ast (fst . transform globalIds)
   where
-    globalIds = foldl newIdentifier emptyIds $ map symbol ds
+    globalIds = Identifiers Map.empty (foldl (\m x -> Map.insert x x m) Map.empty $ map symbol ds)
 
     traverse :: Monad m => GenericQ Bool -> GenericM m -> GenericM m
     traverse q f x

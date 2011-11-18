@@ -18,6 +18,7 @@ finalize cg (CTranslUnit ds ni) =
   where
     transform o@(CDeclExt cd)
       | is_blocking cg (symbol cd) = [CDeclExt (createBlockingFunctionDeclr cd)]
+      | is_critical cg (symbol cd) = []
       | otherwise = [o]
     transform o@(CFDefExt fd)
       | is_critical cg (symbol fd) = []

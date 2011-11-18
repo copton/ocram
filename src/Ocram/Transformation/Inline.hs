@@ -57,5 +57,6 @@ transformation' cg ast = return ast
 --     - replace critical call with split phase
 --
 -- finalize
---   - remove original critical functions
+--   - remove original critical function declarations
+--   - remove original critical function definitions
 --   - rewrite declaration of blocking functions
