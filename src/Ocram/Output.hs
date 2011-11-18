@@ -15,9 +15,10 @@ import Language.C (pretty)
 pretty_print :: Options -> Ast -> IO ()
 pretty_print options ast = do
   let file = optOutput options
+  let prelude = "#include <stddef.h>\n"
   let code = show $ pretty ast 
   let main = "int main() { return 0; }"
-  write file $ code ++ "\n" ++ main
+  write file $ prelude ++ code ++ "\n" ++ main
 
 -- write_debug_symbols :: Options -> DebugSymbols -> IO () {{{1
 write_debug_symbols :: Options -> DebugSymbols -> IO ()
