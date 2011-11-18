@@ -35,16 +35,18 @@ createThreadFunction cg ast (tid, startFunction) =
   where
     intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "NULL") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
     onlyDefs name = (not $ is_blocking cg name) && (is_critical cg name)
-    functions = map (inlineCriticalFunction cg ast startFunction) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
+    functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
 
-inlineCriticalFunction :: CallGraph ->  Ast -> Symbol -> Symbol -> [CBlockItem] -- {{{2
-inlineCriticalFunction cg ast startFunction inlinedFunction = lbl : inlinedBody ++ close : []
+inlineCriticalFunction :: CallGraph -> Ast -> Symbol -> (Bool, Symbol) -> [CBlockItem] -- {{{2
+inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody ++ close : []
   where
     callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
     fd = $fromJust_s $ function_definition ast inlinedFunction
     localVariables = local_variables_fd fd
 
-    lbl = createLabel inlinedFunction 0
+    lbl = if isThreadStartFunction
+      then Nothing
+      else Just $ createLabel inlinedFunction 0
 
     close = CBlockStmt $ if startFunction == inlinedFunction
       then CReturn Nothing un
