@@ -9,7 +9,7 @@ module Ocram.Transformation.Inline.ThreadFunction
 import Control.Monad.State (get, put, State, runState)
 import Control.Monad (liftM)
 import Data.Generics (everywhereM, everywhere, mkT, mkM)
-import Data.Maybe (isJust, fromJust, catMaybes)
+import Data.Maybe (isJust, fromJust)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
