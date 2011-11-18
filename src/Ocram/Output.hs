@@ -21,7 +21,7 @@ pretty_print options ast = do
 
 -- write_debug_symbols :: Options -> DebugSymbols -> IO () {{{1
 write_debug_symbols :: Options -> DebugSymbols -> IO ()
-write_debug_symbols = undefined
+write_debug_symbols _ _ = return ()
 
 -- utils {{{1
 write :: String -> String -> IO ()
