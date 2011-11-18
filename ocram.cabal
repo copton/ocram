@@ -69,7 +69,7 @@ Executable ocram
     Ocram.Util
 
 Executable Test
-  Hs-Source-Dirs: src, test
+  Hs-Source-Dirs: src, test/unit_tests
   Main-is: Test.hs
   Default-language: Haskell98
   Default-extensions: 
