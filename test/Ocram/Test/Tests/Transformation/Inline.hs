@@ -104,6 +104,8 @@ tests = runTests [ -- {{{1
 			block(j, k);
 		}
 	|],[paste|
+		int k;
+
 		typedef struct {
 			void* ec_cont;
 			int i1;
@@ -120,8 +122,6 @@ tests = runTests [ -- {{{1
 		ec_frame_start_t ec_stack_start;
 
 		void block(ec_frame_block_t* frame);
-
-		int k;
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -207,6 +207,10 @@ tests = runTests [ -- {{{1
 				critical(s2);
 		}
 	|],[paste|
+		int non_critical(int n) {
+			return n+1;
+		}
+
 		typedef struct {
 				void* ec_cont;
 				int b;
@@ -231,10 +235,6 @@ tests = runTests [ -- {{{1
 		ec_frame_start_t ec_stack_start;
 
 		void block(ec_frame_block_t* frame);
-
-		int non_critical(int n) {
-			return n+1;
-		}
 
 		void ec_thread_1(void* ec_cont)
 		{

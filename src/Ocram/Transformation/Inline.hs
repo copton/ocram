@@ -7,7 +7,7 @@ module Ocram.Transformation.Inline
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
 import Ocram.Analysis (CallGraph)
-import Ocram.Transformation.Inline.Finalize (finalize)
+import Ocram.Transformation.Inline.CriticalFunctions (addBlockingFunctionDecls, removeCriticalFunctions)
 import Ocram.Transformation.Inline.Normalize (normalize)
 import Ocram.Transformation.Inline.ThreadFunction (addThreadFunctions)
 import Ocram.Transformation.Inline.TStack (addTStacks)
@@ -24,8 +24,9 @@ transformation' cg ast = return ast
   >>= unique_identifiers cg
   >>= normalize cg
   >>= addTStacks cg
+  >>= addBlockingFunctionDecls cg
   >>= addThreadFunctions cg
-  >>= finalize cg
+  >>= removeCriticalFunctions cg
 
 
 ------------------------
@@ -60,3 +61,12 @@ transformation' cg ast = return ast
 --   - remove original critical function declarations
 --   - remove original critical function definitions
 --   - rewrite declaration of blocking functions
+--
+-----------------
+-- dependencies
+-----------------
+-- source file
+--
+-- generator
+--   thread execution function -> blocking function decl
+--   thread execution function -> critical function definitions

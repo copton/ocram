@@ -21,7 +21,7 @@ addTStacks :: Transformation -- {{{1
 addTStacks cg ast@(CTranslUnit decls ni) = do
   frames <- createTStackFrames cg ast
   let stacks = map createTStack $ Set.toList $ start_functions cg
-  return $ CTranslUnit (frames ++ stacks ++ decls) ni
+  return $ CTranslUnit (decls ++ frames ++ stacks) ni
 
 createTStack :: Symbol -> CExtDecl
 createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
