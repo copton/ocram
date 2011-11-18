@@ -8,12 +8,12 @@ module Ocram.Transformation.Inline.UniqueIdentifiers
 -- import {{{1
 import Control.Monad.State (runState, State, get, put)
 import Data.Generics (gmapM, mkQ, mkM, extM, GenericQ, GenericM, Data)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Language.C.Syntax.AST
-import Ocram.Symbols (symbol, Symbol, reserved_identifier)
+import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Types (Transformation)
 import Ocram.Transformation.Util (ident, map_critical_functions)
-import Ocram.Util (lookup_s, abort)
+import Ocram.Util (abort)
 import qualified Data.Map as Map
 
 unique_identifiers :: Transformation -- {{{1
@@ -47,12 +47,10 @@ unique_identifiers cg ast@(CTranslUnit ds _) =
     trStat o = return o
 
     trExpr :: CExpr -> State Identifiers CExpr
-    trExpr o@(CVar identifier ni)
-      | reserved_identifier (symbol identifier) = return o
-      | otherwise = do
-          ids <- get
-          let identifier' = getIdentifier ids (symbol identifier)
-          return $ CVar (ident identifier') ni
+    trExpr (CVar identifier ni) = do
+      ids <- get
+      let identifier' = getIdentifier ids (symbol identifier)
+      return $ CVar (ident identifier') ni
 
     trExpr o = return o
   
@@ -67,7 +65,7 @@ emptyIds :: Identifiers
 emptyIds = Identifiers Map.empty Map.empty
 
 getIdentifier :: Identifiers -> Symbol -> Symbol
-getIdentifier (Identifiers _ rt) name = $lookup_s rt name
+getIdentifier (Identifiers _ rt) name = fromMaybe name (Map.lookup name rt)
 
 renameDecl :: CDecl -> State Identifiers CDecl
 renameDecl (CDecl x1 ds x2) = do

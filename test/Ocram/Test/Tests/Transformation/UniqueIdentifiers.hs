@@ -150,7 +150,7 @@ tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
       block(__RESERVED__);
     }
   |]),
--- extra function declarations-- {{{2
+-- extra function declarations -- {{{2
   ([paste|
     __attribute__((tc_blocking)) void block(int i);
     void critical();
@@ -169,7 +169,21 @@ tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
     __attribute__((tc_run_thread)) void start() {
       critical();
     }
-  |]) 
+  |]),
+-- enum -- {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    enum E { A, B, C };
+    __attribute__((tc_run_thread)) void start() {
+      block(B);
+    }
+  |], [paste|
+    __attribute__((tc_blocking)) void block(int i);
+    enum E { A, B, C };
+    __attribute__((tc_run_thread)) void start() {
+      block(B);
+    }
+  |])
   ]
   where
     runTest (code, expected) = TestCase $
