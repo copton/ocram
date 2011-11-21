@@ -54,6 +54,7 @@ typedef struct {
 typedef struct {
     void (*ec_thread)(void*);
     void * ec_cont;
+    error_t ec_result;
     uint32_t ms;
 } ec_frame_tc_sleep_t;
 
@@ -63,3 +64,5 @@ void tc_send(ec_frame_tc_send_t * frame);
 void tc_flash_read(ec_frame_tc_flash_read_t * frame);
 void tc_flash_write(ec_frame_tc_flash_write_t * frame);
 void tc_sensor_read(ec_frame_tc_sensor_read_t * frame);
+
+#endif

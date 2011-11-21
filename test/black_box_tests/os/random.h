@@ -1,8 +1,15 @@
 #ifndef CAEGEELAHGHEYAERAIJA
 #define CAEGEELAHGHEYAERAIJA
 
-void random_init();
-uint32_t random_int(uint32_t max);
-void random_string(char* buffer, size_t size);
+#include "types.h"
+
+class Random {
+public:
+    Random();
+    uint32_t integer(uint32_t max);
+    void string(unsigned char* buffer, size_t size);
+};
+
+extern Random rnd;
 
 #endif
