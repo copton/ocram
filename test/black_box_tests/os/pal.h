@@ -7,48 +7,48 @@ typedef struct {
     void (*ec_thread)(void*);
     void * ec_cont;
     error_t ec_result;
-    unsigned char * buffer;
-    uint8_t buflen;
-    void * handle;
-    uint8_t * len;
+    uint8_t * buffer;
+    size_t buflen;
+    int handle;
+    size_t * len;
 } ec_frame_tc_sensor_read_t;
 
 typedef struct {
     void (*ec_thread)(void*);
     void * ec_cont;
     error_t ec_result;
-    unsigned char * buffer;
-    void * handle;
-    uint8_t len;
+    uint8_t * buffer;
+    int handle;
+    size_t len;
 } ec_frame_tc_flash_write_t;
 
 typedef struct {
     void (*ec_thread)(void*);
     void * ec_cont;
     error_t ec_result;
-    unsigned char * buffer;
-    uint8_t buflen;
-    void * handle;
-    uint8_t * len;
+    uint8_t * buffer;
+    size_t buflen;
+    int handle;
+    size_t * len;
 } ec_frame_tc_flash_read_t;
 
 typedef struct {
     void (*ec_thread)(void*);
     void * ec_cont;
     error_t ec_result;
-    unsigned char * buffer;
-    void * handle;
-    uint8_t len;
+    uint8_t * buffer;
+    int handle;
+    size_t len;
 } ec_frame_tc_send_t;
 
 typedef struct {
     void (*ec_thread)(void*);
     void * ec_cont;
     error_t ec_result;
-    unsigned char * buffer;
-    uint8_t buflen;
-    void * handle;
-    uint8_t * len;
+    uint8_t * buffer;
+    size_t buflen;
+    int handle;
+    size_t * len;
 } ec_frame_tc_receive_t;
 
 typedef struct {

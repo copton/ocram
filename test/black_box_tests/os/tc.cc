@@ -2,9 +2,9 @@
 #include "ec.h"
 #include <pthread.h>
 
-class Monitor {
+class Mutex {
 public:
-    Monitor()
+    Mutex()
     {
         pthread_mutex_init(&mutex, NULL);
     }
@@ -22,7 +22,7 @@ public:
 private:
     friend class Condition;
     pthread_mutex_t mutex;
-} monitor;
+} mutex;
 
 class Condition {
 public:
@@ -36,7 +36,7 @@ public:
     {
         waiting = true;
         while (waiting) {
-            pthread_cond_wait(&condition, &monitor.mutex);
+            pthread_cond_wait(&condition, &mutex.mutex);
         }
     }
 
@@ -49,7 +49,7 @@ public:
 private:
     pthread_cond_t condition;
     bool waiting;
-} sync;
+} condition;
 
 struct DefaultContext {
     Condition condition;
@@ -61,7 +61,7 @@ struct WriteContext : public DefaultContext {
 };
 
 struct ReadContext : public DefaultContext {
-    uint8_t len; 
+    size_t len; 
 };
 
 void defaultCallback(void* ctx, error_t result)
@@ -69,7 +69,7 @@ void defaultCallback(void* ctx, error_t result)
     DefaultContext* context = (DefaultContext*) ctx;
     context->result = result;
     context->condition.signal();
-    sync.wait();
+    condition.wait();
 }
 
 void writeCallback(void* ctx, error_t result)
@@ -77,7 +77,7 @@ void writeCallback(void* ctx, error_t result)
     defaultCallback(ctx, result);
 }
 
-void readCallback(void* ctx, error_t result, uint8_t len)
+void readCallback(void* ctx, error_t result, size_t len)
 {
     ((ReadContext*) ctx)->len = len;
     defaultCallback(ctx, result);
@@ -87,54 +87,54 @@ error_t tc_sleep(uint32_t ms)
 {
     DefaultContext ctx;
     ec_sleep(&defaultCallback, &ctx, ms);  
-    sync.signal();
+    condition.signal();
     ctx.condition.wait();
     return ctx.result;
 }
 
-error_t tc_receive(void* handle, unsigned char* buffer, uint8_t buflen, uint8_t* len)
+error_t tc_receive(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
     ReadContext ctx;
     ec_receive(&readCallback, &ctx, handle, buffer, buflen);
-    sync.signal();
+    condition.signal();
     ctx.condition.wait();
     *len = ctx.len;
     return ctx.result;
 }
 
-error_t tc_send(void* handle, unsigned char* buffer, uint8_t len)
+error_t tc_send(int handle, uint8_t* buffer, size_t len)
 {
     WriteContext ctx;
     ec_send(&writeCallback, &ctx, handle, buffer, len);
-    sync.signal();
+    condition.signal();
     ctx.condition.wait();
     return ctx.result;
 }
 
-error_t tc_flash_read(void* handle, unsigned char* buffer, uint8_t buflen, uint8_t* len)
+error_t tc_flash_read(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
     ReadContext ctx;
     ec_flash_read(&readCallback, &ctx, handle, buffer, buflen);
-    sync.signal();
+    condition.signal();
     ctx.condition.wait();
     *len = ctx.len;
     return ctx.result;
 }
 
-error_t tc_flash_write(void* handle, unsigned char* buffer, uint8_t len)
+error_t tc_flash_write(int handle, uint8_t* buffer, size_t len)
 {
     WriteContext ctx;
     ec_flash_write(&writeCallback, &ctx, handle, buffer, len);
-    sync.signal();
+    condition.signal();
     ctx.condition.wait();
     return ctx.result;
 }
 
-error_t tc_sensor_read(void* handle, unsigned char* buffer, uint8_t buflen, uint8_t* len)
+error_t tc_sensor_read(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
     ReadContext ctx;
     ec_sensor_read(&readCallback, &ctx, handle, buffer, buflen);
-    sync.signal();
+    condition.signal();
     ctx.condition.wait();
     *len = ctx.len;
     return ctx.result;

@@ -4,7 +4,12 @@ using namespace std;
 
 #include "dispatcher.h"
 
-Dispatcher dispatcher;
+Dispatcher* Dispatcher::instance = 0;
+
+void Dispatcher::init()
+{
+    instance = new Dispatcher();
+}
 
 Dispatcher::Dispatcher() :
     simulation_time(0)

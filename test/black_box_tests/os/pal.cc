@@ -1,5 +1,6 @@
 #include "pal.h"
 #include "ec.h"
+#include "logger.h"
 
 static void sleep_cb(void* ctx, error_t result)
 {
@@ -13,7 +14,7 @@ void tc_sleep(ec_frame_tc_sleep_t * frame)
 	ec_sleep(&sleep_cb, frame, frame->ms);
 }
 
-static void receive_cb(void* ctx, error_t result, uint8_t len)
+static void receive_cb(void* ctx, error_t result, size_t len)
 {
 	ec_frame_tc_receive_t* frame = (ec_frame_tc_receive_t*) ctx;
 	frame->ec_result = result;
@@ -38,7 +39,7 @@ void tc_send(ec_frame_tc_send_t * frame)
 	ec_send(&send_cb, frame, frame->handle, frame->buffer, frame->len);
 }
 
-static void flash_read_cb(void* ctx, error_t result, uint8_t len)
+static void flash_read_cb(void* ctx, error_t result, size_t len)
 {
 	ec_frame_tc_flash_read_t* frame = (ec_frame_tc_flash_read_t*) ctx;
 	frame->ec_result = result;
@@ -63,7 +64,7 @@ void tc_flash_write(ec_frame_tc_flash_write_t * frame)
 	ec_flash_write(&flash_write_cb, frame, frame->handle, frame->buffer, frame->len);
 }
 
-static void sensor_read_cb(void* ctx, error_t result, uint8_t len)
+static void sensor_read_cb(void* ctx, error_t result, size_t len)
 {
 	ec_frame_tc_sensor_read_t* frame = (ec_frame_tc_sensor_read_t*) ctx;
 	frame->ec_result = result;

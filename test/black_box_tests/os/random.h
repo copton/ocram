@@ -6,8 +6,10 @@
 class Random {
 public:
     Random();
-    uint32_t integer(uint32_t max);
-    void string(unsigned char* buffer, size_t size);
+    int integer(int m);
+    int integer(int n, int m);
+    void string(char* buffer, size_t size);
+    void bytes(uint8_t* buffer, size_t size);
 };
 
 extern Random rnd;

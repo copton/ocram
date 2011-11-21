@@ -1,12 +1,18 @@
-TARGETS = dispatcher.o random.o ec.o pal.o tc.o
+include ../config.mk
+
+TARGETS = dispatcher.o logger.o random.o ec.o pal.o tc.o libos.a
 
 all: $(TARGETS)
 
 clean:
 	rm -f $(TARGETS)
 
+libos.a: dispatcher.o logger.o random.o ec.o
+	$(AR) r $@ $^
+	$(RANLIB) $@
+
 %.o: %.cc
-	g++ -c $<
+	$(CPPC) -c $<
 
 %.o: %.c
-	gcc -c $<
+	$(CC) -c $<
