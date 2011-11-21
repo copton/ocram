@@ -58,3 +58,12 @@ void Random::bytes(uint8_t* buffer, size_t size)
 
     }
 }
+
+error_t Random::error()
+{
+    if (integer(1)) {
+        return SUCCESS;
+    } else {
+        return FAIL;
+    }
+}

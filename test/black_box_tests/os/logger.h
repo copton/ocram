@@ -5,23 +5,28 @@
 #include <vector>
 #include <sstream>
 
-
 template<class T>
 class Array {
 public:
-    Array(T* values, size_t len) :
-        data(&values[0], &values[len])
+    Array(T* data, size_t len) :
+        data(data), len(len)
     { }
 
-    std::vector<T> data;
+    T* data;
+    size_t len;
 };
+
+template<class T> Array<T> array(T* value, size_t len)
+{
+    return Array<T>(value, len);
+}
 
 template<class T>
 std::ostream& operator<<(std::ostream& os, const Array<T>& array)
 {
     os << "<";
-    for (typename std::vector<T>::const_iterator i = array.vector.begin(); i != array.vector.end(); ++i) {
-        os << *i << ", ";
+    for (int i=0; i<array.len; ++i) {
+        os << array.data[i] << ", ";
     }
     os << ">";
     return os;
@@ -29,8 +34,15 @@ std::ostream& operator<<(std::ostream& os, const Array<T>& array)
 
 class LogLine {
 public:
-    LogLine(const std::string& syscall);
+    LogLine();
     ~LogLine();
+
+    template<class T>
+    LogLine& operator()(const T& object)
+    {
+        return log(object);
+    }
+
 
     template<class T>
     LogLine& log(const T& object)
@@ -38,20 +50,23 @@ public:
         if (first) {
             first = false;
         } else {
-            (*line) << ", ";
+            line << ", ";
         }
-        (*line) << object;
+        line << object;
         return *this;
     }
 
     std::string getline() const
     {
-        return line->str();
+        return line.str();
     }
 
 private:
     bool first;
-    std::stringstream* line;
+    std::stringstream line;
+
+    void operator=(const LogLine&);
+    LogLine(const LogLine&);
 };
 
 class Logger {

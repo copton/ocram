@@ -39,17 +39,16 @@ void tc_send(ec_frame_tc_send_t * frame)
 	ec_send(&send_cb, frame, frame->handle, frame->buffer, frame->len);
 }
 
-static void flash_read_cb(void* ctx, error_t result, size_t len)
+static void flash_read_cb(void* ctx, error_t result)
 {
 	ec_frame_tc_flash_read_t* frame = (ec_frame_tc_flash_read_t*) ctx;
 	frame->ec_result = result;
-	*(frame->len) = len;
 	frame->ec_thread(frame->ec_cont);
 }
 
 void tc_flash_read(ec_frame_tc_flash_read_t* frame)
 {
-	ec_flash_read(&flash_read_cb, frame, frame->handle, frame->buffer, frame->buflen);
+	ec_flash_read(&flash_read_cb, frame, frame->handle, frame->buffer, frame->len);
 }
 
 static void flash_write_cb(void* ctx, error_t result)
@@ -64,15 +63,14 @@ void tc_flash_write(ec_frame_tc_flash_write_t * frame)
 	ec_flash_write(&flash_write_cb, frame, frame->handle, frame->buffer, frame->len);
 }
 
-static void sensor_read_cb(void* ctx, error_t result, size_t len)
+static void sensor_read_cb(void* ctx, error_t result)
 {
 	ec_frame_tc_sensor_read_t* frame = (ec_frame_tc_sensor_read_t*) ctx;
 	frame->ec_result = result;
-	*(frame->len) = len;
 	frame->ec_thread(frame->ec_cont);
 }
 
 void tc_sensor_read(ec_frame_tc_sensor_read_t * frame)
 {
-	ec_sensor_read(&sensor_read_cb, frame, frame->handle, frame->buffer, frame->buflen);
+	ec_sensor_read(&sensor_read_cb, frame, frame->handle, frame->buffer, frame->len);
 }

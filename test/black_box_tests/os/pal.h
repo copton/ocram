@@ -8,9 +8,8 @@ typedef struct {
     void * ec_cont;
     error_t ec_result;
     uint8_t * buffer;
-    size_t buflen;
+    size_t len;
     int handle;
-    size_t * len;
 } ec_frame_tc_sensor_read_t;
 
 typedef struct {
@@ -27,9 +26,8 @@ typedef struct {
     void * ec_cont;
     error_t ec_result;
     uint8_t * buffer;
-    size_t buflen;
+    size_t len;
     int handle;
-    size_t * len;
 } ec_frame_tc_flash_read_t;
 
 typedef struct {

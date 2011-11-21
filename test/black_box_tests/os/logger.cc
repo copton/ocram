@@ -25,17 +25,10 @@ Logger::~Logger()
     logfile.close();
 }
 
-LogLine::LogLine(const std::string& syscall) :
-    first(true),
-    line(new std::stringstream())
+LogLine::LogLine() :
+    first(true)
 {
-    log(syscall);
-    log(Dispatcher::instance->get_simulation_time());
-}
-
-LogLine::~LogLine()
-{
-    delete line;
+    (*this)(Dispatcher::instance->get_simulation_time());
 }
 
 void Logger::log(const LogLine& line)
