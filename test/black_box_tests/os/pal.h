@@ -3,6 +3,10 @@
 
 #include "common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
     void (*ec_thread)(void*);
     void * ec_cont;
@@ -63,4 +67,7 @@ void tc_flash_read(ec_frame_tc_flash_read_t * frame);
 void tc_flash_write(ec_frame_tc_flash_write_t * frame);
 void tc_sensor_read(ec_frame_tc_sensor_read_t * frame);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

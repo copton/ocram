@@ -18,7 +18,8 @@ pretty_print options ast = do
   let prelude = "#include <stddef.h>\n"
   let code = show $ pretty ast 
   let main = "int main() { return 0; }"
-  write file $ prelude ++ code ++ "\n" ++ main
+--  write file $ prelude ++ code ++ "\n" ++ main
+  write file $ prelude ++ code
 
 -- write_debug_symbols :: Options -> DebugSymbols -> IO () {{{1
 write_debug_symbols :: Options -> DebugSymbols -> IO ()
