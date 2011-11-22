@@ -1,6 +1,6 @@
 include ../config.mk
 
-TARGETS = dispatcher.o logger.o random.o ec.o pal.o tc.o libos.a
+TARGETS = dispatcher.o logger.o random.o ec.o pal.o tc.o libos.a libtc.a libec.a
 
 all: $(TARGETS)
 
@@ -14,11 +14,16 @@ libos.a: dispatcher.o logger.o random.o ec.o
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
+libtc.a: tc.o
+	$(AR) r $@ $^
+	$(RANLIB) $@
+
+libec.a: pal.o
+	$(AR) r $@ $^
+	$(RANLIB) $@
+
 %.o: %.cc
 	$(CPPC) -c $<
-
-%.o: %.c
-	$(CC) -c $<
 
 depend.mak:
 	$(CPPC) -M *.cc > $@ || rm -f $@

@@ -8,9 +8,6 @@
 #include <map>
 #include <utility>
 
-// common //
-
-
 class IOBuffer {
 public:
     IOBuffer(const std::string& name) : refCount(0), name(name) { }
@@ -187,7 +184,7 @@ error_t os_flash_seek(int handle, int offset)
     return fileManager.seek(handle, offset);
 }
 
-int sensor_open(const char* address)
+int os_sensor_open(const char* address)
 {
     return handle++;
 }

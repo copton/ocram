@@ -9,7 +9,7 @@
 
 class DispatcherCallback {
 public:
-    void operator()();
+    virtual void operator()() =0;
 };
 
 class Dispatcher {

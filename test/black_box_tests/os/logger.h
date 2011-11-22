@@ -35,7 +35,6 @@ std::ostream& operator<<(std::ostream& os, const Array<T>& array)
 class LogLine {
 public:
     LogLine();
-    ~LogLine();
 
     template<class T>
     LogLine& operator()(const T& object)
