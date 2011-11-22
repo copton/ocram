@@ -99,13 +99,13 @@ TC_RUN_THREAD void task_send()
 	assert (false);
 }
 
-TC_RUN_THREAD void run_receive()
+TC_RUN_THREAD void task_receive()
 {
 	receive_run("child", "receive_log");
 	assert (false);
 }
 
-TC_RUN_THREAD void run_collect()
+TC_RUN_THREAD void task_collect()
 {
 	collect_run("sensor", "sensor_log", 50);
 	assert (false);

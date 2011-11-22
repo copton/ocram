@@ -1,6 +1,9 @@
 #include "tc.h"
 #include "ec.h"
 #include <pthread.h>
+#include <assert.h>
+#include <vector>
+#include <iostream>
 
 class Mutex {
 public:
@@ -50,6 +53,39 @@ private:
     pthread_cond_t condition;
     bool waiting;
 } condition;
+
+std::vector<pthread_t*> threads;
+
+void tc_join_thread(int handle)
+{
+    assert (handle >= 0);
+    assert (handle < threads.size());
+    if (threads[handle] == 0) {
+        std::cerr << "warning: thread " << handle << " has already been joined." << std::endl;
+    } else {
+        pthread_join(*threads[handle], 0);
+        delete threads[handle];
+        threads[handle] = 0;
+    }
+}
+
+void* run_thread(void* ctx)
+{
+    void(*thread_start_function)() = (void(*)()) ctx;
+    mutex.enter();
+    thread_start_function();
+    mutex.leave();
+    return 0;
+}
+
+int tc_run_thread(void(*thread_start_function)())
+{
+    pthread_t* thread = new pthread_t();
+    threads.push_back(thread);
+    pthread_create(thread, 0, run_thread, (void*)thread_start_function);
+    return threads.size() - 2;
+}
+
 
 struct DefaultContext {
     Condition condition;

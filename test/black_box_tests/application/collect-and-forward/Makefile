@@ -2,17 +2,17 @@ include ../../config.mk
 
 .PHONY: all clean
 
-all: tc ec
+all: tc.elf ec.elf
 
 clean:
-	rm -f tc ec ec.c *.o
+	rm -f tc.elf ec.elf ec.c *.o
 
 OCRAM=../../../../cabal-dev/bin/ocram
 
-tc: tc.o main-tc.o
-	$(CPPC) -o $@ $^ -L../../os/ -ltc -los
+tc.elf: tc.o main-tc.o
+	$(CPPC) -o $@ $^ -L../../os/ -ltc -los -lpthread
 
-ec: ec.o main-ec.o
+ec.elf: ec.o main-ec.o
 	$(CPPC) -o $@ $^ -L../../os/ -lec -los
 
 ec.c: tc.c $(OCRAM)

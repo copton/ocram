@@ -590,6 +590,8 @@ int os_connect(const char * address);
 int os_flash_open(const char * address, Mode mode);
 int os_sensor_open(const char * address);
 error_t os_flash_seek(int handle, int offset);
+int tc_run_thread(void (* thread_start_function)());
+void tc_join_thread(int handle);
 extern void __assert_fail(const char * __assertion,
                           const char * __file,
                           unsigned int __line,
@@ -648,7 +650,7 @@ typedef struct {
             union {
                 ec_frame_collect_run_t collect_run;
             } ec_frames;
-        } ec_frame_run_collect_t;
+        } ec_frame_task_collect_t;
 typedef struct {
             void * ec_cont;
             error_t ec_result;
@@ -674,7 +676,7 @@ typedef struct {
             union {
                 ec_frame_receive_run_t receive_run;
             } ec_frames;
-        } ec_frame_run_receive_t;
+        } ec_frame_task_receive_t;
 typedef struct {
             void * ec_cont;
             error_t ec_result;
@@ -738,8 +740,8 @@ typedef struct {
                 ec_frame_send_run_t send_run;
             } ec_frames;
         } ec_frame_task_send_t;
-ec_frame_run_collect_t ec_stack_run_collect;
-ec_frame_run_receive_t ec_stack_run_receive;
+ec_frame_task_collect_t ec_stack_task_collect;
+ec_frame_task_receive_t ec_stack_task_receive;
 ec_frame_task_send_t ec_stack_task_send;
 void tc_sleep(ec_frame_tc_sleep_t * frame);
 void tc_receive(ec_frame_tc_receive_t * frame);
@@ -753,12 +755,12 @@ void ec_thread_1(void * ec_cont)
     {
         goto * ec_cont;
     }
-    ec_stack_run_collect.ec_frames.collect_run.device = "sensor";
-    ec_stack_run_collect.ec_frames.collect_run.file = "sensor_log";
-    ec_stack_run_collect.ec_frames.collect_run.dt = 50;
-    ec_stack_run_collect.ec_frames.collect_run.ec_cont = &&ec_label_run_collect_1;
+    ec_stack_task_collect.ec_frames.collect_run.device = "sensor";
+    ec_stack_task_collect.ec_frames.collect_run.file = "sensor_log";
+    ec_stack_task_collect.ec_frames.collect_run.dt = 50;
+    ec_stack_task_collect.ec_frames.collect_run.ec_cont = &&ec_label_task_collect_1;
     goto ec_label_collect_run_0;
-ec_label_run_collect_1:
+ec_label_task_collect_1:
     ;
     0 ? (void) 0 : __assert_fail("0",
                                  "tc.c",
@@ -767,64 +769,64 @@ ec_label_run_collect_1:
     return;
 ec_label_collect_run_0:
     ;
-    ec_stack_run_collect.ec_frames.collect_run.sensor = os_sensor_open(ec_stack_run_collect.ec_frames.collect_run.device);
-    ec_stack_run_collect.ec_frames.collect_run.log = os_flash_open(ec_stack_run_collect.ec_frames.collect_run.file,
-                                                                   WRITE);
-    ec_stack_run_collect.ec_frames.collect_run.now = os_now();
+    ec_stack_task_collect.ec_frames.collect_run.sensor = os_sensor_open(ec_stack_task_collect.ec_frames.collect_run.device);
+    ec_stack_task_collect.ec_frames.collect_run.log = os_flash_open(ec_stack_task_collect.ec_frames.collect_run.file,
+                                                                    WRITE);
+    ec_stack_task_collect.ec_frames.collect_run.now = os_now();
     while (1)
     {
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.tc_sleep.ms = ec_stack_run_collect.ec_frames.collect_run.now + ec_stack_run_collect.ec_frames.collect_run.dt;
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.tc_sleep.ec_cont = &&ec_label_collect_run_2;
-        tc_sleep(&ec_stack_run_collect.ec_frames.collect_run.ec_frames.tc_sleep);
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.tc_sleep.ms = ec_stack_task_collect.ec_frames.collect_run.now + ec_stack_task_collect.ec_frames.collect_run.dt;
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.tc_sleep.ec_cont = &&ec_label_collect_run_2;
+        tc_sleep(&ec_stack_task_collect.ec_frames.collect_run.ec_frames.tc_sleep);
         return;
     ec_label_collect_run_2:
         ;
-        ec_stack_run_collect.ec_frames.collect_run.now += ec_stack_run_collect.ec_frames.collect_run.dt;
+        ec_stack_task_collect.ec_frames.collect_run.now += ec_stack_task_collect.ec_frames.collect_run.dt;
         while (1)
         {
-            ec_stack_run_collect.ec_frames.collect_run.ec_frames.tc_sensor_read.handle = ec_stack_run_collect.ec_frames.collect_run.sensor;
-            ec_stack_run_collect.ec_frames.collect_run.ec_frames.tc_sensor_read.value = &ec_stack_run_collect.ec_frames.collect_run.val;
-            ec_stack_run_collect.ec_frames.collect_run.ec_frames.tc_sensor_read.ec_cont = &&ec_label_collect_run_1;
-            tc_sensor_read(&ec_stack_run_collect.ec_frames.collect_run.ec_frames.tc_sensor_read);
+            ec_stack_task_collect.ec_frames.collect_run.ec_frames.tc_sensor_read.handle = ec_stack_task_collect.ec_frames.collect_run.sensor;
+            ec_stack_task_collect.ec_frames.collect_run.ec_frames.tc_sensor_read.value = &ec_stack_task_collect.ec_frames.collect_run.val;
+            ec_stack_task_collect.ec_frames.collect_run.ec_frames.tc_sensor_read.ec_cont = &&ec_label_collect_run_1;
+            tc_sensor_read(&ec_stack_task_collect.ec_frames.collect_run.ec_frames.tc_sensor_read);
             return;
         ec_label_collect_run_1:
             ;
-            ec_stack_run_collect.ec_frames.collect_run.ec_tmp_0 = ec_stack_run_collect.ec_frames.collect_run.ec_frames.tc_sensor_read.ec_result;
-            if (!(ec_stack_run_collect.ec_frames.collect_run.ec_tmp_0 != SUCCESS))
+            ec_stack_task_collect.ec_frames.collect_run.ec_tmp_0 = ec_stack_task_collect.ec_frames.collect_run.ec_frames.tc_sensor_read.ec_result;
+            if (!(ec_stack_task_collect.ec_frames.collect_run.ec_tmp_0 != SUCCESS))
             {
                 break;
             }
             ;
         }
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.log = ec_stack_run_collect.ec_frames.collect_run.log;
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.buf = (uint8_t *) &ec_stack_run_collect.ec_frames.collect_run.val;
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.len = sizeof(sensor_val_t);
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_cont = &&ec_label_collect_run_3;
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.log = ec_stack_task_collect.ec_frames.collect_run.log;
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.buf = (uint8_t *) &ec_stack_task_collect.ec_frames.collect_run.val;
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.len = sizeof(sensor_val_t);
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_cont = &&ec_label_collect_run_3;
         goto ec_label_log_to_0;
     ec_label_collect_run_3:
         ;
     }
-    goto * (ec_stack_run_collect.ec_frames.collect_run.ec_cont);
+    goto * (ec_stack_task_collect.ec_frames.collect_run.ec_cont);
 ec_label_log_to_0:
     ;
     while (1)
     {
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.handle = ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.log;
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.buffer = ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.buf;
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.len = ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.len;
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.ec_cont = &&ec_label_log_to_1;
-        tc_flash_write(&ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write);
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.handle = ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.log;
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.buffer = ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.buf;
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.len = ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.len;
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.ec_cont = &&ec_label_log_to_1;
+        tc_flash_write(&ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write);
         return;
     ec_label_log_to_1:
         ;
-        ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_tmp_0 = ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.ec_result;
-        if (!(ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_tmp_0 != SUCCESS))
+        ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_tmp_0 = ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_frames.tc_flash_write.ec_result;
+        if (!(ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_tmp_0 != SUCCESS))
         {
             break;
         }
         ;
     }
-    goto * (ec_stack_run_collect.ec_frames.collect_run.ec_frames.log_to.ec_cont);
+    goto * (ec_stack_task_collect.ec_frames.collect_run.ec_frames.log_to.ec_cont);
 }
 void ec_thread_2(void * ec_cont)
 {
@@ -832,11 +834,11 @@ void ec_thread_2(void * ec_cont)
     {
         goto * ec_cont;
     }
-    ec_stack_run_receive.ec_frames.receive_run.channel = "child";
-    ec_stack_run_receive.ec_frames.receive_run.file = "receive_log";
-    ec_stack_run_receive.ec_frames.receive_run.ec_cont = &&ec_label_run_receive_1;
+    ec_stack_task_receive.ec_frames.receive_run.channel = "child";
+    ec_stack_task_receive.ec_frames.receive_run.file = "receive_log";
+    ec_stack_task_receive.ec_frames.receive_run.ec_cont = &&ec_label_task_receive_1;
     goto ec_label_receive_run_0;
-ec_label_run_receive_1:
+ec_label_task_receive_1:
     ;
     0 ? (void) 0 : __assert_fail("0",
                                  "tc.c",
@@ -845,58 +847,58 @@ ec_label_run_receive_1:
     return;
 ec_label_receive_run_0:
     ;
-    ec_stack_run_receive.ec_frames.receive_run.socket = os_listen(ec_stack_run_receive.ec_frames.receive_run.channel);
-    ec_stack_run_receive.ec_frames.receive_run.log = os_flash_open(ec_stack_run_receive.ec_frames.receive_run.file,
-                                                                   WRITE);
+    ec_stack_task_receive.ec_frames.receive_run.socket = os_listen(ec_stack_task_receive.ec_frames.receive_run.channel);
+    ec_stack_task_receive.ec_frames.receive_run.log = os_flash_open(ec_stack_task_receive.ec_frames.receive_run.file,
+                                                                    WRITE);
     while (1)
     {
         while (1)
         {
-            ec_stack_run_receive.ec_frames.receive_run.ec_frames.tc_receive.handle = ec_stack_run_receive.ec_frames.receive_run.socket;
-            ec_stack_run_receive.ec_frames.receive_run.ec_frames.tc_receive.buffer = ec_stack_run_receive.ec_frames.receive_run.buffer;
-            ec_stack_run_receive.ec_frames.receive_run.ec_frames.tc_receive.buflen = 1024;
-            ec_stack_run_receive.ec_frames.receive_run.ec_frames.tc_receive.len = &ec_stack_run_receive.ec_frames.receive_run.len;
-            ec_stack_run_receive.ec_frames.receive_run.ec_frames.tc_receive.ec_cont = &&ec_label_receive_run_1;
-            tc_receive(&ec_stack_run_receive.ec_frames.receive_run.ec_frames.tc_receive);
+            ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.handle = ec_stack_task_receive.ec_frames.receive_run.socket;
+            ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.buffer = ec_stack_task_receive.ec_frames.receive_run.buffer;
+            ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.buflen = 1024;
+            ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.len = &ec_stack_task_receive.ec_frames.receive_run.len;
+            ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.ec_cont = &&ec_label_receive_run_1;
+            tc_receive(&ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive);
             return;
         ec_label_receive_run_1:
             ;
-            ec_stack_run_receive.ec_frames.receive_run.ec_tmp_0 = ec_stack_run_receive.ec_frames.receive_run.ec_frames.tc_receive.ec_result;
-            if (!(ec_stack_run_receive.ec_frames.receive_run.ec_tmp_0 != SUCCESS))
+            ec_stack_task_receive.ec_frames.receive_run.ec_tmp_0 = ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.ec_result;
+            if (!(ec_stack_task_receive.ec_frames.receive_run.ec_tmp_0 != SUCCESS))
             {
                 break;
             }
             ;
         }
-        ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.log = ec_stack_run_receive.ec_frames.receive_run.log;
-        ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.buf = ec_stack_run_receive.ec_frames.receive_run.buffer;
-        ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.len = ec_stack_run_receive.ec_frames.receive_run.len;
-        ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_cont = &&ec_label_receive_run_2;
+        ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.log = ec_stack_task_receive.ec_frames.receive_run.log;
+        ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.buf = ec_stack_task_receive.ec_frames.receive_run.buffer;
+        ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.len = ec_stack_task_receive.ec_frames.receive_run.len;
+        ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_cont = &&ec_label_receive_run_2;
         goto ec_label_log_to_0;
     ec_label_receive_run_2:
         ;
     }
-    goto * (ec_stack_run_receive.ec_frames.receive_run.ec_cont);
+    goto * (ec_stack_task_receive.ec_frames.receive_run.ec_cont);
 ec_label_log_to_0:
     ;
     while (1)
     {
-        ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.handle = ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.log;
-        ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.buffer = ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.buf;
-        ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.len = ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.len;
-        ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.ec_cont = &&ec_label_log_to_1;
-        tc_flash_write(&ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write);
+        ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.handle = ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.log;
+        ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.buffer = ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.buf;
+        ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.len = ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.len;
+        ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.ec_cont = &&ec_label_log_to_1;
+        tc_flash_write(&ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write);
         return;
     ec_label_log_to_1:
         ;
-        ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_tmp_0 = ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.ec_result;
-        if (!(ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_tmp_0 != SUCCESS))
+        ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_tmp_0 = ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_frames.tc_flash_write.ec_result;
+        if (!(ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_tmp_0 != SUCCESS))
         {
             break;
         }
         ;
     }
-    goto * (ec_stack_run_receive.ec_frames.receive_run.ec_frames.log_to.ec_cont);
+    goto * (ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.ec_cont);
 }
 void ec_thread_3(void * ec_cont)
 {

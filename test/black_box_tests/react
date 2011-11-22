@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec react -r '.*\.(h|c|cc)' . ./make
