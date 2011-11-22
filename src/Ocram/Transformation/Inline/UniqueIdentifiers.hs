@@ -7,7 +7,7 @@ module Ocram.Transformation.Inline.UniqueIdentifiers
 
 -- import {{{1
 import Control.Monad.State (runState, State, get, put)
-import Data.Generics (gmapM, mkQ, mkM, extM, GenericQ, GenericM, Data)
+import Data.Generics (gmapM, mkQ, mkM, extM, extQ, GenericQ, GenericM, Data)
 import Data.Maybe (catMaybes, fromMaybe)
 import Language.C.Syntax.AST
 import Ocram.Symbols (symbol, Symbol)
@@ -28,11 +28,17 @@ unique_identifiers cg ast@(CTranslUnit ds _) =
       | otherwise = f x >>= gmapM (traverse q f)
 
     transform :: Data a => Identifiers -> a -> (a, Identifiers)
-    transform ids x = runState (traverse (mkQ False quit) (mkM trDecl `extM` trStat `extM` trExpr) x) ids
+    transform ids x = runState (traverse (mkQ False quitStat `extQ` quitExpr) (mkM trDecl `extM` trStat `extM` trExpr) x) ids
 
-    quit :: CStat -> Bool
-    quit (CCompound _ _ _) = True
-    quit _ = False
+    quitStat :: CStat -> Bool
+    quitStat (CCompound _ _ _) = True
+    quitStat _ = False
+
+    quitExpr :: CExpr -> Bool
+    quitExpr (CCast _ _ _) = True
+    quitExpr  (CSizeofType _ _) = True
+    quitExpr  (CAlignofType _ _) = True
+    quitExpr  _ = False
 
     trDecl :: CDecl -> State Identifiers CDecl
     trDecl cd = renameDecl cd
@@ -79,7 +85,7 @@ renameDeclr :: Identifiers -> CDeclr -> CDeclr
 renameDeclr ids (CDeclr (Just oldIdent) x2 x3 x4 x5) =
   let newIdent = ident $ getIdentifier ids (symbol oldIdent) in
   CDeclr (Just newIdent) x2 x3 x4 x5
-renameDeclr _ _ = $abort $ "unexpected parameters"
+renameDeclr _ x = $abort $ "unexpected parameters"
 
 newIdentifier :: Identifiers -> Symbol -> Identifiers
 newIdentifier (Identifiers es rt) identifier = case Map.lookup identifier rt of

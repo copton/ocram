@@ -184,6 +184,20 @@ tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
       block(B);
     }
   |])
+-- cast
+  ,([paste|
+    __attribute__((tc_blocking)) void block(char* c);
+    __attribute__((tc_run_thread)) void start() {
+      int i;
+      block((char*)&i);
+    }
+  |], [paste|
+    __attribute__((tc_blocking)) void block(char* c);
+    __attribute__((tc_run_thread)) void start() {
+      int i;
+      block((char*)&i);
+    }
+  |])
   ]
   where
     runTest (code, expected) = TestCase $
