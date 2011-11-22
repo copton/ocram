@@ -7,8 +7,7 @@ typedef struct {
     void (*ec_thread)(void*);
     void * ec_cont;
     error_t ec_result;
-    uint8_t * buffer;
-    size_t len;
+    sensor_val_t* value;
     int handle;
 } ec_frame_tc_sensor_read_t;
 
@@ -26,7 +25,8 @@ typedef struct {
     void * ec_cont;
     error_t ec_result;
     uint8_t * buffer;
-    size_t len;
+    size_t buflen;
+    size_t* len;
     int handle;
 } ec_frame_tc_flash_read_t;
 

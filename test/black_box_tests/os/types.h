@@ -10,4 +10,12 @@ typedef enum {
   FAIL           =  1
 } error_t;
 
+typedef enum {
+    READ = 1,
+    WRITE = 2,
+    READ_WRITE = 3
+} Mode;
+
+typedef uint32_t sensor_val_t;
+
 #endif

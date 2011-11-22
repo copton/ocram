@@ -51,43 +51,42 @@ private:
     bool waiting;
 } condition;
 
-struct Context2 {
+struct DefaultContext {
     Condition condition;
     error_t result;  
-    bool flag;
 };
 
-struct Context3 : public Context2 {
-    size_t len; 
-};
-
-void callback2(void* ctx, error_t result)
+void defaultCallback(void* ctx, error_t result)
 {
-    Context2* context = (Context2*) ctx;
+    DefaultContext* context = (DefaultContext*) ctx;
     context->result = result;
     context->condition.signal();
     condition.wait();
 }
 
-void callback3(void* ctx, error_t result, size_t len)
-{
-    ((Context3*) ctx)->len = len;
-    callback2(ctx, result);
-}
-
 error_t tc_sleep(uint32_t ms)
 {
-    Context2 ctx;
-    ec_sleep(&callback2, &ctx, ms);  
+    DefaultContext ctx;
+    ec_sleep(&defaultCallback, &ctx, ms);  
     condition.signal();
     ctx.condition.wait();
     return ctx.result;
 }
 
+struct ReceiveContext : public DefaultContext {
+    size_t len; 
+};
+
+void receiveCallback(void* ctx, error_t result, size_t len)
+{
+    ((ReceiveContext*) ctx)->len = len;
+    defaultCallback(ctx, result);
+}
+
 error_t tc_receive(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
-    Context3 ctx;
-    ec_receive(&callback3, &ctx, handle, buffer, buflen);
+    ReceiveContext ctx;
+    ec_receive(&receiveCallback, &ctx, handle, buffer, buflen);
     condition.signal();
     ctx.condition.wait();
     *len = ctx.len;
@@ -96,35 +95,46 @@ error_t tc_receive(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 
 error_t tc_send(int handle, uint8_t* buffer, size_t len)
 {
-    Context2 ctx;
-    ec_send(&callback2, &ctx, handle, buffer, len);
+    DefaultContext ctx;
+    ec_send(&defaultCallback, &ctx, handle, buffer, len);
     condition.signal();
     ctx.condition.wait();
     return ctx.result;
 }
 
-error_t tc_flash_read(int handle, uint8_t* buffer, size_t len)
+error_t tc_flash_read(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
-    Context2 ctx;
-    ec_flash_read(&callback2, &ctx, handle, buffer, len);
+    ReceiveContext ctx;
+    ec_flash_read(&receiveCallback, &ctx, handle, buffer, buflen);
     condition.signal();
     ctx.condition.wait();
+    *len = ctx.len;
     return ctx.result;
 }
 
 error_t tc_flash_write(int handle, uint8_t* buffer, size_t len)
 {
-    Context2 ctx;
-    ec_flash_write(&callback2, &ctx, handle, buffer, len);
+    DefaultContext ctx;
+    ec_flash_write(&defaultCallback, &ctx, handle, buffer, len);
     condition.signal();
     ctx.condition.wait();
     return ctx.result;
 }
 
-error_t tc_sensor_read(int handle, uint8_t* buffer, size_t len)
+struct SensorReadContext : public DefaultContext {
+    sensor_val_t value;
+};
+
+void callbackSensorRead(void* ctx, error_t result, sensor_val_t value)
 {
-    Context2 ctx;
-    ec_sensor_read(&callback2, &ctx, handle, buffer, len);
+    ((SensorReadContext*)ctx)->value = value;
+    defaultCallback(ctx, result);
+}
+
+error_t tc_sensor_read(int handle, sensor_val_t* value)
+{
+    SensorReadContext ctx;
+    ec_sensor_read(&callbackSensorRead, &ctx, handle);
     condition.signal();
     ctx.condition.wait();
     return ctx.result;
