@@ -7,6 +7,9 @@
 extern "C" {
 #endif
 
+void pal_init();
+void pal_run();
+
 typedef struct {
     void (*ec_thread)(void*);
     void * ec_cont;

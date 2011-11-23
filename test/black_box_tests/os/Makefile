@@ -23,7 +23,7 @@ libec.a: pal.o
 	$(RANLIB) $@
 
 %.o: %.cc
-	$(CPPC) -c $<
+	$(CPPC) $(CCFLAGS) -c $<
 
 depend.mak:
 	$(CPPC) -M *.cc > $@ || rm -f $@

@@ -1,5 +1,6 @@
 #include "tc.h"
 #include "ec.h"
+#include "dispatcher.h"
 #include <pthread.h>
 #include <assert.h>
 #include <vector>
@@ -22,15 +23,13 @@ public:
         pthread_mutex_unlock(&mutex);
     }
 
-private:
-    friend class Condition;
     pthread_mutex_t mutex;
-} mutex;
+};
 
 class Condition {
 public:
-    Condition()
-        : waiting(false)
+    Condition(Mutex& mutex)
+        : waiting(false), mutex(mutex)
     {
         pthread_cond_init(&condition, NULL);
     }
@@ -52,9 +51,52 @@ public:
 private:
     pthread_cond_t condition;
     bool waiting;
-} condition;
+    Mutex& mutex;
+};
 
+
+// there is one posix thread running the ec layer and one posix thread per TC thread
+// this vector only manages the TC threads
 std::vector<pthread_t*> threads;
+
+// all posix threads share this mutex and this condition to implement cooperative TC threads
+Mutex mutex;
+Condition condition(mutex);
+
+void tc_init()
+{
+    mutex.enter();
+    assert (threads.empty());
+    ec_init();
+}
+
+static void* run_thread(void* ctx);
+
+int tc_run_thread(void(*thread_start_function)())
+{
+    pthread_t* thread = new pthread_t();
+    threads.push_back(thread);
+    pthread_create(thread, 0, run_thread, (void*)thread_start_function);
+    // let the TC thread hit the first yield point before spawning new threads or entering the ec core
+    condition.wait();
+    return threads.size() - 1;
+}
+
+static void* run_thread(void* ctx)
+{
+    void(*thread_start_function)() = (void(*)()) ctx;
+    mutex.enter(); // be a cooperative TC thread
+    thread_start_function();
+    mutex.leave();
+    return 0;
+}
+
+void tc_run()
+{
+    ec_run();
+    assert (! threads.empty());
+    mutex.leave();
+}
 
 void tc_join_thread(int handle)
 {
@@ -69,34 +111,21 @@ void tc_join_thread(int handle)
     }
 }
 
-void* run_thread(void* ctx)
-{
-    void(*thread_start_function)() = (void(*)()) ctx;
-    mutex.enter();
-    thread_start_function();
-    mutex.leave();
-    return 0;
-}
-
-int tc_run_thread(void(*thread_start_function)())
-{
-    pthread_t* thread = new pthread_t();
-    threads.push_back(thread);
-    pthread_create(thread, 0, run_thread, (void*)thread_start_function);
-    return threads.size() - 2;
-}
-
-
 struct DefaultContext {
+    DefaultContext() : condition(mutex) { }
+    // wait for completion of specific syscall
     Condition condition;
     error_t result;  
 };
 
+// called by ec core
 void defaultCallback(void* ctx, error_t result)
 {
     DefaultContext* context = (DefaultContext*) ctx;
     context->result = result;
+    // let the blocking TC thread continue
     context->condition.signal();
+    // wait for next syscall before resuming ec core
     condition.wait();
 }
 
@@ -173,6 +202,7 @@ error_t tc_sensor_read(int handle, sensor_val_t* value)
     ec_sensor_read(&callbackSensorRead, &ctx, handle);
     condition.signal();
     ctx.condition.wait();
+    *value = ctx.value;
     return ctx.result;
 }
 

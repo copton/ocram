@@ -2,6 +2,16 @@
 #include "ec.h"
 #include "logger.h"
 
+void pal_init()
+{
+    ec_init();
+}
+
+void pal_run()
+{
+    ec_run();
+}
+
 static void sleep_cb(void* ctx, error_t result)
 {
 	ec_frame_tc_sleep_t* frame = (ec_frame_tc_sleep_t*) ctx;

@@ -24,11 +24,11 @@ template<class T> Array<T> array(T* value, size_t len)
 template<class T>
 std::ostream& operator<<(std::ostream& os, const Array<T>& array)
 {
-    os << "<";
+    os << "<" << array.len << "> 0x" << std::hex;
     for (int i=0; i<array.len; ++i) {
-        os << array.data[i] << ", ";
+        os << int(array.data[i]);
     }
-    os << ">";
+    os << std::dec;
     return os;
 }
 
@@ -71,7 +71,7 @@ private:
 class Logger {
 public:
     static Logger* instance;
-    static void init(const std::string& logfile);
+    static void init();
     static void shutdown();
        
     void log(const LogLine&);

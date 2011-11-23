@@ -9,10 +9,10 @@ Random rnd;
 
 Random::Random() 
 {
-    char* seedstr= getenv("RANDOM_SEED");
+    char* seedstr= getenv("EC_RANDOM_SEED");
     int seed;
-    if (seedstr == NULL) {
-		cerr << "warning: using default seed. Set RANDOM_SEED environment variable to overwrite." << endl;
+    if (seedstr == 0) {
+		cerr << "warning: using default seed. Set EC_RANDOM_SEED environment variable to overwrite." << endl;
         seed = 0;
     } else {
         seed = strtol(seedstr, NULL, 10);
@@ -31,7 +31,10 @@ int Random::integer(int m)
     do {
         value = rand();
     } while (value > RAND_MAX - r);
-    return value % (m + 1);
+    const int result = value % (m + 1);
+    assert (result >= 0);
+    assert (result <= m);
+    return result;
 }
 
 // uniform distribution of [n, m]
@@ -45,7 +48,7 @@ int Random::integer(int n, int m)
 void Random::string(char* buffer, size_t size)
 {
     for (int i=0; i<size-1; i++) {
-        buffer[i] = 'a' + integer('z' - 'a' + 1);
+        buffer[i] = 'a' + integer('z' - 'a');
 
     }
     buffer[size-1] = 0;

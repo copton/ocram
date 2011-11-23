@@ -7,6 +7,18 @@
 
 #include <map>
 #include <utility>
+#include <iostream>
+
+void ec_init()
+{
+    Logger::init();
+    Dispatcher::init();
+}
+
+void ec_run()
+{
+    Dispatcher::instance->run();
+}
 
 class IOBuffer {
 public:
@@ -192,6 +204,16 @@ int os_sensor_open(const char* address)
 // syscalls //
 class Syscall : public DispatcherCallback {
 public:
+    Syscall()
+    {
+        std::cout << "info: syscall" << std::endl;
+    }
+
+    ~Syscall()
+    {
+        std::cout << "info: ~syscall" << std::endl;
+    }
+
     void operator()()
     {
         callback();
@@ -276,8 +298,8 @@ void ec_sleep(DefaultCallback cb, void* ctx, uint32_t ms)
 void ec_receive(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, size_t buflen)
 {
     const error_t error = rnd.error();
-    const uint32_t len = rnd.integer(buflen);
-    rnd.bytes(buffer, len);
+    const uint32_t len = rnd.integer(1, buflen);
+    rnd.string((char*)buffer, len);
     const uint32_t eta = rnd.integer(10, 1000); // TODO find a good value
 
     Syscall* syscall = syscall3(cb, ctx, rnd.error(), len);

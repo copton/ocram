@@ -9,14 +9,14 @@ clean:
 
 OCRAM=../../../../cabal-dev/bin/ocram
 
-tc.elf: tc.o main-tc.o
-	$(CPPC) -o $@ $^ -L../../os/ -ltc -los -lpthread
+tc.elf: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
+	$(CPPC) $(CCFLAGS) -o $@ $^ -lpthread
 
-ec.elf: ec.o main-ec.o
-	$(CPPC) -o $@ $^ -L../../os/ -lec -los
+ec.elf: ec.o main-ec.o ../../os/libec.a ../../os/libos.a
+	$(CPPC) $(CCFLAGS) -o $@ $^
 
 ec.c: tc.c $(OCRAM)
 	$(OCRAM) -c "-I../.. -DOCRAM_MODE" -i $< -o $@ || (rm $@; exit 1)
 
 %.o: %.c
-	$(CC) -Wall -c $< -I../../
+	$(CC) $(CCFLAGS) -Wall -c $< -I../../

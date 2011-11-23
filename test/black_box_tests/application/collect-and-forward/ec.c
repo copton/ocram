@@ -590,6 +590,8 @@ int os_connect(const char * address);
 int os_flash_open(const char * address, Mode mode);
 int os_sensor_open(const char * address);
 error_t os_flash_seek(int handle, int offset);
+void tc_init();
+void tc_run();
 int tc_run_thread(void (* thread_start_function)());
 void tc_join_thread(int handle);
 extern void __assert_fail(const char * __assertion,
@@ -664,7 +666,7 @@ typedef struct {
             union {
                 ec_frame_tc_receive_t tc_receive; ec_frame_log_to_t log_to;
             } ec_frames;
-            uint8_t buffer[1024];
+            uint8_t buffer[100];
             const char * channel;
             error_t ec_tmp_0;
             const char * file;
@@ -708,7 +710,7 @@ typedef struct {
             union {
                 ec_frame_tc_flash_read_t tc_flash_read;
             } ec_frames;
-            uint8_t buffer[1024];
+            uint8_t buffer[100];
             int i;
             size_t len;
             int log;
@@ -856,7 +858,7 @@ ec_label_receive_run_0:
         {
             ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.handle = ec_stack_task_receive.ec_frames.receive_run.socket;
             ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.buffer = ec_stack_task_receive.ec_frames.receive_run.buffer;
-            ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.buflen = 1024;
+            ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.buflen = sizeof(ec_stack_task_receive.ec_frames.receive_run.buffer);
             ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.len = &ec_stack_task_receive.ec_frames.receive_run.len;
             ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive.ec_cont = &&ec_label_receive_run_1;
             tc_receive(&ec_stack_task_receive.ec_frames.receive_run.ec_frames.tc_receive);
@@ -978,10 +980,10 @@ ec_label_aggregate_from_1:
                                                                                                                          "tc.c",
                                                                                                                          46,
                                                                                                                          __PRETTY_FUNCTION__);
-    ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.len < 1024 ? (void) 0 : __assert_fail("len < 1024",
-                                                                                                         "tc.c",
-                                                                                                         47,
-                                                                                                         __PRETTY_FUNCTION__);
+    ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.len < sizeof(ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.buffer) ? (void) 0 : __assert_fail("len < sizeof(buffer)",
+                                                                                                                                                                                  "tc.c",
+                                                                                                                                                                                  47,
+                                                                                                                                                                                  __PRETTY_FUNCTION__);
     ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.result = os_flash_seek(ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.log,
                                                                                           0);
     ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.result == SUCCESS ? (void) 0 : __assert_fail("result == SUCCESS",
