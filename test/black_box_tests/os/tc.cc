@@ -1,6 +1,6 @@
 #include "tc.h"
 #include "ec.h"
-#include "dispatcher.h"
+#include "logger.h"
 #include <pthread.h>
 #include <assert.h>
 #include <vector>
@@ -65,9 +65,11 @@ Condition condition(mutex);
 
 void tc_init()
 {
+    Logger::init();
+    ec_init();
+
     mutex.enter();
     assert (threads.empty());
-    ec_init();
 }
 
 static void* run_thread(void* ctx);
@@ -112,11 +114,34 @@ void tc_join_thread(int handle)
 }
 
 struct DefaultContext {
-    DefaultContext() : condition(mutex) { }
+    DefaultContext() : 
+        condition(mutex),
+        count(counter++)
+    { }
+
     // wait for completion of specific syscall
     Condition condition;
     error_t result;  
+
+    static int counter;
+    const int count;
+
+    LogLine logCall(const std::string& name)
+    {
+        LogLine line;
+        return line(count)(os_now())(name);
+    }
+
+    LogLine logReturn()
+    {
+        LogLine line;
+        return line("#")(count)(os_now())(result);
+    }
+
+    virtual ~DefaultContext() { }
 };
+
+int DefaultContext::counter = 0;
 
 // called by ec core
 void defaultCallback(void* ctx, error_t result)
@@ -132,9 +157,11 @@ void defaultCallback(void* ctx, error_t result)
 error_t tc_sleep(uint32_t ms)
 {
     DefaultContext ctx;
+    ctx.logCall("sleep")(ms);
     ec_sleep(&defaultCallback, &ctx, ms);  
     condition.signal();
     ctx.condition.wait();
+    ctx.logReturn();
     return ctx.result;
 }
 
@@ -151,38 +178,46 @@ void receiveCallback(void* ctx, error_t result, size_t len)
 error_t tc_receive(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
     ReceiveContext ctx;
+    ctx.logCall("receive")(handle)(buflen);
     ec_receive(&receiveCallback, &ctx, handle, buffer, buflen);
     condition.signal();
     ctx.condition.wait();
     *len = ctx.len;
+    ctx.logReturn()(array(buffer, *len));
     return ctx.result;
 }
 
 error_t tc_send(int handle, uint8_t* buffer, size_t len)
 {
     DefaultContext ctx;
+    ctx.logCall("send")(handle)(array(buffer, len));
     ec_send(&defaultCallback, &ctx, handle, buffer, len);
     condition.signal();
     ctx.condition.wait();
+    ctx.logReturn();
     return ctx.result;
 }
 
 error_t tc_flash_read(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
     ReceiveContext ctx;
+    ctx.logCall("flash_read")(handle)(buflen);
     ec_flash_read(&receiveCallback, &ctx, handle, buffer, buflen);
     condition.signal();
     ctx.condition.wait();
     *len = ctx.len;
+    ctx.logReturn()(array(buffer, *len));
     return ctx.result;
 }
 
 error_t tc_flash_write(int handle, uint8_t* buffer, size_t len)
 {
     DefaultContext ctx;
+    ctx.logCall("flash_write")(handle)(array(buffer, len));
     ec_flash_write(&defaultCallback, &ctx, handle, buffer, len);
     condition.signal();
     ctx.condition.wait();
+    ctx.logReturn();
     return ctx.result;
 }
 
@@ -199,10 +234,12 @@ void callbackSensorRead(void* ctx, error_t result, sensor_val_t value)
 error_t tc_sensor_read(int handle, sensor_val_t* value)
 {
     SensorReadContext ctx;
+    ctx.logCall("sensor_read")(handle);
     ec_sensor_read(&callbackSensorRead, &ctx, handle);
     condition.signal();
     ctx.condition.wait();
     *value = ctx.value;
+    ctx.logReturn()(*value);
     return ctx.result;
 }
 

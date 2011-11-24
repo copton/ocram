@@ -11,7 +11,6 @@
 
 void ec_init()
 {
-    Logger::init();
     Dispatcher::init();
 }
 
@@ -204,35 +203,15 @@ int os_sensor_open(const char* address)
 // syscalls //
 class Syscall : public DispatcherCallback {
 public:
-    Syscall()
-    {
-        std::cout << "info: syscall" << std::endl;
-    }
-
-    ~Syscall()
-    {
-        std::cout << "info: ~syscall" << std::endl;
-    }
-
     void operator()()
     {
         callback();
-        line.log(Dispatcher::instance->get_simulation_time());
-        Logger::instance->log(line);
         delete this; 
-    }
-
-    LogLine& log(const std::string& name)
-    {
-        line.log(name);
-        return line;
     }
 
 protected:
     virtual void callback() =0;
 
-private:
-    LogLine line;
 };
 
 template<class CB, class T1, class T2>
@@ -290,7 +269,6 @@ void ec_sleep(DefaultCallback cb, void* ctx, uint32_t ms)
     const error_t error = rnd.error();
 
     Syscall* syscall = syscall2(cb, ctx, error);
-    syscall->log("sleep")(ms)(error);
 
     Dispatcher::instance->enqueue(ms, syscall);
 }
@@ -303,7 +281,6 @@ void ec_receive(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, size
     const uint32_t eta = rnd.integer(10, 1000); // TODO find a good value
 
     Syscall* syscall = syscall3(cb, ctx, rnd.error(), len);
-    syscall->log("receive")(handle)(buflen)(error)(array(buffer, len));
 
     Dispatcher::instance->enqueue(eta, syscall);
 }
@@ -314,7 +291,6 @@ void ec_send(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, size_t 
     const uint32_t eta = rnd.integer(1, 5); // TODO find a good value
 
     Syscall* syscall = syscall2(cb, ctx, error);
-    syscall->log("send")(handle)(error)(array(buffer, len));
 
     Dispatcher::instance->enqueue(eta, syscall);
 }
@@ -328,7 +304,6 @@ void ec_flash_read(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, s
     else eta = rnd.integer(1, 10); // TODO find a good value
 
     Syscall* syscall = syscall3(cb, ctx, error, len);
-    syscall->log("flash_read")(handle)(buflen)(error)(array(buffer, len));
 
     Dispatcher::instance->enqueue(eta, syscall);
 }
@@ -339,7 +314,6 @@ void ec_flash_write(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, 
     const uint32_t eta = rnd.integer(1, 7); // TODO find a good value
 
     Syscall* syscall = syscall2(cb, ctx, error);
-    syscall->log("flash_write")(handle)(error)(array(buffer, len));
 
     Dispatcher::instance->enqueue(eta, syscall);
 }
@@ -351,7 +325,6 @@ void ec_sensor_read(SensorReadCallback cb, void* ctx, int handle)
     const uint32_t eta = rnd.integer(1, 3); // TODO find a good value
 
     Syscall* syscall = syscall3(cb, ctx, error, value);
-    syscall->log("sensor_read")(handle)(error)(value);
 
     Dispatcher::instance->enqueue(eta, syscall);
 }

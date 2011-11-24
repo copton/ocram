@@ -5,6 +5,52 @@
 #include <vector>
 #include <sstream>
 
+class LogLine;
+
+class Logger {
+public:
+    static Logger* instance;
+    static void init();
+    static void shutdown();
+       
+    void log(const std::string&);
+
+private:
+    Logger(const std::string&);
+    ~Logger();
+    std::ofstream logfile;
+};
+
+class LogLine {
+public:
+    LogLine();
+    LogLine(LogLine&);
+    ~LogLine();
+
+    template<class T>
+    LogLine& operator()(const T& object)
+    {
+        return log(object);
+    }
+
+    template<class T>
+    LogLine& log(const T& object)
+    {
+        if (first) {
+            first = false;
+        } else {
+            *line << ", ";
+        }
+        *line << object;
+        return *this;
+    }
+
+private:
+    bool first;
+    std::stringstream* line;
+    void operator=(const LogLine&);
+};
+
 template<class T>
 class Array {
 public:
@@ -31,55 +77,5 @@ std::ostream& operator<<(std::ostream& os, const Array<T>& array)
     os << std::dec;
     return os;
 }
-
-class LogLine {
-public:
-    LogLine();
-
-    template<class T>
-    LogLine& operator()(const T& object)
-    {
-        return log(object);
-    }
-
-
-    template<class T>
-    LogLine& log(const T& object)
-    {
-        if (first) {
-            first = false;
-        } else {
-            line << ", ";
-        }
-        line << object;
-        return *this;
-    }
-
-    std::string getline() const
-    {
-        return line.str();
-    }
-
-private:
-    bool first;
-    std::stringstream line;
-
-    void operator=(const LogLine&);
-    LogLine(const LogLine&);
-};
-
-class Logger {
-public:
-    static Logger* instance;
-    static void init();
-    static void shutdown();
-       
-    void log(const LogLine&);
-
-private:
-    Logger(const std::string&);
-    ~Logger();
-    std::ofstream logfile;
-};
 
 #endif

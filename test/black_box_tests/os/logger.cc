@@ -1,5 +1,4 @@
 #include "logger.h"
-#include "dispatcher.h"
 
 #include <iostream>
 #include <stdlib.h>
@@ -34,13 +33,27 @@ Logger::~Logger()
     logfile.close();
 }
 
-LogLine::LogLine() :
-    first(true)
+void Logger::log(const std::string& line)
 {
-    (*this)(Dispatcher::instance->get_simulation_time());
+    logfile << line << std::endl;
 }
 
-void Logger::log(const LogLine& line)
+LogLine::LogLine() :
+    first(true),
+    line(new std::stringstream())
+{ }
+
+LogLine::LogLine(LogLine& rhs) :
+    first(rhs.first),
+    line(rhs.line)
 {
-    logfile << line.getline() << std::endl;
+    rhs.line = 0;
+}
+
+LogLine::~LogLine()
+{
+    if (line != 0) {
+        Logger::instance->log(line->str());
+        delete line;
+    }
 }

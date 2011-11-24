@@ -5,6 +5,7 @@
 void pal_init()
 {
     ec_init();
+    Logger::init();
 }
 
 void pal_run()
