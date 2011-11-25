@@ -14,7 +14,7 @@ module Ocram.Query
 
 -- import {{{1
 import Data.Generics (everything, mkQ, extQ)
-import Data.Maybe (catMaybes)
+import Data.Maybe (mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 import Ocram.Names (blockingAttr, startAttr)
@@ -27,11 +27,11 @@ type SymbolTable = Map.Map Symbol CDecl -- {{{1
 
 function_declaration :: Ast -> Symbol -> Maybe CDecl -- {{{1
 function_declaration (CTranslUnit eds _) name =
-  List.find ((==name) . symbol) $ catMaybes $ map functionDeclaration eds
+  List.find ((==name) . symbol) $ mapMaybe functionDeclaration eds
 
 function_definition :: Ast -> Symbol -> Maybe CFunDef -- {{{1
 function_definition (CTranslUnit eds _) name =
-  List.find ((==name) . symbol) $ catMaybes $ map functionDefinition eds
+  List.find ((==name) . symbol) $ mapMaybe functionDefinition eds
 
 is_blocking_function :: Ast -> Symbol -> Bool -- {{{1
 is_blocking_function ast name =
@@ -75,7 +75,7 @@ local_variables_fd :: CFunDef -> SymbolTable -- {{{1
 local_variables_fd fd = foldl addDecls Map.empty ds
   where
     ds = function_parameters_fd fd ++ query
-    query = everything (++) ((mkQ [] queryBlockItem) `extQ` queryCExp) fd
+    query = everything (++) (mkQ [] queryBlockItem `extQ` queryCExp) fd
     queryBlockItem (CBlockDecl cd) = [cd]
     queryBlockItem _ = []
     queryCExp (CFor (Right cd) _ _ _ _) = [cd]
@@ -108,7 +108,7 @@ functionParameters _ = $abort "unexpected parameters"
 
 extractTypeSpec :: [CDeclSpec] -> CTypeSpec
 extractTypeSpec [] = $abort "type specifier expected"
-extractTypeSpec ((CTypeSpec ts):_) = ts
+extractTypeSpec (CTypeSpec ts:_) = ts
 extractTypeSpec (_:xs) = extractTypeSpec xs
 
 apply :: (CFunDef -> a) -> (CDecl -> a) -> Ast -> Symbol -> Maybe a

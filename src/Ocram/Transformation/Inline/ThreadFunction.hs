@@ -6,19 +6,18 @@ module Ocram.Transformation.Inline.ThreadFunction
 ) where
 
 -- imports {{{1
-import Control.Monad.State (get, put, State, runState)
 import Control.Monad (liftM)
+import Control.Monad.State (get, put, State, runState)
 import Data.Generics (everywhereM, everywhere, mkT, mkM)
-import Data.Maybe (isJust, fromJust)
+import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
-import Ocram.Symbols (symbol)
+import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Types (Ast)
-import Ocram.Symbols (Symbol)
 import Ocram.Util ((?:), fromJust_s, abort)
 import Prelude hiding (exp, id)
 import qualified Data.Map as Map
@@ -34,7 +33,7 @@ createThreadFunction cg ast (tid, startFunction) =
   return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (handlerFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
   where
     intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "NULL") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
-    onlyDefs name = (not $ is_blocking cg name) && (is_critical cg name)
+    onlyDefs name = not (is_blocking cg name) && is_critical cg name
     functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
 
 inlineCriticalFunction :: CallGraph -> Ast -> Symbol -> (Bool, Symbol) -> [CBlockItem] -- {{{2
@@ -112,7 +111,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
       where
         callChain' = callChain ++ [calledFunction]
         blocking = is_blocking cg calledFunction
-        parameters = map  createParamAssign  $ zip params $ $fromJust_s $ function_parameters ast calledFunction
+        parameters = zipWith createParamAssign params $ $fromJust_s $ function_parameters ast calledFunction
         continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain' (Just contVar)) (CLabAddrExpr (ident $ label inlinedFunction lblIdx) un) un)) un)
         lbl' = createLabel inlinedFunction lblIdx
         resultExp = fmap assignResult resultLhs
@@ -126,14 +125,14 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
           then Just (CBlockStmt (CReturn Nothing un))
           else Nothing
 
-        createParamAssign (exp, decl) = createAssign ((stackAccess callChain') (Just (symbol decl))) exp
+        createParamAssign exp decl = createAssign (stackAccess callChain' (Just (symbol decl))) exp
 
         createAssign lhs rhs = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) un)
 
 stackAccess :: [Symbol] -> Maybe Symbol -> CExpr -- {{{2
 stackAccess (sf:chain) variable = foldl create base members
   where
-    variables = if isJust variable then [fromJust variable] else []
+    variables = maybeToList variable
     base = CVar (ident $ stackVar sf) un
     members = foldr (\x l -> frameUnion : x : l) [] chain ++ variables
     create inner member = CMember inner (ident member) False un 

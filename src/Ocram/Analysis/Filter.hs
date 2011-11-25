@@ -7,7 +7,7 @@ module Ocram.Analysis.Filter
 
 -- imports {{{1
 import Data.Generics (mkQ, everything, extQ)
-import Data.Maybe (fromMaybe, catMaybes)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
@@ -104,14 +104,14 @@ checkThreads cg
 
 
 checkRecursion :: CallGraph -> [OcramError]
-checkRecursion cg@(CallGraph gd gi) = map (createRecError cg) $ catMaybes $ map (find_loop gd) $ map ($lookup_s gi) $ Set.toList $ start_functions cg
+checkRecursion cg@(CallGraph gd gi) = mapMaybe (fmap (createRecError cg) . find_loop gd . $lookup_s gi) $ Set.toList $ start_functions cg
 
 
 createRecError :: CallGraph -> [G.Node] -> OcramError
 createRecError (CallGraph gd _) call_stack =
   newError CriticalRecursion (Just errText) (Just location)
   where
-    errText = concat $ List.intersperse " -> " $
+    errText = List.intercalate " -> " $
       map (show . lblName . $fromJust_s . G.lab gd) call_stack
     (callee:caller:[]) = take 2 $ List.reverse call_stack 
     location = $head_s $ edge_label gd caller callee
@@ -121,7 +121,7 @@ checkStartFunctions :: CallGraph -> Ast -> [OcramError]
 checkStartFunctions cg ast =
   let
     sf = start_functions cg
-    failures = Set.filter (not . (is_critical cg)) sf
+    failures = Set.filter (not . is_critical cg) sf
     errs = Set.map (toError . getLocation) failures
     getLocation name = (\(CFunDef _ _ _ _ x) -> x) $ $fromJust_s $ function_definition ast name
     toError location = newError ThreadNotBlocking Nothing (Just location)

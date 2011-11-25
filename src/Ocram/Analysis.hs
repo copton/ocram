@@ -20,4 +20,4 @@ analysis ast = do
   check_sanity ast
   let cg = call_graph ast
   check_constraints ast cg
-  return $ cg
+  return cg

@@ -56,5 +56,5 @@ createNestedFramesUnion cg name =
     cf = critical_functions cg
     createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
                       [(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
-    entries = map createEntry $ filter (flip Set.member cf) $ $fromJust_s $ get_callees cg name
+    entries = map createEntry $ filter (`Set.member` cf) $ $fromJust_s $ get_callees cg name
     createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un

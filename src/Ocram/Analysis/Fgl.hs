@@ -21,7 +21,7 @@ find_loop :: G.Graph gr => gr a b -> G.Node -> Maybe [G.Node]
 find_loop graph start = findLoop [] start
   where
     findLoop call_stack current
-      | List.elem current call_stack = Just $ List.reverse $ current : call_stack
+      | current `List.elem` call_stack = Just $ List.reverse $ current : call_stack
       | otherwise = join $ List.find isJust $ map recurse $ G.out graph current
       where
         recurse (_, next, _) = findLoop (current : call_stack) next

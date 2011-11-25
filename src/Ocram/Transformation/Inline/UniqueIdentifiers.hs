@@ -8,7 +8,7 @@ module Ocram.Transformation.Inline.UniqueIdentifiers
 -- import {{{1
 import Control.Monad.State (runState, State, get, put)
 import Data.Generics (gmapM, mkQ, mkM, extM, extQ, GenericQ, GenericM, Data)
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (mapMaybe, fromMaybe)
 import Language.C.Syntax.AST
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Types (Transformation)
@@ -41,7 +41,7 @@ unique_identifiers cg ast@(CTranslUnit ds _) =
     quitExpr  _ = False
 
     trDecl :: CDecl -> State Identifiers CDecl
-    trDecl cd = renameDecl cd
+    trDecl = renameDecl
     
     trStat :: CStat -> State Identifiers CStat
     trStat (CCompound x1 items x2) = do
@@ -76,7 +76,7 @@ getIdentifier (Identifiers _ rt) name = fromMaybe name (Map.lookup name rt)
 renameDecl :: CDecl -> State Identifiers CDecl
 renameDecl (CDecl x1 ds x2) = do
   ids <- get
-  let ids' = foldl newIdentifier ids $ map symbol $ catMaybes $ map (\(x, _, _) -> x) ds
+  let ids' = foldl newIdentifier ids $ map symbol $ mapMaybe (\(x, _, _) -> x) ds
   let ds' = map (\(d, x, y) -> (fmap (renameDeclr ids') d, x, y)) ds
   put ids'
   return $ CDecl x1 ds' x2
@@ -100,5 +100,5 @@ newExtraSymbol es name = case Map.lookup name es of
   Just x -> (Map.adjust (+1) name es, mangle name (x+1))
 
 mangle :: String -> Int -> String
-mangle name index = symbol $ name ++ "_" ++ (show index)
+mangle name index = symbol $ name ++ "_" ++ show index
     -- TODO avoid collisions with existing names, i.e. forbid this scheme in input code

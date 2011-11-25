@@ -10,18 +10,17 @@ import Control.Monad ((<=<))
 import Control.Monad.State (runState, evalState, get, put, State)
 import Data.Generics (everything, mkQ, everywhere, mkT, everywhereM, mkM)
 import Data.Monoid (Any(Any, getAny), mappend)
-import qualified Data.Traversable as T
 import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants (cInteger)
 import Ocram.Analysis (is_critical)
 import Ocram.Query (return_type)
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Transformation.Util (ident, un)
 import Ocram.Transformation.Inline.Names (tempVar)
 import Ocram.Transformation.Inline.Types (Transformation)
-import Ocram.Transformation.Util (map_critical_functions)
+import Ocram.Transformation.Util (ident, un, map_critical_functions)
 import Ocram.Util (abort, fromJust_s)
+import qualified Data.Traversable as T
 
 normalize :: Transformation -- {{{1
 normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
@@ -173,7 +172,7 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
               | is_critical cg (symbol name) = do
                   (idx, decls) <- get
                   let decl = newDecl o (symbol name) idx
-                  put $ (idx + 1, decl : decls)
+                  put (idx + 1, decl : decls)
                   return $ CVar (ident (symbol decl)) un
               | otherwise = return o
             trCriticalCall o = return o
@@ -213,7 +212,7 @@ breakIf :: CExpr -> [CBlockItem]
 breakIf condition = [CBlockStmt $ CIf (CUnary CNegOp condition un) (CCompound [] [CBlockStmt (CBreak un)] un) Nothing un]
 
 exprStmt :: CExpr -> [CBlockItem]
-exprStmt cexpr = [CBlockStmt $ CExpr (Just (cexpr)) un]
+exprStmt cexpr = [CBlockStmt $ CExpr (Just cexpr) un]
 
 trueCondition :: CExpr
 trueCondition = CConst (CIntConst (cInteger 1) un)

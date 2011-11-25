@@ -58,7 +58,7 @@ internalError where_ what =
   let
     message = "internal error: " ++ where_ ++ ": " ++ what
     l = length message
-    border = "+" ++ (replicate (l+2) '-') ++ "+"
+    border = "+" ++ replicate (l+2) '-' ++ "+"
     text = "\n" ++ border ++ "\n| " ++ message ++ " |\n" ++ border ++ "\n"
   in
     error text
