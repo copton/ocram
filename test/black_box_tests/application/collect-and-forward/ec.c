@@ -666,7 +666,7 @@ typedef struct {
             union {
                 ec_frame_tc_receive_t tc_receive; ec_frame_log_to_t log_to;
             } ec_frames;
-            uint8_t buffer[100];
+            uint8_t buffer[10];
             const char * channel;
             error_t ec_tmp_0;
             const char * file;
@@ -710,7 +710,7 @@ typedef struct {
             union {
                 ec_frame_tc_flash_read_t tc_flash_read;
             } ec_frames;
-            uint8_t buffer[100];
+            uint8_t buffer[1024];
             int i;
             size_t len;
             int log;
@@ -766,7 +766,7 @@ ec_label_task_collect_1:
     ;
     0 ? (void) 0 : __assert_fail("0",
                                  "tc.c",
-                                 111,
+                                 112,
                                  __PRETTY_FUNCTION__);
     return;
 ec_label_collect_run_0:
@@ -844,7 +844,7 @@ ec_label_task_receive_1:
     ;
     0 ? (void) 0 : __assert_fail("0",
                                  "tc.c",
-                                 105,
+                                 106,
                                  __PRETTY_FUNCTION__);
     return;
 ec_label_receive_run_0:
@@ -872,6 +872,7 @@ ec_label_receive_run_0:
             }
             ;
         }
+        ec_stack_task_receive.ec_frames.receive_run.len -= ec_stack_task_receive.ec_frames.receive_run.len % sizeof(int32_t);
         ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.log = ec_stack_task_receive.ec_frames.receive_run.log;
         ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.buf = ec_stack_task_receive.ec_frames.receive_run.buffer;
         ec_stack_task_receive.ec_frames.receive_run.ec_frames.log_to.len = ec_stack_task_receive.ec_frames.receive_run.len;
@@ -916,7 +917,10 @@ void ec_thread_3(void * ec_cont)
     goto ec_label_send_run_0;
 ec_label_task_send_1:
     ;
-    0 ? (void) 0 : __assert_fail("0", "tc.c", 99, __PRETTY_FUNCTION__);
+    0 ? (void) 0 : __assert_fail("0",
+                                 "tc.c",
+                                 100,
+                                 __PRETTY_FUNCTION__);
     return;
 ec_label_send_run_0:
     ;
@@ -974,21 +978,21 @@ ec_label_aggregate_from_1:
     ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.result = ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.ec_frames.tc_flash_read.ec_result;
     ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.result == SUCCESS ? (void) 0 : __assert_fail("result == SUCCESS",
                                                                                                                 "tc.c",
-                                                                                                                45,
+                                                                                                                46,
                                                                                                                 __PRETTY_FUNCTION__);
     ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.len % sizeof(int32_t) == 0 ? (void) 0 : __assert_fail("(len % sizeof(int32_t)) == 0",
                                                                                                                          "tc.c",
-                                                                                                                         46,
+                                                                                                                         47,
                                                                                                                          __PRETTY_FUNCTION__);
     ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.len < sizeof(ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.buffer) ? (void) 0 : __assert_fail("len < sizeof(buffer)",
                                                                                                                                                                                   "tc.c",
-                                                                                                                                                                                  47,
+                                                                                                                                                                                  48,
                                                                                                                                                                                   __PRETTY_FUNCTION__);
     ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.result = os_flash_seek(ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.log,
                                                                                           0);
     ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.result == SUCCESS ? (void) 0 : __assert_fail("result == SUCCESS",
                                                                                                                 "tc.c",
-                                                                                                                50,
+                                                                                                                51,
                                                                                                                 __PRETTY_FUNCTION__);
     for (ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.i = 0; ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.i < ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.len / sizeof(int32_t); ec_stack_task_send.ec_frames.send_run.ec_frames.aggregate_from.i++)
     {

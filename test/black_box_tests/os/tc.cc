@@ -103,7 +103,7 @@ void tc_run()
 void tc_join_thread(int handle)
 {
     assert (handle >= 0);
-    assert (handle < threads.size());
+    assert ((size_t)handle < threads.size());
     if (threads[handle] == 0) {
         std::cerr << "warning: thread " << handle << " has already been joined." << std::endl;
     } else {
@@ -113,9 +113,11 @@ void tc_join_thread(int handle)
     }
 }
 
-struct DefaultContext {
-    DefaultContext() : 
+class DefaultContext {
+public:
+    DefaultContext(const std::string& name) : 
         condition(mutex),
+        name(name),
         count(counter++)
     { }
 
@@ -123,19 +125,20 @@ struct DefaultContext {
     Condition condition;
     error_t result;  
 
+    std::string name;
     static int counter;
     const int count;
 
-    LogLine logCall(const std::string& name)
+    LogLine logCall()
     {
         LogLine line;
-        return line(count)(os_now())(name);
+        return line(os_now())("->")(count)(name);
     }
 
     LogLine logReturn()
     {
         LogLine line;
-        return line("#")(count)(os_now())(result);
+        return line(os_now())("<-")(count)(name)(result);
     }
 
     virtual ~DefaultContext() { }
@@ -156,8 +159,8 @@ void defaultCallback(void* ctx, error_t result)
 
 error_t tc_sleep(uint32_t ms)
 {
-    DefaultContext ctx;
-    ctx.logCall("sleep")(ms);
+    DefaultContext ctx("sleep");
+    ctx.logCall()(ms);
     ec_sleep(&defaultCallback, &ctx, ms);  
     condition.signal();
     ctx.condition.wait();
@@ -165,7 +168,9 @@ error_t tc_sleep(uint32_t ms)
     return ctx.result;
 }
 
-struct ReceiveContext : public DefaultContext {
+class ReceiveContext : public DefaultContext {
+public:
+    ReceiveContext(const std::string& name) : DefaultContext(name) { }
     size_t len; 
 };
 
@@ -177,8 +182,8 @@ void receiveCallback(void* ctx, error_t result, size_t len)
 
 error_t tc_receive(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
-    ReceiveContext ctx;
-    ctx.logCall("receive")(handle)(buflen);
+    ReceiveContext ctx("receive");
+    ctx.logCall()(handle)(buflen);
     ec_receive(&receiveCallback, &ctx, handle, buffer, buflen);
     condition.signal();
     ctx.condition.wait();
@@ -189,8 +194,8 @@ error_t tc_receive(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 
 error_t tc_send(int handle, uint8_t* buffer, size_t len)
 {
-    DefaultContext ctx;
-    ctx.logCall("send")(handle)(array(buffer, len));
+    DefaultContext ctx("send");
+    ctx.logCall()(handle)(array(buffer, len));
     ec_send(&defaultCallback, &ctx, handle, buffer, len);
     condition.signal();
     ctx.condition.wait();
@@ -200,8 +205,8 @@ error_t tc_send(int handle, uint8_t* buffer, size_t len)
 
 error_t tc_flash_read(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
-    ReceiveContext ctx;
-    ctx.logCall("flash_read")(handle)(buflen);
+    ReceiveContext ctx("flash_read");
+    ctx.logCall()(handle)(buflen);
     ec_flash_read(&receiveCallback, &ctx, handle, buffer, buflen);
     condition.signal();
     ctx.condition.wait();
@@ -212,8 +217,8 @@ error_t tc_flash_read(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 
 error_t tc_flash_write(int handle, uint8_t* buffer, size_t len)
 {
-    DefaultContext ctx;
-    ctx.logCall("flash_write")(handle)(array(buffer, len));
+    DefaultContext ctx("flash_write");
+    ctx.logCall()(handle)(array(buffer, len));
     ec_flash_write(&defaultCallback, &ctx, handle, buffer, len);
     condition.signal();
     ctx.condition.wait();
@@ -221,7 +226,9 @@ error_t tc_flash_write(int handle, uint8_t* buffer, size_t len)
     return ctx.result;
 }
 
-struct SensorReadContext : public DefaultContext {
+class SensorReadContext : public DefaultContext {
+public:
+    SensorReadContext(const std::string& name) : DefaultContext(name) { }
     sensor_val_t value;
 };
 
@@ -233,8 +240,8 @@ void callbackSensorRead(void* ctx, error_t result, sensor_val_t value)
 
 error_t tc_sensor_read(int handle, sensor_val_t* value)
 {
-    SensorReadContext ctx;
-    ctx.logCall("sensor_read")(handle);
+    SensorReadContext ctx("sensor_read");
+    ctx.logCall()(handle);
     ec_sensor_read(&callbackSensorRead, &ctx, handle);
     condition.signal();
     ctx.condition.wait();

@@ -71,7 +71,7 @@ template<class T>
 std::ostream& operator<<(std::ostream& os, const Array<T>& array)
 {
     os << "<" << array.len << "> 0x" << std::hex;
-    for (int i=0; i<array.len; ++i) {
+    for (size_t i=0; i<array.len; ++i) {
         os << int(array.data[i]);
     }
     os << std::dec;

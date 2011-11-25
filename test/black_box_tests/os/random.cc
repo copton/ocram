@@ -47,7 +47,7 @@ int Random::integer(int n, int m)
 
 void Random::string(char* buffer, size_t size)
 {
-    for (int i=0; i<size-1; i++) {
+    for (size_t i=0; i<size-1; i++) {
         buffer[i] = 'a' + integer('z' - 'a');
 
     }
@@ -56,7 +56,7 @@ void Random::string(char* buffer, size_t size)
 
 void Random::bytes(uint8_t* buffer, size_t size)
 {
-    for (int i=0; i<size; i++) {
+    for (size_t i=0; i<size; i++) {
         buffer[i] = integer(0xff);
 
     }

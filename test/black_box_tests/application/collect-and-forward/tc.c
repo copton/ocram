@@ -27,10 +27,11 @@ void receive_run(const char* channel, const char* file)
     int socket = os_listen(channel);
     int log = os_flash_open(file, WRITE);
     while (true) {
-        uint8_t buffer[100];
+        uint8_t buffer[10];
         size_t len;
 
 		while(tc_receive(socket, buffer, sizeof(buffer), &len) != SUCCESS);
+        len -= len % sizeof(int32_t);
 
 		log_to(log, buffer, len);
     }
@@ -38,7 +39,7 @@ void receive_run(const char* channel, const char* file)
 
 static void aggregate_from(int log, int32_t* min, int32_t* max)
 {
-    uint8_t buffer[100];
+    uint8_t buffer[1024];
     size_t len;
 
 	error_t result = tc_flash_read(log, buffer, sizeof(buffer), &len);
