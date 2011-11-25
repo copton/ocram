@@ -6,30 +6,18 @@
 #include <vector>
 #include <iostream>
 
-class Mutex {
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+class Lock {
 public:
-    Mutex()
-    {
-        pthread_mutex_init(&mutex, NULL);
-    }
-
-    void enter()
-    {
-        pthread_mutex_lock(&mutex);
-    }
-
-    void leave()
-    {
-        pthread_mutex_unlock(&mutex);
-    }
-
-    pthread_mutex_t mutex;
+    Lock() { pthread_mutex_lock(&mutex); }
+    ~Lock() { pthread_mutex_unlock(&mutex); }
 };
 
 class Condition {
 public:
-    Condition(Mutex& mutex)
-        : waiting(false), mutex(mutex)
+    Condition()
+        : waiting(false)
     {
         pthread_cond_init(&condition, NULL);
     }
@@ -38,7 +26,7 @@ public:
     {
         waiting = true;
         while (waiting) {
-            pthread_cond_wait(&condition, &mutex.mutex);
+            pthread_cond_wait(&condition, &mutex);
         }
     }
 
@@ -51,72 +39,68 @@ public:
 private:
     pthread_cond_t condition;
     bool waiting;
-    Mutex& mutex;
 };
 
+// all posix threads share this mutex and this condition to implement cooperative TC threads
+Condition condition;
 
 // there is one posix thread running the ec layer and one posix thread per TC thread
 // this vector only manages the TC threads
 std::vector<pthread_t*> threads;
 
-// all posix threads share this mutex and this condition to implement cooperative TC threads
-Mutex mutex;
-Condition condition(mutex);
-
 void tc_init()
 {
+    assert (threads.empty());
+
     Logger::init();
     ec_init();
 
-    mutex.enter();
-    assert (threads.empty());
+    pthread_mutex_lock(&mutex);
 }
 
 static void* run_thread(void* ctx);
 
-int tc_run_thread(void(*thread_start_function)())
+void tc_run_thread(void(*thread_start_function)())
 {
     pthread_t* thread = new pthread_t();
     threads.push_back(thread);
     pthread_create(thread, 0, run_thread, (void*)thread_start_function);
     // let the TC thread hit the first yield point before spawning new threads or entering the ec core
     condition.wait();
-    return threads.size() - 1;
 }
 
 static void* run_thread(void* ctx)
 {
     void(*thread_start_function)() = (void(*)()) ctx;
-    mutex.enter(); // be a cooperative TC thread
-    thread_start_function();
-    mutex.leave();
+
+    int old;
+    int result;
+    result = pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &old);
+    assert (result == 0);
+
+    result = pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old);
+    assert (result == 0);
+
+    { 
+        Lock l;
+        thread_start_function();
+    }   
     return 0;
 }
 
 void tc_run()
 {
     ec_run();
-    assert (! threads.empty());
-    mutex.leave();
-}
-
-void tc_join_thread(int handle)
-{
-    assert (handle >= 0);
-    assert ((size_t)handle < threads.size());
-    if (threads[handle] == 0) {
-        std::cerr << "warning: thread " << handle << " has already been joined." << std::endl;
-    } else {
-        pthread_join(*threads[handle], 0);
-        delete threads[handle];
-        threads[handle] = 0;
+    pthread_mutex_unlock(&mutex);
+    for (size_t i=0; i<threads.size(); ++i) {
+        pthread_cancel(*threads[i]);
+        pthread_join(*threads[i], NULL);
     }
 }
 
 class DefaultContext {
 public:
     DefaultContext(const std::string& name) : 
-        condition(mutex),
         name(name),
         count(counter++)
     { }

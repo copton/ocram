@@ -592,8 +592,7 @@ int os_sensor_open(const char * address);
 error_t os_flash_seek(int handle, int offset);
 void tc_init();
 void tc_run();
-int tc_run_thread(void (* thread_start_function)());
-void tc_join_thread(int handle);
+void tc_run_thread(void (* thread_start_function)());
 extern void __assert_fail(const char * __assertion,
                           const char * __file,
                           unsigned int __line,

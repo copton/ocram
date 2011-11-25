@@ -8,15 +8,11 @@ int main()
 {
     tc_init();
 
-	const int t1 = tc_run_thread(&task_send);
-    const int t2 = tc_run_thread(&task_receive);
-    const int t3 = tc_run_thread(&task_collect);
+	tc_run_thread(&task_send);
+    tc_run_thread(&task_receive);
+    tc_run_thread(&task_collect);
 
     tc_run();
-
-    tc_join_thread(t1);
-    tc_join_thread(t2);
-    tc_join_thread(t3);
 
     return 0;
 }

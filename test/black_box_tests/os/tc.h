@@ -18,8 +18,7 @@ TC_BLOCKING error_t tc_sensor_read(int handle, sensor_val_t* value);
 void tc_init();
 void tc_run();
 
-int tc_run_thread(void(*thread_start_function)());
-void tc_join_thread(int handle);
+void tc_run_thread(void(*thread_start_function)());
 
 #ifdef __cplusplus
 }

@@ -36,7 +36,7 @@ FileDescriptor::FileDescriptor(boost::shared_ptr<File> file, Mode mode) :
 error_t FileDescriptor::read(uint8_t* buffer, size_t buflen, size_t* len)
 {
     *len = 0;
-    if (mode & READ == 0) {
+    if ((mode & READ) == 0) {
         return FAIL;
     }
     File::Data data(file->read(offset, buflen));
