@@ -1050,3 +1050,14 @@ ec_label_send_via_0:
     }
     goto * (ec_stack_task_send.ec_frames.send_run.ec_frames.send_via.ec_cont);
 }
+void pal_init();
+void pal_run();
+int main()
+{
+    pal_init();
+    ec_thread_1(NULL);
+    ec_thread_2(NULL);
+    ec_thread_3(NULL);
+    pal_run();
+    return 0;
+}

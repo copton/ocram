@@ -52,7 +52,7 @@ tests = runTests [ -- {{{1
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
+	|] ++ trailer 1)
 -- local variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i);
@@ -93,7 +93,7 @@ tests = runTests [ -- {{{1
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
+	|] ++ trailer 1)
 -- global variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i1, int i2);
@@ -140,7 +140,7 @@ tests = runTests [ -- {{{1
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
+	|] ++ trailer 1)
 -- loop {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int j);
@@ -191,7 +191,7 @@ tests = runTests [ -- {{{1
 				ec_stack_start.i = 0;
 				return;	
 		}
-	|])
+	|] ++ trailer 1)
 -- critical function {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -262,7 +262,7 @@ tests = runTests [ -- {{{1
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
-	|])
+	|] ++ trailer 1)
 -- two threads {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -337,7 +337,7 @@ tests = runTests [ -- {{{1
 				}
 				return;	
 		}
-	|])
+	|] ++ trailer 2)
 -- reentrance {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -426,7 +426,7 @@ tests = runTests [ -- {{{1
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
-	|])
+	|] ++ trailer 2)
 -- return value {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) int block(int i);
@@ -469,7 +469,7 @@ tests = runTests [ -- {{{1
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-	|])
+	|] ++ trailer 1)
 -- multiple declarations {{{2
   , ([paste|
 		__attribute__((tc_blocking)) int block(int i);
@@ -513,7 +513,7 @@ tests = runTests [ -- {{{1
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-  |])
+  |] ++ trailer 1)
 -- multiple declarations with initialization {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(int i);
@@ -556,7 +556,7 @@ tests = runTests [ -- {{{1
         ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
         return;
     }
-    |])
+    |] ++ trailer 1)
 -- multiple declarations with critical initialization {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(int i);
@@ -601,7 +601,7 @@ tests = runTests [ -- {{{1
         ec_stack_start.k = 23;
         return;
     }
-  |])
+  |] ++ trailer 1)
 -- cast operator {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(char* c);
@@ -642,7 +642,7 @@ tests = runTests [ -- {{{1
       ec_label_start_1: ;
         return;
     }
-    |])
+    |] ++ trailer 1)
 	]
 
 runTests :: [(String, String)] -> Test -- {{{2
@@ -658,3 +658,12 @@ runTests cases = TestLabel "Inline" $ TestList $ map runTest cases
             expected' = (reduce $ (enrich expected :: Ast) :: String)
           in
             expected' @=? result
+
+trailer :: Int -> String -- {{{2
+trailer n  = 
+     "void pal_init(); void pal_run(); int main() { pal_init();"
+  ++ concatMap initThread [1..n]
+  ++ "pal_run(); return 0; }"
+  where
+  initThread x = "ec_thread_" ++ show x ++ "(NULL);"
+    

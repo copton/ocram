@@ -7,6 +7,7 @@ module Ocram.Transformation.Inline
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
 import Ocram.Analysis (CallGraph)
+import Ocram.Transformation.Inline.AddMain (addMain)
 import Ocram.Transformation.Inline.CriticalFunctions (addBlockingFunctionDecls, removeCriticalFunctions)
 import Ocram.Transformation.Inline.Normalize (normalize)
 import Ocram.Transformation.Inline.ThreadFunction (addThreadFunctions)
@@ -27,46 +28,4 @@ transformation' cg ast = return ast
   >>= addBlockingFunctionDecls cg
   >>= addThreadFunctions cg
   >>= removeCriticalFunctions cg
-
-
-------------------------
--- Transformation steps
--------------------------
--- unique_identifiers:
---   - rename identifiers so that
---    - for each function no two identifiers have the same name
---    - no shadowing occurs
---
--- normalize:
---   - wrap dangling statements into compound statements
---   - exactly one identifier per declaration
---   - defer variable initialization with critical calls
---   - force all critical calls into normal form
---     - possible forms:    
---       - call();
---       - expression = call();
---     - may introduce new temporary variables (with unique names)
---
--- addTStacks
---   - add T-Stack structures and T-stacks
---
--- addThreadFunctions
---   - add thread functions
---     - inline critical functions
---     - remove local variable declarations
---     - rewrite access to local variables (use t-stacks)
---     - replace critical call with split phase
---
--- finalize
---   - remove original critical function declarations
---   - remove original critical function definitions
---   - rewrite declaration of blocking functions
---
------------------
--- dependencies
------------------
--- source file
---
--- generator
---   thread execution function -> blocking function decl
---   thread execution function -> critical function definitions
+  >>= addMain cg
