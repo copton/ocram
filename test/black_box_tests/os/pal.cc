@@ -1,4 +1,3 @@
-#include "common.h"
 #include "pal.h"
 #include "ec.h"
 #include "logger.h"

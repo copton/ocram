@@ -13,13 +13,11 @@ import Language.C (pretty)
 
 -- pretty_print :: Options -> Ast -> IO () {{{1
 pretty_print :: Options -> Ast -> IO ()
-pretty_print options ast = do
-  let file = optOutput options
-  let prelude = "#include <stddef.h>\n#include \"os/pal.h\"\n"
-  let code = show $ pretty ast 
-  let main = "int main() { return 0; }"
---  write file $ prelude ++ code ++ "\n" ++ main
-  write file $ prelude ++ code
+pretty_print options ast =
+  write (optOutput options) (intro ++ show (pretty ast))
+    where
+      -- E-code needs declaration of NULL
+      intro = "#include <stddef.h>\n"
 
 -- write_debug_symbols :: Options -> DebugSymbols -> IO () {{{1
 write_debug_symbols :: Options -> DebugSymbols -> IO ()

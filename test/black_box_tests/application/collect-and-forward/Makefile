@@ -19,4 +19,4 @@ ec.c: tc.c $(OCRAM)
 	$(OCRAM) -c "-I../.. -DOCRAM_MODE" -i $< -o $@ || (rm $@; exit 1)
 
 %.o: %.c
-	$(CC) $(CCFLAGS) -Wall -c $< -I../../
+	$(CC) $(CCFLAGS) -c $< -I../../

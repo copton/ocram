@@ -1,5 +1,5 @@
-#ifndef DAEBAINGAOHAHHUOTHAC
-#define DAEBAINGAOHAHHUOTHAC
+#ifndef UUJIZOYAEGAXEWAEPHIE
+#define UUJIZOYAEGAXEWAEPHIE
 
 #include "common.h"
 
@@ -11,15 +11,7 @@ void pal_init();
 void pal_run();
 
 typedef struct {
-    void (*ec_thread)(void*);
-    void * ec_cont;
-    error_t ec_result;
-    sensor_val_t* value;
-    int handle;
-} ec_frame_tc_sensor_read_t;
-
-typedef struct {
-    void (*ec_thread)(void*);
+    void (* ec_thread)(void *);
     void * ec_cont;
     error_t ec_result;
     uint8_t * buffer;
@@ -28,26 +20,22 @@ typedef struct {
 } ec_frame_tc_flash_write_t;
 
 typedef struct {
-    void (*ec_thread)(void*);
+    void (* ec_thread)(void *);
     void * ec_cont;
     error_t ec_result;
-    uint8_t * buffer;
-    size_t buflen;
-    size_t* len;
     int handle;
-} ec_frame_tc_flash_read_t;
+    sensor_val_t * value;
+} ec_frame_tc_sensor_read_t;
 
 typedef struct {
-    void (*ec_thread)(void*);
+    void (* ec_thread)(void *);
     void * ec_cont;
     error_t ec_result;
-    uint8_t * buffer;
-    int handle;
-    size_t len;
-} ec_frame_tc_send_t;
+    uint32_t ms;
+} ec_frame_tc_sleep_t;
 
 typedef struct {
-    void (*ec_thread)(void*);
+    void (* ec_thread)(void *);
     void * ec_cont;
     error_t ec_result;
     uint8_t * buffer;
@@ -57,11 +45,23 @@ typedef struct {
 } ec_frame_tc_receive_t;
 
 typedef struct {
-    void (*ec_thread)(void*);
+    void (* ec_thread)(void *);
     void * ec_cont;
     error_t ec_result;
-    uint32_t ms;
-} ec_frame_tc_sleep_t;
+    uint8_t * buffer;
+    int handle;
+    size_t len;
+} ec_frame_tc_send_t;
+
+typedef struct {
+    void (* ec_thread)(void *);
+    void * ec_cont;
+    error_t ec_result;
+    uint8_t * buffer;
+    size_t buflen;
+    int handle;
+    size_t * len;
+} ec_frame_tc_flash_read_t;
 
 void tc_sleep(ec_frame_tc_sleep_t * frame);
 void tc_receive(ec_frame_tc_receive_t * frame);
@@ -73,4 +73,5 @@ void tc_sensor_read(ec_frame_tc_sensor_read_t * frame);
 #ifdef __cplusplus
 }
 #endif
+
 #endif
