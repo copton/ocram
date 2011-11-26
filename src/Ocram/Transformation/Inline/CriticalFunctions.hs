@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 module Ocram.Transformation.Inline.CriticalFunctions
 -- exports {{{1
 (
@@ -21,8 +22,28 @@ addBlockingFunctionDecls cg (CTranslUnit ds ni) = return $ CTranslUnit (ds ++ ex
       | is_blocking cg (symbol cd) = CDeclExt (createBlockingFunctionDeclr cd) : cds
       | otherwise = cds
 
-    createBlockingFunctionDeclr cd = let fName = symbol cd in
-       CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident fName)) [CFunDeclr (Right ([CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident frameParam)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un), Nothing, Nothing)] un
+    createBlockingFunctionDeclr cd = decl
+      where
+      decl = CDecl ts [(Just declr, Nothing, Nothing)] un
+      ts = [CTypeSpec (CVoidType un)]    
+      declr = CDeclr iden fdeclr Nothing [] un
+      iden = Just (ident fName)
+      fName = symbol cd
+      fdeclr = [CFunDeclr (Right ([param1, param2], False)) [] un]
+      param1 = CDecl ts [(Just declr, Nothing, Nothing)] un
+        where
+        ts = [CTypeSpec (CVoidType un)]
+        declr = CDeclr Nothing [CPtrDeclr [] un, fdeclr] Nothing [] un
+        fdeclr = CFunDeclr (Right ([param1], False)) [] un
+        param1 = CDecl ts [(Just declr, Nothing, Nothing)] un
+          where
+          ts = [CTypeSpec (CVoidType un)]
+          declr = CDeclr Nothing [CPtrDeclr [] un] Nothing [] un
+      param2 = CDecl ts [(Just declr, Nothing, Nothing)] un
+        where
+        ts = [CTypeSpec (CTypeDef (ident (frameType fName)) un)]
+        declr = CDeclr Nothing [CPtrDeclr [] un] Nothing [] un
+        
 
 removeCriticalFunctions :: Transformation -- {{{1
 removeCriticalFunctions cg (CTranslUnit ds ni) = return (CTranslUnit (foldr proc [] ds) ni)

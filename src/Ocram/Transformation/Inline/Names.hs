@@ -13,8 +13,8 @@ label :: String -> Int -> String
 label fName count = "ec_label_" ++ fName ++ "_" ++ show count
 
 -- the name of the thread function that conatins all critical function code
-handlerFunction :: Int -> String
-handlerFunction tid = "ec_thread_" ++ show tid
+threadExecutionFunction :: Int -> String
+threadExecutionFunction tid = "ec_thread_" ++ show tid
 
 -- the type alias for the T-stack structure of a critical function
 frameType :: String -> String
@@ -23,10 +23,6 @@ frameType fName = "ec_frame_" ++ fName ++ "_t"
 -- name of the union variable that holds all nested frames
 frameUnion :: String
 frameUnion = "ec_frames"
-
--- name of the frame paraemter of blocking function declarations
-frameParam :: String
-frameParam = "frame"
 
 -- name of the variables that save the t-stack of a thread
 stackVar :: String -> String

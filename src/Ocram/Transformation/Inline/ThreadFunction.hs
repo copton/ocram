@@ -30,14 +30,14 @@ addThreadFunctions cg ast@(CTranslUnit decls ni) = do
 
 createThreadFunction :: CallGraph -> Ast -> (Int, Symbol) -> WR CFunDef -- {{{2
 createThreadFunction cg ast (tid, startFunction) =
-  return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (handlerFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
+  return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (threadExecutionFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
   where
     intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "NULL") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
     onlyDefs name = not (is_blocking cg name) && is_critical cg name
-    functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
+    functions = map (inlineCriticalFunction cg ast tid startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
 
-inlineCriticalFunction :: CallGraph -> Ast -> Symbol -> (Bool, Symbol) -> [CBlockItem] -- {{{2
-inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody ++ close : []
+inlineCriticalFunction :: CallGraph -> Ast -> Int -> Symbol -> (Bool, Symbol) -> [CBlockItem] -- {{{2
+inlineCriticalFunction cg ast tid startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody ++ close : []
   where
     callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
     fd = $fromJust_s $ function_definition ast inlinedFunction
@@ -118,7 +118,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
         assignResult lhs = createAssign lhs (stackAccess callChain' (Just resVar))
 
         callExp = CBlockStmt $ if blocking
-          then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain' Nothing) un] un)) un
+          then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (CVar (ident (threadExecutionFunction tid)) un) un, CUnary CAdrOp (stackAccess callChain' Nothing) un] un)) un
           else CGoto (ident $ label calledFunction 0) un
 
         returnExp = if blocking
