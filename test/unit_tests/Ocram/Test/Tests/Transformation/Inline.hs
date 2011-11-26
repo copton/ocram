@@ -24,6 +24,7 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
+        void (*ec_thread)(void*);
 				void* ec_cont;
 				int i;
 		} ec_frame_block_t;
@@ -36,7 +37,7 @@ tests = runTests [ -- {{{1
 		
 		ec_frame_start_t ec_stack_start;
 
-		void block(void(*)(void*), ec_frame_block_t*);
+		void block(ec_frame_block_t*);
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -44,8 +45,9 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 				ec_stack_start.ec_frames.block.i = 23;
+				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-				block(&ec_thread_1, &ec_stack_start.ec_frames.block);
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				return;	
@@ -62,6 +64,7 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
+      void (*ec_thread)(void*);
 			void* ec_cont;
 			int i;
 		} ec_frame_block_t;
@@ -75,7 +78,7 @@ tests = runTests [ -- {{{1
 
 		ec_frame_start_t ec_stack_start;
 
-		void block(void(*)(void*), ec_frame_block_t*);
+		void block(ec_frame_block_t*);
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -83,8 +86,9 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 				ec_stack_start.ec_frames.block.i = ec_stack_start.i;
+				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-				block(&ec_thread_1, &ec_stack_start.ec_frames.block);
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				return;	
@@ -105,6 +109,7 @@ tests = runTests [ -- {{{1
 		int k;
 
 		typedef struct {
+      void (*ec_thread)(void*);
 			void* ec_cont;
 			int i1;
 			int i2;
@@ -119,7 +124,7 @@ tests = runTests [ -- {{{1
 
 		ec_frame_start_t ec_stack_start;
 
-		void block(void(*)(void*), ec_frame_block_t*);
+		void block(ec_frame_block_t*);
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -128,8 +133,9 @@ tests = runTests [ -- {{{1
 
 				ec_stack_start.ec_frames.block.i1 = ec_stack_start.j;
 				ec_stack_start.ec_frames.block.i2 = k;
+				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-				block(&ec_thread_1, &ec_stack_start.ec_frames.block);
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				return;	
@@ -150,6 +156,7 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
+        void (*ec_thread)(void*);
 				void* ec_cont;
 				int j;
 		} ec_frame_block_t;
@@ -163,7 +170,7 @@ tests = runTests [ -- {{{1
 		
 		ec_frame_start_t ec_stack_start;
 
-		void block(void(*)(void*), ec_frame_block_t*);
+		void block(ec_frame_block_t*);
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -174,8 +181,9 @@ tests = runTests [ -- {{{1
 				while (ec_stack_start.i < 10) {
 					ec_stack_start.i++;
 					ec_stack_start.ec_frames.block.j = ec_stack_start.i;
+					ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 					ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-					block(&ec_thread_1, &ec_stack_start.ec_frames.block);
+					block(&ec_stack_start.ec_frames.block);
 					return;
 		ec_label_start_1: ;
 					ec_stack_start.i++;
@@ -208,6 +216,7 @@ tests = runTests [ -- {{{1
 		}
 
 		typedef struct {
+        void (*ec_thread)(void*);
 				void* ec_cont;
 				int b;
 		} ec_frame_block_t;
@@ -230,7 +239,7 @@ tests = runTests [ -- {{{1
 		
 		ec_frame_start_t ec_stack_start;
 
-		void block(void(*)(void*), ec_frame_block_t*);
+		void block(ec_frame_block_t*);
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -246,8 +255,9 @@ tests = runTests [ -- {{{1
 			
 			ec_label_critical_0: ;
 				ec_stack_start.ec_frames.critical.ec_frames.block.b = ec_stack_start.ec_frames.critical.c + 1;
+				ec_stack_start.ec_frames.critical.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_label_critical_1;
-				block(&ec_thread_1, &ec_stack_start.ec_frames.critical.ec_frames.block);
+				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
@@ -272,6 +282,7 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
+        void (*ec_thread)(void*);
 				void* ec_cont;
 				int b;
 		} ec_frame_block_t;
@@ -293,7 +304,7 @@ tests = runTests [ -- {{{1
 		ec_frame_run_t ec_stack_run;
 		ec_frame_start_t ec_stack_start;
 
-		void block(void(*)(void*), ec_frame_block_t*);
+		void block(ec_frame_block_t*);
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -302,8 +313,9 @@ tests = runTests [ -- {{{1
 
 				while (1) {
 				ec_stack_run.ec_frames.block.b = ec_stack_run.r;
+				ec_stack_run.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_run.ec_frames.block.ec_cont = &&ec_label_run_1;
-				block(&ec_thread_1, &ec_stack_run.ec_frames.block);
+				block(&ec_stack_run.ec_frames.block);
 				return;
 			ec_label_run_1: ;
 				}
@@ -317,8 +329,9 @@ tests = runTests [ -- {{{1
 
 				while (1) {
 				ec_stack_start.ec_frames.block.b = ec_stack_start.s;
+				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_2;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-				block(&ec_thread_2, &ec_stack_start.ec_frames.block);
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				}
@@ -342,6 +355,7 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
+        void (*ec_thread)(void*);
 				void* ec_cont;
 				int b;
 		} ec_frame_block_t;
@@ -369,7 +383,7 @@ tests = runTests [ -- {{{1
 		ec_frame_run_t ec_stack_run;
 		ec_frame_start_t ec_stack_start;
 
-		void block(void(*)(void*), ec_frame_block_t*);
+		void block(ec_frame_block_t*);
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -384,8 +398,9 @@ tests = runTests [ -- {{{1
 			
 			ec_label_critical_0: ;
 				ec_stack_run.ec_frames.critical.ec_frames.block.b = ec_stack_run.ec_frames.critical.c + 1;
+				ec_stack_run.ec_frames.critical.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_run.ec_frames.critical.ec_frames.block.ec_cont = &&ec_label_critical_1;
-				block(&ec_thread_1, &ec_stack_run.ec_frames.critical.ec_frames.block);
+				block(&ec_stack_run.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
 				goto *ec_stack_run.ec_frames.critical.ec_cont;
@@ -404,8 +419,9 @@ tests = runTests [ -- {{{1
 			
 			ec_label_critical_0: ;
 				ec_stack_start.ec_frames.critical.ec_frames.block.b = ec_stack_start.ec_frames.critical.c + 1;
+				ec_stack_start.ec_frames.critical.ec_frames.block.ec_thread = &ec_thread_2;
 				ec_stack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_label_critical_1;
-				block(&ec_thread_2, &ec_stack_start.ec_frames.critical.ec_frames.block);
+				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
@@ -422,6 +438,7 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
+      void (*ec_thread)(void*);
 			void* ec_cont;
 			int ec_result;
 			int i;
@@ -436,7 +453,7 @@ tests = runTests [ -- {{{1
 
 		ec_frame_start_t ec_stack_start;
 
-		void block(void(*)(void*), ec_frame_block_t*);
+		void block(ec_frame_block_t*);
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -444,8 +461,9 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 				ec_stack_start.ec_frames.block.i = ec_stack_start.i;
+				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-				block(&ec_thread_1, &ec_stack_start.ec_frames.block);
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
@@ -463,6 +481,7 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
+      void (*ec_thread)(void*);
 			void* ec_cont;
 			int ec_result;
 			int i;
@@ -478,7 +497,7 @@ tests = runTests [ -- {{{1
 
 		ec_frame_start_t ec_stack_start;
 
-		void block(void(*)(void*), ec_frame_block_t*);
+		void block(ec_frame_block_t*);
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -486,8 +505,9 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 				ec_stack_start.ec_frames.block.i = ec_stack_start.j;
+				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-				block(&ec_thread_1, &ec_stack_start.ec_frames.block);
+				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
@@ -504,6 +524,7 @@ tests = runTests [ -- {{{1
     }
   |],[paste|
     typedef struct {
+      void (*ec_thread)(void*);
       void* ec_cont;
       int ec_result;
       int i;
@@ -519,7 +540,7 @@ tests = runTests [ -- {{{1
 
     ec_frame_start_t ec_stack_start;
 
-    void block(void(*)(void*), ec_frame_block_t*);
+    void block(ec_frame_block_t*);
 
     void ec_thread_1(void* ec_cont) {
       if (ec_cont != NULL)
@@ -527,8 +548,9 @@ tests = runTests [ -- {{{1
 
         ec_stack_start.j = 23;
         ec_stack_start.ec_frames.block.i = ec_stack_start.j;
+        ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
         ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-        block(&ec_thread_1, &ec_stack_start.ec_frames.block);
+        block(&ec_stack_start.ec_frames.block);
         return;
       ec_label_start_1: ;
         ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
@@ -544,6 +566,7 @@ tests = runTests [ -- {{{1
     }
   |],[paste|
     typedef struct {
+      void (*ec_thread)(void*);
       void* ec_cont;
       int ec_result;
       int i;
@@ -561,15 +584,16 @@ tests = runTests [ -- {{{1
 
     ec_frame_start_t ec_stack_start;
 
-    void block(void(*)(void*), ec_frame_block_t*);
+    void block(ec_frame_block_t*);
 
     void ec_thread_1(void* ec_cont) {
       if (ec_cont != NULL)
         goto *ec_cont;
 
         ec_stack_start.ec_frames.block.i = 1;
+        ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
         ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-        block(&ec_thread_1, &ec_stack_start.ec_frames.block);
+        block(&ec_stack_start.ec_frames.block);
         return;
       ec_label_start_1: ;
         ec_stack_start.ec_tmp_0 = ec_stack_start.ec_frames.block.ec_result;
@@ -588,6 +612,7 @@ tests = runTests [ -- {{{1
     }
   |],[paste|
     typedef struct {
+      void (*ec_thread)(void*);
       void* ec_cont;
       int ec_result;
       char* c;
@@ -602,7 +627,7 @@ tests = runTests [ -- {{{1
 
     ec_frame_start_t ec_stack_start;
 
-    void block(void(*)(void*), ec_frame_block_t*);
+    void block(ec_frame_block_t*);
 
     void ec_thread_1(void* ec_cont) {
       if (ec_cont != NULL)
@@ -610,8 +635,9 @@ tests = runTests [ -- {{{1
 
         ec_stack_start.i = 0;
         ec_stack_start.ec_frames.block.c = (char*)&ec_stack_start.i;
+        ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
         ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-        block(&ec_thread_1, &ec_stack_start.ec_frames.block);
+        block(&ec_stack_start.ec_frames.block);
         return;
       ec_label_start_1: ;
         return;

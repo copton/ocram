@@ -29,21 +29,11 @@ addBlockingFunctionDecls cg (CTranslUnit ds ni) = return $ CTranslUnit (ds ++ ex
       declr = CDeclr iden fdeclr Nothing [] un
       iden = Just (ident fName)
       fName = symbol cd
-      fdeclr = [CFunDeclr (Right ([param1, param2], False)) [] un]
-      param1 = CDecl ts [(Just declr, Nothing, Nothing)] un
-        where
-        ts = [CTypeSpec (CVoidType un)]
-        declr = CDeclr Nothing [CPtrDeclr [] un, fdeclr] Nothing [] un
-        fdeclr = CFunDeclr (Right ([param1], False)) [] un
-        param1 = CDecl ts [(Just declr, Nothing, Nothing)] un
-          where
-          ts = [CTypeSpec (CVoidType un)]
-          declr = CDeclr Nothing [CPtrDeclr [] un] Nothing [] un
-      param2 = CDecl ts [(Just declr, Nothing, Nothing)] un
+      fdeclr = [CFunDeclr (Right ([param], False)) [] un]
+      param = CDecl ts [(Just declr, Nothing, Nothing)] un
         where
         ts = [CTypeSpec (CTypeDef (ident (frameType fName)) un)]
         declr = CDeclr Nothing [CPtrDeclr [] un] Nothing [] un
-        
 
 removeCriticalFunctions :: Transformation -- {{{1
 removeCriticalFunctions cg (CTranslUnit ds ni) = return (CTranslUnit (foldr proc [] ds) ni)

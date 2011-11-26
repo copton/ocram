@@ -20,6 +20,10 @@ threadExecutionFunction tid = "ec_thread_" ++ show tid
 frameType :: String -> String
 frameType fName = "ec_frame_" ++ fName ++ "_t"
 
+-- name of the pointer to the calling thread
+threadPointer :: String
+threadPointer = "ec_thread"
+
 -- name of the union variable that holds all nested frames
 frameUnion :: String
 frameUnion = "ec_frames"

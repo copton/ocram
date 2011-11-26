@@ -9,6 +9,4 @@
 #define TC_BLOCKING
 #endif
 
-typedef void (*ThreadExecutionFunction)(void*);
-
 #endif

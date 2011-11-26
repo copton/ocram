@@ -107,18 +107,23 @@ inlineCriticalFunction cg ast tid startFunction (isThreadStartFunction, inlinedF
 
     criticalFunctionCallSequence :: Symbol -> Int -> [CExpr] -> Maybe CExpr -> [CBlockItem] -- {{{3
     criticalFunctionCallSequence calledFunction lblIdx params resultLhs =
-      parameters ++ continuation : callExp : returnExp ?: lbl' : resultExp ?: []
+      parameters ++ continuation' ?: continuation : callExp : returnExp ?: lbl' : resultExp ?: []
       where
         callChain' = callChain ++ [calledFunction]
         blocking = is_blocking cg calledFunction
         parameters = zipWith createParamAssign params $ $fromJust_s $ function_parameters ast calledFunction
-        continuation = CBlockStmt (CExpr (Just (CAssign CAssignOp (stackAccess callChain' (Just contVar)) (CLabAddrExpr (ident $ label inlinedFunction lblIdx) un) un)) un)
+        continuation = createAssign (stackAccess callChain' (Just contVar)) (CLabAddrExpr (ident $ label inlinedFunction lblIdx) un)
+
         lbl' = createLabel inlinedFunction lblIdx
         resultExp = fmap assignResult resultLhs
         assignResult lhs = createAssign lhs (stackAccess callChain' (Just resVar))
 
+        continuation'
+          | blocking = Just $ createAssign (stackAccess callChain' (Just (symbol threadPointer))) (CUnary CAdrOp (CVar (ident (threadExecutionFunction tid)) un) un)
+          | otherwise = Nothing
+
         callExp = CBlockStmt $ if blocking
-          then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (CVar (ident (threadExecutionFunction tid)) un) un, CUnary CAdrOp (stackAccess callChain' Nothing) un] un)) un
+          then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain' Nothing) un] un)) un
           else CGoto (ident $ label calledFunction 0) un
 
         returnExp = if blocking

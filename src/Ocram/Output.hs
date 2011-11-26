@@ -15,7 +15,7 @@ import Language.C (pretty)
 pretty_print :: Options -> Ast -> IO ()
 pretty_print options ast = do
   let file = optOutput options
-  let prelude = "#include <stddef.h>\n"
+  let prelude = "#include <stddef.h>\n#include \"os/pal.h\"\n"
   let code = show $ pretty ast 
   let main = "int main() { return 0; }"
 --  write file $ prelude ++ code ++ "\n" ++ main
