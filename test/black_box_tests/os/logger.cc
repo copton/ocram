@@ -15,6 +15,7 @@ void Logger::init()
         std::cerr << "warning: using default log file '" << filename << "'. Set EC_LOG_FILE environment variable to overwrite." << std::endl;
     } else {
         filename = logFile;
+        std::cerr << "info: using EC_LOG_FILE " << filename << std::endl;
     }
     instance = new Logger(filename);
 }

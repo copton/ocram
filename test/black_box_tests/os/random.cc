@@ -16,7 +16,7 @@ Random::Random()
         seed = 0;
     } else {
         seed = strtol(seedstr, NULL, 10);
-		cerr << "info: using seed " << seed;
+		cerr << "info: using EC_RANDOM_SEED " << seed << endl;
     }
     srand(seed);
 }
