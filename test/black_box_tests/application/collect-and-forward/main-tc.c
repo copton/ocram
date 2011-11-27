@@ -8,9 +8,9 @@ int main()
 {
     tc_init();
 
-	tc_run_thread(&task_send);
-    tc_run_thread(&task_receive);
     tc_run_thread(&task_collect);
+    tc_run_thread(&task_receive);
+	tc_run_thread(&task_send);
 
     tc_run();
 
