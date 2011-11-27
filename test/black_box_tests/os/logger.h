@@ -51,6 +51,18 @@ private:
     void operator=(const LogLine&);
 };
 
+class LogContext {
+public:
+    LogContext(const std::string& syscall);
+    LogLine logCall();
+    LogLine logReturn();
+
+private:
+    const std::string syscall;
+    const int count;
+    static int counter;
+};
+
 template<class T>
 class Array {
 public:

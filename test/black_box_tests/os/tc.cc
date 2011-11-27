@@ -98,37 +98,21 @@ void tc_run()
     }
 }
 
-class DefaultContext {
+class DefaultContext : public LogContext {
 public:
-    DefaultContext(const std::string& name) : 
-        name(name),
-        count(counter++)
+    DefaultContext(const std::string& syscall) : 
+        LogContext(syscall)
     { }
+
+    LogLine logReturn()
+    {
+        return LogContext::logReturn()(result);
+    }
 
     // wait for completion of specific syscall
     Condition condition;
     error_t result;  
-
-    std::string name;
-    static int counter;
-    const int count;
-
-    LogLine logCall()
-    {
-        LogLine line;
-        return line(os_now())("->")(count)(name);
-    }
-
-    LogLine logReturn()
-    {
-        LogLine line;
-        return line(os_now())("<-")(count)(name)(result);
-    }
-
-    virtual ~DefaultContext() { }
 };
-
-int DefaultContext::counter = 0;
 
 // called by ec core
 void defaultCallback(void* ctx, error_t result)

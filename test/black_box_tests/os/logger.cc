@@ -1,4 +1,5 @@
 #include "logger.h"
+#include "common.h"
 
 #include <iostream>
 #include <stdlib.h>
@@ -57,3 +58,22 @@ LogLine::~LogLine()
         delete line;
     }
 }
+
+LogContext::LogContext(const std::string& syscall) :
+    syscall(syscall),
+    count(counter++)
+{ }
+
+LogLine LogContext::logCall()
+{
+    LogLine line;
+    return line(os_now())("->")(count)(syscall);
+}
+
+LogLine LogContext::logReturn()
+{
+    LogLine line;
+    return line(os_now())("<-")(count)(syscall);
+}
+
+int LogContext::counter = 0;
