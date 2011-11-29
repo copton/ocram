@@ -1,0 +1,9 @@
+*.log
+symbols.c
+symbols.h
+echo-server.cooja
+obj_*/
+se/
+*.a
+*.sky
+*.map
