@@ -57,7 +57,6 @@ Executable ocram
     Ocram.Query
     Ocram.Symbols
     Ocram.Transformation.Inline
-    Ocram.Transformation.Inline.AddMain
     Ocram.Transformation.Inline.CriticalFunctions
     Ocram.Transformation.Inline.Names
     Ocram.Transformation.Inline.Normalize

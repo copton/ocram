@@ -7,7 +7,9 @@
 extern "C" {
 #endif
 
-void pal_init();
+typedef void (*thread_t)(void*);
+void pal_init(int);
+void pal_start_thread(thread_t);
 void pal_run();
 
 typedef struct {

@@ -24,7 +24,6 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
-        void (*ec_thread)(void*);
 				void* ec_cont;
 				int i;
 		} ec_frame_block_t;
@@ -45,14 +44,13 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 				ec_stack_start.ec_frames.block.i = 23;
-				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				return;	
 		}
-	|] ++ trailer 1)
+	|])
 -- local variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i);
@@ -64,7 +62,6 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
-      void (*ec_thread)(void*);
 			void* ec_cont;
 			int i;
 		} ec_frame_block_t;
@@ -86,14 +83,13 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 				ec_stack_start.ec_frames.block.i = ec_stack_start.i;
-				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				return;	
 		}
-	|] ++ trailer 1)
+	|])
 -- global variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i1, int i2);
@@ -109,7 +105,6 @@ tests = runTests [ -- {{{1
 		int k;
 
 		typedef struct {
-      void (*ec_thread)(void*);
 			void* ec_cont;
 			int i1;
 			int i2;
@@ -133,14 +128,13 @@ tests = runTests [ -- {{{1
 
 				ec_stack_start.ec_frames.block.i1 = ec_stack_start.j;
 				ec_stack_start.ec_frames.block.i2 = k;
-				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
 				return;	
 		}
-	|] ++ trailer 1)
+	|])
 -- loop {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int j);
@@ -156,7 +150,6 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
-        void (*ec_thread)(void*);
 				void* ec_cont;
 				int j;
 		} ec_frame_block_t;
@@ -181,7 +174,6 @@ tests = runTests [ -- {{{1
 				while (ec_stack_start.i < 10) {
 					ec_stack_start.i++;
 					ec_stack_start.ec_frames.block.j = ec_stack_start.i;
-					ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 					ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 					block(&ec_stack_start.ec_frames.block);
 					return;
@@ -191,7 +183,7 @@ tests = runTests [ -- {{{1
 				ec_stack_start.i = 0;
 				return;	
 		}
-	|] ++ trailer 1)
+	|])
 -- critical function {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -216,7 +208,6 @@ tests = runTests [ -- {{{1
 		}
 
 		typedef struct {
-        void (*ec_thread)(void*);
 				void* ec_cont;
 				int b;
 		} ec_frame_block_t;
@@ -255,14 +246,13 @@ tests = runTests [ -- {{{1
 			
 			ec_label_critical_0: ;
 				ec_stack_start.ec_frames.critical.ec_frames.block.b = ec_stack_start.ec_frames.critical.c + 1;
-				ec_stack_start.ec_frames.critical.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_label_critical_1;
 				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
-	|] ++ trailer 1)
+	|])
 -- two threads {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -282,7 +272,6 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
-        void (*ec_thread)(void*);
 				void* ec_cont;
 				int b;
 		} ec_frame_block_t;
@@ -313,7 +302,6 @@ tests = runTests [ -- {{{1
 
 				while (1) {
 				ec_stack_run.ec_frames.block.b = ec_stack_run.r;
-				ec_stack_run.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_run.ec_frames.block.ec_cont = &&ec_label_run_1;
 				block(&ec_stack_run.ec_frames.block);
 				return;
@@ -329,7 +317,6 @@ tests = runTests [ -- {{{1
 
 				while (1) {
 				ec_stack_start.ec_frames.block.b = ec_stack_start.s;
-				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_2;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 				block(&ec_stack_start.ec_frames.block);
 				return;
@@ -337,7 +324,7 @@ tests = runTests [ -- {{{1
 				}
 				return;	
 		}
-	|] ++ trailer 2)
+	|])
 -- reentrance {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -355,7 +342,6 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
-        void (*ec_thread)(void*);
 				void* ec_cont;
 				int b;
 		} ec_frame_block_t;
@@ -398,7 +384,6 @@ tests = runTests [ -- {{{1
 			
 			ec_label_critical_0: ;
 				ec_stack_run.ec_frames.critical.ec_frames.block.b = ec_stack_run.ec_frames.critical.c + 1;
-				ec_stack_run.ec_frames.critical.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_run.ec_frames.critical.ec_frames.block.ec_cont = &&ec_label_critical_1;
 				block(&ec_stack_run.ec_frames.critical.ec_frames.block);
 				return;
@@ -419,14 +404,13 @@ tests = runTests [ -- {{{1
 			
 			ec_label_critical_0: ;
 				ec_stack_start.ec_frames.critical.ec_frames.block.b = ec_stack_start.ec_frames.critical.c + 1;
-				ec_stack_start.ec_frames.critical.ec_frames.block.ec_thread = &ec_thread_2;
 				ec_stack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_label_critical_1;
 				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
-	|] ++ trailer 2)
+	|])
 -- return value {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) int block(int i);
@@ -438,7 +422,6 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
-      void (*ec_thread)(void*);
 			void* ec_cont;
 			int ec_result;
 			int i;
@@ -461,7 +444,6 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 				ec_stack_start.ec_frames.block.i = ec_stack_start.i;
-				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 				block(&ec_stack_start.ec_frames.block);
 				return;
@@ -469,7 +451,7 @@ tests = runTests [ -- {{{1
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-	|] ++ trailer 1)
+	|])
 -- multiple declarations {{{2
   , ([paste|
 		__attribute__((tc_blocking)) int block(int i);
@@ -481,7 +463,6 @@ tests = runTests [ -- {{{1
 		}
 	|],[paste|
 		typedef struct {
-      void (*ec_thread)(void*);
 			void* ec_cont;
 			int ec_result;
 			int i;
@@ -505,7 +486,6 @@ tests = runTests [ -- {{{1
 				goto *ec_cont;
 
 				ec_stack_start.ec_frames.block.i = ec_stack_start.j;
-				ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 				block(&ec_stack_start.ec_frames.block);
 				return;
@@ -513,7 +493,7 @@ tests = runTests [ -- {{{1
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-  |] ++ trailer 1)
+  |])
 -- multiple declarations with initialization {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(int i);
@@ -524,7 +504,6 @@ tests = runTests [ -- {{{1
     }
   |],[paste|
     typedef struct {
-      void (*ec_thread)(void*);
       void* ec_cont;
       int ec_result;
       int i;
@@ -548,7 +527,6 @@ tests = runTests [ -- {{{1
 
         ec_stack_start.j = 23;
         ec_stack_start.ec_frames.block.i = ec_stack_start.j;
-        ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
         ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
         block(&ec_stack_start.ec_frames.block);
         return;
@@ -556,7 +534,7 @@ tests = runTests [ -- {{{1
         ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
         return;
     }
-    |] ++ trailer 1)
+    |])
 -- multiple declarations with critical initialization {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(int i);
@@ -566,7 +544,6 @@ tests = runTests [ -- {{{1
     }
   |],[paste|
     typedef struct {
-      void (*ec_thread)(void*);
       void* ec_cont;
       int ec_result;
       int i;
@@ -591,7 +568,6 @@ tests = runTests [ -- {{{1
         goto *ec_cont;
 
         ec_stack_start.ec_frames.block.i = 1;
-        ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
         ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
         block(&ec_stack_start.ec_frames.block);
         return;
@@ -601,7 +577,7 @@ tests = runTests [ -- {{{1
         ec_stack_start.k = 23;
         return;
     }
-  |] ++ trailer 1)
+  |])
 -- cast operator {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(char* c);
@@ -612,7 +588,6 @@ tests = runTests [ -- {{{1
     }
   |],[paste|
     typedef struct {
-      void (*ec_thread)(void*);
       void* ec_cont;
       int ec_result;
       char* c;
@@ -635,14 +610,13 @@ tests = runTests [ -- {{{1
 
         ec_stack_start.i = 0;
         ec_stack_start.ec_frames.block.c = (char*)&ec_stack_start.i;
-        ec_stack_start.ec_frames.block.ec_thread = &ec_thread_1;
         ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
         block(&ec_stack_start.ec_frames.block);
         return;
       ec_label_start_1: ;
         return;
     }
-    |] ++ trailer 1)
+    |])
 	]
 
 runTests :: [(String, String)] -> Test -- {{{2
@@ -659,11 +633,3 @@ runTests cases = TestLabel "Inline" $ TestList $ map runTest cases
           in
             expected' @=? result
 
-trailer :: Int -> String -- {{{2
-trailer n  = 
-     "void pal_init(); void pal_run(); int main() { pal_init();"
-  ++ concatMap initThread [1..n]
-  ++ "pal_run(); return 0; }"
-  where
-  initThread x = "ec_thread_" ++ show x ++ "(NULL);"
-    

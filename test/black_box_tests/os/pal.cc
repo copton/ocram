@@ -1,11 +1,23 @@
+#include <stdlib.h>
 #include "pal.h"
 #include "core.h"
 #include "logger.h"
 
-void pal_init()
+static int ctid = -1;
+static thread_t* threads;
+
+void pal_init(int numberOfThreads)
 {
+    threads = (thread_t*)malloc(numberOfThreads * sizeof(thread_t));
     os_init();
     Logger::init();
+}
+
+void pal_start_thread(thread_t thread)
+{
+    ++ctid;
+    threads[ctid] = thread;
+    thread(NULL);
 }
 
 void pal_run()
@@ -17,22 +29,26 @@ class Context : public LogContext {
 public:
     Context(const std::string& syscall, void* frame) :
         LogContext(syscall),
-        frame(frame)
+        frame(frame),
+        tid(ctid)
     { }
 
     void* frame;
+    const int tid;
 };
+
+#define RETURN_FROM_SYSCALL \
+    ctid = ctx->tid; \
+    delete ctx; \
+    frame->ec_result = result; \
+    threads[ctid](frame->ec_cont);
 
 static void sleep_cb(void* context, error_t result)
 {
     Context* ctx = (Context*) context;
     ec_frame_tc_sleep_t* frame = (ec_frame_tc_sleep_t*) ctx->frame;
-
     ctx->logReturn()(result);
-    delete ctx;
-
-	frame->ec_result = result;
-	frame->ec_thread(frame->ec_cont);	
+    RETURN_FROM_SYSCALL;
 }
 
 void tc_sleep(ec_frame_tc_sleep_t * frame)
@@ -46,13 +62,9 @@ static void receive_cb(void* context, error_t result, size_t len)
 {
     Context* ctx = (Context*) context;
 	ec_frame_tc_receive_t* frame = (ec_frame_tc_receive_t*) ctx->frame;
-
     ctx->logReturn()(result)(array(frame->buffer, len));
-    delete ctx;
-
-	frame->ec_result = result;
 	*(frame->len) = len;
-	frame->ec_thread(frame->ec_cont);
+    RETURN_FROM_SYSCALL;
 }
 
 void tc_receive(ec_frame_tc_receive_t * frame)
@@ -66,12 +78,8 @@ static void send_cb(void* context, error_t result)
 {
     Context* ctx = (Context*) context;
 	ec_frame_tc_send_t* frame = (ec_frame_tc_send_t*) ctx->frame;
-
     ctx->logReturn()(result);
-    delete ctx;
-
-	frame->ec_result = result;
-	frame->ec_thread(frame->ec_cont);
+    RETURN_FROM_SYSCALL;
 }
 
 void tc_send(ec_frame_tc_send_t * frame)
@@ -85,13 +93,9 @@ static void flash_read_cb(void* context, error_t result, size_t len)
 {
     Context* ctx = (Context*) context;
 	ec_frame_tc_flash_read_t* frame = (ec_frame_tc_flash_read_t*) ctx->frame;
-
     ctx->logReturn()(result)(array(frame->buffer, len));
-    delete ctx;
-
-	frame->ec_result = result;
     *(frame->len) = len;
-	frame->ec_thread(frame->ec_cont);
+    RETURN_FROM_SYSCALL;
 }
 
 void tc_flash_read(ec_frame_tc_flash_read_t* frame)
@@ -105,13 +109,10 @@ static void flash_write_cb(void* context, error_t result)
 {
     Context* ctx = (Context*) context;
 	ec_frame_tc_flash_write_t* frame = (ec_frame_tc_flash_write_t*) ctx->frame;
-
     ctx->logReturn()(result);
-    delete ctx;
-
-	frame->ec_result = result;
-	frame->ec_thread(frame->ec_cont);
+    RETURN_FROM_SYSCALL;
 }
+
 
 void tc_flash_write(ec_frame_tc_flash_write_t * frame)
 {
@@ -124,13 +125,9 @@ static void sensor_read_cb(void* context, error_t result, sensor_val_t value)
 {
     Context* ctx = (Context*) context;
 	ec_frame_tc_sensor_read_t* frame = (ec_frame_tc_sensor_read_t*) ctx->frame;
-
     ctx->logReturn()(result)(value);
-    delete ctx;
-
 	*(frame->value) = value;
-    frame->ec_result = result;
-	frame->ec_thread(frame->ec_cont);
+    RETURN_FROM_SYSCALL;
 }
 
 void tc_sensor_read(ec_frame_tc_sensor_read_t * frame)

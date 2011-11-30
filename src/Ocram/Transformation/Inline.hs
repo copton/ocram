@@ -7,7 +7,6 @@ module Ocram.Transformation.Inline
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
 import Ocram.Analysis (CallGraph)
-import Ocram.Transformation.Inline.AddMain (addMain)
 import Ocram.Transformation.Inline.CriticalFunctions (addBlockingFunctionDecls, removeCriticalFunctions)
 import Ocram.Transformation.Inline.Normalize (normalize)
 import Ocram.Transformation.Inline.ThreadFunction (addThreadFunctions)
@@ -28,4 +27,3 @@ transformation' cg ast = return ast
   >>= addBlockingFunctionDecls cg
   >>= addThreadFunctions cg
   >>= removeCriticalFunctions cg
-  >>= addMain cg
