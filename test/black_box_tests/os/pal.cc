@@ -1,16 +1,16 @@
 #include "pal.h"
-#include "ec.h"
+#include "core.h"
 #include "logger.h"
 
 void pal_init()
 {
-    ec_init();
+    os_init();
     Logger::init();
 }
 
 void pal_run()
 {
-    ec_run();
+    os_run();
 }
 
 class Context : public LogContext {
@@ -39,7 +39,7 @@ void tc_sleep(ec_frame_tc_sleep_t * frame)
 {
     Context* ctx = new Context("sleep", frame);
     ctx->logCall()(frame->ms);
-	ec_sleep(&sleep_cb, ctx, frame->ms);
+	os_sleep(&sleep_cb, ctx, frame->ms);
 }
 
 static void receive_cb(void* context, error_t result, size_t len)
@@ -59,7 +59,7 @@ void tc_receive(ec_frame_tc_receive_t * frame)
 {
     Context* ctx = new Context("receive", frame);
     ctx->logCall()(frame->handle)(frame->buflen);
-	ec_receive(&receive_cb, ctx, frame->handle, frame->buffer, frame->buflen);
+	os_receive(&receive_cb, ctx, frame->handle, frame->buffer, frame->buflen);
 }
 
 static void send_cb(void* context, error_t result)
@@ -78,7 +78,7 @@ void tc_send(ec_frame_tc_send_t * frame)
 {
     Context* ctx = new Context("send", frame);
     ctx->logCall()(frame->handle)(array(frame->buffer, frame->len));
-	ec_send(&send_cb, ctx, frame->handle, frame->buffer, frame->len);
+	os_send(&send_cb, ctx, frame->handle, frame->buffer, frame->len);
 }
 
 static void flash_read_cb(void* context, error_t result, size_t len)
@@ -98,7 +98,7 @@ void tc_flash_read(ec_frame_tc_flash_read_t* frame)
 {
     Context* ctx = new Context("flash_read", frame);
     ctx->logCall()(frame->handle)(frame->buflen);
-	ec_flash_read(&flash_read_cb, ctx, frame->handle, frame->buffer, frame->buflen);
+    os_flash_read(&flash_read_cb, ctx, frame->handle, frame->buffer, frame->buflen);
 }
 
 static void flash_write_cb(void* context, error_t result)
@@ -117,7 +117,7 @@ void tc_flash_write(ec_frame_tc_flash_write_t * frame)
 {
     Context* ctx = new Context("flash_write", frame);
     ctx->logCall()(frame->handle)(array(frame->buffer, frame->len));
-	ec_flash_write(&flash_write_cb, ctx, frame->handle, frame->buffer, frame->len);
+	os_flash_write(&flash_write_cb, ctx, frame->handle, frame->buffer, frame->len);
 }
 
 static void sensor_read_cb(void* context, error_t result, sensor_val_t value)
@@ -137,5 +137,5 @@ void tc_sensor_read(ec_frame_tc_sensor_read_t * frame)
 {
     Context* ctx = new Context("sensor_read", frame);
     ctx->logCall()(frame->handle);
-	ec_sensor_read(&sensor_read_cb, ctx, frame->handle);
+	os_sensor_read(&sensor_read_cb, ctx, frame->handle);
 }

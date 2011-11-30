@@ -1,4 +1,4 @@
-#include "ec.h"
+#include "core.h"
 #include "dispatcher.h"
 #include "random.h"
 #include "logger.h"
@@ -10,12 +10,12 @@
 #include <utility>
 #include <iostream>
 
-void ec_init()
+void os_init()
 {
     Dispatcher::init();
 }
 
-void ec_run()
+void os_run()
 {
     Dispatcher::instance->run();
 }
@@ -118,14 +118,14 @@ template<class CB, class T1, class T2, class T3> Syscall3<CB, T1, T2, T3>* sysca
 }
 
 // ec syscall implementation //
-void ec_sleep(DefaultCallback cb, void* ctx, uint32_t ms)
+void os_sleep(DefaultCallback cb, void* ctx, uint32_t ms)
 {
     const error_t error = rnd.error();
 
     Dispatcher::instance->enqueue(ms, syscall2(cb, ctx, error));
 }
 
-void ec_receive(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, size_t buflen)
+void os_receive(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, size_t buflen)
 {
     const error_t error = rnd.error();
     const uint32_t len = rnd.integer(1, buflen);
@@ -135,7 +135,7 @@ void ec_receive(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, size
     Dispatcher::instance->enqueue(eta, syscall3(cb, ctx, error, len));
 }
 
-void ec_send(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, size_t len)
+void os_send(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, size_t len)
 {
     const error_t error = rnd.error();
     const uint32_t eta = rnd.integer(1, 5); // TODO find a good value
@@ -143,7 +143,7 @@ void ec_send(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, size_t 
     Dispatcher::instance->enqueue(eta, syscall2(cb, ctx, error));
 }
 
-void ec_flash_read(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, size_t buflen)
+void os_flash_read(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, size_t buflen)
 {
     size_t len;
     const error_t error = flashFileSystem.resolve(handle).read(buffer, buflen, &len);
@@ -152,7 +152,7 @@ void ec_flash_read(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, s
     Dispatcher::instance->enqueue(eta, syscall3(cb, ctx, error, len));
 }
 
-void ec_flash_write(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, size_t len)
+void os_flash_write(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, size_t len)
 {
     const error_t error = flashFileSystem.resolve(handle).write(buffer, len);
     const uint32_t eta = rnd.integer(1, 7); // TODO find a good value
@@ -160,7 +160,7 @@ void ec_flash_write(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, 
     Dispatcher::instance->enqueue(eta, syscall2(cb, ctx, error));
 }
 
-void ec_sensor_read(SensorReadCallback cb, void* ctx, int handle)
+void os_sensor_read(SensorReadCallback cb, void* ctx, int handle)
 {
     const error_t error = rnd.error();
     const sensor_val_t value = rnd.integer(100);

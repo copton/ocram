@@ -1,6 +1,6 @@
 include ../config.mk
 
-TARGETS = dispatcher.o logger.o random.o file.o ec.o pal.o tc.o libos.a libtc.a libec.a
+TARGETS = dispatcher.o logger.o random.o file.o core.o pal.o tc.o libos.a libtc.a libpal.a
 
 all: $(TARGETS)
 
@@ -10,7 +10,7 @@ clean:
 	rm -f $(TARGETS)
 	rm -f depend.mak
 
-libos.a: dispatcher.o logger.o random.o file.o ec.o
+libos.a: dispatcher.o logger.o random.o file.o core.o
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
@@ -18,7 +18,7 @@ libtc.a: tc.o
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-libec.a: pal.o
+libpal.a: pal.o
 	$(AR) r $@ $^
 	$(RANLIB) $@
 

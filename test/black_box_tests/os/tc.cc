@@ -1,5 +1,5 @@
 #include "tc.h"
-#include "ec.h"
+#include "core.h"
 #include "logger.h"
 #include <pthread.h>
 #include <assert.h>
@@ -44,7 +44,7 @@ private:
 // all posix threads share this mutex and this condition to implement cooperative TC threads
 Condition condition;
 
-// there is one posix thread running the ec layer and one posix thread per TC thread
+// there is one posix thread running the core and one posix thread per TC thread
 // this vector only manages the TC threads
 std::vector<pthread_t*> threads;
 
@@ -53,7 +53,7 @@ void tc_init()
     assert (threads.empty());
 
     Logger::init();
-    ec_init();
+    os_init();
 
     pthread_mutex_lock(&mutex);
 }
@@ -65,7 +65,7 @@ void tc_run_thread(void(*thread_start_function)())
     pthread_t* thread = new pthread_t();
     threads.push_back(thread);
     pthread_create(thread, 0, run_thread, (void*)thread_start_function);
-    // let the TC thread hit the first yield point before spawning new threads or entering the ec core
+    // let the TC thread hit the first yield point before spawning new threads or entering the core
     condition.wait();
 }
 
@@ -90,7 +90,7 @@ static void* run_thread(void* ctx)
 
 void tc_run()
 {
-    ec_run();
+    os_run();
     pthread_mutex_unlock(&mutex);
     for (size_t i=0; i<threads.size(); ++i) {
         pthread_cancel(*threads[i]);
@@ -114,14 +114,14 @@ public:
     error_t result;  
 };
 
-// called by ec core
+// called by core
 void defaultCallback(void* ctx, error_t result)
 {
     DefaultContext* context = (DefaultContext*) ctx;
     context->result = result;
     // let the blocking TC thread continue
     context->condition.signal();
-    // wait for next syscall before resuming ec core
+    // wait for next syscall before resuming core
     condition.wait();
 }
 
@@ -129,7 +129,7 @@ error_t tc_sleep(uint32_t ms)
 {
     DefaultContext ctx("sleep");
     ctx.logCall()(ms);
-    ec_sleep(&defaultCallback, &ctx, ms);  
+    os_sleep(&defaultCallback, &ctx, ms);  
     condition.signal();
     ctx.condition.wait();
     ctx.logReturn();
@@ -152,7 +152,7 @@ error_t tc_receive(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
     ReceiveContext ctx("receive");
     ctx.logCall()(handle)(buflen);
-    ec_receive(&receiveCallback, &ctx, handle, buffer, buflen);
+    os_receive(&receiveCallback, &ctx, handle, buffer, buflen);
     condition.signal();
     ctx.condition.wait();
     *len = ctx.len;
@@ -164,7 +164,7 @@ error_t tc_send(int handle, uint8_t* buffer, size_t len)
 {
     DefaultContext ctx("send");
     ctx.logCall()(handle)(array(buffer, len));
-    ec_send(&defaultCallback, &ctx, handle, buffer, len);
+    os_send(&defaultCallback, &ctx, handle, buffer, len);
     condition.signal();
     ctx.condition.wait();
     ctx.logReturn();
@@ -175,7 +175,7 @@ error_t tc_flash_read(int handle, uint8_t* buffer, size_t buflen, size_t* len)
 {
     ReceiveContext ctx("flash_read");
     ctx.logCall()(handle)(buflen);
-    ec_flash_read(&receiveCallback, &ctx, handle, buffer, buflen);
+    os_flash_read(&receiveCallback, &ctx, handle, buffer, buflen);
     condition.signal();
     ctx.condition.wait();
     *len = ctx.len;
@@ -187,7 +187,7 @@ error_t tc_flash_write(int handle, uint8_t* buffer, size_t len)
 {
     DefaultContext ctx("flash_write");
     ctx.logCall()(handle)(array(buffer, len));
-    ec_flash_write(&defaultCallback, &ctx, handle, buffer, len);
+    os_flash_write(&defaultCallback, &ctx, handle, buffer, len);
     condition.signal();
     ctx.condition.wait();
     ctx.logReturn();
@@ -210,7 +210,7 @@ error_t tc_sensor_read(int handle, sensor_val_t* value)
 {
     SensorReadContext ctx("sensor_read");
     ctx.logCall()(handle);
-    ec_sensor_read(&callbackSensorRead, &ctx, handle);
+    os_sensor_read(&callbackSensorRead, &ctx, handle);
     condition.signal();
     ctx.condition.wait();
     *value = ctx.value;
