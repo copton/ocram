@@ -1,21 +1,24 @@
 include ../../config.mk
 
-.PHONY: all clean
+.PHONY: all clean test
 
-all: tc.elf ec.elf native.elf
+all: tc.exe ec.exe native.exe
 
 clean:
-	rm -f *.elf ec.c *.o
+	rm -f *.exe ec.c *.o
+
+test:
+	./run-test.sh
 
 OCRAM=../../../../cabal-dev/bin/ocram
 
-tc.elf: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
+tc.exe: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
 	$(CPPC) $(CCFLAGS) -o $@ $^ -lpthread
 
-ec.elf: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
+ec.exe: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
 	$(CPPC) $(CCFLAGS) -o $@ $^
 
-native.elf: native.o ../../os/libos.a
+native.exe: native.o ../../os/libos.a
 	$(CPPC) $(CCFLAGS) -o $@ $^
 
 ec.c: tc.c $(OCRAM) ../../os/pal.h

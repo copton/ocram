@@ -25,6 +25,7 @@ typedef struct {
     int sensor;
     int log;
     unsigned dt;
+    uint32_t now;
     sensor_val_t value;
 } CollectContext;
 
@@ -40,6 +41,7 @@ typedef struct {
     int log2;
     int socket;
     unsigned dt;
+    uint32_t now;
     int min;
     int max;
     int state;
@@ -70,10 +72,12 @@ void sleepDone(void* ctx, error_t result)
     switch (genericCtx->task) {
         case COLLECT: {
             CollectContext* taskCtx = (CollectContext*) genericCtx->taskCtx;
+            taskCtx->now += taskCtx->dt;
             os_sensor_read(&sensorReadDone, ctx, taskCtx->sensor); 
         } break;
         case SEND: {
             SendContext* taskCtx = (SendContext*) genericCtx->taskCtx;
+            taskCtx->now += taskCtx->dt;
             taskCtx->min = 0x7FFFFFFF;
             taskCtx->max = 0xFFFFFFFF;
             taskCtx->state = 1;
@@ -109,7 +113,7 @@ void sendDone(void* ctx, error_t result)
             if (result != SUCCESS) {
                 os_send(&sendDone, ctx, taskCtx->socket, taskCtx->payload, sizeof(taskCtx->payload));
             } else {
-                os_sleep(&sleepDone, ctx, taskCtx->dt);
+                os_sleep(&sleepDone, ctx, taskCtx->now + taskCtx->dt);
             }
        } break;
         default: assert(0);
@@ -154,7 +158,7 @@ void flashWriteDone(void* ctx, error_t result)
             if (result != SUCCESS) {
                 os_flash_write(&flashWriteDone, ctx, taskCtx->log, (uint8_t*)&taskCtx->value, sizeof(sensor_val_t));
             } else {
-                os_sleep(&sleepDone, ctx, taskCtx->dt);
+                os_sleep(&sleepDone, ctx, taskCtx->now + taskCtx->dt);
             }
         } break;
         case RECEIVE: {
@@ -179,8 +183,9 @@ void collectInit(const char* device, const char* file, unsigned dt)
     taskCtx->dt = dt;
     taskCtx->sensor = os_sensor_open(device);
     taskCtx->log = os_flash_open(file, WRITE);
+    taskCtx->now = os_now();
 
-    os_sleep(&sleepDone, genericCtx, taskCtx->dt);
+    os_sleep(&sleepDone, genericCtx, taskCtx->now + taskCtx->dt);
 }
 
 void receiveInit(const char* channel, const char* file)
@@ -206,7 +211,8 @@ void sendInit(const char* channel, const char* file1, const char* file2, unsigne
     taskCtx->log2 = os_flash_open(file2, READ);
     taskCtx->socket = os_connect(channel);
     taskCtx->dt = dt;
-    os_sleep(&sleepDone, genericCtx, taskCtx->dt);
+    taskCtx->now = os_now();
+    os_sleep(&sleepDone, genericCtx, taskCtx->now + taskCtx->dt);
 }
 
 int main()
