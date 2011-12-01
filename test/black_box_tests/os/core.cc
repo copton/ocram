@@ -5,14 +5,20 @@
 #include "file.h"
 
 #include <assert.h>
+#include <stdarg.h>
+#include <stdlib.h>
 
 #include <map>
 #include <utility>
 #include <iostream>
 
+bool logCore;
+
 void os_init()
 {
+    logCore = getenv("EC_LOG_CORE") != NULL;
     Dispatcher::init();
+    Logger::init();
 }
 
 void os_run()
@@ -122,6 +128,7 @@ void os_sleep(DefaultCallback cb, void* ctx, uint32_t ms)
 {
     const error_t error = rnd.error();
 
+    if (logCore) LogContext("sleep").logCall()(ms);
     Dispatcher::instance->enqueue(ms, syscall2(cb, ctx, error));
 }
 
@@ -132,6 +139,7 @@ void os_receive(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, size
     rnd.string((char*)buffer, len);
     const uint32_t eta = rnd.integer(10, 1000); // TODO find a good value
 
+    if (logCore) LogContext("receive").logCall()(handle)(buflen);
     Dispatcher::instance->enqueue(eta, syscall3(cb, ctx, error, len));
 }
 
@@ -140,6 +148,7 @@ void os_send(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, size_t 
     const error_t error = rnd.error();
     const uint32_t eta = rnd.integer(1, 5); // TODO find a good value
 
+    if (logCore) LogContext("send").logCall()(handle)(array(buffer, len));
     Dispatcher::instance->enqueue(eta, syscall2(cb, ctx, error));
 }
 
@@ -149,6 +158,7 @@ void os_flash_read(ReceiveCallback cb, void* ctx, int handle, uint8_t* buffer, s
     const error_t error = flashFileSystem.resolve(handle).read(buffer, buflen, &len);
     const uint32_t eta = rnd.integer(1, 10); // TODO find a good value
 
+    if (logCore) LogContext("flash_read").logCall()(handle)(buflen);
     Dispatcher::instance->enqueue(eta, syscall3(cb, ctx, error, len));
 }
 
@@ -157,6 +167,7 @@ void os_flash_write(DefaultCallback cb, void* ctx, int handle, uint8_t* buffer, 
     const error_t error = flashFileSystem.resolve(handle).write(buffer, len);
     const uint32_t eta = rnd.integer(1, 7); // TODO find a good value
 
+    if (logCore) LogContext("flash_write").logCall()(handle)(array(buffer, len));
     Dispatcher::instance->enqueue(eta, syscall2(cb, ctx, error));
 }
 
@@ -166,5 +177,6 @@ void os_sensor_read(SensorReadCallback cb, void* ctx, int handle)
     const sensor_val_t value = rnd.integer(100);
     const uint32_t eta = rnd.integer(1, 3); // TODO find a good value
 
+    if (logCore) LogContext("sensor_read").logCall()(handle);
     Dispatcher::instance->enqueue(eta, syscall3(cb, ctx, error, value));
 }

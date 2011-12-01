@@ -1,4 +1,7 @@
 #include "os/core.h"
+#include <assert.h>
+#include <string.h>
+#include <stdlib.h>
 
 void sensorReadDone(void* ctx, error_t result, sensor_val_t value);
 void sleepDone(void* ctx, error_t result);
@@ -7,15 +10,15 @@ void sendDone(void* ctx, error_t result);
 void flashReadDone(void* ctx, error_t result, size_t len);
 void flashWriteDone(void* ctx, error_t result);
 
-enum Task {
+typedef enum {
     COLLECT,
     RECEIVE,
     SEND
-};
+} Task;
 
 typedef struct {
     Task task;
-    void* taskContext;
+    void* taskCtx;
 } Context;
 
 typedef struct {
@@ -29,6 +32,7 @@ typedef struct {
     int socket;
     int log;
     uint8_t buffer[10];
+    size_t len;
 } ReceiveContext;
 
 typedef struct {
@@ -41,7 +45,7 @@ typedef struct {
     int state;
     uint8_t buffer[1024];
     uint8_t payload[2 * sizeof(int32_t)];
-}
+} SendContext;
 
 void sensorReadDone(void* ctx, error_t result, sensor_val_t value)
 {
@@ -53,9 +57,10 @@ void sensorReadDone(void* ctx, error_t result, sensor_val_t value)
                 os_sensor_read(&sensorReadDone, ctx, taskCtx->sensor); 
             } else {
                 taskCtx->value = value;
-                os_flash_write(&flashWriteDone, ctx, taskCtx->log, &taskCtx->value, sizeof(sensor_val_t));
+                os_flash_write(&flashWriteDone, ctx, taskCtx->log, (uint8_t*)&taskCtx->value, sizeof(sensor_val_t));
             }
         } break;
+        default: assert(0);
     }
 }
 
@@ -65,15 +70,16 @@ void sleepDone(void* ctx, error_t result)
     switch (genericCtx->task) {
         case COLLECT: {
             CollectContext* taskCtx = (CollectContext*) genericCtx->taskCtx;
-            os_sensor_read(&sensorReadDone, ctx, taskCtx->sensorDevice); 
+            os_sensor_read(&sensorReadDone, ctx, taskCtx->sensor); 
         } break;
         case SEND: {
             SendContext* taskCtx = (SendContext*) genericCtx->taskCtx;
             taskCtx->min = 0x7FFFFFFF;
             taskCtx->max = 0xFFFFFFFF;
             taskCtx->state = 1;
-            os_flash_read(&flashReadDone, ctx, taskCtx->log1); 
+            os_flash_read(&flashReadDone, ctx, taskCtx->log1, taskCtx->buffer, sizeof(taskCtx->buffer)); 
         } break;
+        default: assert(0);
     }
 }
 
@@ -84,12 +90,13 @@ void receiveDone(void* ctx, error_t result, size_t len)
         case RECEIVE: {
             ReceiveContext* taskCtx = (ReceiveContext*) genericCtx->taskCtx;
             if (result != SUCCESS) {
-                os_receive(&receiveDone, ctx, taskCtx->socket, &taskCtx->buffer, sizeof(taskCtx->buffer));
+                os_receive(&receiveDone, ctx, taskCtx->socket, taskCtx->buffer, sizeof(taskCtx->buffer));
             } else {
-                len -= len % sizeof(int32_t);
-                os_flash_write(&flashWriteDone, ctx, taskCtx->log, taskCtx->buffer, len);
+                taskCtx->len = len - (len % sizeof(int32_t));
+                os_flash_write(&flashWriteDone, ctx, taskCtx->log, taskCtx->buffer, taskCtx->len);
             }
           } break;
+        default: assert(0);
     }
 }
 
@@ -105,6 +112,7 @@ void sendDone(void* ctx, error_t result)
                 os_sleep(&sleepDone, ctx, taskCtx->dt);
             }
        } break;
+        default: assert(0);
     }
 }
 
@@ -121,18 +129,19 @@ void flashReadDone(void* ctx, error_t result, size_t len)
             for (i=0; i < len / sizeof(int32_t); i++) {
                 int32_t tmp;
                 memcpy(&tmp, taskCtx->buffer + i * sizeof(int32_t), sizeof(int32_t));
-                if (tmp < *taskCtx->min) *taskCtx->min = tmp;
-                if (tmp > *taskCtx->max) *taskCtx->max = tmp;
+                if (tmp < taskCtx->min) taskCtx->min = tmp;
+                if (tmp > taskCtx->max) taskCtx->max = tmp;
             }
             if (taskCtx->state == 1) {
                 taskCtx->state = 2;
-                os_flash_read(&flashReadDone, ctx, taskCtx->log2); 
+                os_flash_read(&flashReadDone, ctx, taskCtx->log2, taskCtx->buffer, sizeof(taskCtx->buffer)); 
             } else {
                 memcpy(taskCtx->payload, &taskCtx->min, sizeof(int32_t));
                 memcpy(taskCtx->payload + sizeof(int32_t), &taskCtx->max, sizeof(int32_t));
                 os_send(&sendDone, ctx, taskCtx->socket, taskCtx->payload, sizeof(taskCtx->payload));
             }
         } break;
+        default: assert(0);
     }
 }
 
@@ -143,7 +152,7 @@ void flashWriteDone(void* ctx, error_t result)
         case COLLECT: {
             CollectContext* taskCtx = (CollectContext*) genericCtx->taskCtx;
             if (result != SUCCESS) {
-                os_flash_write(&flashWriteDone, ctx, taskCtx->log, &taskCtx->value, sizeof(sensor_val_t));
+                os_flash_write(&flashWriteDone, ctx, taskCtx->log, (uint8_t*)&taskCtx->value, sizeof(sensor_val_t));
             } else {
                 os_sleep(&sleepDone, ctx, taskCtx->dt);
             }
@@ -151,11 +160,12 @@ void flashWriteDone(void* ctx, error_t result)
         case RECEIVE: {
             ReceiveContext* taskCtx = (ReceiveContext*) genericCtx->taskCtx;
             if (result != SUCCESS) {
-                os_flash_write(&flashWriteDone, ctx, taskCtx->log, taskCtx->buffer, len);
+                os_flash_write(&flashWriteDone, ctx, taskCtx->log, taskCtx->buffer, taskCtx->len);
             } else {
-                os_receive(&receiveDone, ctx, taskCtx->socket, &taskCtx->buffer, sizeof(taskCtx->buffer));
+                os_receive(&receiveDone, ctx, taskCtx->socket, taskCtx->buffer, sizeof(taskCtx->buffer));
             }
         } break;
+        default: assert(0);
     }
 }
 
@@ -164,7 +174,7 @@ void collectInit(const char* device, const char* file, unsigned dt)
     Context* genericCtx = malloc(sizeof(Context));
     CollectContext* taskCtx = malloc(sizeof(CollectContext));
     genericCtx->task = COLLECT;
-    genericCtx->taskContext = taskCtx;
+    genericCtx->taskCtx = taskCtx;
 
     taskCtx->dt = dt;
     taskCtx->sensor = os_sensor_open(device);
@@ -178,11 +188,11 @@ void receiveInit(const char* channel, const char* file)
     Context* genericCtx = malloc(sizeof(Context));
     ReceiveContext* taskCtx = malloc(sizeof(ReceiveContext));
     genericCtx->task = RECEIVE;
-    genericCtx->taskContext = taskCtx;
+    genericCtx->taskCtx = taskCtx;
 
     taskCtx->socket = os_listen(channel);
     taskCtx->log = os_flash_open(file, WRITE);
-    os_receive(&receiveDone, genericCtx, taskCtx->socket, &taskCtx->buffer, sizeof(taskCtx->buffer));
+    os_receive(&receiveDone, genericCtx, taskCtx->socket, taskCtx->buffer, sizeof(taskCtx->buffer));
 }
 
 void sendInit(const char* channel, const char* file1, const char* file2, unsigned dt)
@@ -190,7 +200,7 @@ void sendInit(const char* channel, const char* file1, const char* file2, unsigne
     Context* genericCtx = malloc(sizeof(Context));
     SendContext* taskCtx = malloc(sizeof(SendContext));
     genericCtx->task = SEND;
-    genericCtx->taskContext = taskCtx;
+    genericCtx->taskCtx = taskCtx;
     
     taskCtx->log1 = os_flash_open(file1, READ);
     taskCtx->log2 = os_flash_open(file2, READ);
@@ -204,8 +214,8 @@ int main()
     os_init();
 
     collectInit("sensor", "sensor_log", 50);
-    sendInit("parent", "receive_log", "sensor_log", 100);
     receiveInit("child", "receive_log");
+    sendInit("parent", "receive_log", "sensor_log", 100);
 
     os_run();
 

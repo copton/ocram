@@ -16,10 +16,10 @@ ec.elf: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
 	$(CPPC) $(CCFLAGS) -o $@ $^
 
 native.elf: native.o ../../os/libos.a
-	$(CPPC) #(CCFLAGS) -o $@ $^
+	$(CPPC) $(CCFLAGS) -o $@ $^
 
-ec.c: tc.c $(OCRAM)
-	$(OCRAM) -c "-I../.. -DOCRAM_MODE" -i $< -o $@ || (rm $@; exit 1)
+ec.c: tc.c $(OCRAM) ../../os/pal.h
+	$(OCRAM) -c "-I../.. -DOCRAM_MODE" -p ../../os/pal.h -i $< -o $@ || (rm -f $@; exit 1)
 
 %.o: %.c
 	$(CC) $(CCFLAGS) -c $< -I../../

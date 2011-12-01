@@ -8,6 +8,8 @@ Logger* Logger::instance = 0;
 
 void Logger::init()
 {
+    if (instance != 0) return;
+
     std::string filename;
     const char* logFile = getenv("EC_LOG_FILE");
     if (logFile == 0) {

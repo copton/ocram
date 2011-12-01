@@ -9,6 +9,8 @@ Dispatcher* Dispatcher::instance = 0;
 
 void Dispatcher::init()
 {
+    if (instance !=0) return;
+
     char* maxtimestr = getenv("EC_MAX_TIME");
     int32_t maxtime = -1;
     if (maxtimestr == 0) {
