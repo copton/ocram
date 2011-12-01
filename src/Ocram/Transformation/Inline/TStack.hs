@@ -6,7 +6,7 @@ module Ocram.Transformation.Inline.TStack
 ) where
 -- imports {{{1
 import Language.C.Syntax.AST
-import Ocram.Analysis (start_functions, critical_functions, get_callees, critical_function_dependency_list, CallGraph, is_start, is_blocking)
+import Ocram.Analysis (start_functions, critical_functions, get_callees, critical_function_dependency_list, CallGraph, is_start)
 import Ocram.Query (local_variables, return_type)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types

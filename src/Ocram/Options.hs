@@ -1,7 +1,7 @@
 module Ocram.Options 
 -- export {{{1
 (
-  Options(..), options, defaultOptions
+  Options(..), options, defaultOptions, PalAction(..)
 ) where
 
 -- import {{{1
@@ -10,11 +10,14 @@ import Ocram.Text (new_error, OcramError)
 import System.Console.GetOpt
 
 -- types {{{1
+data PalAction = Compare | Dump deriving Show
+
 data Options = Options { 
     optInput :: String
   , optOutput :: String
   , optCppOptions :: String
-  , optScheme :: String
+  , optPalHeader :: String
+  , optPalAction :: PalAction
   , optHelp :: Bool
 } deriving Show
 
@@ -49,8 +52,9 @@ available_options :: [OptDescr (Options -> Options)]
 available_options = [
     Option "i" ["input"] (ReqArg (\ x opts -> opts {optInput = x}) "input") "input tc file (required)"
   , Option "o" ["output"] (ReqArg (\ x opts -> opts {optOutput = x}) "output") "output ec file (required)"
-  , Option "c" ["cpp"] (ReqArg (\ x opts -> opts {optCppOptions = x}) "cpp") "cpp options (default=\"\")"
-  , Option "s" ["scheme"] (ReqArg (\x opts -> opts {optScheme = x }) "scheme") "compilation scheme (default=inline"
+  , Option "c" ["cpp"] (ReqArg (\ x opts -> opts {optCppOptions = x}) "cpp") "cpp options (optional)"
+  , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalHeader = x}) "pal") "PAL header file (optional)"
+  , Option "d" ["dump"] (NoArg (\opts -> opts {optPalAction = Dump})) "Dump the PAL header instead of comparing it."
   , Option "h" ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
   ]
 
@@ -59,7 +63,8 @@ defaultOptions = Options {
     optInput = ""
   , optOutput = ""
   , optCppOptions = ""
-  , optScheme = "inline"
+  , optPalHeader = ""
+  , optPalAction = Compare
   , optHelp = False
 }
 

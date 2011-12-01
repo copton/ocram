@@ -1,11 +1,11 @@
 module Ocram.Main (main) where
 
-import Ocram.Analysis (analysis, CallGraph)
-import Ocram.Options (options, Options(optScheme))
-import Ocram.Output (pretty_print, write_debug_symbols)
+import Control.Monad (when)
+import Ocram.Analysis (analysis)
+import Ocram.Options (options, Options(..), PalAction(Compare, Dump))
+import Ocram.Output (pretty_print, write_debug_symbols, dump_pal)
 import Ocram.Parser (parse)
-import Ocram.Text (OcramError, show_errors, new_error)
-import Ocram.Types (DebugSymbols, Ast)
+import Ocram.Text (OcramError, show_errors)
 import qualified Ocram.Transformation.Inline as Inline
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
@@ -16,19 +16,18 @@ main = do
   argv <- getArgs 
   prg <- getProgName
   opt <- exitOnError "options" $ options prg argv 
-  ast <- exitOnError "parser" =<< parse opt
+  ast <- exitOnError "parser" =<< parse opt (optInput opt)
   ana <- exitOnError "analysis" $ analysis ast
-  trans <- exitOnError "options" $ select_transformation $ optScheme opt
-  let (ast', ds) = trans ana ast
+  let (ast', ds) = Inline.transformation ana ast
+  when (not $ null $ optPalHeader opt) $
+    case optPalAction opt of
+      Compare -> do
+        palAst <- exitOnError "parser" =<< parse opt (optPalHeader opt)
+        exitOnError "transformation" $ Inline.compare_pal ana ast' palAst
+      Dump -> dump_pal opt (Inline.extract_pal ana ast')
   pretty_print opt ast'
   write_debug_symbols opt ds
   return ()
-
-type Transformation = CallGraph -> Ast -> (Ast, DebugSymbols)
-
-select_transformation :: String -> Either [OcramError] Transformation
-select_transformation "inline" = Right Inline.transformation
-select_transformation s = Left [new_error 1 ("unknown compilation scheme \"" ++ s ++ "\".") Nothing]
 
 exitOnError :: String -> Either [OcramError] a -> IO a
 exitOnError module_ (Left es) = hPutStrLn stderr (show_errors module_ es) >> exitWith (ExitFailure 1)

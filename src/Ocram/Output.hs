@@ -1,13 +1,13 @@
 module Ocram.Output 
 -- export {{{1
 (
-  pretty_print,
+  pretty_print, dump_pal,
   write_debug_symbols
 ) where
 
 -- import {{{1
 import Ocram.Types (Ast, DebugSymbols)
-import Ocram.Options (Options, optOutput)
+import Ocram.Options (Options, optOutput, optPalHeader)
 import System.IO (openFile, IOMode(WriteMode), hClose, hPutStrLn)
 import Language.C (pretty)
 
@@ -18,6 +18,10 @@ pretty_print options ast =
     where
       -- E-code needs declaration of NULL
       intro = "#include <stddef.h>\n"
+
+dump_pal :: Options -> Ast -> IO ()
+dump_pal options ast =
+  write (optPalHeader options) (show (pretty ast))
 
 -- write_debug_symbols :: Options -> DebugSymbols -> IO () {{{1
 write_debug_symbols :: Options -> DebugSymbols -> IO ()
