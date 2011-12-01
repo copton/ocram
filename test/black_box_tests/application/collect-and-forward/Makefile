@@ -1,11 +1,20 @@
 include ../../config.mk
+-include depend.mak
 
 .PHONY: all clean test
 
-all: tc.exe ec.exe native.exe
+MAJOR_TARGETS=tc.exe ec.exe native.exe
+ifndef DEBUG
+DEBUG_TARGETS=$(patsubst %.exe, %.stripped, $(MAJOR_TARGETS))
+endif
+ifdef CROSS
+CROSS_TARGETS=$(patsubst %.exe, %.asm, $(MAJOR_TARGETS))
+endif
+
+all: $(MAJOR_TARGETS) $(DEBUG_TARGETS) $(CROSS_TARGETS)
 
 clean:
-	rm -f *.exe ec.c *.o
+	rm -f *.exe *.asm *.stripped ec.c *.o
 
 test:
 	./run-test.sh
@@ -22,7 +31,10 @@ native.exe: native.o ../../os/libos.a
 	$(CPPC) $(CCFLAGS) -o $@ $^
 
 ec.c: tc.c $(OCRAM) ../../os/pal.h
-	$(OCRAM) -c "-I../.. -DOCRAM_MODE" -p ../../os/pal.h -i $< -o $@ || (rm -f $@; exit 1)
+	$(OCRAM) -c "-I$(ROOT) -DOCRAM_MODE" -p $(ROOT)/os/pal.h -i $< -o $@ || (rm -f $@; exit 1)
 
-%.o: %.c
-	$(CC) $(CCFLAGS) -c $< -I../../
+%.asm: %.exe
+	$(OBJDUMP) -zhD $< > $@
+
+%.stripped: %.exe
+	$(STRIP) -o $@ $<

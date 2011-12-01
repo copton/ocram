@@ -3,7 +3,13 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <unistd.h>
+#include <stdlib.h>
+#ifdef PLATFORM_msp432
+#include <sys/unistd.h>
+#define assert (void)
+#else
+#include <assert.h>
+#endif
 
 typedef enum {
   SUCCESS        =  0,

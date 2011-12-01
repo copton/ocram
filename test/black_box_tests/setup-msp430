@@ -1,0 +1,5 @@
+export ROOT=`pwd`
+export TOOLCHAIN="/usr/bin/msp430-"
+export CROSS=TRUE
+export PLATFORM=msp430
+unset DEBUG

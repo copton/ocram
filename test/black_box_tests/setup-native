@@ -1,0 +1,5 @@
+export ROOT=`pwd`
+unset TOOLCHHAIN
+unset CROSS
+export PLATFORM=native
+export DEBUG=TRUE

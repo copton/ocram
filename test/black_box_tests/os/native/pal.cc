@@ -1,6 +1,6 @@
 #include <stdlib.h>
-#include "pal.h"
-#include "core.h"
+#include "os/pal.h"
+#include "os/core.h"
 #include "logger.h"
 
 static int ctid = -1;

@@ -1,7 +1,7 @@
 #ifndef OHJOPAEYOOXOHLAHHOHJ
 #define OHJOPAEYOOXOHLAHHOHJ
 
-#include "types.h"
+#include "os/types.h"
 #include <vector>
 #include <map>
 #include <boost/shared_ptr.hpp>

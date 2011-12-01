@@ -1,7 +1,7 @@
 #ifndef CAEGEELAHGHEYAERAIJA
 #define CAEGEELAHGHEYAERAIJA
 
-#include "types.h"
+#include "os/types.h"
 
 class Random {
 public:

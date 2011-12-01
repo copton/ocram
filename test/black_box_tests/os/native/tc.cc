@@ -1,5 +1,5 @@
-#include "tc.h"
-#include "core.h"
+#include "os/tc.h"
+#include "os/core.h"
 #include "logger.h"
 #include <pthread.h>
 #include <assert.h>
