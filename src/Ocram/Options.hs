@@ -12,10 +12,11 @@ import System.Console.GetOpt
 -- types {{{1
 data PalAction = Compare | Dump deriving Show
 
-data Options = Options { 
+data Options = Options {
     optInput :: String
   , optOutput :: String
   , optCppOptions :: String
+  , optToolchain :: String
   , optPalHeader :: String
   , optPalAction :: PalAction
   , optHelp :: Bool
@@ -50,9 +51,10 @@ usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") available_options
 
 available_options :: [OptDescr (Options -> Options)]
 available_options = [
-    Option "i" ["input"] (ReqArg (\ x opts -> opts {optInput = x}) "input") "input tc file (required)"
-  , Option "o" ["output"] (ReqArg (\ x opts -> opts {optOutput = x}) "output") "output ec file (required)"
-  , Option "c" ["cpp"] (ReqArg (\ x opts -> opts {optCppOptions = x}) "cpp") "cpp options (optional)"
+    Option "i" ["input"] (ReqArg (\x opts -> opts {optInput = x}) "input") "input tc file (required)"
+  , Option "o" ["output"] (ReqArg (\x opts -> opts {optOutput = x}) "output") "output ec file (required)"
+  , Option "c" ["cpp"] (ReqArg (\x opts -> opts {optCppOptions = x}) "cpp") "cpp options (optional)"
+  , Option "t" ["toolchain"] (ReqArg (\x opts -> opts {optToolchain = x}) "toolchain") "path prefix of the preprocessor to use (optional)"
   , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalHeader = x}) "pal") "PAL header file (optional)"
   , Option "d" ["dump"] (NoArg (\opts -> opts {optPalAction = Dump})) "Dump the PAL header instead of comparing it."
   , Option "h" ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
@@ -63,6 +65,7 @@ defaultOptions = Options {
     optInput = ""
   , optOutput = ""
   , optCppOptions = ""
+  , optToolchain = ""
   , optPalHeader = ""
   , optPalAction = Compare
   , optHelp = False
@@ -73,4 +76,3 @@ checkOptions opts
   | optInput opts == optInput defaultOptions = False
   | optOutput opts == optOutput defaultOptions = False
   | otherwise = True
-

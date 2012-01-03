@@ -35,7 +35,7 @@ native.exe: native.o ../../os/libos.a
 	$(CPPC) $(CCFLAGS) -o $@ $^
 
 ec.c: tc.c $(OCRAM) ../../os/pal.h
-	$(OCRAM) -c "-I$(ROOT) -DOCRAM_MODE" -p $(ROOT)/os/pal.h -i $< -o $@ || (rm -f $@; exit 1)
+	$(OCRAM) -t "$(TOOLCHAIN)" -c "-I$(ROOT) -DOCRAM_MODE" -p $(ROOT)/os/pal.h -i $< -o $@ || (rm -f $@; exit 1)
 
 %.asm: %.exe
 	$(OBJDUMP) -zhD $< > $@
