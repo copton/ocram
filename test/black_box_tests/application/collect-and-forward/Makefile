@@ -11,10 +11,14 @@ ifdef CROSS
 CROSS_TARGETS=$(patsubst %.exe, %.asm, $(MAJOR_TARGETS))
 endif
 
+ifeq ($(PLATFORM),native)
+LDFLAGS=-lpthread
+endif
+
 all: $(MAJOR_TARGETS) $(DEBUG_TARGETS) $(CROSS_TARGETS)
 
 clean:
-	rm -f *.exe *.asm *.stripped ec.c *.o
+	rm -f *.exe *.asm *.stripped ec.c *.o depend.mak
 
 test:
 	./run-test.sh
@@ -22,7 +26,7 @@ test:
 OCRAM=../../../../cabal-dev/bin/ocram
 
 tc.exe: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
-	$(CPPC) $(CCFLAGS) -o $@ $^ -lpthread
+	$(CPPC) $(CCFLAGS) -o $@ $^ $(LDFLAGS)
 
 ec.exe: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
 	$(CPPC) $(CCFLAGS) -o $@ $^

@@ -1,4 +1,4 @@
-include ../../config.mak
+include ../../config.mk
 
 .PHONY: all clean
 
@@ -9,7 +9,7 @@ all: $(TARGETS)
 -include depend.mak
 
 clean:
-	rm -f $(TARGETS)
+	rm -f $(TARGETS) depend.mak
 
 libos.a: common.o
 	$(AR) r $@ $^

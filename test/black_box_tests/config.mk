@@ -18,7 +18,10 @@ CCFLAGS+= -O2
 endif
 
 depend.mak:
-	$(CPPC) $(CCFLAGS) -M *.cc > $@ || rm -f $@
+	$(CC) $(CCFLAGS) -M *.c* > $@ || rm -f $@
 
 %.o: %.cc
 	$(CPPC) $(CCFLAGS) -c $<
+
+%.o: %.c
+	$(CC) $(CCFLAGS) -c $<
