@@ -41,12 +41,20 @@ typedef struct {
     int socket;
     unsigned dt;
     uint32_t now;
-    int min;
-    int max;
+    int32_t min;
+    int32_t max;
     int state;
     uint8_t buffer[1024];
     uint8_t payload[2 * sizeof(int32_t)];
 } SendContext;
+
+CollectContext taskCollectContext;
+ReceiveContext taskReceiveContext;
+SendContext taskSendContext;
+
+Context collectContext = { COLLECT, &taskCollectContext};
+Context receiveContext = { RECEIVE, &taskReceiveContext};
+Context sendContext = { SEND, &taskSendContext};
 
 void sensorReadDone(void* ctx, error_t result, sensor_val_t value)
 {
@@ -174,44 +182,29 @@ void flashWriteDone(void* ctx, error_t result)
 
 void collectInit(const char* device, const char* file, unsigned dt)
 {
-    Context* genericCtx = malloc(sizeof(Context));
-    CollectContext* taskCtx = malloc(sizeof(CollectContext));
-    genericCtx->task = COLLECT;
-    genericCtx->taskCtx = taskCtx;
+    taskCollectContext.dt = dt;
+    taskCollectContext.sensor = os_sensor_open(device);
+    taskCollectContext.log = os_flash_open(file, WRITE);
+    taskCollectContext.now = os_now();
 
-    taskCtx->dt = dt;
-    taskCtx->sensor = os_sensor_open(device);
-    taskCtx->log = os_flash_open(file, WRITE);
-    taskCtx->now = os_now();
-
-    os_sleep(&sleepDone, genericCtx, taskCtx->now + taskCtx->dt);
+    os_sleep(&sleepDone, &collectContext, taskCollectContext.now + taskCollectContext.dt);
 }
 
 void receiveInit(const char* channel, const char* file)
 {
-    Context* genericCtx = malloc(sizeof(Context));
-    ReceiveContext* taskCtx = malloc(sizeof(ReceiveContext));
-    genericCtx->task = RECEIVE;
-    genericCtx->taskCtx = taskCtx;
-
-    taskCtx->socket = os_listen(channel);
-    taskCtx->log = os_flash_open(file, WRITE);
-    os_receive(&receiveDone, genericCtx, taskCtx->socket, taskCtx->buffer, sizeof(taskCtx->buffer));
+    taskReceiveContext.socket = os_listen(channel);
+    taskReceiveContext.log = os_flash_open(file, WRITE);
+    os_receive(&receiveDone, &receiveContext, taskReceiveContext.socket, taskReceiveContext.buffer, sizeof(taskReceiveContext.buffer));
 }
 
 void sendInit(const char* channel, const char* file1, const char* file2, unsigned dt)
 {
-    Context* genericCtx = malloc(sizeof(Context));
-    SendContext* taskCtx = malloc(sizeof(SendContext));
-    genericCtx->task = SEND;
-    genericCtx->taskCtx = taskCtx;
-    
-    taskCtx->log1 = os_flash_open(file1, READ);
-    taskCtx->log2 = os_flash_open(file2, READ);
-    taskCtx->socket = os_connect(channel);
-    taskCtx->dt = dt;
-    taskCtx->now = os_now();
-    os_sleep(&sleepDone, genericCtx, taskCtx->now + taskCtx->dt);
+    taskSendContext.log1 = os_flash_open(file1, READ);
+    taskSendContext.log2 = os_flash_open(file2, READ);
+    taskSendContext.socket = os_connect(channel);
+    taskSendContext.dt = dt;
+    taskSendContext.now = os_now();
+    os_sleep(&sleepDone, &sendContext, taskSendContext.now + taskSendContext.dt);
 }
 
 int main()

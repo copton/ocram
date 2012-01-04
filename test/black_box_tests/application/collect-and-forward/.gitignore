@@ -1,1 +1,4 @@
 ec.c
+*.asm
+*.exe
+*.stripped

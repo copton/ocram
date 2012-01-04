@@ -11,7 +11,7 @@ all: $(TARGETS)
 clean:
 	rm -f $(TARGETS) depend.mak
 
-libos.a: common.o
+libos.a: common.o core.o
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
