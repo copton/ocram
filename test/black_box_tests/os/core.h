@@ -3,10 +3,6 @@
 
 #include "common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef void (*DefaultCallback)(void*, error_t);
 typedef void (*ReceiveCallback)(void*, error_t, size_t);
 typedef void (*SensorReadCallback)(void*, error_t, sensor_val_t);
@@ -20,9 +16,5 @@ void os_sensor_read(SensorReadCallback cb, void* ctx, int handle);
 
 void os_init();
 void os_run();
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
