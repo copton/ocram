@@ -15,7 +15,7 @@ typedef struct {
     size_t offset;    
 } File;
 
-char* fileNames[FLASH_MAX];
+const char* fileNames[FLASH_MAX];
 File files[FLASH_MAX];
 int fileHandle;
 

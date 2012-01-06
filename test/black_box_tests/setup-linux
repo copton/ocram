@@ -1,6 +1,6 @@
-source ./setup-common
-
 unset TOOLCHAIN
 unset CROSS
 export PLATFORM=linux
 export DEBUG=TRUE
+
+source ./setup-common

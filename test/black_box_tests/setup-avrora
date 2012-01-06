@@ -1,6 +1,6 @@
-source ./setup-common
-
 export TOOLCHAIN="/usr/bin/avr-"
 export CROSS=TRUE
-export PLATFORM=avr
+export PLATFORM=avrora
 unset DEBUG
+
+source ./setup-common
