@@ -52,6 +52,10 @@ void tc_init()
 }
 
 static void* run_thread(void* ctx);
+static void cleanup_handler(void* arg)
+{
+    pthread_mutex_unlock(&mutex);
+}
 
 void tc_run_thread(void(*thread_start_function)())
 {
@@ -74,8 +78,14 @@ static void* run_thread(void* ctx)
     assert (result == 0);
 
     pthread_mutex_lock(&mutex);
+    pthread_cleanup_push(cleanup_handler, NULL);
+
     thread_start_function();
-    pthread_mutex_unlock(&mutex);
+  
+    // we never reach this point because the threads are canceled
+    assert(false); 
+
+    pthread_cleanup_pop(0);
 
     return 0;
 }
@@ -99,7 +109,7 @@ typedef struct {
 // called by core
 void defaultCallback(void* ctx, error_t result)
 {
-    DefaultContext* context = (DefaultContext*) ctx;
+    DefaultContext* context = ctx;
     context->result = result;
     // let the blocking TC thread continue
     cond_signal(&context->condition);
@@ -116,8 +126,14 @@ typedef struct {
 
 void receiveCallback(void* ctx, error_t result, size_t len)
 {
-    ((ReceiveContext*) ctx)->len = len;
-    defaultCallback(ctx, result);
+    ReceiveContext* context = ctx;
+    context->len = len;
+
+    context->result = result;
+    // let the blocking TC thread continue
+    cond_signal(&context->condition);
+    // wait for next syscall before resuming core
+    cond_wait(&condition);
 }
 
 typedef struct {
@@ -129,14 +145,20 @@ typedef struct {
 
 void callbackSensorRead(void* ctx, error_t result, sensor_val_t value)
 {
-    ((SensorReadContext*)ctx)->value = value;
-    defaultCallback(ctx, result);
-}
+    SensorReadContext* context = ctx;
+    context->value = value;
 
+    context->result = result;
+    // let the blocking TC thread continue
+    cond_signal(&context->condition);
+    // wait for next syscall before resuming core
+    cond_wait(&condition);
+}
 
 error_t tc_sleep(uint32_t ms)
 {
     DefaultContext ctx;
+    cond_init(&ctx.condition);
     os_sleep(&defaultCallback, &ctx, ms);  
     cond_signal(&condition);
     cond_wait(&ctx.condition);
