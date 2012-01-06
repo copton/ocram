@@ -4,4 +4,4 @@ export PLATFORM=avrora
 export CFLAGS="-mmcu=atmega128"
 unset DEBUG
 
-source ./setup-common
+source ./setup/common

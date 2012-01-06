@@ -18,3 +18,9 @@ depend.mak:
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $<
+
+%.od: %.exe
+	$(OBJDUMP) -zhD $< > $@
+
+%.stripped: %.exe
+	$(STRIP) -o $@ $<
