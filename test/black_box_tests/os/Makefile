@@ -3,7 +3,7 @@ include ../config.mk
 
 .PHONY: all clean
 
-TARGETS = dispatcher.o random.o core.o logger.o logger_$(PLATFORM).o settings_$(PLATFORM).o
+TARGETS = dispatcher.o random.o core.o logger.o logger_$(PLATFORM).o settings_$(PLATFORM).o tc_$(PLATFORM).o
 
 all: $(TARGETS)
 
