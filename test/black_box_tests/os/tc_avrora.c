@@ -11,5 +11,3 @@ void tc_init() { }
 void tc_run() { }
 
 void tc_run_thread(void(*thread_start_function)()) { }
-
-#endif

@@ -25,37 +25,43 @@ static char* typeString(LOG_TYPE type)
 
 void logger_log(LOG_TYPE type, const char* format, ...)
 {
-    va_list ap;
+    va_list ap, ap2;
     va_start(ap, format);
-    char buffer[1024];
-    int size = vsnprintf(buffer, sizeof(buffer), format, ap);
-    assert (size < sizeof(buffer));
-    va_end(ap);
+    va_copy(ap2, ap);
 
-    logger_platform_out(typeString(type));
-    logger_platform_out(": ");
-    logger_platform_out(buffer); 
-    logger_platform_out("\n");
+    int innerSize = vsnprintf(NULL, 0, format, ap);
+    char innerBuffer[innerSize+1];
+    vsprintf(innerBuffer, format, ap2);
+    va_end(ap);
+    va_end(ap2);
+
+    const char* outerFormat = "%s: %s\n";
+    int outerSize = snprintf(NULL, 0, outerFormat, typeString(type), innerBuffer);
+    char outerBuffer[outerSize+1];
+    sprintf(outerBuffer, outerFormat, typeString(type), innerBuffer);
+    
+    logger_platform_out(outerBuffer);
 }
 
 int logger_syscall(const char* syscall, const char* format, ...)
 {
-    static int sequence_number = 0;
-
-    va_list ap;
+    va_list ap, ap2;
     va_start(ap, format);
+    va_copy(ap2, ap);
 
+    static int sequence_number = 0;
     const uint32_t now = dispatcher_now();
 
     int innerSize = vsnprintf(NULL, 0, format, ap);
-    char innerBuffer[innerSize];
-    vsprintf(innerBuffer, format, ap);
+    char innerBuffer[innerSize+1];
+    vsprintf(innerBuffer, format, ap2);
     va_end(ap);
+    va_end(ap2);
 
-    const char* outerFormat = "%d, ->, %s, %u, %s\n";
-    int outerSize = snprintf(NULL, 0, outerFormat, sequence_number, syscall, now, innerBuffer);
-    char outerBuffer[outerSize];
-    sprintf(outerBuffer, outerFormat, sequence_number, syscall, now, innerBuffer);
+    const char* outerFormat = "%u, %d, ->, %s, %s\n";
+    int outerSize = snprintf(NULL, 0, outerFormat, now, sequence_number, syscall, innerBuffer);
+    char outerBuffer[outerSize+1];
+    sprintf(outerBuffer, outerFormat, now, sequence_number, syscall, innerBuffer);
 
     logger_platform_trace(outerBuffer); 
     return sequence_number++;
@@ -63,12 +69,12 @@ int logger_syscall(const char* syscall, const char* format, ...)
 
 void logger_syscall_return(int sequence_number)
 {
-    const char* format = "%d, <-, %u\n";
+    const char* format = "%u, %d, <-\n";
     const uint32_t now = dispatcher_now();
 
-    int size = snprintf(NULL, 0, format, sequence_number, now);
-    char buffer[size];
-    sprintf(buffer, format, sequence_number, now);
+    int size = snprintf(NULL, 0, format, now, sequence_number);
+    char buffer[size+1];
+    sprintf(buffer, format, now, sequence_number);
     logger_platform_trace(buffer);
 }
 

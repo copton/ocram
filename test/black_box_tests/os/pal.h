@@ -3,10 +3,6 @@
 
 #include "common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef void (*thread_t)(void*);
 void pal_init(int);
 void pal_start_thread(thread_t);
@@ -65,9 +61,5 @@ void tc_send(ec_frame_tc_send_t*);
 void tc_flash_read(ec_frame_tc_flash_read_t*);
 void tc_flash_write(ec_frame_tc_flash_write_t*);
 void tc_sensor_read(ec_frame_tc_sensor_read_t*);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

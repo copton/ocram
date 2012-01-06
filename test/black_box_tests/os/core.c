@@ -15,6 +15,7 @@ typedef struct {
     size_t offset;    
 } File;
 
+char* fileNames[FLASH_MAX];
 File files[FLASH_MAX];
 int fileHandle;
 
@@ -22,6 +23,10 @@ void os_init()
 {
     handle = 0;
     fileHandle = 0;
+    for (int i=0; i<FLASH_MAX; i++) {
+        fileNames[i] = NULL;
+    }
+
     logger_init();
     dispatcher_init();
     random_init();
@@ -49,15 +54,21 @@ int os_connect(const char* address)
 
 int os_flash_open(const char* address, Mode mode)
 {
-   assert (fileHandle < FLASH_MAX);
-   files[fileHandle].offset = 0;
-   return fileHandle++;
+    for (int i=0; i<fileHandle; i++) {
+        if (strcmp(address, fileNames[i]) == 0) {
+            return i; 
+        }
+    }
+    assert (fileHandle < FLASH_MAX);
+    fileNames[fileHandle] = address;
+    files[fileHandle].offset = 0;
+    return fileHandle++;
 }
 
 error_t os_flash_seek(int handle, int offset)
 {
-    assert (false);
-    return FAIL;
+    // TODO;
+    return SUCCESS;
 }
 
 int os_sensor_open(const char* address)
@@ -154,12 +165,10 @@ void os_flash_read(ReceiveCallback cb, void* appCtx, int handle, uint8_t* buffer
     CtxReceive* ctx = malloc(sizeof(CtxReceive));
     ctx->cb = cb;
     ctx->ctx = appCtx;
-    ctx->error = random_error();
-    if (ctx->error == SUCCESS) {
-        memcpy(buffer, files[handle].data, files[handle].offset);
-        ctx->len = files[handle].offset;
-        files[handle].offset = 0;
-    }
+    ctx->error = SUCCESS;
+    memcpy(buffer, files[handle].data, files[handle].offset);
+    ctx->len = files[handle].offset;
+    files[handle].offset = 0;
     uint32_t eta = random_integer_range(1, 10);
     ctx->seq = logger_syscall("flash_read", "%d, %lu, %s", handle, (unsigned long)len, array(buffer, ctx->len));
     dispatcher_enqueue(eta, cb_receive, ctx);

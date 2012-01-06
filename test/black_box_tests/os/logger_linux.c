@@ -12,7 +12,7 @@ int fd;
 
 void logger_platform_init(const char* file)
 {
-    fd = open(file, O_WRONLY | O_CREAT | O_TRUNC);
+    fd = open(file, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fd == -1) {
         fprintf(stderr, "failed to open '%s': %s'\n", file, strerror(errno));
         exit(1);

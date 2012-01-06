@@ -1,5 +1,7 @@
 #include "os/tc.h"
 
+#include <assert.h>
+
 void *memcpy(void *dest, const void *src, size_t n);
 
 void log_to(int log, uint8_t* buf, size_t len);

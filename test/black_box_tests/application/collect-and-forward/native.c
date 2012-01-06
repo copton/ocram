@@ -1,4 +1,5 @@
 #include "os/core.h"
+#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 

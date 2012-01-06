@@ -14,6 +14,8 @@ typedef struct {
 } Unit;
 
 #define QUEUE_MAX 10
+#define NEXT(x) ((x+1)%QUEUE_MAX)
+
 Unit queue[QUEUE_MAX];
 int begin;
 int end;
@@ -26,7 +28,7 @@ static void queue_init()
 
 static bool queue_full()
 {
-    return (end + 1) % QUEUE_MAX == begin;
+    return NEXT(end) == begin;
 }
 
 static bool queue_empty()
@@ -38,14 +40,14 @@ static void queue_push(Unit unit)
 {
     assert (! queue_full());
     queue[end] = unit;
-    end = (end + 1) % QUEUE_MAX;
+    end = NEXT(end);
 }
 
 static Unit queue_pop()
 {
     assert (! queue_empty());
     int min = begin;
-    for (int i=(begin+1)%QUEUE_MAX; i!=end; i = (i+1)%QUEUE_MAX) {
+    for (int i=NEXT(begin); i!=end; i=NEXT(i)) {
         if (queue[i].callback_time < queue[min].callback_time) {
             min = i;
         }
@@ -54,7 +56,7 @@ static Unit queue_pop()
     if (min != begin) {
         queue[min] = queue[begin];
     }
-    begin = (begin + 1) % QUEUE_MAX;
+    begin = NEXT(begin);
     return result;
 }
 
@@ -67,7 +69,7 @@ void dispatcher_init()
 
 void dispatcher_enqueue(int32_t callback_time, DispatcherCallback callback, void* context)
 {
-    Unit unit = {callback_time, callback, context};
+    Unit unit = {simulation_time + callback_time, callback, context};
     queue_push(unit);
 }
 

@@ -11,7 +11,7 @@ ifdef CROSS
 CROSS_TARGETS=$(patsubst %.exe, %.asm, $(MAJOR_TARGETS))
 endif
 
-ifeq ($(PLATFORM),native)
+ifeq ($(PLATFORM),linux)
 LDFLAGS=-lpthread
 endif
 
@@ -26,13 +26,13 @@ test:
 OCRAM=../../../../cabal-dev/bin/ocram
 
 tc.exe: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
-	$(CPPC) $(CCFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CCFLAGS) -o $@ $^ $(LDFLAGS)
 
 ec.exe: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
-	$(CPPC) $(CCFLAGS) -o $@ $^
+	$(CC) $(CCFLAGS) -o $@ $^
 
 native.exe: native.o ../../os/libos.a
-	$(CPPC) $(CCFLAGS) -o $@ $^
+	$(CC) $(CCFLAGS) -o $@ $^
 
 ec.c: tc.c $(OCRAM) ../../os/pal.h
 	$(OCRAM) -t "$(TOOLCHAIN)" -c "-I$(ROOT) -DOCRAM_MODE" -p $(ROOT)/os/pal.h -i $< -o $@ || (rm -f $@; exit 1)
