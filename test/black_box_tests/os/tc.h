@@ -4,10 +4,6 @@
 #include "ocram.h"
 #include "common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 TC_BLOCKING error_t tc_sleep(uint32_t ms);
 TC_BLOCKING error_t tc_receive(int handle, uint8_t* buffer, size_t buflen, size_t* len);
 TC_BLOCKING error_t tc_send(int handle, uint8_t* buffer, size_t len);
@@ -20,7 +16,4 @@ void tc_run();
 
 void tc_run_thread(void(*thread_start_function)());
 
-#ifdef __cplusplus
-}
-#endif
 #endif

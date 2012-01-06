@@ -7,7 +7,7 @@
 
 void random_init()
 {
-    int seed = settings_random_seed();
+    unsigned int seed = settings_random_seed();
     logger_log(INFO, "using seed %d", seed);
     srand(seed);
 }

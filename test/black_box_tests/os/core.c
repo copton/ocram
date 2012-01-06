@@ -66,6 +66,7 @@ int os_sensor_open(const char* address)
 }
 
 typedef struct {
+    int seq;
     DefaultCallback cb;
     void* ctx;
     error_t error;
@@ -74,11 +75,13 @@ typedef struct {
 static void cb_default(void* innerCtx)
 {
     CtxDefault* ctx = innerCtx;
+    logger_syscall_return(ctx->seq);
     ctx->cb(ctx->ctx, ctx->error); 
     free(ctx);
 }
 
 typedef struct {
+    int seq;
     ReceiveCallback cb;
     void* ctx;
     error_t error;
@@ -88,11 +91,13 @@ typedef struct {
 static void cb_receive(void* innerCtx)
 {
     CtxReceive* ctx = innerCtx;
+    logger_syscall_return(ctx->seq);
     ctx->cb(ctx->ctx, ctx->error, ctx->len);
     free(ctx);
 }
 
 typedef struct {
+    int seq;
     SensorReadCallback cb;
     void* ctx;
     error_t error;
@@ -102,6 +107,7 @@ typedef struct {
 static void cb_sensor_read(void* innerCtx)
 {
     CtxSensorRead* ctx = innerCtx;
+    logger_syscall_return(ctx->seq);
     ctx->cb(ctx->ctx, ctx->error, ctx->value);
     free(ctx);
 }
@@ -112,6 +118,7 @@ void os_sleep(DefaultCallback cb, void* appCtx, uint32_t ms)
     ctx->cb = cb;
     ctx->ctx = appCtx;
     ctx->error = random_error();
+    ctx->seq = logger_syscall("sleep", "%u", ms);
     dispatcher_enqueue(ms, cb_default, ctx);
 }
 
@@ -124,6 +131,7 @@ void os_receive(ReceiveCallback cb, void* appCtx, int handle, uint8_t* buffer, s
     ctx->len = random_integer_range(1, buflen);
     random_string((char*)buffer, ctx->len);
     uint32_t eta = random_integer_range(10, 1000);
+    ctx->seq = logger_syscall("receive", "%d, %lu, %s", handle, (unsigned long)buflen, array(buffer, ctx->len));
     dispatcher_enqueue(eta, cb_receive, ctx);
 }
 
@@ -134,6 +142,7 @@ void os_send(DefaultCallback cb, void* appCtx, int handle, uint8_t* buffer, size
     ctx->ctx = appCtx;
     ctx->error = random_error();
     uint32_t eta = random_integer_range(1, 5);
+    ctx->seq = logger_syscall("send", "%d, %s", handle, array(buffer, len));
     dispatcher_enqueue(eta, cb_default, ctx);
 }
 
@@ -152,6 +161,7 @@ void os_flash_read(ReceiveCallback cb, void* appCtx, int handle, uint8_t* buffer
         files[handle].offset = 0;
     }
     uint32_t eta = random_integer_range(1, 10);
+    ctx->seq = logger_syscall("flash_read", "%d, %lu, %s", handle, (unsigned long)len, array(buffer, ctx->len));
     dispatcher_enqueue(eta, cb_receive, ctx);
 }
 
@@ -169,6 +179,7 @@ void os_flash_write(DefaultCallback cb, void* appCtx, int handle, uint8_t* buffe
         files[handle].offset += len;
     }
     uint32_t eta = random_integer_range(1, 7);
+    ctx->seq = logger_syscall("flash_write", "%d, %s", handle, array(buffer, len));
     dispatcher_enqueue(eta, cb_default, ctx);
 }
 
@@ -180,5 +191,6 @@ void os_sensor_read(SensorReadCallback cb, void* appCtx, int handle)
     ctx->error = random_error();
     ctx->value = random_integer(100);
     uint32_t eta = random_integer_range(1, 3);
+    ctx->seq = logger_syscall("sensor_read", "%d, %u", handle, ctx->value);
     dispatcher_enqueue(eta, cb_sensor_read, ctx);
 }

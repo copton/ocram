@@ -11,9 +11,9 @@ typedef enum {
 
 void logger_init();
 void logger_log(LOG_TYPE type, const char* format, ...);
-void logger_syscall(const char* syscall, uint32_t eta, int count, ...);
+int logger_syscall(const char* syscall, const char* format, ...);
+void logger_syscall_return(int sequence_number);
 
-char* buffer_to_string(uint8_t* buffer, size_t len);
-char* int_to_string(uint32_t value);
+char* array(uint8_t* buffer, size_t len);
 
 #endif

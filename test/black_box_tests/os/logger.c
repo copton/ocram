@@ -9,7 +9,7 @@
 
 void logger_init()
 {
-    char* file = settings_logger_file();
+    const char* file = settings_logger_file();
     logger_platform_init(file);
 }
 
@@ -32,41 +32,47 @@ void logger_log(LOG_TYPE type, const char* format, ...)
     assert (size < sizeof(buffer));
     va_end(ap);
 
-    logger_platform_write(typeString(type));
-    logger_platform_write(": ");
-    logger_platform_write(buffer); 
-    logger_platform_write("\n");
+    logger_platform_out(typeString(type));
+    logger_platform_out(": ");
+    logger_platform_out(buffer); 
+    logger_platform_out("\n");
 }
 
-void logger_syscall(const char* syscall, uint32_t eta, int count, ...)
+int logger_syscall(const char* syscall, const char* format, ...)
 {
+    static int sequence_number = 0;
+
     va_list ap;
-    va_start(ap, count);
-    logger_platform_write(syscall);
-    logger_platform_write(", ");
-    logger_platform_write(int_to_string(dispatcher_now()));
-    logger_platform_write(", ");
-    logger_platform_write(int_to_string(eta));
+    va_start(ap, format);
 
-    char* s;
-    for (int i=0; i<count; i++) {
-        s = va_arg(ap, char*);
-        logger_platform_write(", ");
-        logger_platform_write(s);
-    }
+    const uint32_t now = dispatcher_now();
+
+    int innerSize = vsnprintf(NULL, 0, format, ap);
+    char innerBuffer[innerSize];
+    vsprintf(innerBuffer, format, ap);
     va_end(ap);
-    logger_platform_write("\n");
+
+    const char* outerFormat = "%d, ->, %s, %u, %s\n";
+    int outerSize = snprintf(NULL, 0, outerFormat, sequence_number, syscall, now, innerBuffer);
+    char outerBuffer[outerSize];
+    sprintf(outerBuffer, outerFormat, sequence_number, syscall, now, innerBuffer);
+
+    logger_platform_trace(outerBuffer); 
+    return sequence_number++;
 }
 
-char* int_to_string(uint32_t value)
+void logger_syscall_return(int sequence_number)
 {
-    static char buffer[11];
-    int size = snprintf(buffer, sizeof(buffer), "%d", value);
-    assert (size < sizeof(buffer));
-    return buffer;
+    const char* format = "%d, <-, %u\n";
+    const uint32_t now = dispatcher_now();
+
+    int size = snprintf(NULL, 0, format, sequence_number, now);
+    char buffer[size];
+    sprintf(buffer, format, sequence_number, now);
+    logger_platform_trace(buffer);
 }
 
-char* buffer_to_string(uint8_t* data, size_t len)
+char* array(uint8_t* data, size_t len)
 {
     static char buffer[1024];
     size_t offset = 0;
