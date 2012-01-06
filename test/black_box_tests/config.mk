@@ -5,23 +5,16 @@ CPPC=$(TOOLCHAIN)g++
 OBJDUMP=$(TOOLCHAIN)objdump
 STRIP=$(TOOLCHAIN)strip
 
-CCFLAGS=-std=c99 -Wall -I$(ROOT)
-
-ifdef PLATFORM
-CCFLAGS+="-DPLATFORM_$(PLATFORM)"
-endif
+CFLAGS+=-std=c99 -Wall -I$(ROOT)
 
 ifdef DEBUG
-CCFLAGS+=-g -O0 -Wall
+CFLAGS+=-g -O0 -Wall
 else
-CCFLAGS+= -O2
+CFLAGS+= -O2
 endif
 
 depend.mak:
-	$(CC) $(CCFLAGS) -M *.c* > $@ || rm -f $@
-
-%.o: %.cc
-	$(CPPC) $(CCFLAGS) -c $<
+	$(CC) $(CFLAGS) -M *.c* > $@ || rm -f $@
 
 %.o: %.c
-	$(CC) $(CCFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<

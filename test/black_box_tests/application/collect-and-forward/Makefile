@@ -26,13 +26,13 @@ test:
 OCRAM=../../../../cabal-dev/bin/ocram
 
 tc.exe: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
-	$(CC) $(CCFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 ec.exe: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
-	$(CC) $(CCFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 native.exe: native.o ../../os/libos.a
-	$(CC) $(CCFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 ec.c: tc.c $(OCRAM) ../../os/pal.h
 	$(OCRAM) -t "$(TOOLCHAIN)" -c "-I$(ROOT) -DOCRAM_MODE" -p $(ROOT)/os/pal.h -i $< -o $@ || (rm -f $@; exit 1)
