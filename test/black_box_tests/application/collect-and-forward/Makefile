@@ -3,30 +3,29 @@ include ../../config.mk
 
 .PHONY: all clean test
 
-EXE_TARGETS=tc.exe ec.exe native.exe
-OD_TARGETS=$(patsubst %.exe, %.od, $(EXE_TARGETS))
+TARGETS=tc.elf ec.elf native.elf
 
 ifeq ($(PLATFORM),linux)
 LDFLAGS=-lpthread
 endif
 
-all: $(EXE_TARGETS) $(OD_TARGETS)
+all: $(TARGETS)
 
 clean:
-	rm -f *.exe *.asm *.stripped ec.c *.o depend.mak
+	rm -f *.elf *.asm *.stripped ec.c *.o depend.mak
 
 test:
 	./run-test.sh
 
 OCRAM=../../../../cabal-dev/bin/ocram
 
-tc.exe: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
+tc.elf: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-ec.exe: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
+ec.elf: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
 	$(CC) $(CFLAGS) -o $@ $^
 
-native.exe: native.o ../../os/libos.a
+native.elf: native.o ../../os/libos.a
 	$(CC) $(CFLAGS) -o $@ $^
 
 ec.c: tc.c $(OCRAM) ../../os/pal.h
