@@ -99,7 +99,7 @@ def properties(app):
     normalized.text = frac(native.text, ec.text - pal.text)
     normalized.bss = frac(native.bss, ec.bss - pal.bss)
     normalized.data = frac(native.data, ec.data - pal.data)
-    normalized.loc = frac(native.loc, tc.loc - pal.loc)
+    normalized.loc = -1
     normalized.stack = -1
 
     sys.stdout.write("\n".join([Properties.header()] + [str(x) for x in [native, tc, ec, pal, overhead, normalized]]))
