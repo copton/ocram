@@ -11,6 +11,7 @@ import Control.Monad.State (get, put, State, runState)
 import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
+import Language.C.Syntax.Constants (cInteger)
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
@@ -32,7 +33,7 @@ createThreadFunction :: CallGraph -> Ast -> (Int, Symbol) -> WR CFunDef -- {{{2
 createThreadFunction cg ast (tid, startFunction) =
   return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (threadExecutionFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
   where
-    intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "NULL") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
+    intro = CBlockStmt (CIf (CVar (ident contVar) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
     onlyDefs name = not (is_blocking cg name) && is_critical cg name
     functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
 

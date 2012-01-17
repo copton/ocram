@@ -14,10 +14,7 @@ import Language.C (pretty)
 -- pretty_print :: Options -> Ast -> IO () {{{1
 pretty_print :: Options -> Ast -> IO ()
 pretty_print options ast =
-  write (optOutput options) (intro ++ show (pretty ast))
-    where
-      -- E-code needs declaration of NULL
-      intro = "#include <stddef.h>\n"
+  write (optOutput options) $ show (pretty ast)
 
 dump_pal :: Options -> Ast -> IO ()
 dump_pal options ast =
