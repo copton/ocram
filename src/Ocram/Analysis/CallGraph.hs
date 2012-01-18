@@ -134,6 +134,7 @@ processExtDecl (CFDefExt x) labels =
     label = Label (symbol x) attr
   in
      label : labels
+
 processExtDecl _ labels = labels
 
 createNodes :: [Label] -> [Node]
