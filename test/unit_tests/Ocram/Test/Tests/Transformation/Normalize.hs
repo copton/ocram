@@ -14,6 +14,24 @@ import Ocram.Text (show_errors)
 import Test.HUnit
 
 tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
+-- unlist declarations -- {{{2
+    ([paste|
+      int a, b;
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        int i, j;
+        block();
+      }
+    |], [paste|
+      int a;
+      int b;
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        int i;
+        int j;
+        block();
+      }
+    |]),
 -- dangling statements -- {{{2
     ([paste|
       __attribute__((tc_blocking)) int block();

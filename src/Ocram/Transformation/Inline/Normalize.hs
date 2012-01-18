@@ -19,11 +19,12 @@ import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Names (tempVar)
 import Ocram.Transformation.Inline.Types (Transformation)
 import Ocram.Transformation.Util (ident, un, map_critical_functions)
+import Ocram.Types (Ast)
 import Ocram.Util (abort, fromJust_s)
 import qualified Data.Traversable as T
 
 normalize :: Transformation -- {{{1
-normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
+normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg ast trCriticalFunction
   where
     trCriticalFunction = normalizeStatements . deferCriticalInitializations . unlistDeclarations . wrapDanglingStatements
 
@@ -193,6 +194,11 @@ normalize cg ast = return $ map_critical_functions cg ast trCriticalFunction
         isCriticalCall (CCall (CVar name _) _ _) = Any $ is_critical cg (symbol name)
         isCriticalCall _ = Any False
 
+unlistGlobalDeclarations :: Ast -> Ast -- {{{2
+unlistGlobalDeclarations (CTranslUnit ds ni) = CTranslUnit (foldr unlist [] ds) ni
+  where
+  unlist (CDeclExt d@(CDecl _ _ _)) xs = map CDeclExt (unlistDecl d) ++ xs
+  unlist x xs = x : xs
 
 -- utils -- {{{1
 isInNormalForm :: CExpr -> Bool
