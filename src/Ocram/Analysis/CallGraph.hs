@@ -17,7 +17,7 @@ import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Ocram.Analysis.Types
-import Ocram.Query (is_blocking_function', is_start_function', function_definition)
+import Ocram.Query (is_function_declaration, is_blocking_function', is_start_function', function_definition)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Types (Ast)
 import Ocram.Util (tmap, fromJust_s, lookup_s)
@@ -119,12 +119,14 @@ createLabels :: Ast -> [Label]
 createLabels (CTranslUnit ds _) = foldr processExtDecl [] ds
 
 processExtDecl :: CExtDecl -> [Label] -> [Label]
-processExtDecl (CDeclExt x) labels =
-  let
-    attr = [Blocking | is_blocking_function' x]
-    label = Label (symbol x) attr
-  in
-    label : labels
+processExtDecl (CDeclExt x) labels
+  | is_function_declaration x =
+    let
+      attr = [Blocking | is_blocking_function' x]
+      label = Label (symbol x) attr
+    in
+      label : labels
+  | otherwise = labels
 
 processExtDecl (CFDefExt x) labels =
   let

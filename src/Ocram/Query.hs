@@ -3,6 +3,7 @@ module Ocram.Query
 -- export {{{1
 (
     function_definition, function_declaration
+  , is_function_declaration
   , function_parameters,  return_type, local_variables
   , function_parameters_fd, function_parameters_cd
   , return_type_fd, return_type_cd
@@ -84,6 +85,13 @@ local_variables_fd fd = foldl addDecls Map.empty ds
 local_variables_cd :: CDecl -> SymbolTable -- {{{1
 local_variables_cd cd = foldl addDecls Map.empty $ function_parameters_cd cd
 
+is_function_declaration :: CDecl -> Bool -- {{{1
+is_function_declaration (CDecl _ [(Just (CDeclr _ dds _ _ _), _, _)] _) = any isFunDeclr dds
+  where
+    isFunDeclr (CFunDeclr _ _ _) = True
+    isFunDeclr _ = False
+is_function_declaration _ = False
+
 -- utils {{{1
 
 isBlockingAttribute :: CDeclSpec -> Bool
@@ -95,7 +103,9 @@ isStartAttr (CTypeQual (CAttrQual (CAttr (Ident attr _ _) [] _))) = attr == star
 isStartAttr _ = False
 
 functionDeclaration :: CExtDecl -> Maybe CDecl
-functionDeclaration (CDeclExt x) = Just x 
+functionDeclaration (CDeclExt x)
+  | is_function_declaration x = Just x
+  | otherwise = Nothing
 functionDeclaration _ = Nothing
 
 functionDefinition :: CExtDecl -> Maybe CFunDef
