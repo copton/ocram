@@ -617,6 +617,95 @@ tests = runTests [ -- {{{1
         return;
     }
     |])
+-- struct {{{2
+  , ([paste|
+    struct S {
+      int i;
+    };
+    __attribute__((tc_blocking)) int block(struct S s);
+
+    __attribute__((tc_run_thread)) void start() {
+      struct S s;
+      block(s);
+    }
+  |],[paste|
+    struct S {
+      int i;
+    };
+    typedef struct {
+      void* ec_cont;
+      int ec_result;
+      struct S s;
+    } ec_frame_block_t;
+
+    typedef struct {
+      union {
+        ec_frame_block_t block;
+      } ec_frames;
+      struct S s;
+    } ec_frame_start_t;
+
+    ec_frame_start_t ec_stack_start;
+
+    void block(ec_frame_block_t*);
+
+    void ec_thread_1(void* ec_cont) {
+      if (ec_cont)
+        goto *ec_cont;
+
+        ec_stack_start.ec_frames.block.s = ec_stack_start.s;
+        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+        block(&ec_stack_start.ec_frames.block);
+        return;
+      ec_label_start_1: ;
+        return;
+    }
+    |])
+-- struct initialization {{{2
+  , ([paste|
+    struct S {
+      int i;
+    };
+    __attribute__((tc_blocking)) int block(struct S s);
+
+    __attribute__((tc_run_thread)) void start() {
+      struct S s = {23};
+      block(s);
+    }
+  |],[paste|
+    struct S {
+      int i;
+    };
+    typedef struct {
+      void* ec_cont;
+      int ec_result;
+      struct S s;
+    } ec_frame_block_t;
+
+    typedef struct {
+      union {
+        ec_frame_block_t block;
+      } ec_frames;
+      struct S s;
+    } ec_frame_start_t;
+
+    ec_frame_start_t ec_stack_start;
+
+    void block(ec_frame_block_t*);
+
+    void ec_thread_1(void* ec_cont) {
+      if (ec_cont)
+        goto *ec_cont;
+
+        ec_stack_start.s.i = 23;
+        ec_stack_start.ec_frames.block.s = ec_stack_start.s;
+        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+        block(&ec_stack_start.ec_frames.block);
+        return;
+      ec_label_start_1: ;
+        return;
+    }
+    |])
 	]
 
 runTests :: [(String, String)] -> Test -- {{{2

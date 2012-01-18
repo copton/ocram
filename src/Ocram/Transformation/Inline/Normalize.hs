@@ -224,4 +224,5 @@ trueCondition :: CExpr
 trueCondition = CConst (CIntConst (cInteger 1) un)
 
 unlistDecl :: CDecl -> [CDecl]
+unlistDecl (CDecl x [] z) = [CDecl x [] z] -- struct S { int i; };
 unlistDecl (CDecl x ds z) = map (\y -> CDecl x [y] z) ds
