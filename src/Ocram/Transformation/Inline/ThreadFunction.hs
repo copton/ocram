@@ -11,7 +11,6 @@ import Control.Monad.State (get, put, State, runState)
 import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
-import Language.C.Syntax.Constants (cInteger)
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
