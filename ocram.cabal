@@ -57,10 +57,10 @@ Executable ocram
     Ocram.Query
     Ocram.Symbols
     Ocram.Transformation.Inline
-    Ocram.Transformation.Inline.AddMain
     Ocram.Transformation.Inline.CriticalFunctions
     Ocram.Transformation.Inline.Names
     Ocram.Transformation.Inline.Normalize
+    Ocram.Transformation.Inline.Pal
     Ocram.Transformation.Inline.ThreadFunction
     Ocram.Transformation.Inline.TStack
     Ocram.Transformation.Inline.Types

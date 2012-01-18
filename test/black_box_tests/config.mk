@@ -1,6 +1,26 @@
-AR=$(TOOLCHAIN)$(CC_PREFIX)ar
-RANLIB=$(TOOLCHAIN)$(CC_PREFIX)ranlib
-CC=$(TOOLCHAIN)$(CC_PREFIX)gcc
-CPPC=$(TOOLCHAIN)$(CC_PREFIX)g++
+AR=$(TOOLCHAIN)ar
+RANLIB=$(TOOLCHAIN)ranlib
+CC=$(TOOLCHAIN)gcc
+CPPC=$(TOOLCHAIN)g++
+OBJDUMP=$(TOOLCHAIN)objdump
+STRIP=$(TOOLCHAIN)strip
 
-CCFLAGS=-g -O0 -Wall
+CFLAGS+=-std=c99 -Wall -I$(ROOT)
+
+ifdef DEBUG
+CFLAGS+=-g -O0 -Wall
+else
+CFLAGS+= -O2
+endif
+
+depend.mak:
+	$(CC) $(CFLAGS) -M *.c* > $@ || rm -f $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $<
+
+%.od: %.exe
+	$(OBJDUMP) -zhD $< > $@
+
+%.stripped: %.exe
+	$(STRIP) -o $@ $<

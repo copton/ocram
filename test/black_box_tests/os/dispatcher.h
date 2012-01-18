@@ -1,38 +1,14 @@
-#ifndef BONGOKATHAIMAJEEZOOL
-#define BONGOKATHAIMAJEEZOOL
-
-#include <vector>
-#include <queue>
-#include <functional>
+#ifndef OHTHAEVOHGOHDECHOOCH
+#define OHTHAEVOHGOHDECHOOCH
 
 #include "types.h"
 
-class DispatcherCallback {
-public:
-    virtual void operator()() =0;
-};
+typedef void (*DispatcherCallback)(void*);
 
-class Dispatcher {
-public:
-    class Quit { };
-
-    static Dispatcher* instance;
-    static void init();
-
-    void run();
-    bool quit() const;
-    void enqueue(uint32_t callback_time, DispatcherCallback* callback);
-    uint32_t get_simulation_time();
-
-private:
-    Dispatcher(int32_t maxtime);
-
-    const int32_t maxtime;
-    uint32_t simulation_time;
-
-    typedef std::pair<uint32_t, DispatcherCallback*> Item;
-    typedef std::priority_queue<Item, std::vector<Item>, std::greater<Item> > Queue;
-    Queue queue;
-};
+void dispatcher_init();
+void dispatcher_run();
+bool dispatcher_quit();
+void dispatcher_enqueue(int32_t callback_time, DispatcherCallback callback, void* ctx);
+uint32_t dispatcher_now();
 
 #endif

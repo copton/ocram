@@ -6,7 +6,7 @@ module Ocram.Transformation.Inline.TStack
 ) where
 -- imports {{{1
 import Language.C.Syntax.AST
-import Ocram.Analysis (start_functions, critical_functions, get_callees, critical_function_dependency_list, CallGraph, is_start, is_blocking)
+import Ocram.Analysis (start_functions, critical_functions, get_callees, critical_function_dependency_list, CallGraph, is_start)
 import Ocram.Query (local_variables, return_type)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
@@ -34,7 +34,6 @@ createTStackFrame :: CallGraph -> Ast -> Symbol -> WR CExtDecl
 createTStackFrame cg ast name = do
   nestedFrames <- createNestedFramesUnion cg name
   return $ CDeclExt (CDecl [CStorageSpec (CTypedef un), CTypeSpec (CSUType (CStruct CStructTag Nothing (Just (
-    thread ?:
     continuation ?:
     result ($fromJust_s (return_type ast name)) ?:
     nestedFrames ?:
@@ -46,15 +45,6 @@ createTStackFrame cg ast name = do
     continuation
       | is_start cg name = Nothing
       | otherwise = Just $ CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un
-    thread
-      | not (is_blocking cg name) = Nothing
-      | otherwise = Just $ CDecl ts [(Just declr, Nothing, Nothing)] un
-        where
-        ts = [CTypeSpec (CVoidType un)]
-        declr = CDeclr mname [CPtrDeclr [] un, fdeclr] Nothing [] un
-        mname = Just (ident threadPointer)
-        fdeclr = CFunDeclr (Right ([CDecl ts [(Just pdeclr, Nothing, Nothing)] un], False)) [] un
-        pdeclr = CDeclr Nothing [CPtrDeclr [] un] Nothing [] un
     localVariables = map removeInit $ Map.elems ($fromJust_s (local_variables ast name))
     removeInit (CDecl x1 [(x2, _, x3)] x4) = CDecl x1 [(x2, Nothing, x3)] x4
     removeInit _ = $abort "unexpected parameters"

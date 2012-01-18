@@ -1,93 +1,19 @@
-#ifndef EIXEEGISIPHAOBOMETUG
-#define EIXEEGISIPHAOBOMETUG
+#ifndef OOZOYAEQUEICHOORIPHU
+#define OOZOYAEQUEICHOORIPHU
 
-#include <fstream>
-#include <vector>
-#include <sstream>
+#include "types.h"
 
-class LogLine;
+typedef enum {
+    INFO,
+    WARNING,
+    ERROR,
+} LOG_TYPE;
 
-class Logger {
-public:
-    static Logger* instance;
-    static void init();
-    static void shutdown();
-       
-    void log(const std::string&);
+void logger_init();
+void logger_log(LOG_TYPE type, const char* format, ...);
+int logger_syscall(const char* syscall, const char* format, ...);
+void logger_syscall_return(int sequence_number);
 
-private:
-    Logger(const std::string&);
-    ~Logger();
-    std::ofstream logfile;
-};
-
-class LogLine {
-public:
-    LogLine();
-    LogLine(LogLine&);
-    ~LogLine();
-
-    template<class T>
-    LogLine& operator()(const T& object)
-    {
-        return log(object);
-    }
-
-    template<class T>
-    LogLine& log(const T& object)
-    {
-        if (first) {
-            first = false;
-        } else {
-            *line << ", ";
-        }
-        *line << object;
-        return *this;
-    }
-
-private:
-    bool first;
-    std::stringstream* line;
-    void operator=(const LogLine&);
-};
-
-class LogContext {
-public:
-    LogContext(const std::string& syscall);
-    LogLine logCall();
-    LogLine logReturn();
-
-private:
-    const std::string syscall;
-    const int count;
-    static int counter;
-};
-
-template<class T>
-class Array {
-public:
-    Array(T* data, size_t len) :
-        data(data), len(len)
-    { }
-
-    T* data;
-    size_t len;
-};
-
-template<class T> Array<T> array(T* value, size_t len)
-{
-    return Array<T>(value, len);
-}
-
-template<class T>
-std::ostream& operator<<(std::ostream& os, const Array<T>& array)
-{
-    os << "<" << array.len << "> 0x" << std::hex;
-    for (size_t i=0; i<array.len; ++i) {
-        os << int(array.data[i]);
-    }
-    os << std::dec;
-    return os;
-}
+char* array(uint8_t* buffer, size_t len);
 
 #endif

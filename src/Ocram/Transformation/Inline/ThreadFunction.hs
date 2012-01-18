@@ -34,10 +34,10 @@ createThreadFunction cg ast (tid, startFunction) =
   where
     intro = CBlockStmt (CIf (CBinary CNeqOp (CVar (ident contVar) un) (CVar (ident "NULL") un) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
     onlyDefs name = not (is_blocking cg name) && is_critical cg name
-    functions = map (inlineCriticalFunction cg ast tid startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
+    functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
 
-inlineCriticalFunction :: CallGraph -> Ast -> Int -> Symbol -> (Bool, Symbol) -> [CBlockItem] -- {{{2
-inlineCriticalFunction cg ast tid startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody ++ close : []
+inlineCriticalFunction :: CallGraph -> Ast -> Symbol -> (Bool, Symbol) -> [CBlockItem] -- {{{2
+inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody ++ close : []
   where
     callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
     fd = $fromJust_s $ function_definition ast inlinedFunction
@@ -107,7 +107,7 @@ inlineCriticalFunction cg ast tid startFunction (isThreadStartFunction, inlinedF
 
     criticalFunctionCallSequence :: Symbol -> Int -> [CExpr] -> Maybe CExpr -> [CBlockItem] -- {{{3
     criticalFunctionCallSequence calledFunction lblIdx params resultLhs =
-      parameters ++ continuation' ?: continuation : callExp : returnExp ?: lbl' : resultExp ?: []
+      parameters ++ continuation : callExp : returnExp ?: lbl' : resultExp ?: []
       where
         callChain' = callChain ++ [calledFunction]
         blocking = is_blocking cg calledFunction
@@ -117,10 +117,6 @@ inlineCriticalFunction cg ast tid startFunction (isThreadStartFunction, inlinedF
         lbl' = createLabel inlinedFunction lblIdx
         resultExp = fmap assignResult resultLhs
         assignResult lhs = createAssign lhs (stackAccess callChain' (Just resVar))
-
-        continuation'
-          | blocking = Just $ createAssign (stackAccess callChain' (Just (symbol threadPointer))) (CUnary CAdrOp (CVar (ident (threadExecutionFunction tid)) un) un)
-          | otherwise = Nothing
 
         callExp = CBlockStmt $ if blocking
           then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain' Nothing) un] un)) un

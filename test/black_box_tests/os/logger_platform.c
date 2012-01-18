@@ -1,0 +1,1 @@
+platform/logger_platform.c

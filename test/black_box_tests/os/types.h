@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <unistd.h>
+#include <stdlib.h> // size_t
 
 typedef enum {
   SUCCESS        =  0,

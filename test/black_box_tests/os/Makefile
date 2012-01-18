@@ -1,16 +1,16 @@
 include ../config.mk
+-include depend.mak
 
-TARGETS = dispatcher.o logger.o random.o file.o ec.o pal.o tc.o libos.a libtc.a libec.a
+.PHONY: all clean
+
+TARGETS = dispatcher.o random.o core.o logger.o pal.o settings.o logger_platform.o tc.o libos.a libtc.a libpal.a
 
 all: $(TARGETS)
 
--include depend.mak
-
 clean:
-	rm -f $(TARGETS)
-	rm -f depend.mak
+	rm -f *.o *.a depend.mak
 
-libos.a: dispatcher.o logger.o random.o file.o ec.o
+libos.a: dispatcher.o random.o core.o logger.o logger_platform.o settings.o
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
@@ -18,12 +18,6 @@ libtc.a: tc.o
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-libec.a: pal.o
+libpal.a: pal.o
 	$(AR) r $@ $^
 	$(RANLIB) $@
-
-%.o: %.cc
-	$(CPPC) $(CCFLAGS) -c $<
-
-depend.mak:
-	$(CPPC) -M *.cc > $@ || rm -f $@

@@ -1,22 +1,33 @@
 include ../../config.mk
+-include depend.mak
 
-.PHONY: all clean
+.PHONY: all clean test
 
-all: tc.elf ec.elf
+TARGETS=tc.elf ec.elf native.elf
+
+ifeq ($(PLATFORM),linux)
+LDFLAGS=-lpthread
+endif
+
+all: $(TARGETS)
 
 clean:
-	rm -f tc.elf ec.elf ec.c *.o
+	rm -f *.elf *.asm *.stripped ec.c *.o depend.mak
+
+test:
+	./run-test.sh
 
 OCRAM=../../../../cabal-dev/bin/ocram
 
 tc.elf: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
-	$(CPPC) $(CCFLAGS) -o $@ $^ -lpthread
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-ec.elf: ec.o ../../os/libec.a ../../os/libos.a
-	$(CPPC) $(CCFLAGS) -o $@ $^
+ec.elf: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
+	$(CC) $(CFLAGS) -o $@ $^
 
-ec.c: tc.c $(OCRAM)
-	$(OCRAM) -c "-I../.. -DOCRAM_MODE" -i $< -o $@ || (rm $@; exit 1)
+native.elf: native.o ../../os/libos.a
+	$(CC) $(CFLAGS) -o $@ $^
 
-%.o: %.c
-	$(CC) $(CCFLAGS) -c $< -I../../
+ec.c: tc.c $(OCRAM) ../../os/pal.h
+	$(OCRAM) -t "$(TOOLCHAIN)" -c "-I$(ROOT) -DOCRAM_MODE" -p $(ROOT)/os/pal.h -i $< -o $@ || (rm -f $@; exit 1)
+
