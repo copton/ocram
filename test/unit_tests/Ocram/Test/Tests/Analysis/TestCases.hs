@@ -268,4 +268,16 @@ test_cases = [
 		[]
 		[ThreadNotBlocking]
 		[]
+-- struct initialization is not supported yet {{{2
+  ,TCase
+    [paste|
+      struct Foo { int i; };
+      void start() {
+        struct Foo foo = {23};
+      }
+    |]
+    undefined undefined undefined undefined
+    [StructInitialization]
+    undefined
+		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
 	]

@@ -39,6 +39,7 @@ data ErrorCode =
   | NoThreads
   | ThreadNotBlocking
   | CriticalRecursion
+  | StructInitialization
   deriving (Eq, Enum, Show)
 
 errors :: [(ErrorCode, String)]
@@ -50,13 +51,14 @@ errors = [
   , (NoThreads, "at least one thread must be started")
   , (ThreadNotBlocking, "thread does not call any blocking functions")
   , (CriticalRecursion, "recursion of critical functions")
+  , (StructInitialization, "Sorry, struct initialization is not supported yet.")
   ]
 
 errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors
 
 check_sanity :: Ast -> Either [OcramError] () -- {{{1
-check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStats) ast
+check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStats `extQ` saneDecls) ast
 
 saneExtDecls :: CExtDecl -> [OcramError]
 
@@ -74,6 +76,14 @@ saneExtDecls (CAsmExt _ ni) = [newError AssemblerCode Nothing (Just ni)]
 saneStats :: CStat -> [OcramError]
 saneStats (CAsm _ ni) = [newError AssemblerCode Nothing (Just ni)]
 saneStats _ = []
+
+saneDecls :: CDecl -> [OcramError]
+saneDecls (CDecl _ l ni)
+  | any containsInitList l = [newError StructInitialization Nothing (Just ni)]
+  | otherwise = []
+  where
+    containsInitList (_, Just (CInitList _ _), _) = True
+    containsInitList _ = False
 
 hasReturnType :: [CDeclSpec] -> Bool
 hasReturnType = any isTypeSpec
