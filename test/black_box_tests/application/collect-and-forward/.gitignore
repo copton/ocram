@@ -1,2 +1,3 @@
 ec.c
 *.elf
+*.pped.*
