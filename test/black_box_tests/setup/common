@@ -1,4 +1,3 @@
 export ROOT=`pwd`
 
 (cd os; rm -f platform; ln -s $PLATFORM platform)
-make clean
