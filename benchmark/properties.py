@@ -3,6 +3,8 @@ from measurements import app_section_size, max_stack_usage, lines_of_code
 class Properties(object):
     def __init__(self, name):
         self.name = name
+        for i in Properties.attributes():
+            setattr(self, i, -1)
 
     @staticmethod
     def attributes():
@@ -12,9 +14,7 @@ def app_properties(name, platform, toolchain, cfile, elf, no_stack = False):
     prop = Properties(name)
     prop.text, prop.data, prop.bss = app_section_size(toolchain, elf)
     prop.loc = lines_of_code(cfile)
-    if no_stack:
-        prop.stack = -1
-    else:
+    if not no_stack:
         prop.stack = max_stack_usage(platform, elf)
     return prop
 
@@ -49,7 +49,5 @@ def get_normalized(native, ec, pal):
     normalized.text = frac(native.text, ec.text - pal.text)
     normalized.bss = frac(native.bss, ec.bss - pal.bss)
     normalized.data = frac(native.data, ec.data - pal.data)
-    normalized.loc = -1
-    normalized.stack = -1
 
     return normalized

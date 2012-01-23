@@ -1,4 +1,4 @@
-all: pal
+all: pal pal.co
 APPS=
 CONTIKI=/home/alex/scm/contiki/
 
