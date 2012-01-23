@@ -8,7 +8,7 @@ def app_section_size(toolchain, elf):
     input: path to elf file
     output: (text, data, bss)
     """
-    out, err = Popen([toolchain+"size", elf], stdout=PIPE).communicate()
+    out, err = Popen(toolchain+"size " + elf, shell=True, stdout=PIPE).communicate()
     assert not err, err
     values = out.split("\n")[1].split()
     return tuple([int(v) for v in values[:3]])

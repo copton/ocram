@@ -15,7 +15,7 @@ if not "benchmark" in os.listdir(cwd):
 
 sys.path.append(os.path.join(cwd, "benchmark"))
 
-ROOT = os.path.join(cwd, "test", "black_box_tests")
+ROOT = os.path.join(cwd, "applications", "simulation_os")
 
 def cleanup():
     command = "cd %s; make clean" % ROOT
@@ -62,7 +62,7 @@ def measure(platform, toolchain, app):
     overhead = get_overhead(native, tc, ec)
     normalized = get_normalized(native, ec, pal)
 
-    text.print_all_properties([native, tc, ec, overhead, normalized]) 
+    text.print_all_properties([native, tc, ec, pal, overhead, normalized]) 
 
 cleanup()
 for setup in get_setups():
