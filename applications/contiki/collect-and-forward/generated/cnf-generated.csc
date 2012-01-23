@@ -101,35 +101,35 @@
       <breakpoints />
       <interface_config>
         se.sics.cooja.interfaces.Position
-        <x>51.53798549369959</x>
-        <y>16.396538266270568</y>
+        <x>50.69719944148021</x>
+        <y>46.34954870878665</y>
         <z>0.0</z>
       </interface_config>
       <interface_config>
         se.sics.cooja.mspmote.interfaces.MspMoteID
         <id>2</id>
       </interface_config>
-      <motetype_identifier>sky3</motetype_identifier>
+      <motetype_identifier>sky1</motetype_identifier>
     </mote>
     <mote>
       <breakpoints />
       <interface_config>
         se.sics.cooja.interfaces.Position
-        <x>50.222829874165726</x>
-        <y>34.98348181455283</y>
+        <x>50.45702415824084</x>
+        <y>31.397391932055832</y>
         <z>0.0</z>
       </interface_config>
       <interface_config>
         se.sics.cooja.mspmote.interfaces.MspMoteID
         <id>3</id>
       </interface_config>
-      <motetype_identifier>sky1</motetype_identifier>
+      <motetype_identifier>sky3</motetype_identifier>
     </mote>
   </simulation>
   <plugin>
     se.sics.cooja.plugins.SimControl
     <width>318</width>
-    <z>0</z>
+    <z>1</z>
     <height>186</height>
     <location_x>0</location_x>
     <location_y>0</location_y>
@@ -140,10 +140,10 @@
       <skin>se.sics.cooja.plugins.skins.IDVisualizerSkin</skin>
       <skin>se.sics.cooja.plugins.skins.UDGMVisualizerSkin</skin>
       <skin>se.sics.cooja.plugins.skins.AddressVisualizerSkin</skin>
-      <viewport>3.032431675343699 0.0 0.0 3.032431675343699 -24.29730013581793 0.9149816317397217</viewport>
+      <viewport>4.389758923509265 0.0 0.0 4.389758923509265 -88.4941720523603 -67.82698140865988</viewport>
     </plugin_config>
     <width>313</width>
-    <z>1</z>
+    <z>2</z>
     <height>300</height>
     <location_x>-2</location_x>
     <location_y>186</location_y>
@@ -155,7 +155,7 @@
       <coloring />
     </plugin_config>
     <width>1114</width>
-    <z>2</z>
+    <z>0</z>
     <height>670</height>
     <location_x>314</location_x>
     <location_y>0</location_y>

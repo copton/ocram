@@ -18,8 +18,8 @@ def sleep(thread_id):
             frame = threads[%(thread_id)d-1].frames.sleep; 
             static struct etimer et; 
             clock_time_t now = clock_time();
-            if (now > frame->tics) {
-                etimer_set(&et, now - frame->tics);
+            if (frame->tics > now) {
+                etimer_set(&et, frame->tics - now);
                 PROCESS_WAIT_UNTIL(etimer_expired(&et));
             } else {
                 PROCESS_PAUSE();
