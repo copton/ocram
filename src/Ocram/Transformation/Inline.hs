@@ -21,8 +21,8 @@ transformation cg ast = runWriter (transformation' cg ast)
 
 transformation' :: Transformation
 transformation' cg ast = return ast
-  >>= unique_identifiers cg
   >>= normalize cg
+  >>= unique_identifiers cg
   >>= addTStacks cg
   >>= addBlockingFunctionDecls cg
   >>= addThreadFunctions cg
