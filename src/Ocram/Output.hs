@@ -28,7 +28,7 @@ dump_pal options fpr header = case optPalGenerator options of
   Just generator ->
     let
       target = $fromJust_s (optPalFile options) 
-      args = map (concat . intersperse "," . map show) fpr
+      args = map (concat . intersperse ",") fpr
       input = (show . pretty) header
       process = (proc generator args) {std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe}
     in do

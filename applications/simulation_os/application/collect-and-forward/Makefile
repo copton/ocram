@@ -34,4 +34,4 @@ tc.pped.c: tc.c
 	$(CC) -I$(ROOT) -DOCRAM_MODE -E $< -o $@
 
 ec.c pal.c: tc.pped.c $(OCRAM) $(PALGEN)
-	$(OCRAM) -i $< -o ec.c -g $(PALGEN) -p pal.c || (rm -f ec.c; exit 1)
+	$(OCRAM) -i $< -o ec.c -g $(PALGEN) -p pal.c || (rm -f ec.c pal.c; exit 1)
