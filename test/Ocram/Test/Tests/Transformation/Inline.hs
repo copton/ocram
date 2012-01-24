@@ -38,7 +38,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -77,7 +77,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -121,7 +121,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -165,7 +165,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -232,7 +232,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -295,7 +295,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -310,7 +310,7 @@ tests = runTests [ -- {{{1
 				return;	
 		}
 
-		void ec_thread_2(void* ec_cont)
+		void ec_thread_1(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -371,7 +371,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -391,7 +391,7 @@ tests = runTests [ -- {{{1
 				goto *ec_stack_run.ec_frames.critical.ec_cont;
 		}
 
-		void ec_thread_2(void* ec_cont)
+		void ec_thread_1(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -438,7 +438,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -480,7 +480,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -521,7 +521,7 @@ tests = runTests [ -- {{{1
 
     void block(ec_frame_block_t*);
 
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont)
         goto *ec_cont;
 
@@ -563,7 +563,7 @@ tests = runTests [ -- {{{1
 
     void block(ec_frame_block_t*);
 
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont)
         goto *ec_cont;
 
@@ -604,7 +604,7 @@ tests = runTests [ -- {{{1
 
     void block(ec_frame_block_t*);
 
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont)
         goto *ec_cont;
 
@@ -649,7 +649,7 @@ tests = runTests [ -- {{{1
 
     void block(ec_frame_block_t*);
 
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont)
         goto *ec_cont;
 
@@ -693,7 +693,7 @@ tests = runTests [ -- {{{1
 
 --     void block(ec_frame_block_t*);
 
---     void ec_thread_1(void* ec_cont) {
+--     void ec_thread_0(void* ec_cont) {
 --       if (ec_cont)
 --         goto *ec_cont;
 

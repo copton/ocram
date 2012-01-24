@@ -25,7 +25,7 @@ import qualified Data.Set as Set
 
 addThreadFunctions :: Transformation -- {{{1
 addThreadFunctions cg ast@(CTranslUnit decls ni) = do
-  thread_functions <- mapM (liftM CFDefExt . createThreadFunction cg ast) $ zip [1..] $ Set.elems $ start_functions cg
+  thread_functions <- mapM (liftM CFDefExt . createThreadFunction cg ast) $ zip [0..] $ Set.elems $ start_functions cg
   return $ CTranslUnit (decls ++ thread_functions) ni
 
 createThreadFunction :: CallGraph -> Ast -> (Int, Symbol) -> WR CFunDef -- {{{2

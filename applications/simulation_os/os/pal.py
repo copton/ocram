@@ -138,13 +138,13 @@ void tc_sensor_read(ec_frame_tc_sensor_read_t * frame)
 """)
 
 def dynamic_part(out, numberof_threads):
-    out("\n".join(["void ec_thread_%d(void*);" % (tid+1) for tid in range(numberof_threads)]))
+    out("\n".join(["void ec_thread_%d(void*);" % tid for tid in range(numberof_threads)]))
     out("""
 int main()
 {
     pal_init(%d);
 """ % numberof_threads)
-    out("\n".join(["pal_start_thread(&ec_thread_%d);" % (tid+1) for tid in range(numberof_threads)]))
+    out("\n".join(["pal_start_thread(&ec_thread_%d);" % tid for tid in range(numberof_threads)]))
     out("""
     pal_run();
     return 0;
