@@ -3,7 +3,7 @@ include ../config.mk
 
 .PHONY: all clean
 
-TARGETS = dispatcher.o random.o core.o logger.o pal.o settings.o logger_platform.o tc.o libos.a libtc.a libpal.a
+TARGETS = dispatcher.o random.o core.o logger.o settings.o logger_platform.o tc.o libos.a libtc.a
 
 all: $(TARGETS)
 
@@ -15,9 +15,5 @@ libos.a: dispatcher.o random.o core.o logger.o logger_platform.o settings.o
 	$(RANLIB) $@
 
 libtc.a: tc.o
-	$(AR) r $@ $^
-	$(RANLIB) $@
-
-libpal.a: pal.o
 	$(AR) r $@ $^
 	$(RANLIB) $@

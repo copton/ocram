@@ -1,22 +1,21 @@
 module Ocram.Options 
 -- export {{{1
 (
-  Options(..), options, defaultOptions, PalAction(..)
+  Options(..), options, defaultOptions
 ) where
 
 -- import {{{1
 import Data.List (intercalate)
+import Data.Maybe (isJust)
 import Ocram.Text (new_error, OcramError)
 import System.Console.GetOpt
 
 -- types {{{1
-data PalAction = Compare | Dump deriving Show
-
 data Options = Options {
     optInput :: String
   , optOutput :: String
-  , optPalHeader :: String
-  , optPalAction :: PalAction
+  , optPalFile :: Maybe FilePath
+  , optPalGenerator :: Maybe FilePath
   , optHelp :: Bool
 } deriving Show
 
@@ -51,8 +50,8 @@ available_options :: [OptDescr (Options -> Options)]
 available_options = [
     Option "i" ["input"] (ReqArg (\x opts -> opts {optInput = x}) "input") "input tc file (required)"
   , Option "o" ["output"] (ReqArg (\x opts -> opts {optOutput = x}) "output") "output ec file (required)"
-  , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalHeader = x}) "pal") "PAL header file (optional)"
-  , Option "d" ["dump"] (NoArg (\opts -> opts {optPalAction = Dump})) "Dump the PAL header instead of comparing it."
+  , Option "g" ["generator"] (ReqArg (\x opts -> opts {optPalGenerator = Just x}) "generator") "External program which generates the PAL implementation. (optional)"
+  , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalFile = Just x}) "pal") "target file path for the PAL generator program. Mandatory if generator is specified."
   , Option "h" ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
   ]
 
@@ -60,8 +59,8 @@ defaultOptions :: Options
 defaultOptions = Options { 
     optInput = ""
   , optOutput = ""
-  , optPalHeader = ""
-  , optPalAction = Compare
+  , optPalFile = Nothing
+  , optPalGenerator = Nothing
   , optHelp = False
 }
 
@@ -69,4 +68,5 @@ checkOptions :: Options -> Bool
 checkOptions opts
   | optInput opts == optInput defaultOptions = False
   | optOutput opts == optOutput defaultOptions = False
+  | isJust (optPalGenerator opts) && not (isJust (optPalFile opts)) = False
   | otherwise = True

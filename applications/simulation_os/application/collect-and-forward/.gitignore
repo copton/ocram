@@ -1,3 +1,4 @@
 ec.c
+pal.c
 *.elf
 *.pped.*

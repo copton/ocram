@@ -3,6 +3,9 @@ include ../../config.mk
 
 .PHONY: all clean test
 
+OCRAM=../../../../cabal-dev/bin/ocram
+PALGEN=../../os/pal.py
+
 TARGETS=tc.elf ec.elf native.elf
 
 ifeq ($(PLATFORM),linux)
@@ -17,22 +20,18 @@ clean:
 test:
 	./run-test.sh
 
-OCRAM=../../../../cabal-dev/bin/ocram
 
 tc.elf: tc.o main-tc.o ../../os/libtc.a ../../os/libos.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-ec.elf: ec.o main-ec.o ../../os/libpal.a ../../os/libos.a
+ec.elf: ec.o pal.o ../../os/libos.a
 	$(CC) $(CFLAGS) -o $@ $^
 
 native.elf: native.o ../../os/libos.a
 	$(CC) $(CFLAGS) -o $@ $^
 
-pal.pped.h: $(ROOT)/os/pal.h
-	$(CC) -I$(ROOT) -DOCRAM_MODE -E $< -o $@
-
 tc.pped.c: tc.c
 	$(CC) -I$(ROOT) -DOCRAM_MODE -E $< -o $@
 
-ec.c: tc.pped.c pal.pped.h $(OCRAM)
-	$(OCRAM) -p pal.pped.h -i $< -o $@ || (rm -f $@; exit 1)
+ec.c pal.c: tc.pped.c $(OCRAM) $(PALGEN)
+	$(OCRAM) -i $< -o ec.c -g $(PALGEN) -p pal.c || (rm -f ec.c; exit 1)

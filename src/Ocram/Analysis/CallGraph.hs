@@ -2,12 +2,13 @@
 module Ocram.Analysis.CallGraph
 -- exports {{{1
 (
-    CriticalFunctions, BlockingFunctions, StartFunctions
+    CriticalFunctions, BlockingFunctions, StartFunctions, Footprint
   , call_graph, from_test_graph, to_test_graph
   , blocking_functions, critical_functions, start_functions
   , is_blocking, is_start, is_critical
   , call_chain, call_order, get_callees
   , critical_function_dependency_list
+  , footprint
 ) where
 
 -- imports {{{1
@@ -36,6 +37,8 @@ type CriticalFunctions = Set.Set Symbol
 type BlockingFunctions = Set.Set Symbol
 
 type StartFunctions = Set.Set Symbol
+
+type Footprint = [[Symbol]]
 
 call_graph :: Ast -> CallGraph -- {{{1
 call_graph ast =
@@ -110,6 +113,11 @@ get_callees (CallGraph gd gi) caller = do
   gcaller <- Map.lookup caller gi
   return $ map (gnode2symbol gd) $ List.nub $ G.suc gd gcaller
    
+footprint :: CallGraph -> Footprint -- {{{1
+footprint cg@(CallGraph gd gi) = map footprint' (Set.toList $ start_functions cg)
+  where
+  footprint' sf = filter isBlocking $ $fromJust_s $ call_order cg sf
+  isBlocking f = hasAttr attrBlocking $ $fromJust_s . G.lab gd $ $lookup_s gi f
 
 -- utils {{{1
 gnode2symbol :: GraphData -> G.Node -> Symbol

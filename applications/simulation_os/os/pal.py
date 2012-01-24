@@ -1,10 +1,23 @@
-#include "pal.h"
+#!/usr/bin/env python
 
-#include "core.h"
-#include "logger.h"
+import sys
+
+if len(sys.argv) <= 1:
+    sys.stderr.write("There must be at least one thread.\n")
+    sys.exit(1)
+
+
+def headers(out):
+    out('#include "os/common.h"\n')
+
+def static_part(out):
+    out(r"""
+#include "os/core.h"
+#include "os/logger.h"
 
 #include <stdlib.h>
 
+typedef void (*thread_t)(void*);
 static int ctid = -1;
 static thread_t* threads;
 
@@ -122,3 +135,24 @@ void tc_sensor_read(ec_frame_tc_sensor_read_t * frame)
     NEW_CONTEXT;
 	os_sensor_read(&sensor_read_cb, ctx, frame->handle);
 }
+""")
+
+def dynamic_part(out, numberof_threads):
+    out("\n".join(["void ec_thread_%d(void*);" % (tid+1) for tid in range(numberof_threads)]))
+    out("""
+int main()
+{
+    pal_init(%d);
+""" % numberof_threads)
+    out("\n".join(["pal_start_thread(&ec_thread_%d);" % (tid+1) for tid in range(numberof_threads)]))
+    out("""
+    pal_run();
+    return 0;
+}""")
+
+numberof_threads = len(sys.argv) - 1
+out = sys.stdout.write
+headers(out)
+out(sys.stdin.read())
+static_part(out)
+dynamic_part(out, numberof_threads)
