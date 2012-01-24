@@ -9,10 +9,10 @@
 #define TC_BLOCKING
 #endif
 
-#include "types.h"
-
 #include "clock.h"
 #include "net/uip.h"
+
+#include "types.h"
 
 TC_BLOCKING error_t tc_sleep(clock_time_t tics);
 TC_BLOCKING error_t tc_receive(uint8_t* buffer, size_t buflen, size_t* len);

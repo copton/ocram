@@ -1,5 +1,5 @@
-#ifndef TOHTHAEPHAAGHIGHOCIV
-#define TOHTHAEPHAAGHIGHOCIV
+#ifndef OOVOOYEKOOTHAERAHWIM
+#define OOVOOYEKOOTHAERAHWIM
 
 #include <stdint.h>
 #include <stddef.h>

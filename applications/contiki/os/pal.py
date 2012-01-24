@@ -67,7 +67,7 @@ out("""
 #include "net/netstack.h"
 #include "net/uip.h"
 #include "net/uiplib.h"
-#include "types.h"
+#include "../../../os/types.h"
 
 #include <stdbool.h>
 #include <stdio.h>

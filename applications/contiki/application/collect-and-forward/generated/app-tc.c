@@ -1,4 +1,4 @@
-#include "../../tc.h"
+#include "../../../os/tc.h"
 #include "config.h"
 
 #include "dev/light-sensor.h"
