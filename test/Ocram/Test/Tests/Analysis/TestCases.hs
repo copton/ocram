@@ -280,4 +280,17 @@ test_cases = [
     [StructInitialization]
     undefined
 		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
+  ,TCase
+    [paste|
+      __attribute__((tc_blocking)) void block_unused();
+      __attribute__((tc_blocking)) void block_used();
+      __attribute__((tc_run_thread)) void start () { block_used(); }
+    |]
+    ["block_used"]
+    ["start"]
+    ["block_used", "start"]
+    [("start", "block_used")]
+    []
+    []
+    []
 	]
