@@ -112,10 +112,8 @@ checkThreads cg
   | Set.null (start_functions cg) = [newError NoThreads Nothing Nothing]
   | otherwise = []
 
-
 checkRecursion :: CallGraph -> [OcramError]
 checkRecursion cg@(CallGraph gd gi) = mapMaybe (fmap (createRecError cg) . find_loop gd . $lookup_s gi) $ Set.toList $ start_functions cg
-
 
 createRecError :: CallGraph -> [G.Node] -> OcramError
 createRecError (CallGraph gd _) call_stack =
@@ -125,7 +123,6 @@ createRecError (CallGraph gd _) call_stack =
       map (show . lblName . $fromJust_s . G.lab gd) call_stack
     (callee:caller:[]) = take 2 $ List.reverse call_stack 
     location = $head_s $ edge_label gd caller callee
-      
 
 checkStartFunctions :: CallGraph -> Ast -> [OcramError]
 checkStartFunctions cg ast =

@@ -22,7 +22,7 @@ test_cases = [
 		[]
 		[NoThreads]
 		[]
--- single function declaration {{{2
+-- single function declaration {{{3
 	,TCase
 		"void foo();"
 		[]
@@ -209,7 +209,7 @@ test_cases = [
 		["block"]
 		["start"]
 		["block", "start"]
-		[("start", "block"), ("start", "f")]
+		[("start", "block")]
 		[]
 		[PointerToCriticalFunction]
 		[]
@@ -280,6 +280,7 @@ test_cases = [
     [StructInitialization]
     undefined
 		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
+-- only regard actually used blocking functions {{{2
   ,TCase
     [paste|
       __attribute__((tc_blocking)) void block_unused();

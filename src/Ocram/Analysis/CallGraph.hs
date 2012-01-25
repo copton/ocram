@@ -12,8 +12,11 @@ module Ocram.Analysis.CallGraph
 ) where
 
 -- imports {{{1
+import Control.Arrow (first, second)
 import Data.Generics (mkQ, everything)
 import Data.Graph.Inductive.Query.BFS (bfs)
+import Data.Maybe (isJust)
+import Data.Tuple (swap)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
@@ -43,8 +46,7 @@ type Footprint = [[Symbol]]
 call_graph :: Ast -> CallGraph -- {{{1
 call_graph ast =
   let 
-    labels = createLabels ast
-    nodes = createNodes labels
+    nodes = zip [1..] (createLabels ast)
     gi = createGraphIndex nodes
     edges = createEdges ast gi nodes
     gd = G.mkGraph nodes edges
@@ -60,7 +62,7 @@ from_test_graph edges =
   let
     (callers, callees) = unzip edges
     labels = map (\name -> Label name []) $ List.nub $ callers ++ callees
-    nodes = createNodes labels
+    nodes = zip [1..] labels
     gi = createGraphIndex nodes
     resolve = $lookup_s gi
     edges' = map (\e -> ((resolve . fst) e, (resolve . snd) e, undefNode)) edges
@@ -124,45 +126,38 @@ gnode2symbol :: GraphData -> G.Node -> Symbol
 gnode2symbol gd = lblName . $fromJust_s . G.lab gd
 
 createLabels :: Ast -> [Label]
-createLabels (CTranslUnit ds _) = foldr processExtDecl [] ds
+createLabels (CTranslUnit ds _) = foldr go [] ds
+  where
+  go (CDeclExt x) labels
+    | is_function_declaration x && is_blocking_function' x =
+      Label (symbol x) [Blocking] : labels
+    | otherwise = labels
 
-processExtDecl :: CExtDecl -> [Label] -> [Label]
-processExtDecl (CDeclExt x) labels
-  | is_function_declaration x =
+  go (CFDefExt x) labels =
     let
-      attr = [Blocking | is_blocking_function' x]
+      attr = [Start | is_start_function' x]
       label = Label (symbol x) attr
     in
       label : labels
-  | otherwise = labels
 
-processExtDecl (CFDefExt x) labels =
-  let
-    attr = [Start | is_start_function' x]
-    label = Label (symbol x) attr
-  in
-     label : labels
-
-processExtDecl _ labels = labels
-
-createNodes :: [Label] -> [Node]
-createNodes = zip [1..]
+  go _ labels = labels
 
 createGraphIndex :: [Node] -> GraphIndex
-createGraphIndex nodes = Map.fromList $ map processNode nodes
-  where
-    processNode node = ((lblName . snd) node, fst node)
+createGraphIndex nodes = Map.fromList $ map (swap . second lblName) nodes
 
 createEdges :: Ast -> GraphIndex -> [Node] -> [Edge]
-createEdges ast gi nodes = foldl processEdge [] nodes
+createEdges ast gi nodes = foldl go [] nodes
   where
-    processEdge es (gcaller, Label caller _) =
+    go es (gcaller, Label caller _) =
       case function_definition ast caller of
         Nothing -> es
         Just fd ->
-          es ++ map createEdge (criticalCalls fd)
+          let
+            calls = filter (isJust . fst) $ map (first (flip Map.lookup gi)) $ criticalCalls fd
+            edges = map (\(x, y) -> (gcaller, $fromJust_s x, y)) calls
+          in
+            es ++ edges
        where
-          createEdge (callee, ni) = (gcaller, $lookup_s gi callee, ni)
           criticalCalls = everything (++) (mkQ [] criticalCall)
           criticalCall (CCall (CVar (Ident callee _ _) _)  _ ni) = [(callee, ni)]
           criticalCall _ = []
