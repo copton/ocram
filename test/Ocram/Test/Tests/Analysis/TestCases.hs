@@ -219,16 +219,38 @@ test_cases = [
 		[NoReturnType] 
 		undefined
 		[TTCallGraph, TTConstraints]
--- struct initialization is not supported yet {{{2
+-- initializer lists not supported yet {{{2
   ,TCase
     [paste|
       struct Foo { int i; };
-      void start() {
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
         struct Foo foo = {23};
+        int i[] = {4,2};
+        block();
       }
     |]
     undefined
-    [StructInitialization]
     undefined
-		[TTCallGraph, TTConstraints]
+    [InitializerList, InitializerList]
+		[TTCallGraph, TTSanity]
+-- but initializer lists outside of critical functions are okay {{{2
+  ,TCase
+    [paste|
+      struct Foo { int i; };
+      const char text[] = "it's okay";
+      __attribute__((tc_blocking)) void block();
+      void foo() {
+        struct Foo foo = {23};
+        int i[] = {4,2};
+      }
+      __attribute__((tc_run_thread)) void start() {
+        block();
+        foo();
+      }
+    |]
+    undefined
+    undefined
+    []
+		[TTCallGraph, TTSanity]
 	]

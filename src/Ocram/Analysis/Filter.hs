@@ -11,10 +11,10 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Analysis.CallGraph (start_functions, is_start, is_critical)
+import Ocram.Analysis.CallGraph (start_functions, is_start, is_critical, critical_functions)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
-import Ocram.Query (is_start_function')
+import Ocram.Query (is_start_function', function_definition)
 import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Types (Ast)
@@ -40,7 +40,7 @@ data ErrorCode =
   | NoThreads
   | ThreadNotBlocking
   | CriticalRecursion
-  | StructInitialization
+  | InitializerList 
   deriving (Eq, Enum, Show)
 
 errors :: [(ErrorCode, String)]
@@ -52,14 +52,14 @@ errors = [
   , (NoThreads, "at least one thread must be started")
   , (ThreadNotBlocking, "thread does not call any blocking functions")
   , (CriticalRecursion, "recursion of critical functions")
-  , (StructInitialization, "Sorry, struct initialization is not supported yet.")
+  , (InitializerList, "Sorry, initializer list in critical functions is not supported yet.")
   ]
 
 errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors
 
 check_sanity :: Ast -> Either [OcramError] () -- {{{1
-check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStats `extQ` saneDecls) ast
+check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStats) ast
 
 saneExtDecls :: CExtDecl -> [OcramError]
 
@@ -78,13 +78,6 @@ saneStats :: CStat -> [OcramError]
 saneStats (CAsm _ ni) = [newError AssemblerCode Nothing (Just ni)]
 saneStats _ = []
 
-saneDecls :: CDecl -> [OcramError]
-saneDecls (CDecl _ l ni)
-  | any containsInitList l = [newError StructInitialization Nothing (Just ni)]
-  | otherwise = []
-  where
-    containsInitList (_, Just (CInitList _ _), _) = True
-    containsInitList _ = False
 
 hasReturnType :: [CDeclSpec] -> Bool
 hasReturnType = any isTypeSpec
@@ -98,8 +91,18 @@ check_constraints ast cg = failOrPass $
   ++ checkRecursion cg
   ++ checkStartFunctions cg ast
   ++ checkThreads cg
+  ++ checkInitList cg ast
 
-checkFunctionPointer :: CallGraph -> Ast -> [OcramError]
+checkInitList :: CallGraph -> Ast -> [OcramError] -- {{{2
+checkInitList cg ast = everything (++) (mkQ [] saneDecls) $ mapMaybe (function_definition ast) $ Set.toList $ critical_functions cg
+  where
+  saneDecls (CDecl _ l ni)
+    | any containsInitList l = [newError InitializerList Nothing (Just ni)]
+    | otherwise = []
+  containsInitList (_, Just (CInitList _ _), _) = True
+  containsInitList _ = False
+
+checkFunctionPointer :: CallGraph -> Ast -> [OcramError] -- {{{2
 checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
   where
     check (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni)
@@ -107,12 +110,12 @@ checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
       | otherwise = []
     check _ = []
 
-checkThreads :: CallGraph -> [OcramError]
+checkThreads :: CallGraph -> [OcramError] -- {{{2
 checkThreads cg
   | Set.null (start_functions cg) = [newError NoThreads Nothing Nothing]
   | otherwise = []
 
-checkRecursion :: CallGraph -> [OcramError]
+checkRecursion :: CallGraph -> [OcramError] -- {{{2
 checkRecursion cg@(CallGraph gd gi) = mapMaybe (fmap (createRecError cg) . find_loop gd . $lookup_s gi) $ Set.toList $ start_functions cg
 
 createRecError :: CallGraph -> [G.Node] -> OcramError
@@ -124,7 +127,7 @@ createRecError (CallGraph gd _) call_stack =
     (callee:caller:[]) = take 2 $ List.reverse call_stack 
     location = $head_s $ edge_label gd caller callee
 
-checkStartFunctions :: CallGraph -> Ast -> [OcramError]
+checkStartFunctions :: CallGraph -> Ast -> [OcramError] -- {{{2
 checkStartFunctions cg (CTranslUnit ds _) = foldr go [] ds
   where
   go (CFDefExt f@(CFunDef _ _ _ _ ni)) es

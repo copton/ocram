@@ -4,7 +4,7 @@ module Ocram.Analysis.CallGraph
 (
     BlockingFunctions, StartFunctions, Footprint
   , call_graph, from_test_graph, to_test_graph
-  , blocking_functions, start_functions
+  , blocking_functions, start_functions, critical_functions
   , is_blocking, is_start, is_critical
   , call_chain, call_order, get_callees
   , dependency_list
@@ -35,8 +35,8 @@ import qualified Data.Set as Set
 
 -- types {{{1
 type BlockingFunctions = Set.Set Symbol
-
 type StartFunctions = Set.Set Symbol
+type CriticalFunctions = Set.Set Symbol
 
 type Footprint = [[Symbol]]
 
@@ -75,6 +75,9 @@ blocking_functions = functionsWith attrBlocking
 
 start_functions :: CallGraph -> StartFunctions -- {{{1
 start_functions = functionsWith attrStart
+
+critical_functions :: CallGraph -> CriticalFunctions -- {{{1
+critical_functions (CallGraph gd gi) = Set.fromList $ map (lblName . snd) $ G.labNodes gd
 
 is_blocking :: CallGraph -> Symbol -> Bool -- {{{1
 is_blocking = functionIs attrBlocking
