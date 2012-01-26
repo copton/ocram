@@ -13,7 +13,7 @@ app-ec: app-ec.c pal.c
 app-ec.c pal.c: app-tc.pped.c app-tc.o $(OCRAM) $(PALGEN)
 	$(OCRAM) -p pal.c -g $(PALGEN) -i $< -o app-ec.c || (rm -f app-ec.c pal.c; exit 1)
 
-app-tc.pped.c: app-tc.c app-tc.o ../../../os/tc.h ../../../os/types.h
+app-tc.pped.c: app-tc.c app-tc.o
 	$(XGCC) -E -DOCRAM_MODE $< -o $@
 
 app-tc.o: app-tc.c
