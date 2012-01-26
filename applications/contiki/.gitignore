@@ -8,5 +8,5 @@ app-ec.c
 pal.h
 pal.c
 pal.co
-app-tc.pped.c
+*.pped.*
 app-tc.o

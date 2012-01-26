@@ -17,5 +17,6 @@
 TC_BLOCKING error_t tc_sleep(clock_time_t tics);
 TC_BLOCKING error_t tc_receive(uint8_t* buffer, size_t buflen, size_t* len);
 TC_BLOCKING error_t tc_send(struct uip_udp_conn* conn, uip_ipaddr_t* addr, uint16_t rport, uint8_t* buffer, size_t len);
+TC_BLOCKING error_t tc_await_button();
 
 #endif

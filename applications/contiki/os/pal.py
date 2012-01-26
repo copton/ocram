@@ -15,6 +15,7 @@ out("""
 #include "contiki.h"
 #include "clock.h"
 #include "contiki-net.h"
+#include "dev/button-sensor.h"
 #include "net/netstack.h"
 #include "net/uip.h"
 #include "net/uiplib.h"
@@ -80,6 +81,15 @@ void tc_send(ec_frame_tc_send_t* frame)
 }
 """)
 
+if "tc_await_button" in syscalls_unique:
+    out("""
+void tc_await_button(ec_frame_tc_await_button_t* frame)
+{
+    threads[tid].frames.tc_await_button = frame;
+    threads[tid].syscall = SYSCALL_tc_await_button;
+}
+""")
+
 for thread_id, syscalls_of_thread in enumerate(syscalls_per_thread):
     out("""
 PROCESS_THREAD(thread%(thread_id)d, ev, data)
@@ -139,6 +149,19 @@ PROCESS_THREAD(thread%(thread_id)d, ev, data)
                 frame = threads[%(thread_id)d].frames.tc_send;
                 uip_udp_packet_sendto(frame->conn, frame->buffer, frame->len, frame->addr, frame->rport);
                 PROCESS_PAUSE();
+                continuation = frame->ec_cont;
+                frame->ec_result = SUCCESS;
+            }
+""" % {'thread_id' : thread_id})
+
+    if "tc_await_button" in syscalls_of_thread:
+        out("""
+            else if (threads[%(thread_id)d].syscall == SYSCALL_tc_await_button) {
+                static ec_frame_tc_await_button_t* frame = 0;
+                frame = threads[%(thread_id)d].frames.tc_await_button;
+                do {
+                    PROCESS_YIELD();
+                } while (ev == sensors_event && data == &button_sensor);
                 continuation = frame->ec_cont;
                 frame->ec_result = SUCCESS;
             }
