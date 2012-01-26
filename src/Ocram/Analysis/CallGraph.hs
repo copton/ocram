@@ -14,12 +14,12 @@ module Ocram.Analysis.CallGraph
 -- imports {{{1
 import Control.Arrow (first, second)
 import Data.Generics (mkQ, everything)
-import Data.Graph.Inductive.Query.BFS (bfs)
 import Data.Maybe (isJust)
 import Data.Tuple (swap)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
+import Ocram.Analysis.Fgl (filter_nodes)
 import Ocram.Analysis.Types
 import Ocram.Query (is_function_declaration, is_blocking_function', is_start_function', function_definition)
 import Ocram.Symbols (symbol, Symbol)
@@ -34,7 +34,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 -- types {{{1
-
 type CriticalFunctions = Set.Set Symbol
 
 type BlockingFunctions = Set.Set Symbol
@@ -46,23 +45,36 @@ type Footprint = [[Symbol]]
 call_graph :: Ast -> CallGraph -- {{{1
 call_graph ast =
   let 
-    nodes = zip [1..] (createLabels ast)
+    labels = createLabels ast
+    nodes = createNodes labels
     gi = createGraphIndex nodes
     edges = createEdges ast gi nodes
     gd = G.mkGraph nodes edges
+    cf = reachableSubGraph (G.grev gd) $ nodesByAttr gd attrBlocking
+    rf = reachableSubGraph gd $ nodesByAttr gd attrStart
     cg = CallGraph gd gi
-    bf = blocking_functions cg
-    cf = getCriticalFunctions cg bf
-    gd' = flagCriticalFunctions gd cf
   in
-    CallGraph gd' gi
+    pruneGraph cg (Set.intersection cf rf)
+
+nodesByAttr :: GraphData -> (Attribute -> Bool) -> [G.Node]
+nodesByAttr g attr = map fst $ filter (any attr . lblAttr . snd) $ G.labNodes g
+
+reachableSubGraph :: GraphData -> [G.Node] -> Set.Set G.Node
+reachableSubGraph gd ns = Set.fromList $ concatMap (flip G.bfs gd) ns
+
+pruneGraph :: CallGraph -> Set.Set G.Node -> CallGraph
+pruneGraph (CallGraph gd gi) ns = 
+  let
+    gd' = filter_nodes (flip Set.member ns) gd
+    gi' = Map.filter (flip Set.member ns) gi
+  in
+    CallGraph gd' gi'
 
 from_test_graph :: [(Symbol, Symbol)] -> CallGraph -- {{{1
 from_test_graph edges =
   let
     (callers, callees) = unzip edges
-    labels = map (\name -> Label name []) $ List.nub $ callers ++ callees
-    nodes = zip [1..] labels
+    nodes = createNodes $ map (\name -> Label name []) $ List.nub $ callers ++ callees
     gi = createGraphIndex nodes
     resolve = $lookup_s gi
     edges' = map (\e -> ((resolve . fst) e, (resolve . snd) e, undefNode)) edges
@@ -78,7 +90,7 @@ blocking_functions :: CallGraph -> BlockingFunctions -- {{{1
 blocking_functions = functionsWith attrBlocking
 
 critical_functions :: CallGraph -> CriticalFunctions -- {{{1
-critical_functions = functionsWith attrCritical
+critical_functions (CallGraph gd _) = Set.fromList $ map (lblName . snd) $ G.labNodes gd
 
 critical_function_dependency_list :: CallGraph -> [Symbol] -- {{{1
 critical_function_dependency_list cg@(CallGraph gd gi) = 
@@ -93,7 +105,7 @@ is_blocking :: CallGraph -> Symbol -> Bool -- {{{1
 is_blocking = functionIs attrBlocking
 
 is_critical :: CallGraph -> Symbol -> Bool -- {{{1
-is_critical = functionIs attrCritical
+is_critical _ _ = True
 
 is_start :: CallGraph -> Symbol -> Bool -- {{{1
 is_start = functionIs attrStart
@@ -124,6 +136,9 @@ footprint cg@(CallGraph gd gi) = map footprint' (Set.toList $ start_functions cg
 -- utils {{{1
 gnode2symbol :: GraphData -> G.Node -> Symbol
 gnode2symbol gd = lblName . $fromJust_s . G.lab gd
+
+createNodes :: [Label] -> [Node]
+createNodes = zip [0..]
 
 createLabels :: Ast -> [Label]
 createLabels (CTranslUnit ds _) = foldr go [] ds
@@ -162,29 +177,6 @@ createEdges ast gi nodes = foldl go [] nodes
           criticalCall (CCall (CVar (Ident callee _ _) _)  _ ni) = [(callee, ni)]
           criticalCall _ = []
 
-getCriticalFunctions :: CallGraph -> BlockingFunctions -> CriticalFunctions
-getCriticalFunctions cg bf =
-  let cg' = CallGraph (G.grev (grData cg)) (grIndex cg) in
-  Set.fold (subGraph cg') Set.empty bf
-
-subGraph :: CallGraph -> Symbol -> CriticalFunctions -> CriticalFunctions
-subGraph cg end cf = -- call graph has reversed edges
-  let
-    gi = grIndex cg
-    gd = grData cg
-    gnode = $lookup_s gi end
-    gnodes = bfs gnode gd
-    symbols = map (gnode2symbol gd) gnodes
-  in
-    Set.union cf $ Set.fromList symbols
-
-flagCriticalFunctions :: GraphData -> CriticalFunctions -> GraphData
-flagCriticalFunctions gd cf = G.nmap (flagCriticalFunction cf) gd
-
-flagCriticalFunction :: CriticalFunctions -> Label -> Label
-flagCriticalFunction cf label@(Label x attr)
-  | Set.member x cf = Label x (Critical : attr)
-  | otherwise = label
 
 functionsWith :: (Attribute -> Bool) -> CallGraph -> Set.Set Symbol
 functionsWith pred cg = Set.fromList $ map lblName $ filter (hasAttr pred) $ map snd $ G.labNodes $ grData cg
@@ -200,14 +192,8 @@ attrStart :: Attribute -> Bool
 attrStart Start = True
 attrStart _ = False
 
-attrCritical :: Attribute -> Bool
-attrCritical Critical = True
-attrCritical _ = False
-
 functionIs :: (Attribute -> Bool) -> CallGraph -> Symbol -> Bool
 functionIs pred (CallGraph gd gi) name =
   case Map.lookup name gi of
     Nothing -> False
-    Just gnode ->
-      let (Label _ attr) = $fromJust_s $ G.lab gd gnode
-      in any pred attr
+    Just gnode -> any pred . lblAttr . $fromJust_s $ G.lab gd gnode

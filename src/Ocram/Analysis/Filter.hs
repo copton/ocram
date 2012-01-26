@@ -11,10 +11,11 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Analysis.CallGraph (critical_functions, start_functions, is_critical)
+import Ocram.Analysis.CallGraph (critical_functions, start_functions, is_start)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
-import Ocram.Query (function_definition)
+import Ocram.Query (is_start_function')
+import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Types (Ast)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
@@ -94,9 +95,9 @@ hasReturnType = any isTypeSpec
 check_constraints :: Ast -> CallGraph -> Either [OcramError] () -- {{{1
 check_constraints ast cg = failOrPass $
      checkFunctionPointer cg ast
-  ++ checkThreads cg
   ++ checkRecursion cg
   ++ checkStartFunctions cg ast
+  ++ checkThreads cg
 
 checkFunctionPointer :: CallGraph -> Ast -> [OcramError]
 checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
@@ -125,15 +126,13 @@ createRecError (CallGraph gd _) call_stack =
     location = $head_s $ edge_label gd caller callee
 
 checkStartFunctions :: CallGraph -> Ast -> [OcramError]
-checkStartFunctions cg ast =
-  let
-    sf = start_functions cg
-    failures = Set.filter (not . is_critical cg) sf
-    errs = Set.map (toError . getLocation) failures
-    getLocation name = (\(CFunDef _ _ _ _ x) -> x) $ $fromJust_s $ function_definition ast name
-    toError location = newError ThreadNotBlocking Nothing (Just location)
-  in
-    Set.toList errs
+checkStartFunctions cg (CTranslUnit ds _) = foldr go [] ds
+  where
+  go (CFDefExt f@(CFunDef _ _ _ _ ni)) es
+    | is_start_function' f && not (is_start cg (symbol f)) = 
+      newError ThreadNotBlocking Nothing (Just ni) : es
+    | otherwise = es
+  go _ es = es
 
 -- util {{{1
 failOrPass :: [a] -> Either [a] ()

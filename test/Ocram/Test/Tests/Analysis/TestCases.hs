@@ -17,17 +17,11 @@ test_cases = [
 		""
 		[]
 		[]
-		[]
-		[]
-		[]
 		[NoThreads]
 		[]
--- single function declaration {{{3
+-- single function declaration {{{2
 	,TCase
 		"void foo();"
-		[]
-		[]
-		[]
 		[]
 		[]		
 		[NoThreads]
@@ -37,57 +31,23 @@ test_cases = [
 		"void foo() { }"
 		[]
 		[]
+		[NoThreads]
 		[]
+-- single blocking function declaration {{{2
+	,TCase
+		"__attribute__((tc_blocking)) void block(int x, ...);"
 		[]
 		[]
 		[NoThreads]
 		[]
--- single blocking function declaration, 1 {{{2
+-- single start function {{{2
 	,TCase
-		"__attribute__((tc_blocking)) void foo();"
-		["foo"]
-		[]
-		["foo"]
+		"__attribute__((tc_run_thread)) void start() { };"
 		[]
 		[]
-		[NoThreads]
+		[ThreadNotBlocking, NoThreads]
 		[]
--- single blocking function declaration, 2 {{{2
-	,TCase
-		"int __attribute__((tc_blocking)) foo(char);"
-		["foo"]
-		[]
-		["foo"]
-		[]
-		[]
-		[NoThreads]
-		[]
--- single blocking function declaration, 3 {{{2
-	,TCase
-		"__attribute__((tc_blocking)) void foo(int x, ...);"
-		["foo"]
-		[]
-		["foo"]
-		[]
-		[]
-		[NoThreads]
-		[]
--- minimal thread, 1 {{{2
-	,TCase
-		[paste|
-			__attribute__((tc_blocking)) void block();
-			void __attribute__((tc_run_thread)) start() {
-				block();
-			}
-		|]
-		["block"]
-		["start"]
-		["block", "start"]
-		[("start", "block")]
-		[]
-		[]
-		[]
--- minimal thread, 2 {{{2
+-- minimal thread {{{2
 	,TCase
 		[paste|
 			__attribute__((tc_blocking)) void block();
@@ -95,9 +55,6 @@ test_cases = [
 				block();
 			}
 		|]
-		["block"]
-		["start"]
-		["block", "start"]
 		[("start", "block")]
 		[]
 		[]
@@ -113,9 +70,6 @@ test_cases = [
 				critical();
 			}
 		|]
-		["block"]
-		["start"]
-		["block", "critical", "start"]
 		[("critical", "block"), ("start", "critical")]
 		[]
 		[]
@@ -132,9 +86,6 @@ test_cases = [
 				c1();
 			}
 		|]
-		["block"]
-		["start"]
-		["block", "c1", "c2", "c3", "c4", "start"]
 		[("c1", "c2"), ("c2", "c3"), ("c3", "c4"), ("c4", "block"), ("start", "c1")]
 		[]
 		[]
@@ -149,13 +100,35 @@ test_cases = [
 				block();
 			}
 		|]
-		["block"]
-		["start"]
-		["block", "start"]
-		[("start", "block"), ("start", "non_critical")]
+		[("start", "block")]
 		[]
 		[]
 		[]
+-- only regard actually used blocking functions {{{2
+  ,TCase
+    [paste|
+      __attribute__((tc_blocking)) void block_unused();
+      __attribute__((tc_blocking)) void block_used();
+      __attribute__((tc_run_thread)) void start () { block_used(); }
+    |]
+    [("start", "block_used")]
+    []
+    []
+    []
+-- call of functions from external libraries {{{2
+  ,TCase
+    [paste|
+      __attribute__((tc_blocking)) void block();
+      int libfun();
+      __attribute__((tc_run_thread)) void start() {
+        libfun();
+        block();
+      }
+    |]
+    [("start", "block")]
+    []
+    []
+    []
 -- two independant threads {{{2
 	,TCase
 		[paste|
@@ -168,9 +141,6 @@ test_cases = [
 				block2();
 			}
 		|]
-		["block1", "block2"]
-		["start1", "start2"]
-		["block1", "block2", "start1", "start2"]
 		[("start1", "block1"), ("start2", "block2")]
 		[]
 		[]
@@ -189,9 +159,6 @@ test_cases = [
 				critical();
 			}
 		|]
-		["block"]
-		["start1", "start2"]
-		["block", "critical", "start1", "start2"]
 		[("critical", "block"), ("start1", "critical"), ("start2", "critical")]
 		[]
 		[]
@@ -206,9 +173,6 @@ test_cases = [
 				block();
 			}
 		|]
-		["block"]
-		["start"]
-		["block", "start"]
 		[("start", "block")]
 		[]
 		[PointerToCriticalFunction]
@@ -230,44 +194,31 @@ test_cases = [
 				c1();
 			}
 		|]
-		["block"]
-		["start"]
-		undefined
 		[("c1", "c2"), ("c2", "block"), ("c2", "c1"), ("start", "c1")]
 		[]
 		[CriticalRecursion]
-		[TTCriticalFunctions]
+		[]
 -- function definition without parameter {{{2
 	,TCase
 		"void f { }"
-		undefined undefined undefined undefined 
+		undefined 
 		[NoParameterList] 
 		undefined
-		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
+		[TTCallGraph, TTConstraints]
 -- function definition without return type {{{2
 	,TCase
 		"__attribute__((foo)) f() { }"
-		undefined undefined undefined undefined 
+		undefined 
 		[NoReturnType] 
 		undefined
-		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
+		[TTCallGraph, TTConstraints]
 -- function declaration without return type {{{2
 	,TCase
 		"__attribute__((foo)) f();"
-		undefined undefined undefined undefined 
+		undefined 
 		[NoReturnType] 
 		undefined
-		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
--- thread does not block {{{2
-	,TCase
-		"__attribute__((tc_run_thread)) void start() { }"
-		[]
-		["start"]
-		[]
-		[]
-		[]
-		[ThreadNotBlocking]
-		[]
+		[TTCallGraph, TTConstraints]
 -- struct initialization is not supported yet {{{2
   ,TCase
     [paste|
@@ -276,22 +227,8 @@ test_cases = [
         struct Foo foo = {23};
       }
     |]
-    undefined undefined undefined undefined
+    undefined
     [StructInitialization]
     undefined
-		[TTBlockingFunctions, TTStartFunctions, TTCriticalFunctions, TTCallGraph, TTConstraints]
--- only regard actually used blocking functions {{{2
-  ,TCase
-    [paste|
-      __attribute__((tc_blocking)) void block_unused();
-      __attribute__((tc_blocking)) void block_used();
-      __attribute__((tc_run_thread)) void start () { block_used(); }
-    |]
-    ["block_used"]
-    ["start"]
-    ["block_used", "start"]
-    [("start", "block_used")]
-    []
-    []
-    []
+		[TTCallGraph, TTConstraints]
 	]

@@ -9,7 +9,8 @@ import qualified Ocram.Test.Tests.Query as B
 import qualified Ocram.Test.Tests.Analysis as C
 import qualified Ocram.Test.Tests.Transformation as D
 
-tests = TestList [A.tests, B.tests, C.tests, D.tests]
+-- tests = TestList [A.tests, B.tests, C.tests, D.tests] XXX
+tests = TestList [A.tests, B.tests, C.tests]
 
 main = do
 	(count, _ ) <- runTestText (putTextToHandle stderr False) tests
