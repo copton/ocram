@@ -11,7 +11,7 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Analysis.CallGraph (critical_functions, start_functions, is_start)
+import Ocram.Analysis.CallGraph (start_functions, is_start, is_critical)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
 import Ocram.Query (is_start_function')
@@ -102,9 +102,8 @@ check_constraints ast cg = failOrPass $
 checkFunctionPointer :: CallGraph -> Ast -> [OcramError]
 checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
   where
-    cf = critical_functions cg
     check (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni)
-      | name `Set.member` cf = [newError PointerToCriticalFunction Nothing (Just ni)]
+      | is_critical cg name = [newError PointerToCriticalFunction Nothing (Just ni)]
       | otherwise = []
     check _ = []
 

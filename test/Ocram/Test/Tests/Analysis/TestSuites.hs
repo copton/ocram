@@ -4,7 +4,7 @@ module Ocram.Test.Tests.Analysis.TestSuites
 	tests
 ) where
 -- imports {{{1
-import Ocram.Analysis (start_functions, blocking_functions, critical_functions, call_graph, check_sanity, check_constraints)
+import Ocram.Analysis (call_graph, check_sanity, check_constraints)
 import Ocram.Test.Lib
 import Ocram.Test.Tests.Analysis.Types
 import Ocram.Test.Tests.Analysis.Utils (runTests)

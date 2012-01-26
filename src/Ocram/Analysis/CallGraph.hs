@@ -2,12 +2,12 @@
 module Ocram.Analysis.CallGraph
 -- exports {{{1
 (
-    CriticalFunctions, BlockingFunctions, StartFunctions, Footprint
+    BlockingFunctions, StartFunctions, Footprint
   , call_graph, from_test_graph, to_test_graph
-  , blocking_functions, critical_functions, start_functions
+  , blocking_functions, start_functions
   , is_blocking, is_start, is_critical
   , call_chain, call_order, get_callees
-  , critical_function_dependency_list
+  , dependency_list
   , footprint
 ) where
 
@@ -34,8 +34,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 -- types {{{1
-type CriticalFunctions = Set.Set Symbol
-
 type BlockingFunctions = Set.Set Symbol
 
 type StartFunctions = Set.Set Symbol
@@ -89,14 +87,12 @@ to_test_graph (CallGraph gd _) =
 blocking_functions :: CallGraph -> BlockingFunctions -- {{{1
 blocking_functions = functionsWith attrBlocking
 
-critical_functions :: CallGraph -> CriticalFunctions -- {{{1
-critical_functions (CallGraph gd _) = Set.fromList $ map (lblName . snd) $ G.labNodes gd
 
-critical_function_dependency_list :: CallGraph -> [Symbol] -- {{{1
-critical_function_dependency_list cg@(CallGraph gd gi) = 
+dependency_list :: CallGraph -> [Symbol] -- {{{1
+dependency_list cg@(CallGraph gd gi) = 
   List.nub $ concatMap depList $ Set.toList $ start_functions cg
   where
-    depList start = List.reverse $ filter (is_critical cg) $ map (gnode2symbol gd) $ G.bfs ($lookup_s gi start) gd
+    depList start = List.reverse $ map (gnode2symbol gd) $ G.bfs ($lookup_s gi start) gd
 
 start_functions :: CallGraph -> StartFunctions -- {{{1
 start_functions = functionsWith attrStart
@@ -104,11 +100,11 @@ start_functions = functionsWith attrStart
 is_blocking :: CallGraph -> Symbol -> Bool -- {{{1
 is_blocking = functionIs attrBlocking
 
-is_critical :: CallGraph -> Symbol -> Bool -- {{{1
-is_critical _ _ = True
-
 is_start :: CallGraph -> Symbol -> Bool -- {{{1
 is_start = functionIs attrStart
+
+is_critical :: CallGraph -> Symbol -> Bool -- {{{1
+is_critical (CallGraph _ gi) fname = Map.member fname gi
 
 call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol] -- {{{1
 call_chain (CallGraph gd gi) start end = do
@@ -168,14 +164,13 @@ createEdges ast gi nodes = foldl go [] nodes
         Nothing -> es
         Just fd ->
           let
-            calls = filter (isJust . fst) $ map (first (flip Map.lookup gi)) $ criticalCalls fd
+            calls = filter (isJust . fst) $ map (first (flip Map.lookup gi)) $ everything (++) (mkQ [] call) fd
             edges = map (\(x, y) -> (gcaller, $fromJust_s x, y)) calls
           in
             es ++ edges
-       where
-          criticalCalls = everything (++) (mkQ [] criticalCall)
-          criticalCall (CCall (CVar (Ident callee _ _) _)  _ ni) = [(callee, ni)]
-          criticalCall _ = []
+       
+    call (CCall (CVar (Ident callee _ _) _)  _ ni) = [(callee, ni)]
+    call _ = []
 
 
 functionsWith :: (Attribute -> Bool) -> CallGraph -> Set.Set Symbol
