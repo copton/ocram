@@ -40,7 +40,7 @@ compare_pal cg source target =
 extractPal :: CallGraph -> Ast -> [CDecl] -- {{{2
 extractPal cg (CTranslUnit ds _) = ds'
   where
-  bf = blocking_functions cg
+  bf = Set.fromList $ blocking_functions cg
   frames = Set.map frameType bf
   ds' = everything (++) (mkQ [] query) ds
   query (CDeclExt cd@(CDecl _ _ _))

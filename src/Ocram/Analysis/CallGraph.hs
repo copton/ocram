@@ -34,9 +34,9 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 
 -- types {{{1
-type BlockingFunctions = Set.Set Symbol
-type StartFunctions = Set.Set Symbol
-type CriticalFunctions = Set.Set Symbol
+type BlockingFunctions = [Symbol]
+type StartFunctions = [Symbol]
+type CriticalFunctions = [Symbol]
 
 type Footprint = [[Symbol]]
 
@@ -77,7 +77,7 @@ start_functions :: CallGraph -> StartFunctions -- {{{1
 start_functions = functionsWith attrStart
 
 critical_functions :: CallGraph -> CriticalFunctions -- {{{1
-critical_functions (CallGraph gd gi) = Set.fromList $ map (lblName . snd) $ G.labNodes gd
+critical_functions (CallGraph gd _) = map (lblName . snd) $ G.labNodes gd
 
 is_blocking :: CallGraph -> Symbol -> Bool -- {{{1
 is_blocking = functionIs attrBlocking
@@ -102,7 +102,7 @@ call_order (CallGraph gd gi) start = do
 
 dependency_list :: CallGraph -> [Symbol] -- {{{1
 dependency_list cg@(CallGraph gd gi) = 
-  List.nub $ concatMap depList $ Set.toList $ start_functions cg
+  List.nub $ concatMap depList $ start_functions cg
   where
     depList start = List.reverse $ map (gnode2symbol gd) $ G.bfs ($lookup_s gi start) gd
 get_callees :: CallGraph -> Symbol -> Maybe [Symbol] -- {{{1
@@ -111,7 +111,7 @@ get_callees (CallGraph gd gi) caller = do
   return $ map (gnode2symbol gd) $ List.nub $ G.suc gd gcaller
    
 footprint :: CallGraph -> Footprint -- {{{1
-footprint cg@(CallGraph gd gi) = map footprint' (Set.toList $ start_functions cg)
+footprint cg@(CallGraph gd gi) = map footprint' $ start_functions cg
   where
   footprint' sf = filter (is_blocking cg) $ $fromJust_s $ call_order cg sf
 
@@ -172,8 +172,8 @@ createEdges ast gi nodes = foldl go [] nodes
     call (CCall (CVar (Ident callee _ _) _)  _ ni) = [(callee, ni)]
     call _ = []
 
-functionsWith :: (Attribute -> Bool) -> CallGraph -> Set.Set Symbol -- {{{2
-functionsWith pred cg = Set.fromList $ map lblName $ filter (hasAttr pred) $ map snd $ G.labNodes $ grData cg
+functionsWith :: (Attribute -> Bool) -> CallGraph -> [Symbol] -- {{{2
+functionsWith pred cg = map lblName $ filter (hasAttr pred) $ map snd $ G.labNodes $ grData cg
 
 hasAttr :: (Attribute -> Bool) -> Label -> Bool -- {{{2
 hasAttr pred (Label _ as) = any pred as

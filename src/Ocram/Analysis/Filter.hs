@@ -21,7 +21,6 @@ import Ocram.Types (Ast)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
 import qualified Data.Graph.Inductive.Graph as G
 import qualified Data.List as List
-import qualified Data.Set as Set
 
 -- errors {{{1
 newError :: ErrorCode -> Maybe String -> Maybe NodeInfo -> OcramError 
@@ -94,7 +93,7 @@ check_constraints ast cg = failOrPass $
   ++ checkInitList cg ast
 
 checkInitList :: CallGraph -> Ast -> [OcramError] -- {{{2
-checkInitList cg ast = everything (++) (mkQ [] saneDecls) $ mapMaybe (function_definition ast) $ Set.toList $ critical_functions cg
+checkInitList cg ast = everything (++) (mkQ [] saneDecls) $ mapMaybe (function_definition ast) $ critical_functions cg
   where
   saneDecls (CDecl _ l ni)
     | any containsInitList l = [newError InitializerList Nothing (Just ni)]
@@ -112,11 +111,11 @@ checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
 
 checkThreads :: CallGraph -> [OcramError] -- {{{2
 checkThreads cg
-  | Set.null (start_functions cg) = [newError NoThreads Nothing Nothing]
+  | null (start_functions cg) = [newError NoThreads Nothing Nothing]
   | otherwise = []
 
 checkRecursion :: CallGraph -> [OcramError] -- {{{2
-checkRecursion cg@(CallGraph gd gi) = mapMaybe (fmap (createRecError cg) . find_loop gd . $lookup_s gi) $ Set.toList $ start_functions cg
+checkRecursion cg@(CallGraph gd gi) = mapMaybe (fmap (createRecError cg) . find_loop gd . $lookup_s gi) $ start_functions cg
 
 createRecError :: CallGraph -> [G.Node] -> OcramError
 createRecError (CallGraph gd _) call_stack =

@@ -319,37 +319,22 @@ tests = runTests [ -- {{{1
 				union {
 						ec_frame_block_t block;
 				} ec_frames;
-				int r;
-		} ec_frame_run_t;
+				int s;
+		} ec_frame_start_t;
 
 		typedef struct {
 				union {
 						ec_frame_block_t block;
 				} ec_frames;
-				int s;
-		} ec_frame_start_t;
+				int r;
+		} ec_frame_run_t;
 		
-		ec_frame_run_t ec_stack_run;
 		ec_frame_start_t ec_stack_start;
+		ec_frame_run_t ec_stack_run;
 
 		void block(ec_frame_block_t*);
 
 		void ec_thread_0(void* ec_cont)
-		{
-			if (ec_cont)
-				goto *ec_cont;
-
-				while (1) {
-				ec_stack_run.ec_frames.block.b = ec_stack_run.r;
-				ec_stack_run.ec_frames.block.ec_cont = &&ec_label_run_1;
-				block(&ec_stack_run.ec_frames.block);
-				return;
-			ec_label_run_1: ;
-				}
-				return;	
-		}
-
-		void ec_thread_1(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -360,6 +345,21 @@ tests = runTests [ -- {{{1
 				block(&ec_stack_start.ec_frames.block);
 				return;
 			ec_label_start_1: ;
+				}
+				return;	
+		}
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+				while (1) {
+				ec_stack_run.ec_frames.block.b = ec_stack_run.r;
+				ec_stack_run.ec_frames.block.ec_cont = &&ec_label_run_1;
+				block(&ec_stack_run.ec_frames.block);
+				return;
+			ec_label_run_1: ;
 				}
 				return;	
 		}

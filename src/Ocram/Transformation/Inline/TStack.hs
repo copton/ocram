@@ -14,13 +14,12 @@ import Ocram.Transformation.Util (un, ident)
 import Ocram.Symbols (Symbol)
 import Ocram.Types (Ast)
 import Ocram.Util ((?:), fromJust_s, abort)
-import qualified Data.Set as Set
 import qualified Data.Map as Map
 
 addTStacks :: Transformation -- {{{1
 addTStacks cg ast@(CTranslUnit decls ni) = do
   frames <- createTStackFrames cg ast
-  let stacks = map createTStack $ Set.toList $ start_functions cg
+  let stacks = map createTStack $ start_functions cg
   return $ CTranslUnit (decls ++ frames ++ stacks) ni
 
 createTStack :: Symbol -> CExtDecl
