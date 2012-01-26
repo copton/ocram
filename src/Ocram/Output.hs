@@ -20,7 +20,7 @@ import System.Process (createProcess, proc, StdStream(CreatePipe), CreateProcess
 
 pretty_print :: Options -> Ast -> IO (Either [OcramError] ()) -- {{{1
 pretty_print options ast =
-  write (optOutput options) $ (show . pretty) ast
+  write (optOutput options) $ (show . pretty) ast ++ "\n"
 
 dump_pal :: Options -> Footprint -> Ast -> IO (Either [OcramError] ()) -- {{{1
 dump_pal options fpr header = case optPalGenerator options of
