@@ -51,7 +51,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
       then CReturn Nothing un
       else CGotoPtr (stackAccess callChain (Just contVar)) un
 
-    inlinedBody = extractBody $ (rewriteCriticalFunctionCalls . rewriteLocalVariableAccess  . rewriteLocalVariableDecls) fd
+    inlinedBody = extractBody $ (rewriteCriticalFunctionCalls . rewriteLocalVariableAccess . rewriteLocalVariableDecls) fd
 
     extractBody (CFunDef _ _ _ (CCompound _ body _) _) = body
     extractBody _ = $abort "unexpected parameters"
@@ -71,7 +71,9 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
         rewrite (CCompound x items y) = CCompound x (concatMap transform items) y
         rewrite o = o
 
-        transform (CBlockDecl cd) = initialize cd
+        transform o@(CBlockDecl cd)
+          | Map.member (symbol cd) localVariables = initialize cd
+          | otherwise = [o]
         transform o = [o]
 
         initialize cd@(CDecl _ [(_, Just(CInitExpr expr _), _)] _) =

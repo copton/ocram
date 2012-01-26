@@ -90,6 +90,45 @@ tests = runTests [ -- {{{1
 				return;	
 		}
 	|])
+-- function static variable {{{2
+	, ([paste|
+		__attribute__((tc_blocking)) void block(int i);
+
+		__attribute__((tc_run_thread)) void start() 
+		{
+			static int i = 0;
+			block(i);
+		}
+	|],[paste|
+		typedef struct {
+			void* ec_cont;
+			int i;
+		} ec_frame_block_t;
+
+		typedef struct {
+			union {
+					ec_frame_block_t block;
+			} ec_frames;
+		} ec_frame_start_t;
+
+		ec_frame_start_t ec_stack_start;
+
+		void block(ec_frame_block_t*);
+
+		void ec_thread_0(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+        static int i = 0;
+				ec_stack_start.ec_frames.block.i = i;
+				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
+				return;
+			ec_label_start_1: ;
+				return;	
+		}
+	|])
 -- global variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i1, int i2);

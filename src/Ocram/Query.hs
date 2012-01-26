@@ -77,7 +77,12 @@ local_variables_fd fd = foldl addDecls Map.empty ds
   where
     ds = function_parameters_fd fd ++ query
     query = everything (++) (mkQ [] queryBlockItem `extQ` queryCExp) fd
-    queryBlockItem (CBlockDecl cd) = [cd]
+    queryBlockItem (CBlockDecl cd@(CDecl ds _ _))
+      | any isStatic ds = []
+      | otherwise = [cd]
+      where
+      isStatic (CStorageSpec (CStatic _)) = True
+      isStatic _ = False
     queryBlockItem _ = []
     queryCExp (CFor (Right cd) _ _ _ _) = [cd]
     queryCExp _ = []
