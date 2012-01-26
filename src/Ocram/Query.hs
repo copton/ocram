@@ -39,7 +39,7 @@ is_blocking_function ast name =
   maybe False is_blocking_function' $ function_declaration ast name
 
 is_blocking_function' :: CDecl -> Bool -- {{{1
-is_blocking_function' (CDecl ss [(Just (CDeclr _ [CFunDeclr _ _ _] Nothing _ _), Nothing, Nothing)] _) = any isBlockingAttribute ss
+is_blocking_function' (CDecl ss [(Just (CDeclr _ ((CFunDeclr _ _ _):_) _ _ _), Nothing, Nothing)] _) = any isBlockingAttribute ss
 is_blocking_function' _ = False
 
 is_start_function' :: CFunDef -> Bool -- {{{1

@@ -11,7 +11,7 @@ import Ocram.Test.Tests.Analysis.Types
 
 -- test_cases :: [TCase] {{{1
 test_cases :: [TCase]
-test_cases = [
+test_cases = [[
 -- empty code {{{2
 	 TCase 
 		""
@@ -53,6 +53,18 @@ test_cases = [
 			__attribute__((tc_blocking)) void block();
 			__attribute__((tc_run_thread)) void start() {
 				block();
+			}
+		|]
+		[("start", "block")]
+		[]
+		[]
+		[]
+-- minimal thread - complex blocking declratation{{{2
+	,TCase
+		[paste|
+			__attribute__((tc_blocking)) void* block(struct hemmerned* foo);
+			__attribute__((tc_run_thread)) void start() {
+				block(0);
 			}
 		|]
 		[("start", "block")]
@@ -253,4 +265,4 @@ test_cases = [
     undefined
     []
 		[TTCallGraph, TTSanity]
-	]
+	] !! 6]
