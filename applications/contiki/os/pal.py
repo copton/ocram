@@ -27,6 +27,7 @@ out("""
 
 out(sys.stdin.read())
 
+out("\n")
 out("\n".join(["void ec_thread_%d(void*);" % tid for tid in range(number_of_threads)]))
 out("\n")
 out("\n".join(['PROCESS(thread%(tid)d, "thread%(tid)d");' % {'tid': tid} for tid in range(number_of_threads)]))
