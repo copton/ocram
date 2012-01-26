@@ -1,4 +1,6 @@
-#include "../../../os/tc.h"
+#include "../../../os/tc_receive.h"
+#include "../../../os/tc_send.h"
+#include "../../../os/tc_sleep.h"
 #include "config.h"
 
 #include "dev/light-sensor.h"
@@ -44,11 +46,10 @@ void receive_run(uint16_t lport, uint16_t rport)
         uint8_t buffer[10];
         size_t len;
 
-		while(tc_receive(buffer, sizeof(buffer), &len) != SUCCESS);
+		tc_receive(buffer, sizeof(buffer), &len);
 
         size_t numberof_values = len / sizeof(uint32_t);
         uint32_t value;
-
 
         uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
         printf(": received values: ");
@@ -101,7 +102,7 @@ void send_run(const char* ip, uint16_t lport, uint16_t rport, clock_time_t dt)
 
         uip_debug_ipaddr_print(&server_ipaddr);
         printf(": send values: %lu, %lu\n", buf[0], buf[1]);
-        while(tc_send(client_conn, &server_ipaddr, rport, (uint8_t*)&buf[0], sizeof(buf)) != SUCCESS);
+        tc_send(client_conn, &server_ipaddr, rport, (uint8_t*)&buf[0], sizeof(buf));
     }
 }
 
