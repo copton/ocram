@@ -42,6 +42,11 @@ dep_out(["tc_receive", "tc_send"],"""
 #include "net/uiplib.h"
 """)
 dep_out("tc_await_button", '#include "dev/button-sensor.h"\n')
+dep_out("tc_coap_send_transaction", """
+#include "process.h"
+#include "er-coap-07.h"
+#include "er-coap-07-transactions.h"
+""")
 
 out(sys.stdin.read())
 
@@ -52,7 +57,7 @@ out("""
 int tid;
 
 typedef enum {""")
-all_sys_out("SYSCALL_%(syscall)s,")
+all_sys_out("\tSYSCALL_%(syscall)s,")
 out("""
 } Syscall;
 """)
@@ -66,7 +71,7 @@ typedef struct {
 
 dep_out("tc_coap_send_transaction", """
 typedef struct {
-    ec_frame_tc_coap_send_transaction* frame;
+    ec_frame_tc_coap_send_transaction_t* frame;
     coap_packet_t* response;
     struct process* process;
 } ec_ctx_tc_coap_send_transaction_t;
@@ -117,9 +122,9 @@ void tc_await_button(ec_frame_tc_await_button_t* frame)
 """)
 
 dep_out("tc_coap_send_transaction", """
-void tc_coap_send_transaction(ec_frame_tc_coap_send_transaction* frame)
+void tc_coap_send_transaction(ec_frame_tc_coap_send_transaction_t* frame)
 {
-    threads[tid].ctx.tc_coap_send_transaction = frame;
+    threads[tid].ctx.tc_coap_send_transaction.frame = frame;
     threads[tid].syscall = SYSCALL_tc_coap_send_transaction;
 }
 
@@ -148,8 +153,7 @@ PROCESS_THREAD(thread%(thread_id)d, ev, data)
     
     dep_out("tc_sleep", """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_sleep) {
-            static ec_frame_tc_sleep_t* frame = 0; 
-            frame = threads[%(thread_id)d].ctx.tc_sleep.frame;
+            ec_frame_tc_sleep_t* frame = threads[%(thread_id)d].ctx.tc_sleep.frame;
             static struct etimer et; 
             clock_time_t now = clock_time();
             if (frame->tics > now) {
@@ -158,20 +162,21 @@ PROCESS_THREAD(thread%(thread_id)d, ev, data)
             } else {
                 PROCESS_PAUSE();
             }
+            frame = threads[%(thread_id)d].ctx.tc_sleep.frame;
             continuation = frame->ec_cont;
         }
 """ % locals())
 
     dep_out("tc_receive", """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_receive) {
-            static ec_frame_tc_receive_t* frame = 0;
-            frame = threads[%(thread_id)d].ctx.tc_receive.frame;
+            ec_frame_tc_receive_t* frame = threads[%(thread_id)d].ctx.tc_receive.frame;
             PROCESS_YIELD_UNTIL(ev == tcpip_event && uip_newdata());
             if (frame->buflen < uip_datalen()) {
                 *frame->len = frame->buflen;
             } else {
                 *frame->len = uip_datalen();
             }
+            frame = threads[%(thread_id)d].ctx.tc_receive.frame;
             memcpy(frame->buffer, uip_appdata, *frame->len);
             continuation = frame->ec_cont;
         }
@@ -179,33 +184,33 @@ PROCESS_THREAD(thread%(thread_id)d, ev, data)
    
     dep_out("tc_send", """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_send) {
-            static ec_frame_tc_send_t* frame = 0;
-            frame = threads[%(thread_id)d].ctx.tc_send.frame;
+            ec_frame_tc_send_t* frame = threads[%(thread_id)d].ctx.tc_send.frame;
             uip_udp_packet_sendto(frame->conn, frame->buffer, frame->len, frame->addr, frame->rport);
             PROCESS_PAUSE();
+            frame = threads[%(thread_id)d].ctx.tc_send.frame;
             continuation = frame->ec_cont;
         }
 """ % locals())
 
     dep_out("tc_await_button", """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_await_button) {
-            static ec_frame_tc_await_button_t* frame = 0;
-            frame = threads[%(thread_id)d].ctx.tc_await_button.frame;
+            ec_frame_tc_await_button_t* frame = threads[%(thread_id)d].ctx.tc_await_button.frame;
             PROCESS_YIELD_UNTIL(ev == sensors_event && data == &button_sensor);
+            frame = threads[%(thread_id)d].ctx.tc_await_button.frame;
             continuation = frame->ec_cont;
         }
 """ % locals())
 
     dep_out("tc_coap_send_transaction", """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_coap_send_transaction) {
-            static ec_ctx_tc_coap_send_transaction_t* ctx = 0;
-            ctx = threads[%(thread_id)d].ctx.tc_coap_send_transaction;
-            ctx.frame->transaction->process = PROCESS_CURRENT();
-            ctx.frame->transaction->callback = &coap_transaction_callback;
-            ctx.frame->transaction->callback_data = ctx;
+            ec_ctx_tc_coap_send_transaction_t* ctx = &threads[%(thread_id)d].ctx.tc_coap_send_transaction;
+            ctx->process = PROCESS_CURRENT();
+            ctx->frame->transaction->callback = &coap_transaction_callback;
+            ctx->frame->transaction->callback_data = ctx;
             PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-            ctx.frame->ec_result = ctx.response;
-            continuation = ctx.frame->ec_cont;
+            ctx = &threads[%(thread_id)d].ctx.tc_coap_send_transaction;
+            ctx->frame->ec_result = ctx->response;
+            continuation = ctx->frame->ec_cont;
         }
 """ % locals())
 

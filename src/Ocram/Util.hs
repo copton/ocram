@@ -2,7 +2,7 @@
 module Ocram.Util
 -- export {{{1
 (
-  (?:), tmap, trd, fromJust_s, head_s, lookup_s, abort
+  (?:), tmap, trd, fromJust_s, head_s, tail_s, lookup_s, abort
 ) where
 
 -- import {{{1
@@ -28,6 +28,9 @@ fromJust_s = withLocatedError [| fromJust' |]
 head_s :: Q Exp -- {{{1
 head_s = withLocatedError [| head' |]
 
+tail_s :: Q Exp -- {{{1
+tail_s = withLocatedError [| tail' |]
+
 lookup_s :: Q Exp -- {{{1
 lookup_s = withLocatedError [| lookup' |]
 
@@ -40,8 +43,14 @@ fromJust' _ (Just x) = x
 fromJust' err Nothing = err "fromJust failed"
 
 head' :: (String -> a) -> [a] -> a
-head' _ (x:_) = x
-head' err _ = err "head failed"
+head' err xs
+  | null xs = err "head failed"
+  | otherwise = head xs
+
+tail' :: (String -> [a]) -> [a] -> [a]
+tail' err xs
+  | null xs = err "tail failed"
+  | otherwise = tail xs
 
 lookup' :: (Show k, Ord k) => (String -> a) -> Map.Map k a -> k -> a
 lookup' err map_ key =

@@ -24,6 +24,7 @@ import Ocram.Types (Ast)
 import Ocram.Util (abort)
 import qualified Data.List as List
 import qualified Data.Map as Map
+
 type SymbolTable = Map.Map Symbol CDecl -- {{{1
 
 function_declaration :: Ast -> Symbol -> Maybe CDecl -- {{{1
@@ -57,17 +58,19 @@ function_parameters_fd (CFunDef _ (CDeclr _ [cfd] _ _ _) _ _ _) = functionParame
 function_parameters_fd _ = $abort "unexpected parameters" 
 
 function_parameters_cd :: CDecl -> [CDecl] --- {{{1
-function_parameters_cd (CDecl _ [(Just (CDeclr _ [cfd] _ _ _), Nothing, Nothing)] _) = functionParameters cfd
-function_parameters_cd _ = $abort "unexpected parameters" 
+function_parameters_cd (CDecl _ [(Just (CDeclr _ (cfd:_) _ _ _), Nothing, Nothing)] _) = functionParameters cfd
+function_parameters_cd _ = $abort $ "unexpected parameters"
 
-return_type :: Ast -> Symbol -> Maybe CTypeSpec -- {{{1
+return_type :: Ast -> Symbol -> Maybe (CTypeSpec, [CDerivedDeclr]) -- {{{1
 return_type = apply return_type_fd return_type_cd
 
-return_type_fd :: CFunDef -> CTypeSpec -- {{{1
-return_type_fd (CFunDef tss _ _ _ _) = extractTypeSpec tss
+return_type_fd :: CFunDef -> (CTypeSpec, [CDerivedDeclr]) -- {{{1
+return_type_fd (CFunDef tss (CDeclr _ ((CFunDeclr _ _ _):dds)_ _ _) _ _ _) = (extractTypeSpec tss, dds)
+return_type_fd _ = $abort "unexpected parameter"
 
-return_type_cd :: CDecl -> CTypeSpec -- {{{1
-return_type_cd (CDecl tss _ _) = extractTypeSpec tss
+return_type_cd :: CDecl -> (CTypeSpec, [CDerivedDeclr]) -- {{{1
+return_type_cd (CDecl tss [(Just (CDeclr _ ((CFunDeclr _ _ _):dds) _ _ _), _, _)] _) = (extractTypeSpec tss, dds)
+return_type_cd _ = $abort "unexpected parameter"
 
 local_variables :: Ast -> Symbol -> Maybe SymbolTable -- {{{1
 local_variables = apply local_variables_fd local_variables_cd
@@ -77,8 +80,8 @@ local_variables_fd fd = foldl addDecls Map.empty ds
   where
     ds = function_parameters_fd fd ++ query
     query = everything (++) (mkQ [] queryBlockItem `extQ` queryCExp) fd
-    queryBlockItem (CBlockDecl cd@(CDecl ds _ _))
-      | any isStatic ds = []
+    queryBlockItem (CBlockDecl cd@(CDecl ds' _ _))
+      | any isStatic ds' = []
       | otherwise = [cd]
       where
       isStatic (CStorageSpec (CStatic _)) = True

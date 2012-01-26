@@ -39,8 +39,8 @@ createTStackFrame cg ast name = do
     localVariables
     )) [] un) un)] [(Just (CDeclr (Just (ident (frameType name))) [] Nothing [] un), Nothing, Nothing)] un)
   where
-    result (CVoidType _) = Nothing
-    result x = Just $ CDecl [CTypeSpec x] [(Just (CDeclr (Just (ident resVar)) [] Nothing [] un), Nothing, Nothing)] un
+    result (CVoidType _, []) = Nothing
+    result (ts, dds) = Just $ CDecl [CTypeSpec ts] [(Just (CDeclr (Just (ident resVar)) dds Nothing [] un), Nothing, Nothing)] un
     continuation
       | is_start cg name = Nothing
       | otherwise = Just $ CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un

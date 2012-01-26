@@ -180,10 +180,10 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
 
             newDecl :: CExpr -> Symbol -> Int -> CDecl
             newDecl call callee tmpVarIdx =
-              CDecl [returnType] [(Just declarator, Just initializer, Nothing)] un
+              CDecl [CTypeSpec returnType] [(Just declarator, Just initializer, Nothing)] un
               where
-                returnType = CTypeSpec $ $fromJust_s $ return_type ast callee
-                declarator = CDeclr (Just tmpVar) [] Nothing [] un
+                (returnType, dds) = $fromJust_s $ return_type ast callee
+                declarator = CDeclr (Just tmpVar) dds Nothing [] un
                 initializer = CInitExpr call un
                 tmpVar = ident (tempVar tmpVarIdx)
 
