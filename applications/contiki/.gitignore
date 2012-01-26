@@ -4,3 +4,9 @@ contiki-sky.map
 obj_*
 symbols.c
 symbols.h
+app-ec.c
+pal.h
+pal.c
+pal.co
+app-tc.pped.c
+app-tc.o

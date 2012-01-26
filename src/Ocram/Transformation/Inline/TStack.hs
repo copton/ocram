@@ -6,7 +6,7 @@ module Ocram.Transformation.Inline.TStack
 ) where
 -- imports {{{1
 import Language.C.Syntax.AST
-import Ocram.Analysis (start_functions, critical_functions, get_callees, critical_function_dependency_list, CallGraph, is_start)
+import Ocram.Analysis (start_functions, get_callees, dependency_list, CallGraph, is_start)
 import Ocram.Query (local_variables, return_type)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
@@ -28,7 +28,7 @@ createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fNam
 
 createTStackFrames :: CallGraph -> Ast -> WR [CExtDecl]
 createTStackFrames cg ast =
-  mapM (createTStackFrame cg ast) $ critical_function_dependency_list cg
+  mapM (createTStackFrame cg ast) $ dependency_list cg
 
 createTStackFrame :: CallGraph -> Ast -> Symbol -> WR CExtDecl
 createTStackFrame cg ast name = do
@@ -53,8 +53,7 @@ createNestedFramesUnion :: CallGraph -> Symbol -> WR (Maybe CDecl)
 createNestedFramesUnion cg name =
   return $ if null entries then Nothing else Just createDecl
   where  
-    cf = critical_functions cg
     createEntry sym = CDecl [CTypeSpec (CTypeDef (ident (frameType sym)) un)]
                       [(Just (CDeclr (Just (ident sym)) [] Nothing [] un), Nothing, Nothing)] un 
-    entries = map createEntry $ filter (`Set.member` cf) $ $fromJust_s $ get_callees cg name
+    entries = map createEntry $ $fromJust_s $ get_callees cg name
     createDecl = CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ident frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
