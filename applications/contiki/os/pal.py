@@ -19,6 +19,14 @@ def dep_out(syscalls, string):
             out(string)
             return
 
+def dep_thread_out(syscalls, thread_id, string):
+    if not type(syscalls) == list:
+        syscalls = [syscalls]
+    for syscall in syscalls:
+        if syscall in syscalls_per_thread[thread_id]:
+            out(string)
+            return
+
 def all_sys_out(string):
     out("\n")
     out("\n".join([string % {'syscall': syscall} for syscall in syscalls_unique]))
@@ -151,7 +159,7 @@ PROCESS_THREAD(thread%(thread_id)d, ev, data)
         if (0) { }
 """ % locals())
     
-    dep_out("tc_sleep", """
+    dep_thread_out("tc_sleep", thread_id, """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_sleep) {
             ec_frame_tc_sleep_t* frame = threads[%(thread_id)d].ctx.tc_sleep.frame;
             static struct etimer et; 
@@ -167,7 +175,7 @@ PROCESS_THREAD(thread%(thread_id)d, ev, data)
         }
 """ % locals())
 
-    dep_out("tc_receive", """
+    dep_thread_out("tc_receive", thread_id, """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_receive) {
             ec_frame_tc_receive_t* frame = threads[%(thread_id)d].ctx.tc_receive.frame;
             PROCESS_YIELD_UNTIL(ev == tcpip_event && uip_newdata());
@@ -182,7 +190,7 @@ PROCESS_THREAD(thread%(thread_id)d, ev, data)
         }
 """ % locals())
    
-    dep_out("tc_send", """
+    dep_thread_out("tc_send", thread_id, """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_send) {
             ec_frame_tc_send_t* frame = threads[%(thread_id)d].ctx.tc_send.frame;
             uip_udp_packet_sendto(frame->conn, frame->buffer, frame->len, frame->addr, frame->rport);
@@ -192,7 +200,7 @@ PROCESS_THREAD(thread%(thread_id)d, ev, data)
         }
 """ % locals())
 
-    dep_out("tc_await_button", """
+    dep_thread_out("tc_await_button", thread_id, """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_await_button) {
             ec_frame_tc_await_button_t* frame = threads[%(thread_id)d].ctx.tc_await_button.frame;
             PROCESS_YIELD_UNTIL(ev == sensors_event && data == &button_sensor);
@@ -201,7 +209,7 @@ PROCESS_THREAD(thread%(thread_id)d, ev, data)
         }
 """ % locals())
 
-    dep_out("tc_coap_send_transaction", """
+    dep_thread_out("tc_coap_send_transaction", thread_id, """
         else if (threads[%(thread_id)d].syscall == SYSCALL_tc_coap_send_transaction) {
             ec_ctx_tc_coap_send_transaction_t* ctx = &threads[%(thread_id)d].ctx.tc_coap_send_transaction;
             ctx->process = PROCESS_CURRENT();
