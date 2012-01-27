@@ -65,7 +65,7 @@ def measure(platform, toolchain, app):
     ec = app_properties("ec", platform, toolchain, pjoin(app, "ec.c"), pjoin(app, "ec.elf"))
 
     sys.stderr.write("processing...\n")
-    pal = pal_properties(toolchain, pjoin(ROOT, "os", "pal.c"), pjoin(ROOT, "os", "pal.o"))
+    pal = pal_properties(toolchain, pjoin(app, "pal.c"), pjoin(app, "pal.o"))
     overhead = get_overhead(native, tc, ec)
     normalized = get_normalized(native, ec, pal)
 
