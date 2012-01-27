@@ -95,9 +95,9 @@ void log_to(int log, uint8_t* buf, size_t len)
 	while(tc_flash_write(log, buf, len) != SUCCESS);
 }
 
-TC_RUN_THREAD void task_send()
+TC_RUN_THREAD void task_collect()
 {
-	send_run("parent", "receive_log", "sensor_log", 100);
+	collect_run("sensor", "sensor_log", 50);
 	assert (false);
 }
 
@@ -107,8 +107,8 @@ TC_RUN_THREAD void task_receive()
 	assert (false);
 }
 
-TC_RUN_THREAD void task_collect()
+TC_RUN_THREAD void task_send()
 {
-	collect_run("sensor", "sensor_log", 50);
+	send_run("parent", "receive_log", "sensor_log", 100);
 	assert (false);
 }
