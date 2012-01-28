@@ -5,8 +5,7 @@ obj_*
 symbols.c
 symbols.h
 app-ec.c
-pal.h
-pal.c
 pal.co
+pal.c
 *.pped.*
 app-tc.o
