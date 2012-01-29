@@ -32,6 +32,25 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         block();
       }
     |]),
+-- unlist declarations - nested scope-- {{{2
+    ([paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        {
+          int i, j;
+          block();
+        }
+      }
+    |], [paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        {
+          int i;
+          int j;
+          block();
+        }
+      }
+    |]),
 -- dangling statements -- {{{2
     ([paste|
       __attribute__((tc_blocking)) int block();
@@ -59,13 +78,68 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         }
       }
     |]),
+-- dangling statements - nested -- {{{2
+    ([paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        { if (1) ;
+        else if (2) ; }
+        { while(1) block(); }
+        { for (;;) block(); }
+      }
+    |], [paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        { if (1) {
+          ;
+        } else {
+          if (2) {
+            ;
+          }
+        } }
+        { while(1) {
+          block();
+        } }
+        { for(;;) {
+          block();
+        } }
+      }
+    |]),
+-- critical call in initialization -- {{{2
+    ([paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        int i = block();
+      }
+    |], [paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        int i;
+        i = block();
+      }
+    |]),
+-- critical call in initialization - nested -- {{{2
+    ([paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        {
+          int i = block();
+        }
+      }
+    |], [paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        {
+          int i;
+          i = block();
+        }
+      }
+    |]),
 -- critical call in if condition -- {{{2
     ([paste|
       __attribute__((tc_blocking)) int block();
       __attribute__((tc_run_thread)) void start() {
         if (block()) ;
-        else ;
-
         if (block() < 23) ;
       }
     |], [paste|
@@ -74,14 +148,33 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         int ec_tmp_0 = block();
         if (ec_tmp_0) {
           ;
-        } else {
-          ;
         }
 
         int ec_tmp_1 = block();
         if (ec_tmp_1 < 23) {
           ;
         }
+      }
+    |]),
+-- critical call in if condition - nested -- {{{2
+    ([paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        { if (block()) ; }
+        { if (block() < 23) ; }
+      }
+    |], [paste|
+      __attribute__((tc_blocking)) int block();
+      __attribute__((tc_run_thread)) void start() {
+        { int ec_tmp_0 = block();
+        if (ec_tmp_0) {
+          ;
+        } }
+
+        { int ec_tmp_1 = block();
+        if (ec_tmp_1 < 23) {
+          ;
+        } }
       }
     |]),
 -- critical call in nested expression -- {{{2
@@ -222,6 +315,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
       } 
     |])
   ]
+-- implementation {{{2
   where
     runTest (code, expected) = TestCase $
       let ast = enrich code in
