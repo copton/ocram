@@ -4,7 +4,8 @@ include ../../config.mk
 .PHONY: all clean test
 
 OCRAM=../../../../cabal-dev/bin/ocram
-PALGEN=../../os/pal.py
+PALGEN=../../../pal.py
+export OCRAM_PAL_TEMPLATE = $(ROOT)/os/pal.c
 
 TARGETS=tc.elf ec.elf native.elf
 
