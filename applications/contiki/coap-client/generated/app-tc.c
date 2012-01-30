@@ -1,6 +1,6 @@
-#include "../../../os/tc_sleep.h"
-#include "../../../os/tc_await_button.h"
-#include "../../../os/tc_coap_send_transaction.h"
+#include "os/tc_sleep.h"
+#include "os/tc_await_button.h"
+#include "os/tc_coap_send_transaction.h"
 
 #include <stdbool.h>
 

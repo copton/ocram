@@ -1,6 +1,6 @@
-#include "../../../os/tc_receive.h"
-#include "../../../os/tc_send.h"
-#include "../../../os/tc_sleep.h"
+#include "os/tc_receive.h"
+#include "os/tc_send.h"
+#include "os/tc_sleep.h"
 #include "config.h"
 
 #include "dev/light-sensor.h"

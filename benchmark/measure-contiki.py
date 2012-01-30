@@ -20,7 +20,7 @@ sys.path.append(pjoin(cwd, "benchmark"))
 ROOT = pjoin(cwd, "applications", "contiki")
 
 def cleanup(app):
-    sys.stderr.write("cleaning up application '%s'n" % app)
+    sys.stderr.write("cleaning up application '%s'\n" % app)
     command = "cd %s; make clean" % pjoin(ROOT, app)
     proc = Popen(command, shell=True, stdin=None, stdout=PIPE, stderr=PIPE)
     if proc.wait() != 0:
@@ -37,7 +37,7 @@ def build(app):
         sys.exit(1)
 
 def get_apps():
-    apps = filter(lambda f: os.path.isdir(pjoin(ROOT, f)), os.listdir(ROOT))
+    apps = filter(lambda f: f != "os" and os.path.isdir(pjoin(ROOT, f)), os.listdir(ROOT))
     apps.sort()
     return apps
 
@@ -59,6 +59,6 @@ def measure(app):
     text.print_all_properties([native, tc, ec, pal, overhead, normalized]) 
 
 for app in get_apps():
+    cleanup(app)
     build(app)
     measure(app)
-    cleanup(app)

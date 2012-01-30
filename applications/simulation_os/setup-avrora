@@ -1,6 +1,4 @@
-export TOOLCHAIN="/usr/bin/avr-"
 export PLATFORM=avrora
+export TOOLCHAIN="/usr/bin/avr-"
 export CFLAGS="-mmcu=atmega128"
 unset DEBUG
-
-. ./setup/common

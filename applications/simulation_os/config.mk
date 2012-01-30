@@ -5,7 +5,8 @@ CPPC=$(TOOLCHAIN)g++
 OBJDUMP=$(TOOLCHAIN)objdump
 STRIP=$(TOOLCHAIN)strip
 
-CFLAGS+=-std=c99 -Wall -I$(ROOT)
+OS_ROOT=$(ROOT)/applications/simulation_os
+CFLAGS+=-std=c99 -Wall -I$(OS_ROOT)
 
 ifdef DEBUG
 CFLAGS+=-g -O0 -Wall
