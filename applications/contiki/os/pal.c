@@ -168,6 +168,7 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
             ctx->process = PROCESS_CURRENT();
             ctx->frame->transaction->callback = &coap_transaction_callback;
             ctx->frame->transaction->callback_data = ctx;
+            coap_send_transaction(ctx->frame->transaction);
             PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
             ctx = &threads[/*loop.index0*/].ctx.tc_coap_send_transaction;
             ctx->frame->ec_result = ctx->response;

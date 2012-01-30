@@ -43,22 +43,8 @@
 #include "contiki.h"
 #include "contiki-net.h"
 
-#if !UIP_CONF_IPV6_RPL && !defined (CONTIKI_TARGET_MINIMAL_NET)
-#warning "Compiling with static routing!"
-#include "static-routing.h"
-#endif
-
 #include "dev/button-sensor.h"
-
-#if WITH_COAP == 3
-#include "er-coap-03-engine.h"
-#elif WITH_COAP == 6
-#include "er-coap-06-engine.h"
-#elif WITH_COAP == 7
 #include "er-coap-07-engine.h"
-#else
-#error "CoAP version defined by WITH_COAP not implemented"
-#endif
 
 
 #define DEBUG 0
@@ -92,9 +78,7 @@ static struct etimer et;
 #define NUMBER_OF_URLS 4
 /* leading and ending slashes only for demo purposes, get cropped automatically when setting the Uri-Path */
 char* service_urls[NUMBER_OF_URLS] = {".well-known/core", "/actuators/toggle", "battery/", "error/in//path"};
-#if PLATFORM_HAS_BUTTON
 static int uri_switch = 0;
-#endif
 
 /* This function is will be passed to COAP_BLOCKING_REQUEST() to handle responses. */
 void
@@ -118,10 +102,8 @@ PROCESS_THREAD(coap_client_example, ev, data)
 
   etimer_set(&et, TOGGLE_INTERVAL * CLOCK_SECOND);
 
-#if PLATFORM_HAS_BUTTON
   SENSORS_ACTIVATE(button_sensor);
   printf("Press a button to request %s\n", service_urls[uri_switch]);
-#endif
 
   while(1) {
     PROCESS_YIELD();
@@ -129,16 +111,10 @@ PROCESS_THREAD(coap_client_example, ev, data)
     if (etimer_expired(&et)) {
       printf("--Toggle timer--\n");
 
-#if PLATFORM_HAS_LEDS
       /* prepare request, TID is set by COAP_BLOCKING_REQUEST() */
       coap_init_message(request, COAP_TYPE_CON, COAP_POST, 0 );
       coap_set_header_uri_path(request, service_urls[1]);
       coap_set_payload(request, (uint8_t *)"Toggle!", 8);
-#else
-      /* prepare request, TID is set by COAP_BLOCKING_REQUEST() */
-      coap_init_message(request, COAP_TYPE_CON, COAP_GET, 0 );
-      coap_set_header_uri_path(request, "hello");
-#endif
 
       PRINT6ADDR(&server_ipaddr);
       PRINTF(" : %u\n", UIP_HTONS(REMOTE_PORT));

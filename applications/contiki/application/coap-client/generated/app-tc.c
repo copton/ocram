@@ -42,7 +42,7 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
 
             transaction->packet_len = coap_serialize_message(request, transaction->packet);
 
-            printf("Requesting #%lu (TID %u)\n", block_num, request->tid);
+            printf("Requesting #%lu (TID %u, tr %p)\n", block_num, request->tid, transaction);
             response = tc_coap_send_transaction(transaction);
 
             if (!response)
@@ -92,6 +92,7 @@ void send_coap_request(coap_method_t method, const char* url, uint8_t* payload, 
 
 TC_RUN_THREAD void task_toggle()
 {
+    coap_receiver_init();
     static char toggleCommand[] = "Toggle!";
     clock_time_t timestamp = clock_time();
     while(true) {
@@ -110,4 +111,3 @@ TC_RUN_THREAD void task_react()
         uri_switch = (uri_switch + 1) % NUMBER_OF_URLS;
     }
 }
-

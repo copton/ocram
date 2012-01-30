@@ -70,9 +70,9 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky1</identifier>
       <description>CoAP Client</description>
-      <source EXPORT="discard">/home/alex/scm/ocram/applications/contiki/coap-client/coap-client-example.c</source>
-      <commands EXPORT="discard">make coap-client-example.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">/home/alex/scm/ocram/applications/contiki/coap-client/coap-client-example.sky</firmware>
+      <source EXPORT="discard">[CONFIG_DIR]/pal.c</source>
+      <commands EXPORT="discard">make pal.sky TARGET=sky</commands>
+      <firmware EXPORT="copy">[CONFIG_DIR]/pal.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -135,7 +135,7 @@
   <plugin>
     se.sics.cooja.plugins.SimControl
     <width>259</width>
-    <z>0</z>
+    <z>3</z>
     <height>179</height>
     <location_x>0</location_x>
     <location_y>0</location_y>
@@ -152,7 +152,7 @@
       <viewport>3.61568947862321 0.0 0.0 3.61568947862321 15.610600779367 -85.92728269158351</viewport>
     </plugin_config>
     <width>300</width>
-    <z>2</z>
+    <z>4</z>
     <height>178</height>
     <location_x>261</location_x>
     <location_y>1</location_y>
@@ -163,8 +163,8 @@
       <filter />
       <coloring />
     </plugin_config>
-    <width>762</width>
-    <z>3</z>
+    <width>598</width>
+    <z>1</z>
     <height>491</height>
     <location_x>2</location_x>
     <location_y>182</location_y>
@@ -172,43 +172,14 @@
   <plugin>
     se.sics.cooja.plugins.RadioLogger
     <plugin_config>
-      <split>150</split>
+      <split>115</split>
       <analyzers name="6lowpan" />
     </plugin_config>
-    <width>451</width>
-    <z>-1</z>
-    <height>305</height>
-    <location_x>73</location_x>
-    <location_y>140</location_y>
-    <minimized>true</minimized>
-  </plugin>
-  <plugin>
-    SerialSocketServer
-    <mote_arg>0</mote_arg>
-    <width>422</width>
-    <z>4</z>
-    <height>74</height>
-    <location_x>578</location_x>
-    <location_y>18</location_y>
-  </plugin>
-  <plugin>
-    se.sics.cooja.plugins.TimeLine
-    <plugin_config>
-      <mote>0</mote>
-      <mote>1</mote>
-      <mote>2</mote>
-      <showRadioRXTX />
-      <showRadioHW />
-      <showLEDs />
-      <showWatchpoints />
-      <split>125</split>
-      <zoomfactor>25.49079397896416</zoomfactor>
-    </plugin_config>
-    <width>1624</width>
-    <z>5</z>
-    <height>252</height>
-    <location_x>6</location_x>
-    <location_y>712</location_y>
+    <width>628</width>
+    <z>2</z>
+    <height>179</height>
+    <location_x>560</location_x>
+    <location_y>2</location_y>
   </plugin>
   <plugin>
     se.sics.cooja.plugins.MoteInterfaceViewer
@@ -217,11 +188,11 @@
       <interface>Serial port</interface>
       <scrollpos>0,0</scrollpos>
     </plugin_config>
-    <width>853</width>
-    <z>1</z>
+    <width>590</width>
+    <z>0</z>
     <height>491</height>
-    <location_x>765</location_x>
-    <location_y>182</location_y>
+    <location_x>599</location_x>
+    <location_y>185</location_y>
   </plugin>
 </simconf>
 

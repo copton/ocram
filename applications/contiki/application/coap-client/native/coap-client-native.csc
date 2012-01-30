@@ -134,7 +134,7 @@
   </simulation>
   <plugin>
     se.sics.cooja.plugins.SimControl
-    <width>259</width>
+    <width>279</width>
     <z>0</z>
     <height>179</height>
     <location_x>0</location_x>
@@ -152,10 +152,10 @@
       <viewport>3.61568947862321 0.0 0.0 3.61568947862321 15.610600779367 -85.92728269158351</viewport>
     </plugin_config>
     <width>300</width>
-    <z>2</z>
+    <z>1</z>
     <height>178</height>
-    <location_x>261</location_x>
-    <location_y>1</location_y>
+    <location_x>279</location_x>
+    <location_y>4</location_y>
   </plugin>
   <plugin>
     se.sics.cooja.plugins.LogListener
@@ -163,7 +163,7 @@
       <filter />
       <coloring />
     </plugin_config>
-    <width>762</width>
+    <width>652</width>
     <z>3</z>
     <height>491</height>
     <location_x>2</location_x>
@@ -186,29 +186,10 @@
     SerialSocketServer
     <mote_arg>0</mote_arg>
     <width>422</width>
-    <z>4</z>
+    <z>6</z>
     <height>74</height>
     <location_x>578</location_x>
     <location_y>18</location_y>
-  </plugin>
-  <plugin>
-    se.sics.cooja.plugins.TimeLine
-    <plugin_config>
-      <mote>0</mote>
-      <mote>1</mote>
-      <mote>2</mote>
-      <showRadioRXTX />
-      <showRadioHW />
-      <showLEDs />
-      <showWatchpoints />
-      <split>125</split>
-      <zoomfactor>25.49079397896416</zoomfactor>
-    </plugin_config>
-    <width>1624</width>
-    <z>5</z>
-    <height>252</height>
-    <location_x>6</location_x>
-    <location_y>712</location_y>
   </plugin>
   <plugin>
     se.sics.cooja.plugins.MoteInterfaceViewer
@@ -217,11 +198,22 @@
       <interface>Serial port</interface>
       <scrollpos>0,0</scrollpos>
     </plugin_config>
-    <width>853</width>
-    <z>1</z>
+    <width>534</width>
+    <z>2</z>
     <height>491</height>
-    <location_x>765</location_x>
-    <location_y>182</location_y>
+    <location_x>656</location_x>
+    <location_y>181</location_y>
+  </plugin>
+  <plugin>
+    se.sics.cooja.plugins.RadioLogger
+    <plugin_config>
+      <split>150</split>
+    </plugin_config>
+    <width>1188</width>
+    <z>4</z>
+    <height>434</height>
+    <location_x>4</location_x>
+    <location_y>673</location_y>
   </plugin>
 </simconf>
 
