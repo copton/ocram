@@ -1,4 +1,4 @@
-all: rest-server-example coap-client-example
+all: coap-client
 
 CONTIKI=/home/alex/scm/contiki
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"

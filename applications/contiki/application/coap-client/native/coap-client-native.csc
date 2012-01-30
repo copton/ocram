@@ -70,9 +70,9 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky1</identifier>
       <description>CoAP Client</description>
-      <source EXPORT="discard">[CONTIKI_DIR]/examples/er-rest-example/coap-client-example.c</source>
-      <commands EXPORT="discard">make coap-client-example.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">[CONTIKI_DIR]/examples/er-rest-example/coap-client-example.sky</firmware>
+      <source EXPORT="discard">[CONFIG_DIR]/coap-client.c</source>
+      <commands EXPORT="discard">make coap-client.sky TARGET=sky</commands>
+      <firmware EXPORT="copy">[CONFIG_DIR]/coap-client.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
