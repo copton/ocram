@@ -42,6 +42,7 @@ Executable ocram
     mtl == 1.1.*,
     fgl == 5.4.*,
     syb == 0.3.*,
+    process == 1.0.*,
     template-haskell
   Other-modules:
     Ocram.Analysis
@@ -70,7 +71,7 @@ Executable ocram
     Ocram.Util
 
 Executable Test
-  Hs-Source-Dirs: src, test/unit_tests
+  Hs-Source-Dirs: src, test
   Main-is: Test.hs
   Default-language: Haskell98
   Default-extensions: 

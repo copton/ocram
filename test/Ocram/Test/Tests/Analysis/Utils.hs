@@ -9,10 +9,10 @@ import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
 
 -- runTests :: (Eq o, Show o) => TestType -> (Ast -> i -> o) -> (TCase -> (i, o)) -> Test {{{1
 runTests :: (Eq o, Show o) => TestType -> (Ast -> i -> o) -> (TCase -> (i, o)) -> Test
-runTests test_type execute setup = TestLabel (show test_type) $ TestList $ map (runTest execute) $ zip [0..] $ map prepare $ filter type_filter test_cases
+runTests test_type execute setup = TestLabel (show test_type) $ TestList $ map (runTest execute . prepare) $ filter type_filter $ zip [0..] test_cases
 	where
-		prepare tc = (tcCode tc, setup tc)
-		type_filter tc = test_type `notElem` (tcExclude tc)
+		prepare (idx, tc) = (idx, (tcCode tc, setup tc))
+		type_filter (_, tc) = test_type `notElem` (tcExclude tc)
 
 runTest :: (Eq o, Show o) => (Ast -> i -> o) -> (Int, (TCode, (i, o))) -> Test
 runTest execute (number, (code, (input, output))) = TestCase $ assertEqual name output result

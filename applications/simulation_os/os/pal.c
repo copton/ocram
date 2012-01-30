@@ -1,10 +1,10 @@
-#include "pal.h"
-
-#include "core.h"
-#include "logger.h"
-
+#include "os/common.h"
+/* pal_code */
+#include "os/core.h"
+#include "os/logger.h"
 #include <stdlib.h>
 
+typedef void (*thread_t)(void*);
 static int ctid = -1;
 static thread_t* threads;
 
@@ -41,6 +41,7 @@ typedef struct {
     frame->ec_result = result; \
     threads[ctid](frame->ec_cont);
 
+/*{ if "tc_sleep" in all_syscalls }*/
 static void sleep_cb(void* context, error_t result)
 {
     Context* ctx = (Context*) context;
@@ -53,7 +54,9 @@ void tc_sleep(ec_frame_tc_sleep_t * frame)
     NEW_CONTEXT;
 	os_sleep(&sleep_cb, ctx, frame->ms);
 }
+/*{ endif }*/
 
+/*{ if "tc_receive" in all_syscalls }*/
 static void receive_cb(void* context, error_t result, size_t len)
 {
     Context* ctx = (Context*) context;
@@ -67,7 +70,9 @@ void tc_receive(ec_frame_tc_receive_t * frame)
     NEW_CONTEXT;
 	os_receive(&receive_cb, ctx, frame->handle, frame->buffer, frame->buflen);
 }
+/*{ endif }*/
 
+/*{ if "tc_send" in all_syscalls }*/
 static void send_cb(void* context, error_t result)
 {
     Context* ctx = (Context*) context;
@@ -80,7 +85,9 @@ void tc_send(ec_frame_tc_send_t * frame)
     NEW_CONTEXT;
 	os_send(&send_cb, ctx, frame->handle, frame->buffer, frame->len);
 }
+/*{ endif }*/
 
+/*{ if "tc_flash_read" in all_syscalls }*/
 static void flash_read_cb(void* context, error_t result, size_t len)
 {
     Context* ctx = (Context*) context;
@@ -94,7 +101,9 @@ void tc_flash_read(ec_frame_tc_flash_read_t* frame)
     NEW_CONTEXT;
     os_flash_read(&flash_read_cb, ctx, frame->handle, frame->buffer, frame->buflen);
 }
+/*{ endif }*/
 
+/*{ if "tc_flash_write" in all_syscalls }*/
 static void flash_write_cb(void* context, error_t result)
 {
     Context* ctx = (Context*) context;
@@ -102,13 +111,14 @@ static void flash_write_cb(void* context, error_t result)
     RETURN_FROM_SYSCALL;
 }
 
-
 void tc_flash_write(ec_frame_tc_flash_write_t * frame)
 {
     NEW_CONTEXT;
 	os_flash_write(&flash_write_cb, ctx, frame->handle, frame->buffer, frame->len);
 }
+/*{ endif }*/
 
+/*{ if "tc_sensor_read" in all_syscalls }*/
 static void sensor_read_cb(void* context, error_t result, sensor_val_t value)
 {
     Context* ctx = (Context*) context;
@@ -121,4 +131,19 @@ void tc_sensor_read(ec_frame_tc_sensor_read_t * frame)
 {
     NEW_CONTEXT;
 	os_sensor_read(&sensor_read_cb, ctx, frame->handle);
+}
+/*{ endif }*/
+
+/*{ for _ in thread_syscalls }*/
+void ec_thread_/*loop.index0*/(void*);
+/*{ endfor }*/
+
+int main()
+{
+    pal_init(/*thread_syscalls|length*/);
+/*{ for _ in thread_syscalls }*/
+    pal_start_thread(&ec_thread_/*loop.index0*/);
+/*{ endfor }*/
+    pal_run();
+    return 0;
 }

@@ -21,11 +21,10 @@ import Ocram.Types (Ast)
 import Ocram.Util ((?:), fromJust_s, abort)
 import Prelude hiding (exp, id)
 import qualified Data.Map as Map
-import qualified Data.Set as Set
 
 addThreadFunctions :: Transformation -- {{{1
 addThreadFunctions cg ast@(CTranslUnit decls ni) = do
-  thread_functions <- mapM (liftM CFDefExt . createThreadFunction cg ast) $ zip [1..] $ Set.elems $ start_functions cg
+  thread_functions <- mapM (liftM CFDefExt . createThreadFunction cg ast) $ zip [0..] (start_functions cg)
   return $ CTranslUnit (decls ++ thread_functions) ni
 
 createThreadFunction :: CallGraph -> Ast -> (Int, Symbol) -> WR CFunDef -- {{{2
@@ -51,7 +50,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
       then CReturn Nothing un
       else CGotoPtr (stackAccess callChain (Just contVar)) un
 
-    inlinedBody = extractBody $ (rewriteCriticalFunctionCalls . rewriteLocalVariableAccess  . rewriteLocalVariableDecls) fd
+    inlinedBody = extractBody $ (rewriteCriticalFunctionCalls . rewriteLocalVariableAccess . rewriteLocalVariableDecls) fd
 
     extractBody (CFunDef _ _ _ (CCompound _ body _) _) = body
     extractBody _ = $abort "unexpected parameters"
@@ -71,7 +70,9 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
         rewrite (CCompound x items y) = CCompound x (concatMap transform items) y
         rewrite o = o
 
-        transform (CBlockDecl cd) = initialize cd
+        transform o@(CBlockDecl cd)
+          | Map.member (symbol cd) localVariables = initialize cd
+          | otherwise = [o]
         transform o = [o]
 
         initialize cd@(CDecl _ [(_, Just(CInitExpr expr _), _)] _) =

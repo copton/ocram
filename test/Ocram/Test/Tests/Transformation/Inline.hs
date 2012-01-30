@@ -38,7 +38,79 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+				ec_stack_start.ec_frames.block.i = 23;
+				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
+				return;
+			ec_label_start_1: ;
+				return;	
+		}
+	|])
+-- setup - returning a pointer {{{2
+	, ([paste|
+		__attribute__((tc_blocking)) int* block(int i);
+		__attribute__((tc_run_thread)) void start() { 
+			block(23);
+		}
+	|],[paste|
+		typedef struct {
+				void* ec_cont;
+        int* ec_result;
+				int i;
+		} ec_frame_block_t;
+
+		typedef struct {
+				union {
+						ec_frame_block_t block;
+				} ec_frames;
+		} ec_frame_start_t;
+		
+		ec_frame_start_t ec_stack_start;
+
+		void block(ec_frame_block_t*);
+
+		void ec_thread_0(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+				ec_stack_start.ec_frames.block.i = 23;
+				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
+				return;
+			ec_label_start_1: ;
+				return;	
+		}
+	|])
+-- setup - returning a void pointer {{{2
+	, ([paste|
+		__attribute__((tc_blocking)) void* block(int i);
+		__attribute__((tc_run_thread)) void start() { 
+			block(23);
+		}
+	|],[paste|
+		typedef struct {
+				void* ec_cont;
+        void* ec_result;
+				int i;
+		} ec_frame_block_t;
+
+		typedef struct {
+				union {
+						ec_frame_block_t block;
+				} ec_frames;
+		} ec_frame_start_t;
+		
+		ec_frame_start_t ec_stack_start;
+
+		void block(ec_frame_block_t*);
+
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -77,12 +149,51 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
 
 				ec_stack_start.ec_frames.block.i = ec_stack_start.i;
+				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
+				return;
+			ec_label_start_1: ;
+				return;	
+		}
+	|])
+-- function static variable {{{2
+	, ([paste|
+		__attribute__((tc_blocking)) void block(int i);
+
+		__attribute__((tc_run_thread)) void start() 
+		{
+			static int i = 0;
+			block(i);
+		}
+	|],[paste|
+		typedef struct {
+			void* ec_cont;
+			int i;
+		} ec_frame_block_t;
+
+		typedef struct {
+			union {
+					ec_frame_block_t block;
+			} ec_frames;
+		} ec_frame_start_t;
+
+		ec_frame_start_t ec_stack_start;
+
+		void block(ec_frame_block_t*);
+
+		void ec_thread_0(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+        static int i = 0;
+				ec_stack_start.ec_frames.block.i = i;
 				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 				block(&ec_stack_start.ec_frames.block);
 				return;
@@ -121,7 +232,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -165,7 +276,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -232,7 +343,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -280,20 +391,35 @@ tests = runTests [ -- {{{1
 				union {
 						ec_frame_block_t block;
 				} ec_frames;
-				int r;
-		} ec_frame_run_t;
+				int s;
+		} ec_frame_start_t;
 
 		typedef struct {
 				union {
 						ec_frame_block_t block;
 				} ec_frames;
-				int s;
-		} ec_frame_start_t;
+				int r;
+		} ec_frame_run_t;
 		
-		ec_frame_run_t ec_stack_run;
 		ec_frame_start_t ec_stack_start;
+		ec_frame_run_t ec_stack_run;
 
 		void block(ec_frame_block_t*);
+
+		void ec_thread_0(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+				while (1) {
+				ec_stack_start.ec_frames.block.b = ec_stack_start.s;
+				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+				block(&ec_stack_start.ec_frames.block);
+				return;
+			ec_label_start_1: ;
+				}
+				return;	
+		}
 
 		void ec_thread_1(void* ec_cont)
 		{
@@ -306,21 +432,6 @@ tests = runTests [ -- {{{1
 				block(&ec_stack_run.ec_frames.block);
 				return;
 			ec_label_run_1: ;
-				}
-				return;	
-		}
-
-		void ec_thread_2(void* ec_cont)
-		{
-			if (ec_cont)
-				goto *ec_cont;
-
-				while (1) {
-				ec_stack_start.ec_frames.block.b = ec_stack_start.s;
-				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-				block(&ec_stack_start.ec_frames.block);
-				return;
-			ec_label_start_1: ;
 				}
 				return;	
 		}
@@ -371,7 +482,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -391,7 +502,7 @@ tests = runTests [ -- {{{1
 				goto *ec_stack_run.ec_frames.critical.ec_cont;
 		}
 
-		void ec_thread_2(void* ec_cont)
+		void ec_thread_1(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -438,7 +549,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -480,7 +591,7 @@ tests = runTests [ -- {{{1
 
 		void block(ec_frame_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -521,7 +632,7 @@ tests = runTests [ -- {{{1
 
     void block(ec_frame_block_t*);
 
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont)
         goto *ec_cont;
 
@@ -563,7 +674,7 @@ tests = runTests [ -- {{{1
 
     void block(ec_frame_block_t*);
 
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont)
         goto *ec_cont;
 
@@ -604,7 +715,7 @@ tests = runTests [ -- {{{1
 
     void block(ec_frame_block_t*);
 
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont)
         goto *ec_cont;
 
@@ -649,7 +760,7 @@ tests = runTests [ -- {{{1
 
     void block(ec_frame_block_t*);
 
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont)
         goto *ec_cont;
 
@@ -693,7 +804,7 @@ tests = runTests [ -- {{{1
 
 --     void block(ec_frame_block_t*);
 
---     void ec_thread_1(void* ec_cont) {
+--     void ec_thread_0(void* ec_cont) {
 --       if (ec_cont)
 --         goto *ec_cont;
 

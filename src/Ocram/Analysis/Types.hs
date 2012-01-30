@@ -8,8 +8,8 @@ import qualified Data.Map as Map
 
 data Attribute =
     Blocking
-  | Critical
   | Start
+  | Critical
 
 data Label = Label {
     lblName :: Symbol

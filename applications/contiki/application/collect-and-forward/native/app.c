@@ -5,7 +5,6 @@
 #include "net/uip.h"
 
 #include "common.h"
-#include "types.h"
 
 // config
 #define DT_SEND (120 * CLOCK_SECOND)

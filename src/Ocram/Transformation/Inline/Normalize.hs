@@ -39,27 +39,29 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
         wrapInBlock o@(CCompound _ _ _) = o
         wrapInBlock s = CCompound [] [CBlockStmt s] (nodeInfo s)
 
-    unlistDeclarations (CFunDef x1 x2 x3 (CCompound x4 items x5) x6) = -- {{{2
-      CFunDef x1 x2 x3 (CCompound x4 (concatMap trBlockItem items) x5) x6
+    unlistDeclarations = transformCompound trBlockItem -- {{{2
       where
-        trBlockItem (CBlockDecl decl) = map CBlockDecl (unlistDecl decl)
-        trBlockItem o@(CBlockStmt (CFor (Right decl) y1 y2 y3 y4))
-          | containsCriticalCall decl = map CBlockDecl (unlistDecl decl) ++ [CBlockStmt (CFor (Left Nothing) y1 y2 y3 y4)]
-          | otherwise = [o]
-        trBlockItem o = [o]
-    unlistDeclarations _ = $abort "unexpected parameters"
+      trBlockItem (CBlockDecl decl) = map CBlockDecl (unlistDecl decl)
+      trBlockItem o@(CBlockStmt (CFor (Right decl) y1 y2 y3 y4))
+        | containsCriticalCall decl = map CBlockDecl (unlistDecl decl) ++ [CBlockStmt (CFor (Left Nothing) y1 y2 y3 y4)]
+        | otherwise = [o]
+      trBlockItem o = [o]
 
-    deferCriticalInitializations (CFunDef x1 x2 x3 (CCompound x4 items x5) x6) = -- {{{2
-      CFunDef x1 x2 x3 (CCompound x4 (concatMap trBlockItem items) x5) x6
+    transformCompound trBlockItem = everywhere (mkT trCompound)
       where
-        trBlockItem o@(CBlockDecl (CDecl y1 [(Just declr, Just (CInitExpr cexpr _), y2)] y3))
-          | containsCriticalCall cexpr = [declare, initialize]
-          | otherwise = [o]
-          where
-            declare = CBlockDecl (CDecl y1 [(Just declr, Nothing, y2)] y3)
-            initialize = CBlockStmt (CExpr (Just (CAssign CAssignOp (CVar (ident (symbol declr)) un) cexpr un)) un)
-        trBlockItem o = [o]
-    deferCriticalInitializations _ = $abort "unexpected parameters"
+      trCompound (CCompound x1 items x2) = CCompound x1 (concatMap trBlockItem items) x2
+      trCompound x = x
+
+
+    deferCriticalInitializations = transformCompound trBlockItem -- {{{2
+      where
+      trBlockItem o@(CBlockDecl (CDecl y1 [(Just declr, Just (CInitExpr cexpr _), y2)] y3))
+        | containsCriticalCall cexpr = [declare, initialize]
+        | otherwise = [o]
+        where
+          declare = CBlockDecl (CDecl y1 [(Just declr, Nothing, y2)] y3)
+          initialize = CBlockStmt (CExpr (Just (CAssign CAssignOp (CVar (ident (symbol declr)) un) cexpr un)) un)
+      trBlockItem o = [o]
 
     normalizeStatements (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState (trBlock s) 0) x4 -- {{{2
       where
@@ -137,6 +139,7 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
           return [CBlockStmt o']
 
         -- default case -- {{{3
+        trBlockItem (CBlockStmt o@(CCompound _ _ _)) = trBlock o >>= return . (:[]) . CBlockStmt
         trBlockItem o = return [o]
 
         -- transformers for loop expressions -- {{{2
@@ -180,10 +183,10 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
 
             newDecl :: CExpr -> Symbol -> Int -> CDecl
             newDecl call callee tmpVarIdx =
-              CDecl [returnType] [(Just declarator, Just initializer, Nothing)] un
+              CDecl [CTypeSpec returnType] [(Just declarator, Just initializer, Nothing)] un
               where
-                returnType = CTypeSpec $ $fromJust_s $ return_type ast callee
-                declarator = CDeclr (Just tmpVar) [] Nothing [] un
+                (returnType, dds) = $fromJust_s $ return_type ast callee
+                declarator = CDeclr (Just tmpVar) dds Nothing [] un
                 initializer = CInitExpr call un
                 tmpVar = ident (tempVar tmpVarIdx)
 
