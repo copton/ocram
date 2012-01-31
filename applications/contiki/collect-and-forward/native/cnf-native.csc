@@ -135,10 +135,10 @@
   <plugin>
     se.sics.cooja.plugins.SimControl
     <width>318</width>
-    <z>0</z>
+    <z>2</z>
     <height>186</height>
-    <location_x>0</location_x>
-    <location_y>0</location_y>
+    <location_x>3</location_x>
+    <location_y>2</location_y>
   </plugin>
   <plugin>
     se.sics.cooja.plugins.Visualizer
@@ -150,7 +150,7 @@
       <viewport>10.816250021861679 0.0 0.0 10.816250021861679 -252.53735239740297 -213.17902392861043</viewport>
     </plugin_config>
     <width>319</width>
-    <z>2</z>
+    <z>3</z>
     <height>379</height>
     <location_x>-1</location_x>
     <location_y>186</location_y>
@@ -168,21 +168,28 @@
     <location_y>1</location_y>
   </plugin>
   <plugin>
-    se.sics.cooja.plugins.TimeLine
+    se.sics.cooja.plugins.ScriptRunner
     <plugin_config>
-      <mote>0</mote>
-      <mote>1</mote>
-      <mote>2</mote>
-      <showRadioRXTX />
-      <showRadioHW />
-      <split>125</split>
-      <zoomfactor>500.0</zoomfactor>
+      <script>/*&#xD;
+ * Example Contiki test script (JavaScript).&#xD;
+ * A Contiki test script acts on mote output, such as via printf()'s.&#xD;
+ * The script may operate on the following variables:&#xD;
+ *  Mote mote, int id, String msg&#xD;
+ */&#xD;
+&#xD;
+TIMEOUT(300000);&#xD;
+&#xD;
+while (true) {&#xD;
+  log.log(time + "\tID:" + id + "\t" + msg + "\n");&#xD;
+  YIELD();&#xD;
+}</script>
+      <active>true</active>
     </plugin_config>
-    <width>1428</width>
-    <z>3</z>
-    <height>150</height>
-    <location_x>0</location_x>
-    <location_y>671</location_y>
+    <width>600</width>
+    <z>0</z>
+    <height>700</height>
+    <location_x>578</location_x>
+    <location_y>88</location_y>
   </plugin>
 </simconf>
 

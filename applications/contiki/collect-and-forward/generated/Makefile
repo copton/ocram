@@ -12,7 +12,7 @@ clean:
 	rm -f app-ec.c pal.h app-tc.pped.c app-tc.o pal.c
 
 test:
-	echo "no test implemented yet"
+	../test.py `pwd`/cnf-generated.csc
 	
 app-ec: app-ec.c pal.c
 	schroot -c contiki -- $(MAKE) -f Makefile.contiki

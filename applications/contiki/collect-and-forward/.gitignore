@@ -9,3 +9,4 @@ pal.co
 pal.c
 *.pped.*
 app-tc.o
+*.pyc
