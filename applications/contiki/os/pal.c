@@ -56,7 +56,7 @@ typedef struct {
     Syscall syscall;
 } ThreadContext;
 
-ThreadContext threads[/*thread_syscalls|length*/];
+ThreadContext threads[/*numberof_threads*/];
 
 /*{ if "tc_sleep" in all_syscalls }*/
 void tc_sleep(ec_frame_tc_sleep_t* frame)

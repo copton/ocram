@@ -140,7 +140,7 @@ void ec_thread_/*loop.index0*/(void*);
 
 int main()
 {
-    pal_init(/*thread_syscalls|length*/);
+    pal_init(/*numberof_threads*/);
 /*{ for _ in thread_syscalls }*/
     pal_start_thread(&ec_thread_/*loop.index0*/);
 /*{ endfor }*/
