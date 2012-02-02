@@ -170,19 +170,7 @@
   <plugin>
     se.sics.cooja.plugins.ScriptRunner
     <plugin_config>
-      <script>/*&#xD;
- * Example Contiki test script (JavaScript).&#xD;
- * A Contiki test script acts on mote output, such as via printf()'s.&#xD;
- * The script may operate on the following variables:&#xD;
- *  Mote mote, int id, String msg&#xD;
- */&#xD;
-&#xD;
-TIMEOUT(300000);&#xD;
-&#xD;
-while (true) {&#xD;
-  log.log(time + "\tID:" + id + "\t" + msg + "\n");&#xD;
-  YIELD();&#xD;
-}</script>
+      <scriptfile>/home/alex/scm/ocram/applications/contiki/log.js</scriptfile>
       <active>true</active>
     </plugin_config>
     <width>600</width>
