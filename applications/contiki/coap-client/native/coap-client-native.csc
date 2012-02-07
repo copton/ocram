@@ -22,34 +22,11 @@
     </events>
     <motetype>
       se.sics.cooja.mspmote.SkyMoteType
-      <identifier>rplroot</identifier>
-      <description>Sky RPL Root</description>
-      <source EXPORT="discard">[CONTIKI_DIR]/examples/ipv6/rpl-border-router/border-router.c</source>
-      <commands EXPORT="discard">make border-router.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">[CONTIKI_DIR]/examples/ipv6/rpl-border-router/border-router.sky</firmware>
-      <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
-      <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
-      <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
-      <moteinterface>se.sics.cooja.interfaces.Mote2MoteRelations</moteinterface>
-      <moteinterface>se.sics.cooja.interfaces.MoteAttributes</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.MspClock</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.MspMoteID</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyButton</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyFlash</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyCoffeeFilesystem</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyByteRadio</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.MspSerial</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyLED</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.MspDebugOutput</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyTemperature</moteinterface>
-    </motetype>
-    <motetype>
-      se.sics.cooja.mspmote.SkyMoteType
       <identifier>skyweb</identifier>
       <description>CoAP Server</description>
-      <source EXPORT="discard">[CONTIKI_DIR]/examples/er-rest-example/rest-server-example.c</source>
-      <commands EXPORT="discard">make rest-server-example.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">[CONTIKI_DIR]/examples/er-rest-example/rest-server-example.sky</firmware>
+      <source EXPORT="discard">[CONFIG_DIR]/server.c</source>
+      <commands EXPORT="discard">make server.sky TARGET=sky</commands>
+      <firmware EXPORT="copy">[CONFIG_DIR]/server.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -93,20 +70,6 @@
       <breakpoints />
       <interface_config>
         se.sics.cooja.interfaces.Position
-        <x>33.260163187353555</x>
-        <y>30.643217359962595</y>
-        <z>0.0</z>
-      </interface_config>
-      <interface_config>
-        se.sics.cooja.mspmote.interfaces.MspMoteID
-        <id>1</id>
-      </interface_config>
-      <motetype_identifier>rplroot</motetype_identifier>
-    </mote>
-    <mote>
-      <breakpoints />
-      <interface_config>
-        se.sics.cooja.interfaces.Position
         <x>46.57186415376375</x>
         <y>40.35946215910942</y>
         <z>0.0</z>
@@ -135,7 +98,7 @@
   <plugin>
     se.sics.cooja.plugins.SimControl
     <width>279</width>
-    <z>0</z>
+    <z>3</z>
     <height>179</height>
     <location_x>0</location_x>
     <location_y>0</location_y>
@@ -152,7 +115,7 @@
       <viewport>3.61568947862321 0.0 0.0 3.61568947862321 15.610600779367 -85.92728269158351</viewport>
     </plugin_config>
     <width>300</width>
-    <z>1</z>
+    <z>2</z>
     <height>178</height>
     <location_x>279</location_x>
     <location_y>4</location_y>
@@ -164,7 +127,7 @@
       <coloring />
     </plugin_config>
     <width>652</width>
-    <z>3</z>
+    <z>4</z>
     <height>491</height>
     <location_x>2</location_x>
     <location_y>182</location_y>
@@ -173,47 +136,22 @@
     se.sics.cooja.plugins.RadioLogger
     <plugin_config>
       <split>150</split>
-      <analyzers name="6lowpan" />
     </plugin_config>
-    <width>451</width>
+    <width>542</width>
+    <z>0</z>
+    <height>489</height>
+    <location_x>651</location_x>
+    <location_y>183</location_y>
+  </plugin>
+  <plugin>
+    se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
+    <mote_arg>1</mote_arg>
+    <width>240</width>
     <z>-1</z>
-    <height>305</height>
-    <location_x>73</location_x>
-    <location_y>140</location_y>
+    <height>300</height>
+    <location_x>764</location_x>
+    <location_y>83</location_y>
     <minimized>true</minimized>
-  </plugin>
-  <plugin>
-    SerialSocketServer
-    <mote_arg>0</mote_arg>
-    <width>422</width>
-    <z>6</z>
-    <height>74</height>
-    <location_x>578</location_x>
-    <location_y>18</location_y>
-  </plugin>
-  <plugin>
-    se.sics.cooja.plugins.MoteInterfaceViewer
-    <mote_arg>2</mote_arg>
-    <plugin_config>
-      <interface>Serial port</interface>
-      <scrollpos>0,0</scrollpos>
-    </plugin_config>
-    <width>534</width>
-    <z>2</z>
-    <height>491</height>
-    <location_x>656</location_x>
-    <location_y>181</location_y>
-  </plugin>
-  <plugin>
-    se.sics.cooja.plugins.RadioLogger
-    <plugin_config>
-      <split>150</split>
-    </plugin_config>
-    <width>1188</width>
-    <z>4</z>
-    <height>434</height>
-    <location_x>4</location_x>
-    <location_y>673</location_y>
   </plugin>
 </simconf>
 
