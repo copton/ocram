@@ -50,7 +50,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   private LogOutputListener logMonitor = null;
 
   public OcramCoojaPlugin(Mote mote, Simulation sim, GUI gui) {
-    super("Ocram Cooja Plugin", gui);
+    super("Ocram Cooja Plugin", gui, false);
     simulation = sim;
     mspMote = (MspMote) mote;
     cpu = mspMote.getCPU();
@@ -107,17 +107,10 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         public void moteWasRemoved(Mote mote) { }
         public void removedLogOutput(LogOutputEvent ev) { }
         public void newLogOutput(LogOutputEvent ev) {
-            if (ev.msg.equals("QUIT")) {
-                simulation.stopSimulation();
-            } else {
-                log("log output: " + ev.getTime() + ": " + ev.getMote().getID() + ": " + ev.msg);
-            }
+            log("log output: " + ev.getTime() + ": " + ev.getMote().getID() + ": " + ev.msg);
         }
     });
 
-
-    // UI stuff
-    setSize(50, 50);
 
     logger.info("Ocram Cooja Plugin loaded.");
   }
