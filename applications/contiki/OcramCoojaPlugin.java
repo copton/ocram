@@ -1,6 +1,5 @@
 package se.sics.cooja.mspmote.plugins;
 
-import org.apache.log4j.Logger;
 
 import se.sics.cooja.ClassDescription;
 import se.sics.cooja.GUI;
@@ -12,6 +11,13 @@ import se.sics.cooja.VisPlugin;
 import se.sics.cooja.mspmote.MspMote;
 import se.sics.mspsim.core.MSP430;
 import se.sics.mspsim.util.Utils;
+
+// logging
+import org.apache.log4j.Logger;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 
 // stack monitor
 import se.sics.mspsim.core.CPUMonitor;
@@ -32,6 +38,8 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   private MSP430 cpu;
   private Simulation simulation;
 
+  private BufferedWriter logwriter;
+
   // stack monitor
   private CPUMonitor cpuMonitor = null;
   private Observer stackObserver = null;
@@ -47,6 +55,19 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     mspMote = (MspMote) mote;
     cpu = mspMote.getCPU();
 
+    // setup
+    logger.info("loading Ocram Cooja Plugin...");
+    try {
+        File logfile = new File("OcramCooja.log");
+        if (logfile.exists()) {
+            logfile.delete();
+        }
+        logwriter = new BufferedWriter(new FileWriter(logfile));
+    } catch (java.io.IOException e) {
+        logger.error("failed to open log file: " + e);
+        simulation.stopSimulation();
+    }
+    log("random seed: " + simulation.getRandomSeed());
 
     // stack monitor
     maxStack = 0;
@@ -63,7 +84,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
             int size = ((stackStartAddress - data) + 0xffff) % 0xffff;
             if (maxStack < size) {
                 maxStack = size;
-                logger.info("max stack size: " + maxStack);
+                log("max stack size: " + maxStack);
             }
         }
     });
@@ -86,13 +107,19 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         public void moteWasRemoved(Mote mote) { }
         public void removedLogOutput(LogOutputEvent ev) { }
         public void newLogOutput(LogOutputEvent ev) {
-            logger.info("log output: " + ev.getMote().getID() + ": " + ev.getTime() + ": " + ev.msg);
+            if (ev.msg.equals("QUIT")) {
+                simulation.stopSimulation();
+            } else {
+                log("log output: " + ev.getTime() + ": " + ev.getMote().getID() + ": " + ev.msg);
+            }
         }
     });
 
 
     // UI stuff
     setSize(50, 50);
+
+    logger.info("Ocram Cooja Plugin loaded.");
   }
 
   public void closePlugin() {
@@ -108,4 +135,16 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     return mspMote;
   }
 
+  private void log(String logline) {
+    logger.info(logline);
+
+    try {
+        logwriter.write(logline);
+        logwriter.write("\n");
+        logwriter.flush();
+    } catch (java.io.IOException e) {
+        logger.error("failed do write to log file: " + e);
+        simulation.stopSimulation();
+    }
+  }
 }

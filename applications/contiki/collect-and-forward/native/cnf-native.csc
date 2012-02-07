@@ -135,7 +135,7 @@
   <plugin>
     se.sics.cooja.plugins.SimControl
     <width>318</width>
-    <z>2</z>
+    <z>3</z>
     <height>186</height>
     <location_x>3</location_x>
     <location_y>2</location_y>
@@ -150,7 +150,7 @@
       <viewport>10.816250021861679 0.0 0.0 10.816250021861679 -252.53735239740297 -213.17902392861043</viewport>
     </plugin_config>
     <width>319</width>
-    <z>3</z>
+    <z>1</z>
     <height>379</height>
     <location_x>-1</location_x>
     <location_y>186</location_y>
@@ -162,22 +162,19 @@
       <coloring />
     </plugin_config>
     <width>1094</width>
-    <z>1</z>
+    <z>2</z>
     <height>672</height>
     <location_x>319</location_x>
     <location_y>1</location_y>
   </plugin>
   <plugin>
-    se.sics.cooja.plugins.ScriptRunner
-    <plugin_config>
-      <scriptfile>/home/alex/scm/ocram/applications/contiki/log.js</scriptfile>
-      <active>true</active>
-    </plugin_config>
-    <width>600</width>
+    se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
+    <mote_arg>1</mote_arg>
+    <width>207</width>
     <z>0</z>
-    <height>700</height>
-    <location_x>578</location_x>
-    <location_y>88</location_y>
+    <height>80</height>
+    <location_x>42</location_x>
+    <location_y>599</location_y>
   </plugin>
 </simconf>
 

@@ -13,4 +13,4 @@ os.environ["PATH"] = "/opt/jdk1.6.0_30/bin:" + os.environ["PATH"]
 
 subprocess.Popen("schroot -c contiki -p -d /tmp -- java -jar %(contiki)s/tools/cooja/dist/cooja.jar -nogui=%(csc)s -contiki=%(contiki)s" % locals(), shell=True).communicate()
 
-verify(open("/tmp/COOJA.testlog"))
+verify(open("/tmp/OcramCooja.log"))

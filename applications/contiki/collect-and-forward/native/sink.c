@@ -25,6 +25,8 @@ PROCESS(udp_server_process, "UDP server process");
 AUTOSTART_PROCESSES(&udp_server_process);
 
 static void tcpip_handler(void) {
+    static int counter = 0;
+
     char* appdata = (char*) uip_appdata;
     size_t len = uip_datalen();
     size_t numberof_values = len / sizeof(uint32_t);
@@ -41,13 +43,19 @@ static void tcpip_handler(void) {
         return;
     }
 
+    counter++;
+
     PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-    printf(": received values: ");
+    printf(": received values: %d/4: ", counter);
     for (i=0; i<numberof_values; i++) {
         memcpy(&value, &appdata[i * sizeof(uint32_t)], sizeof(uint32_t));
         printf("%lu ", value);
     }
     printf("\n");
+
+    if (counter == 4) {
+        printf("QUIT\n");
+    }
 }
 
 static void ipconfig(void) {

@@ -4,10 +4,10 @@ import fileinput
 import re
 import sys
 
-logline = re.compile(r'^([0-9]*)\tID:([0-9])\t(.*)$')
+logline = re.compile(r'^log output: ([0-9]*): ([0-9]): (.*)$')
 sensorinput = re.compile(r'^reading value from sensor: ([0-9]*)$')
 netinput = re.compile(r'^.*: send values: (.*)$')
-netoutupt = re.compile(r'^.*: received values: (.*)$')
+netoutupt = re.compile(r'^.*: received values: [^:]*: (.*)$')
 
 def readLog(line):
     mo = logline.match(line.strip())
