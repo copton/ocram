@@ -31,7 +31,7 @@ PROCESS_THREAD(coap_client, ev, data)
   PROCESS_BEGIN();
 
   static coap_packet_t request[1];
-  uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202) /* cooja2 */
+  uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202); /* cooja2 */
 
   /* receives all CoAP messages */
   coap_receiver_init();
@@ -46,17 +46,26 @@ PROCESS_THREAD(coap_client, ev, data)
     if (etimer_expired(&et)) {
       printf("--Toggle timer--\n");
 
-      /* prepare request, TID is set by COAP_BLOCKING_REQUEST() */
-      coap_init_message(request, COAP_TYPE_CON, COAP_POST, 0 );
-      coap_set_header_uri_path(request, "/random");
-      coap_set_header_uri_query(request, "?salt=23");
+      {
+          coap_init_message(request, COAP_TYPE_CON, COAP_POST, 0 );
+          coap_set_header_uri_path(request, "random/salt");
+          const char salt[] = "23";
+          coap_set_payload(request, (uint8_t*)salt, sizeof(salt));
 
-      uip_debug_ipaddr_print(&server_ipaddr);
-      printf(" : %u\n", UIP_HTONS(REMOTE_PORT));
+          printf("\n--setting salt--\n");
+          COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, client_chunk_handler);
+          printf("\n--Done--\n");
+      }
 
-      COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, client_chunk_handler);
+      {
+          coap_init_message(request, COAP_TYPE_CON, COAP_GET, 0);
+          coap_set_header_uri_path(request, "random");
+          coap_set_header_uri_query(request, "len=130"); 
 
-      printf("\n--Done--\n");
+          printf("\n--query random--\n");
+          COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, client_chunk_handler);
+          printf("\n--Done--\n");
+      }
 
       etimer_reset(&et);
     }
