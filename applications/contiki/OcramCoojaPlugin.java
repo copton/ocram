@@ -17,7 +17,10 @@ import org.apache.log4j.Logger;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
+import se.sics.cooja.mspmote.MspMoteType;
+import java.security.MessageDigest;
 
 // stack monitor
 import se.sics.mspsim.core.CPUMonitor;
@@ -54,6 +57,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     simulation = sim;
     mspMote = (MspMote) mote;
     cpu = mspMote.getCPU();
+    File firmware = ((MspMoteType)mspMote.getType()).getContikiFirmwareFile();
 
     // setup
     logger.info("loading Ocram Cooja Plugin...");
@@ -63,10 +67,30 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
             logfile.delete();
         }
         logwriter = new BufferedWriter(new FileWriter(logfile));
+        log("logfile open: " + logfile.getCanonicalPath());
     } catch (java.io.IOException e) {
         logger.error("failed to open log file: " + e);
         simulation.stopSimulation();
+        return;
     }
+
+    // open log
+    String path;
+    String checksum;
+    try {
+        byte[] contents = new byte[(int)firmware.length()];
+        FileInputStream input = new FileInputStream(firmware);
+        input.read(contents);
+        path = firmware.getCanonicalPath();
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        md.update(contents);
+        checksum = getHex(md.digest());
+    } catch (Exception e) {
+        logger.error("failed to determine md5 sum of elf file: " + e);
+        simulation.stopSimulation();
+        return;
+    }
+    log("md5 sum of " + path  + ": " + checksum);
     log("random seed: " + simulation.getRandomSeed());
 
     // stack monitor
@@ -139,5 +163,18 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         logger.error("failed do write to log file: " + e);
         simulation.stopSimulation();
     }
+  }
+
+  private static final String HEXES = "0123456789abcdef";
+  private static String getHex( byte [] raw ) {
+    if ( raw == null ) {
+      return null;
+    }
+    final StringBuilder hex = new StringBuilder( 2 * raw.length );
+    for ( final byte b : raw ) {
+      hex.append(HEXES.charAt((b & 0xF0) >> 4))
+         .append(HEXES.charAt((b & 0x0F)));
+    }
+    return hex.toString();
   }
 }

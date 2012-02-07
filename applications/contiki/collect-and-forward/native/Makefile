@@ -5,6 +5,10 @@ all:
 
 clean:
 	schroot -c contiki -- $(MAKE) -f Makefile.contiki clean
+	rm -f test.log
 
-test:
+test: test.log
+
+test.log:
 	../test.py `pwd`/cnf-native.csc
+	cp /tmp/OcramCooja.log $@

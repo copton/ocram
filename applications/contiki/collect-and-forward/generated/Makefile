@@ -9,10 +9,13 @@ all: app-ec
 
 clean:
 	schroot -c contiki -- make -f Makefile.contiki clean
-	rm -f app-ec.c pal.h app-tc.pped.c app-tc.o pal.c
+	rm -f app-ec.c pal.h app-tc.pped.c app-tc.o pal.c test.log
 
-test:
+test: test.log
+
+test.log:
 	../test.py `pwd`/cnf-generated.csc
+	cp /tmp/OcramCooja.log $@
 	
 app-ec: app-ec.c pal.c
 	schroot -c contiki -- $(MAKE) -f Makefile.contiki
