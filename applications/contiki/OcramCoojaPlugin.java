@@ -1,3 +1,10 @@
+// simlink this file to
+// contiki/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/plugins/
+//
+// and build it using the cooja build system
+//
+// depends on mspsim (http://sourceforge.net/projects/mspsim/)
+// commit 367ab070d88b80036361113b1a8aa48811109644
 package se.sics.cooja.mspmote.plugins;
 
 
