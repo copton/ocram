@@ -6,6 +6,7 @@
 #include "dev/light-sensor.h"
 #include "net/uiplib.h"
 #include "net/uip-debug.h"
+#include "net/uip-ds6.h"
 
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 

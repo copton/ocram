@@ -10,4 +10,4 @@ pal.c
 *.pped.*
 app-tc.o
 *.pyc
-test.log
+*log

@@ -2,6 +2,8 @@
 
 OS_ROOT = $(ROOT)/applications/contiki
 export OCRAM_PAL_TEMPLATE = $(OS_ROOT)/os/pal.c
+TEST = $(OS_ROOT)/test.py
+VERIFY = $(OS_ROOT)/collect-and-forward/verify.py
 
 XGCC=schroot -c contiki -- msp430-gcc -DUIP_CONF_IPV6_RPL -DCONTIKI=1 -DCONTIKI_TARGET_SKY=1 -DUIP_CONF_IPV6=1 -DUIP_CONF_IPV6_RPL=1 -DWITH_UIP6=1 -Os -fno-strict-aliasing -ffunction-sections -Wall -mmcu=msp430x1611 -g   -I. -I/home/alex/scm/contiki//platform/sky/. -I/home/alex/scm/contiki//platform/sky/dev -I/home/alex/scm/contiki//platform/sky/apps -I/home/alex/scm/contiki//platform/sky/net -I/home/alex/scm/contiki//cpu/msp430/f1xxx -I/home/alex/scm/contiki//cpu/msp430/. -I/home/alex/scm/contiki//cpu/msp430/dev -I/home/alex/scm/contiki//core/dev -I/home/alex/scm/contiki//core/lib -I/home/alex/scm/contiki//core/net -I/home/alex/scm/contiki//core/net/mac -I/home/alex/scm/contiki//core/net/rime -I/home/alex/scm/contiki//core/net/rpl -I/home/alex/scm/contiki//core/sys -I/home/alex/scm/contiki//core/cfs -I/home/alex/scm/contiki//core/ctk -I/home/alex/scm/contiki//core/lib/ctk -I/home/alex/scm/contiki//core/loader -I/home/alex/scm/contiki//core/.
 
@@ -11,11 +13,10 @@ clean:
 	schroot -c contiki -- make -f Makefile.contiki clean
 	rm -f app-ec.c pal.h app-tc.pped.c app-tc.o pal.c test.log
 
-test: test.log
+test: all test.log
 
-test.log: all cnf-generated.csc ../test.py
-	../test.py `pwd`/cnf-generated.csc
-	cp /tmp/OcramCooja.log $@
+test.log: $(TEST) $(VERIFY) cnf-generated.csc
+	$^
 	
 app-ec: app-ec.c pal.c
 	schroot -c contiki -- $(MAKE) -f Makefile.contiki
