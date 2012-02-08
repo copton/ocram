@@ -69,15 +69,12 @@ void receive_run(uint16_t lport, uint16_t rport)
     }
 }
 
-void send_run(const char* ip, uint16_t lport, uint16_t rport, clock_time_t dt)
+void send_run(uip_ipaddr_t* ipaddr, uint16_t lport, uint16_t rport, clock_time_t dt)
 {
     struct uip_udp_conn* client_conn;
-    uip_ipaddr_t server_ipaddr;
 
     client_conn = udp_new(NULL, rport, NULL);
     udp_bind(client_conn, lport);
-
-    uiplib_ipaddrconv(ip, &server_ipaddr);
 
     clock_time_t now = clock_time();
 
@@ -100,15 +97,18 @@ void send_run(const char* ip, uint16_t lport, uint16_t rport, clock_time_t dt)
         }
         offset = 0;
 
-        uip_debug_ipaddr_print(&server_ipaddr);
+        uip_debug_ipaddr_print(ipaddr);
         printf(": send values: %lu, %lu\n", buf[0], buf[1]);
-        tc_send(client_conn, &server_ipaddr, rport, (uint8_t*)&buf[0], sizeof(buf));
+        tc_send(client_conn, ipaddr, rport, (uint8_t*)&buf[0], sizeof(buf));
     }
 }
 
 TC_RUN_THREAD void task_send()
 {
-	send_run("fe80::212:7403:3:303", UIP_HTONS(UDP_CLIENT_PORT), UIP_HTONS(UDP_SERVER_PORT), 120 * CLOCK_SECOND);
+    uip_ipaddr_t ipaddr;
+    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
+    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
+	send_run(&ipaddr, UIP_HTONS(UDP_CLIENT_PORT), UIP_HTONS(UDP_SERVER_PORT), 120 * CLOCK_SECOND);
 }
 
 TC_RUN_THREAD void task_receive()

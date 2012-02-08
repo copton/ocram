@@ -57,12 +57,11 @@ static void tcpip_handler(void) {
 PROCESS_THREAD(receive_process, ev, data)
 {
     PROCESS_BEGIN();
+    printf("thread address: 0: %p\n", process_current);
     
     // udp server connection
     server_conn = udp_new(NULL, UIP_HTONS(UDP_CLIENT_PORT), NULL);
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
-
-    PRINTF("app/receive started\n");
 
     while(1) {
         PROCESS_YIELD();
@@ -101,14 +100,13 @@ PROCESS_THREAD(send_process, ev, data)
     static struct etimer periodic;
 
     PROCESS_BEGIN();
+    printf("thread address: 2: %p\n", process_current);
     
     // server address
     uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x212, 0x7403, 0x3, 0x303);
     // udp client connection
     client_conn = udp_new(NULL, UIP_HTONS(UDP_SERVER_PORT), NULL); 
     udp_bind(client_conn, UIP_HTONS(UDP_CLIENT_PORT)); 
-
-    PRINTF("app/send started\n");
 
     etimer_set(&periodic, DT_SEND);
     while(1) {
@@ -130,10 +128,9 @@ PROCESS_THREAD(collect_process, ev, data)
     static struct etimer periodic;
 
     PROCESS_BEGIN();
+    printf("thread address: 1: %p\n", process_current);
 
     SENSORS_ACTIVATE(light_sensor);
-
-    PRINTF("app/collect started\n");
 
     etimer_set(&periodic, DT_COLLECT);
 
@@ -160,6 +157,7 @@ PROCESS(config_process, "config process");
 PROCESS_THREAD(config_process, ev, data)
 {
     PROCESS_BEGIN();
+    printf("thread address: -1: %p\n", process_current);
     PROCESS_PAUSE();
 
     // local IP address

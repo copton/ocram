@@ -9,6 +9,6 @@ clean:
 
 test: test.log
 
-test.log:
+test.log: all cnf-native.csc ../test.py
 	../test.py `pwd`/cnf-native.csc
 	cp /tmp/OcramCooja.log $@

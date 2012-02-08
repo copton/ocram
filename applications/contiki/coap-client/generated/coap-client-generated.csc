@@ -182,17 +182,26 @@
     <location_y>2</location_y>
   </plugin>
   <plugin>
-    se.sics.cooja.plugins.MoteInterfaceViewer
-    <mote_arg>2</mote_arg>
+    se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
+    <mote_arg>1</mote_arg>
+    <width>240</width>
+    <z>-1</z>
+    <height>300</height>
+    <location_x>764</location_x>
+    <location_y>83</location_y>
+    <minimized>true</minimized>
+  </plugin>
+  <plugin>
+    se.sics.cooja.plugins.ScriptRunner
     <plugin_config>
-      <interface>Serial port</interface>
-      <scrollpos>0,0</scrollpos>
+      <scriptfile>[CONFIG_DIR]/../../quit.js</scriptfile>
+      <active>true</active>
     </plugin_config>
-    <width>590</width>
-    <z>0</z>
-    <height>491</height>
-    <location_x>599</location_x>
-    <location_y>185</location_y>
+    <width>600</width>
+    <z>-1</z>
+    <height>700</height>
+    <location_x>327</location_x>
+    <location_y>63</location_y>
+    <minimized>true</minimized>
   </plugin>
 </simconf>
-
