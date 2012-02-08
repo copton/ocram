@@ -13,7 +13,7 @@ clean:
 
 test: test.log
 
-test.log:
+test.log: all cnf-generated.csc ../test.py
 	../test.py `pwd`/cnf-generated.csc
 	cp /tmp/OcramCooja.log $@
 	

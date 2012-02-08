@@ -3,6 +3,8 @@ import os
 import re
 import sys
 import hashlib
+import contiki
+import avrora
 
 def app_section_size(toolchain, elf):
     """
@@ -32,44 +34,11 @@ def max_stack_usage(platform, elf):
     output: max stack size
     """
     if platform == "avrora":
-        return max_stack_usage__avrora(elf)
+        return avrora.max_stack_usage(elf)
     elif platform == "contiki":
-        return max_stack_usage__contiki(elf)
+        return contiki.max_stack_usage(elf)
     else:
         sys.stderr.write("warning: don't know how to measure stack usage for platform '%s'.\n" % platform)
         return -1
 
-def max_stack_usage__contiki(elf):
-    f = open(elf, "r")
-    checksum = hashlib.md5(f.read()).hexdigest()
-    f.close()
 
-    f = open(os.path.join(os.path.dirname(elf), "test.log"), "r")
-    f.readline()
-    line = f.readline()
-    mo = re.match(r"^md5 sum of ([^:]*): (.*)$", line)
-    assert mo, line
-    assert mo.group(1) == elf, (mo.group(1), elf)
-    assert mo.group(2) == checksum
-
-    pattern = re.compile(r"^max stack size: (.*)$")
-    max_size = 0
-    for line in f.readlines():
-        mo = pattern.match(line)
-        if mo:
-            size = int(mo.group(1))
-            if size > max_size:
-                max_size = size
-
-    return max_size
-
-def max_stack_usage__avrora(elf):
-    os.putenv("CLASSPATH", "/home/alex/scm/avrora/bin/")
-    out, err = Popen(["java", "avrora.Main", "-colors=false", "-monitors=stack", "-seconds=10", elf], stdout=PIPE).communicate()
-    assert not err, err
-    pattern = re.compile(r'Maximum stack size: ([0-9]*) bytes')
-    for line in out.split("\n"):
-        mo = pattern.match(line)
-        if mo:
-            return int(mo.group(1))
-    assert False, out

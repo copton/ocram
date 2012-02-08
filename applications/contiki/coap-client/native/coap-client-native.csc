@@ -153,5 +153,18 @@
     <location_y>83</location_y>
     <minimized>true</minimized>
   </plugin>
+  <plugin>
+    se.sics.cooja.plugins.ScriptRunner
+    <plugin_config>
+      <scriptfile>[CONFIG_DIR]/../../quit.js</scriptfile>
+      <active>true</active>
+    </plugin_config>
+    <width>600</width>
+    <z>-1</z>
+    <height>700</height>
+    <location_x>327</location_x>
+    <location_y>63</location_y>
+    <minimized>true</minimized>
+  </plugin>
 </simconf>
 

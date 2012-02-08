@@ -1,6 +1,10 @@
 TIMEOUT(600000);
 
 while (true) {
-	WAIT_UNTIL(msg.startsWith("QUIT"));
-	log.testOK();
+	YIELD();
+	if (msg.startsWith("QUIT")) {
+		log.testOK();
+	} else if (msg.startsWith("ASSERT")) {
+		log.testFailed();
+	}
 }

@@ -39,6 +39,10 @@ import java.util.Observer;
 import se.sics.cooja.SimEventCentral.LogOutputListener; 
 import se.sics.cooja.SimEventCentral.LogOutputEvent;
 
+// cpu cycle monitor
+import se.sics.cooja.AddressMemory;
+import se.sics.cooja.AddressMemory.UnknownVariableException;
+
 @ClassDescription("Ocram Cooja Plugin")
 @PluginType(PluginType.MOTE_PLUGIN)
 public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
@@ -51,13 +55,17 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   private BufferedWriter logwriter;
 
   // stack monitor
-  private CPUMonitor cpuMonitor = null;
+  private CPUMonitor stackMonitor = null;
   private Observer stackObserver = null;
   private int maxStack;
   private int stackStartAddress = 0xa00;
 
   // log monitor
   private LogOutputListener logMonitor = null;
+  
+  // cycle monitor
+  private CPUMonitor cycleMonitor = null;
+  private int address;
 
   public OcramCoojaPlugin(Mote mote, Simulation sim, GUI gui) {
     super("Ocram Cooja Plugin", gui, false);
@@ -110,7 +118,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         }                                                    
     }                                                      
 
-    cpu.setRegisterWriteMonitor(MSP430.SP, cpuMonitor = new CPUMonitor() {
+    cpu.setRegisterWriteMonitor(MSP430.SP, stackMonitor = new CPUMonitor() {
         public void cpuAction(int type, int adr, int data) {
             int size = ((stackStartAddress - data) + 0xffff) % 0xffff;
             if (maxStack < size) {
@@ -142,6 +150,23 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         }
     });
 
+    // cpu cycle monitor
+    AddressMemory memory = (AddressMemory) mote.getMemory();
+    try {
+        address = memory.getVariableAddress("process_current");
+    } catch (UnknownVariableException e) {
+        simulation.stopSimulation();
+        logger.error("faild to install cpu cycle monitor: " + e);
+        return;
+    }
+
+    cpu.setBreakPoint(address, cycleMonitor = new CPUMonitor() {
+        public void cpuAction(int type, int adr, int data) {
+            if (type == CPUMonitor.MEMORY_WRITE) {
+                log("cycle monitor action: 0x" + Integer.toHexString(data) + ", " + cpu.cycles);
+            }
+        }
+    });
 
     logger.info("Ocram Cooja Plugin loaded.");
   }
@@ -153,6 +178,9 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
 
     // log monitor
     simulation.getEventCentral().removeLogOutputListener(logMonitor);
+
+    // cpu cycle monitor
+    cpu.clearBreakPoint(address);
   }
 
   public Mote getMote() {
