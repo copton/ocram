@@ -3,7 +3,7 @@
 import os
 from os.path import join as pjoin
 import sys
-from subprocess import Popen, PIPE
+from subprocess import Popen
 
 from properties import *
 from measurements import lines_of_code
@@ -19,22 +19,22 @@ sys.path.append(pjoin(cwd, "benchmark"))
 
 ROOT = pjoin(cwd, "applications", "contiki")
 
-def cleanup(app):
-    sys.stderr.write("cleaning up application '%s'\n" % app)
-    command = "cd %s; make clean" % pjoin(ROOT, app)
-    proc = Popen(command, shell=True, stdin=None, stdout=PIPE, stderr=PIPE)
-    if proc.wait() != 0:
-        sys.stderr.write(proc.stderr.read() + "\n")
-        sys.exit(1)
+def log(text):
+    sys.stdout.write(">>>>>>>>>>>>>>>>>>>>> ")
+    sys.stdout.write(text)
+    sys.stdout.write("\n")
 
-def build(app):
-    sys.stderr.write("building application '%s'\n" % app)
+def cleanup(app):
+    log("cleaning up application '%s'" % app)
+    command = "cd %s; make clean" % pjoin(ROOT, app)
+    code = Popen(command, shell=True, stdin=None).wait()
+    assert code == 0, code
+
+def test(app):
+    log("building application '%s'" % app)
     command = "cd %s; make test" % pjoin(ROOT, app)
-    proc = Popen(command, shell=True, stdin=None)
-    proc.wait()
-    if proc.returncode != 0:
-        sys.stderr.write(err + "\n")
-        sys.exit(1)
+    code = Popen(command, shell=True, stdin=None).wait()
+    assert code == 0, code
 
 def get_apps():
     apps = filter(lambda f: not f in ["os", "coap-client"] and os.path.isdir(pjoin(ROOT, f)), os.listdir(ROOT))
@@ -59,6 +59,6 @@ def measure(app):
     text.print_all_properties([native, tc, ec, pal, overhead, normalized]) 
 
 for app in get_apps():
-    cleanup(app)
-    build(app)
+#    cleanup(app)
+#    test(app)
     measure(app)

@@ -58,7 +58,7 @@ def measure(platform, toolchain, app):
     sys.stderr.write("running measurements for native %s application.\n" % app)
     native = app_properties("native", platform, toolchain, pjoin(ROOT, app, "native.c"), pjoin(ROOT, app, "native.elf"))
     sys.stderr.write("running measurements for T-code %s application\n" % app)
-    tc = app_properties("tc", platform, toolchain, pjoin(ROOT, app, "tc.c"), pjoin(ROOT, app, "tc.elf"), no_stack=True)
+    tc = app_properties("tc", platform, toolchain, pjoin(ROOT, app, "tc.c"), pjoin(ROOT, app, "tc.elf"), no_rti=True)
     sys.stderr.write("running measurements for E-code %s application\n" % app)
     ec = app_properties("ec", platform, toolchain, pjoin(ROOT, app, "ec.c"), pjoin(ROOT, app, "ec.elf"))
 

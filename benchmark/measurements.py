@@ -42,3 +42,9 @@ def max_stack_usage(platform, elf):
         return -1
 
 
+def cpu_usage(platform, elf):
+    if platform == "contiki":
+        return contiki.cpu_usage(elf)
+    else:
+        sys.stderr.write("warning: don't know how to measure cpu usage for platform '%s'.\n" % platform)
+        return -1

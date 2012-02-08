@@ -7,7 +7,7 @@ def open_elf(elf):
     checksum = hashlib.md5(f.read()).hexdigest()
     f.close()
 
-    f = open(os.path.join(os.path.dirname(elf), "test.log"), "r")
+    f = open(os.path.join(os.path.dirname(elf), "OcramCooja.log"), "r")
     f.readline()
     line = f.readline()
     mo = re.match(r"^md5 sum of ([^:]*): (.*)$", line)
