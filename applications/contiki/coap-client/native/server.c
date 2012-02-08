@@ -28,15 +28,25 @@ static void genRand(int salt, uint8_t* buffer, uint16_t skip, uint16_t count)
 
 int salt = 0;
 
-RESOURCE(salt, METHOD_POST, "random/salt", "title\"Salt of Random Generator, POST salt=1..\";rt=\"Data\"");
+RESOURCE(salt, METHOD_GET | METHOD_PUT, "random/salt", "title=\"Salt of Random Generator\"");
 
 void salt_handler(void* request, void* response, uint8_t* buffer, uint16_t preferred_size, int32_t* offset)
 {
     printf("salt_handler\n");
     const rest_resource_flags_t method = REST.get_method_type(request);
-    if (method == METHOD_POST) {
+    if (method == METHOD_GET) {
+        size_t size = snprintf(buffer, REST_MAX_CHUNK_SIZE, "%d", salt+1);
+        if (size >= REST_MAX_CHUNK_SIZE) {
+            REST.set_response_status(response, REST.status.INTERNAL_SERVER_ERROR);
+            const char error[] = "snprintf failed";
+            REST.set_response_payload(response, (uint8_t*)error, sizeof(error));
+        } else {
+            REST.set_response_payload(response, buffer, size-1);
+        }
+    } else if (method == METHOD_PUT) {
         const char* salts;
-        coap_get_payload(request, (const uint8_t**)&salts);
+        int size = coap_get_payload(request, (const uint8_t**)&salts);
+        salts[size] = 0;
         int new_salt = atoi(salts);
         if (new_salt == 0) {
             REST.set_response_status(response, REST.status.BAD_REQUEST);
@@ -47,52 +57,46 @@ void salt_handler(void* request, void* response, uint8_t* buffer, uint16_t prefe
             printf("received new salt: %d\n", new_salt);
             REST.set_response_status(response, REST.status.CHANGED);
         }
-    } else {
-        REST.set_response_status(response, REST.status.METHOD_NOT_ALLOWED);
     }
 }
 
-RESOURCE(random, METHOD_GET, "random", "title\"Random Generator :?len=1..\";rt=\"Data\"");
+RESOURCE(random, METHOD_GET, "random", "title=\"Random Generator :?len=1..\";rt=\"Data\"");
 
 void random_handler(void* request, void* response, uint8_t* buffer, uint16_t preferred_size, int32_t* offset)
 {
     printf("random_handler\n");
-    const rest_resource_flags_t method = REST.get_method_type(request);
-    if (method == METHOD_GET) {
-        const char* lengths = NULL;
-        if (REST.get_query_variable(request, "len", &lengths)) {
-            int length = atoi(lengths);
-            if (length <= 0) {
-                REST.set_response_status(response, REST.status.BAD_REQUEST);
-                const char error[] = "query variable 'len' has to be a non-zero, positive integer";
-                REST.set_response_payload(response, (uint8_t*)error, sizeof(error));
-            } else if (length < *offset) {
-                REST.set_response_status(response, REST.status.BAD_REQUEST);
-                const char error[] = "internal error";
-                REST.set_response_payload(response, (uint8_t*)error, sizeof(error));
-            } else {
-                int skip = *offset;
-                length -= skip;
-                int count;
-                if (length > preferred_size) {
-                    count = preferred_size;
-                    *offset += preferred_size;
-                } else {
-                    count = length; 
-                    *offset = -1;
-                }
-                genRand(salt, buffer, skip, count);
-                REST.set_header_content_type(response, REST.type.TEXT_PLAIN);
-//            REST.set_header_etag(response, (uint8_t *) &length, 1);
-                REST.set_response_payload(response, buffer, length);
-            }
-        } else {
+    const char* lengths = NULL;
+    if (REST.get_query_variable(request, "len", &lengths)) {
+        int length = atoi(lengths);
+        if (length <= 0) {
             REST.set_response_status(response, REST.status.BAD_REQUEST);
-            const char error[] = "query variable 'len' is required for GET queries";
+            const char error[] = "query variable 'len' has to be a non-zero, positive integer";
             REST.set_response_payload(response, (uint8_t*)error, sizeof(error));
+        } else if (length < *offset) {
+            REST.set_response_status(response, REST.status.BAD_REQUEST);
+            const char error[] = "block out of scope";
+            REST.set_response_payload(response, (uint8_t*)error, sizeof(error));
+        } else {
+            int skip = *offset;
+            int count;
+            if (length - skip> preferred_size) {
+                count = preferred_size;
+                *offset += preferred_size;
+            } else {
+                count = length - skip; 
+                *offset = -1;
+            }
+            genRand(salt, buffer, skip, count);
+            REST.set_header_content_type(response, REST.type.TEXT_PLAIN);
+            char tag[9];
+            int size = snprintf(tag, sizeof(tag), "%x", salt);
+            REST.set_header_etag(response, (uint8_t *) tag, size);
+            REST.set_response_payload(response, buffer, length);
         }
     } else {
-        REST.set_response_status(response, REST.status.METHOD_NOT_ALLOWED);
+        REST.set_response_status(response, REST.status.BAD_REQUEST);
+        const char error[] = "query variable 'len' is required for GET queries";
+        REST.set_response_payload(response, (uint8_t*)error, sizeof(error));
     }
 }
 
@@ -110,6 +114,7 @@ PROCESS_THREAD(rest_server, ev, data)
   rest_init_framework();
 
   rest_activate_resource(&resource_random);
+  rest_activate_resource(&resource_salt);
 
   while(1) {
     PROCESS_YIELD();
