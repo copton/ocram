@@ -31,7 +31,7 @@ def cleanup(app):
     assert code == 0, code
 
 def test(app):
-    log("building application '%s'" % app)
+    log("testing application '%s'" % app)
     command = "cd %s; make test" % pjoin(ROOT, app)
     code = Popen(command, shell=True, stdin=None).wait()
     assert code == 0, code
@@ -59,6 +59,7 @@ def measure(app):
     text.print_all_properties([native, tc, ec, pal, overhead, normalized]) 
 
 for app in get_apps():
-#    cleanup(app)
-#    test(app)
+    if len(sys.argv) > 1 and sys.argv[1] == "-c":
+        cleanup(app)
+    test(app)
     measure(app)
