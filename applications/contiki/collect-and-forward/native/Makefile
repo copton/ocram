@@ -8,9 +8,9 @@ all:
 
 clean:
 	schroot -c contiki -- $(MAKE) -f Makefile.contiki clean
-	rm -f test.log COOJA.log COOKA.testlog
+	rm -f COOJA.*log OcramCooja.log *.sky symbols.{c,h}
 
-test: all test.log
+test: all OcramCooja.log
 
-test.log: $(TEST) $(VERIFY) cnf-native.csc
+OcramCooja.log: $(TEST) $(VERIFY) cnf-native.csc
 	$^

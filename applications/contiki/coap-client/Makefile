@@ -8,5 +8,5 @@ all:
 clean:
 	for i in $(DIRS); do $(MAKE) -C $$i clean; done
 
-test: all
+test:
 	for i in $(DIRS); do $(MAKE) -C $$i test; done

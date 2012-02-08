@@ -11,11 +11,11 @@ all: app-ec
 
 clean:
 	schroot -c contiki -- make -f Makefile.contiki clean
-	rm -f app-ec.c pal.h app-tc.pped.c app-tc.o pal.c test.log
+	rm -f app-ec.c pal.h app-tc.pped.c app-tc.o pal.c COOJA.*log OcramCooja.log symbols.{c,h} *.sky
 
-test: all test.log
+test: all OcramCooja.log
 
-test.log: $(TEST) $(VERIFY) cnf-generated.csc
+OcramCooja.log: $(TEST) $(VERIFY) cnf-generated.csc
 	$^
 	
 app-ec: app-ec.c pal.c

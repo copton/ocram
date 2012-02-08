@@ -26,15 +26,11 @@ def fail(valIs, valShould):
     sys.stderr.write("verification failed: should be %d but is %d\n" % (valShould, valIs))
     sys.exit(1)
 
-def verify(log=None):
+def verify():
     values = []
     deliveries = 0
-    if log:
-        lines = log.read().split("\n")
-    else:
-        lines = fileinput.input()
 
-    for line in lines:
+    for line in lines.fileinput.input()
         log = readLog(line)
         if log:
             time, node, text = log
@@ -73,8 +69,4 @@ def verify(log=None):
     else:
         sys.stderr.write("verification succeeded.\n")
 
-if __name__ == '__main__':
-    if len(sys.argv) == 1:
-        verify()
-    else:
-        verify(open(sys.argv[1], "r"))
+verify()
