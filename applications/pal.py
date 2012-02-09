@@ -5,8 +5,8 @@ import itertools
 import sys
 import os
 
-number_of_threads = len(sys.argv) - 1
-assert number_of_threads > 0, "at leat one thread must be started"
+numberof_threads = len(sys.argv) - 1
+assert numberof_threads > 0, "at leat one thread must be started"
 
 thread_syscalls = map(lambda desc: desc.split(","), sys.argv[1:])
 all_syscalls = set(itertools.chain(*thread_syscalls))

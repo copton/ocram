@@ -1,4 +1,4 @@
-from measurements import app_section_size, max_stack_usage, lines_of_code
+from measurements import *
 
 class Properties(object):
     def __init__(self, name):
@@ -8,14 +8,15 @@ class Properties(object):
 
     @staticmethod
     def attributes():
-        return ["text", "bss", "data", "loc", "stack"]
+        return ["text", "bss", "data", "loc", "stack", "cpu"]
 
-def app_properties(name, platform, toolchain, cfile, elf, no_stack = False):
+def app_properties(name, platform, toolchain, cfile, elf, no_rti = False):
     prop = Properties(name)
     prop.text, prop.data, prop.bss = app_section_size(toolchain, elf)
     prop.loc = lines_of_code(cfile)
-    if not no_stack:
+    if not no_rti:
         prop.stack = max_stack_usage(platform, elf)
+        prop.cpu = cpu_usage(platform, elf)
     return prop
 
 def pal_properties(toolchain, cfile, elf):
@@ -32,7 +33,6 @@ def frac(a, b):
         return -1
     return "%.2f" % (100.0 * (b - a) / a)
 
-
 def get_overhead(native, tc, ec):
     overhead = Properties("overhead")
 
@@ -41,6 +41,7 @@ def get_overhead(native, tc, ec):
     overhead.data = frac(native.data, ec.data)
     overhead.loc = frac(native.loc, tc.loc)
     overhead.stack = frac(native.stack, ec.stack)
+    overhead.cpu = frac(native.cpu, ec.cpu)
 
     return overhead
 

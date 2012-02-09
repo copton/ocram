@@ -1,0 +1,4 @@
+export PLATFORM=linux
+export TOOLCHAIN=""
+unset CFLAGS
+export DEBUG=TRUE

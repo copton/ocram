@@ -1,6 +1,0 @@
-unset TOOLCHAIN
-unset CFLAGS
-export PLATFORM=linux
-export DEBUG=TRUE
-
-. ./setup/common
