@@ -24,7 +24,7 @@ def newsalt(text):
     else:
         return None
 
-query_pattern = re.compile(r'^query random: ([0-9]*)$')
+query_pattern = re.compile(r'^query random: len=([0-9]*)$')
 def query(text):
     mo = query_pattern.match(text)
     if mo:
