@@ -42,12 +42,12 @@ def response(text):
     else:
         return None
 
-def compare_checksum(salt, length, checksum):
-    rands = "123456789abcdefghikjlmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXZY"
+rands = "123456789abcdefghikjlmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXZY"
 
-    def nextRand(y):
-        return (8 * y + 5) % len(rands)
-    
+def nextRand(y):
+    return (8 * y + 5) % len(rands)
+
+def compare_checksum(salt, length, checksum):
     assert length == len(checksum), (length, len(checksum))
     state = salt
     for i, c in enumerate(checksum):

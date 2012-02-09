@@ -56,7 +56,7 @@ PROCESS_THREAD(coap_client, ev, data)
           coap_init_message(request, COAP_TYPE_CON, COAP_PUT, 0 );
           coap_set_header_uri_path(request, "random/salt");
           int salt = rand_fixed() % 200;
-          char salts[4];
+          static char salts[4];
           int size = snprintf(salts, sizeof(salts), "%d", salt);
           if (size >= sizeof(salts)) {
             printf("ASSERT: " __FILE__ ": %d\n", __LINE__);
@@ -70,7 +70,7 @@ PROCESS_THREAD(coap_client, ev, data)
 
       {
           int len = rand_fixed() % 200;
-          char query[4+4];
+          static char query[4+4];
           int size = snprintf(query, sizeof(query), "len=%d", len);
           if (size >= sizeof(query)) {
             printf("ASSERT: " __FILE__ ": %d\n", __LINE__);
