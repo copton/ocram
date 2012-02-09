@@ -18,7 +18,7 @@ static void genRand(int salt, uint8_t* buffer, uint16_t skip, uint16_t count)
 {
     int state = salt;
     int i;
-    for (i=0; i<skip+count; i++) {
+    for (i=0; i<count; i++) {
         state = nextRand(state);
         if (i >= skip) {
             buffer[i-skip] = rands[state];
@@ -84,19 +84,19 @@ void random_handler(void* request, void* response, uint8_t* buffer, uint16_t pre
         } else {
             int skip = *offset;
             int count;
-            if (length - skip> preferred_size) {
+            if (length - skip > preferred_size) {
                 count = preferred_size;
                 *offset += preferred_size;
             } else {
                 count = length - skip; 
                 *offset = -1;
             }
-            genRand(salt, buffer, skip, count);
+            genRand(salt, buffer, skip, length);
             REST.set_header_content_type(response, REST.type.TEXT_PLAIN);
             char tag[9];
             int size = snprintf(tag, sizeof(tag), "%x", salt);
             REST.set_header_etag(response, (uint8_t *) tag, size);
-            REST.set_response_payload(response, buffer, length);
+            REST.set_response_payload(response, buffer, length-skip);
         }
     } else {
         REST.set_response_status(response, REST.status.BAD_REQUEST);

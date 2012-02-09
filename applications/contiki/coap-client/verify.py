@@ -71,7 +71,7 @@ def verify(logs):
                         assert length != None
                         compare_checksum(salt, length, checksum)
                         length = None
-                    salt = nsalt
+                    salt = nsalt - 1
 
                 qlength = query(text)
                 if qlength:
@@ -87,6 +87,7 @@ def verify(logs):
                     assert length != None
                     checksum += checksum_bytes
 
+    sys.stdout.write("verification successfull\n")
 
 if __name__ == '__main__':
     verify(fileinput.input())
