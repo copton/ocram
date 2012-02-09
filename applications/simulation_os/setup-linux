@@ -1,4 +1,4 @@
 export PLATFORM=linux
-unset TOOLCHAIN
+export TOOLCHAIN=""
 unset CFLAGS
 export DEBUG=TRUE

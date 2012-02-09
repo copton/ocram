@@ -29,6 +29,6 @@ pal = pal_properties(toolchain, pjoin(gpath, "pal.c"), pjoin(gpath, "pal.co"))
 overhead = get_overhead(native, tc, ec)
 normalized = get_normalized(native, ec, pal)
 
-f = open("bench.log", "w")
+f = open("bench.results", "w")
 text.print_all_properties(f, [native, tc, ec, pal, overhead, normalized])
 f.close()
