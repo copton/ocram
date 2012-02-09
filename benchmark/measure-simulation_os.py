@@ -21,10 +21,8 @@ ROOT = pjoin(cwd, "applications", "simulation_os")
 def cleanup():
     sys.stderr.write("cleaning up\n")
     command = "cd %s; make clean" % ROOT
-    proc = Popen(command, shell=True, stdin=None, stdout=PIPE, stderr=PIPE)
-    if proc.wait() != 0:
-        sys.stderr.write(proc.stderr.read() + "\n")
-        sys.exit(1)
+    code = Popen(command, shell=True, stdin=None).wait()
+    assert code == 0, code
 
 def load_setup(setup):
     sys.stderr.write("loading setup for %s\n" % setup)
@@ -37,10 +35,8 @@ def load_setup(setup):
 
     sys.stderr.write("building for setup %s\n" % setup)
     command = "cd %s; . ./setup-%s; make" % (ROOT, setup)
-    proc = Popen(command, shell=True, stdin=None, stdout=PIPE, stderr=PIPE)
-    if proc.wait() != 0:
-        sys.stderr.write(proc.stderr.read() + "\n")
-        sys.exit(1)
+    code = Popen(command, shell=True, stdin=None).wait()
+    assert code == 0, code
 
     return platform, toolchain
 

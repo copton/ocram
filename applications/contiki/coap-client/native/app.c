@@ -43,29 +43,25 @@ PROCESS_THREAD(coap_client, ev, data)
     PROCESS_YIELD();
 
     if (etimer_expired(&et)) {
-      printf("--Toggle timer--\n");
-
       {
           coap_init_message(request, COAP_TYPE_CON, COAP_PUT, 0 );
           coap_set_header_uri_path(request, "random/salt");
           const char salt[] = "23";
           coap_set_payload(request, (uint8_t*)salt, sizeof(salt));
 
-          printf("\n--setting salt--\n");
+          printf("setting salt %s", salt);
           COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, client_chunk_handler);
-          printf("\n--Done--\n");
+          printf("done\n");
       }
-
-      printf("ASSERT " __FILE__ ":%d\n", __LINE__);
 
       {
           coap_init_message(request, COAP_TYPE_CON, COAP_GET, 0);
           coap_set_header_uri_path(request, "random");
           coap_set_header_uri_query(request, "len=130"); 
 
-          printf("\n--query random--\n");
+          printf("query random (len=130)\n");
           COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, client_chunk_handler);
-          printf("\n--Done--\n");
+          printf("done\n");
       }
 
       etimer_reset(&et);

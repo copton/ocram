@@ -1,7 +1,7 @@
 include ../config.mk
 -include depend.mak
 
-export OCRAM_PAL_TEMPLATE = $(OS_ROOT)/os/pal.c
+export OCRAM_PAL_TEMPLATE = $(OS_ROOT)/os/pal.jinja.c
 
 TARGETS=tc.elf ec.elf native.elf
 
