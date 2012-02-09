@@ -37,8 +37,8 @@ response_pattern = re.compile(r'^coap response: 2\.05: (.*)$')
 def response(text):
     mo = response_pattern.match(text)
     if mo:
-        checksum = mo.group(1)
-        return checksum
+        data = mo.group(1)
+        return data 
     else:
         return None
 
@@ -47,17 +47,23 @@ rands = "123456789abcdefghikjlmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXZY"
 def nextRand(y):
     return (8 * y + 5) % len(rands)
 
-def compare_checksum(salt, length, checksum):
-    assert length == len(checksum), (length, len(checksum))
+def genRand(salt, length):
     state = salt
-    for i, c in enumerate(checksum):
+    result = ""
+    for i in range(length):
         state = nextRand(state)
-        assert rands[state] == c, (i, rands[state], c)
+        result += rands[state]
+    return result
+
+def compare_random_data(salt, length, data):
+    assert length == len(data), (length, len(data))
+    data_should = genRand(salt, length)
+    assert data == data_should, (data_should, data)
 
 def verify(logs):
     salt = None
     length = None
-    checksum = None
+    data = None
     for line in logs:
         log = logline(line.strip())
         if log != None:
@@ -66,10 +72,10 @@ def verify(logs):
                 nsalt = newsalt(text)
                 if nsalt != None:
                     sys.stdout.write(line)
-                    if checksum != None:
-                        assert checksum != ""
+                    if data != None:
+                        assert data != ""
                         assert length != None
-                        compare_checksum(salt, length, checksum)
+                        compare_random_data(salt, length, data)
                         length = None
                     salt = nsalt - 1
 
@@ -78,14 +84,14 @@ def verify(logs):
                     sys.stdout.write(line)
                     assert length == None
                     length = qlength
-                    checksum = ""
+                    data = ""
 
-                checksum_bytes = response(text)
-                if checksum_bytes != None:
+                random_bytes = response(text)
+                if random_bytes != None:
                     sys.stdout.write(line)
                     assert salt != None
                     assert length != None
-                    checksum += checksum_bytes
+                    data += random_bytes
 
     sys.stdout.write("verification successfull\n")
 
