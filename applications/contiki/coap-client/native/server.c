@@ -30,9 +30,14 @@ int salt = 0;
 
 RESOURCE(salt, METHOD_GET | METHOD_PUT, "random/salt", "title=\"Salt of Random Generator\"");
 
+int counter = 0;
+
 void salt_handler(void* request, void* response, uint8_t* buffer, uint16_t preferred_size, int32_t* offset)
 {
     printf("salt_handler\n");
+    if (++counter == 4) {
+        printf("QUIT\n");
+    }
     const rest_resource_flags_t method = REST.get_method_type(request);
     if (method == METHOD_GET) {
         size_t size = snprintf(buffer, REST_MAX_CHUNK_SIZE, "%d", salt+1);
