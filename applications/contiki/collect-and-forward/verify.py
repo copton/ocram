@@ -4,13 +4,9 @@ import fileinput
 import re
 import sys
 
-logline = re.compile(r'^log output: ([0-9]*): ([0-9]): (.*)$')
-sensorinput = re.compile(r'^reading value from sensor: ([0-9]*)$')
-netinput = re.compile(r'^.*: send values: (.*)$')
-netoutupt = re.compile(r'^.*: received values: [^:]*: (.*)$')
-
-def readLog(line):
-    mo = logline.match(line.strip())
+logline_pattern = re.compile(r'^log output: ([0-9]*): ([0-9]): (.*)$')
+def logline(text):
+    mo = logline_pattern.match(text)
     if mo:
         time = int(mo.group(1))
         node = int(mo.group(2))
@@ -19,8 +15,32 @@ def readLog(line):
     else:
         return None
 
-def readValues(values):
-    return map(lambda x: int(x), values.strip().split(" "))
+sensorinput_pattern = re.compile(r'^reading value from sensor: ([0-9]*)$')
+def sensorinput(text):
+    mo = sensorinput_pattern.match(text)
+    if mo:
+        value = int(mo.group(1))
+        return value
+    else:
+        return None
+
+netinput_pattern = re.compile(r'^.*: send values: (.*)$')
+def netinput(text):
+    mo = netinput_pattern.match(text)
+    if mo:
+        values = map(lambda x: int(x), mo.group(1).strip().split(" "))
+        return values
+    else:
+        return None
+
+netoutput_pattern = re.compile(r'^.*: received values: [^:]*: (.*)$')
+def netoutput(text):
+    mo = netoutput_pattern.match(text)
+    if mo:
+        [minIs, maxIs] = map(lambda x: int(x), mo.group(1).strip().split(" "))  
+        return (minIs, maxIs)
+    else:
+        return None
 
 def fail(valIs, valShould):
     sys.stderr.write("verification failed: should be %d but is %d\n" % (valShould, valIs))
@@ -31,37 +51,34 @@ def verify(logs):
     deliveries = 0
 
     for line in logs:
-        log = readLog(line)
-        if log:
+        log = logline(line.strip())
+        if log != None:
             time, node, text = log
             if node == 1:
-                mo = netinput.match(text)
-                if not mo:
-                    continue
-                sys.stdout.write(line)
-                values += readValues(mo.group(1))
+                vals = netinput(text)
+                if vals != None:
+                    sys.stdout.write(line)
+                    values += vals
 
             elif node == 2:
-                mo = sensorinput.match(text)
-                if not mo:
-                    continue
-                sys.stdout.write(line)
-                values.append(int(mo.group(1)))
+                value = sensorinput(text)
+                if value != None:
+                    sys.stdout.write(line)
+                    values.append(value)
 
             elif node == 3:
-                mo = netoutupt.match(text)
-                if not mo:
-                    continue
-                sys.stdout.write(line)
-                [minIs, maxIs] = readValues(mo.group(1))
-                minShould = min(values)
-                maxShould = max(values)
-                if minIs != minShould:
-                    fail(minIs, minShould)
-                if maxIs != maxShould:
-                    fail(maxIs, maxShould)
-                values = []
-                deliveries += 1
+                stats = netoutput(text)
+                if stats != None:
+                    sys.stdout.write(line)
+                    (minIs, maxIs) = stats
+                    minShould = min(values)
+                    maxShould = max(values)
+                    if minIs != minShould:
+                        fail(minIs, minShould)
+                    if maxIs != maxShould:
+                        fail(maxIs, maxShould)
+                    values = []
+                    deliveries += 1
 
     if deliveries == 0:
         sys.stderr.write("verification failed. Not enough log data\n")
