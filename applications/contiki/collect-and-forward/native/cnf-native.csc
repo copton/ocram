@@ -24,9 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky1</identifier>
       <description>source</description>
-      <source EXPORT="discard">[CONFIG_DIR]/source.c</source>
-      <commands EXPORT="discard">make source.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">[CONFIG_DIR]/source.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/source.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -47,9 +45,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky2</identifier>
       <description>sink</description>
-      <source EXPORT="discard">[CONFIG_DIR]/sink.c</source>
-      <commands EXPORT="discard">make sink.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">[CONFIG_DIR]/sink.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/sink.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -70,9 +66,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky3</identifier>
       <description>app</description>
-      <source EXPORT="discard">[CONFIG_DIR]/app.c</source>
-      <commands EXPORT="discard">make app.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">[CONFIG_DIR]/app.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/app.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>

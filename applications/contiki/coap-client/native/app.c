@@ -39,6 +39,8 @@ int rand_fixed()
 PROCESS_THREAD(coap_client, ev, data)
 {
   PROCESS_BEGIN();
+  printf("thread address: 0: %p\n", process_current);
+  printf("wwoot\n");
 
   static coap_packet_t request[1];
   uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202); /* cooja2 */

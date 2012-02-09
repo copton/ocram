@@ -68,7 +68,7 @@ def verify(logs):
         log = logline(line.strip())
         if log != None:
             time, node, text = log
-            if node == 3:
+            if node == 1:
                 nsalt = newsalt(text)
                 if nsalt != None:
                     sys.stdout.write(line)

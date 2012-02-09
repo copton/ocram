@@ -24,7 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky1</identifier>
       <description>app</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/pal.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/pal.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -45,7 +45,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky2</identifier>
       <description>source</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../native/source.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../native/source.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -66,7 +66,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky3</identifier>
       <description>sink</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../native/sink.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../native/sink.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>

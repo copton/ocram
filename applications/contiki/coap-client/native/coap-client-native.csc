@@ -22,11 +22,9 @@
     </events>
     <motetype>
       se.sics.cooja.mspmote.SkyMoteType
-      <identifier>skyweb</identifier>
+      <identifier>server</identifier>
       <description>CoAP Server</description>
-      <source EXPORT="discard">[CONFIG_DIR]/server.c</source>
-      <commands EXPORT="discard">make server.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">[CONFIG_DIR]/server.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/server.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -45,11 +43,9 @@
     </motetype>
     <motetype>
       se.sics.cooja.mspmote.SkyMoteType
-      <identifier>sky1</identifier>
+      <identifier>client</identifier>
       <description>CoAP Client</description>
-      <source EXPORT="discard">[CONFIG_DIR]/app.c</source>
-      <commands EXPORT="discard">make app.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">[CONFIG_DIR]/app.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/app.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -78,7 +74,7 @@
         se.sics.cooja.mspmote.interfaces.MspMoteID
         <id>2</id>
       </interface_config>
-      <motetype_identifier>skyweb</motetype_identifier>
+      <motetype_identifier>server</motetype_identifier>
     </mote>
     <mote>
       <breakpoints />
@@ -90,9 +86,9 @@
       </interface_config>
       <interface_config>
         se.sics.cooja.mspmote.interfaces.MspMoteID
-        <id>3</id>
+        <id>1</id>
       </interface_config>
-      <motetype_identifier>sky1</motetype_identifier>
+      <motetype_identifier>client</motetype_identifier>
     </mote>
   </simulation>
   <plugin>

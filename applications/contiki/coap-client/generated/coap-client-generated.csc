@@ -22,9 +22,9 @@
     </events>
     <motetype>
       se.sics.cooja.mspmote.SkyMoteType
-      <identifier>skyweb</identifier>
+      <identifier>server</identifier>
       <description>CoAP Server</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../native/server.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../native/server.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -43,11 +43,9 @@
     </motetype>
     <motetype>
       se.sics.cooja.mspmote.SkyMoteType
-      <identifier>sky1</identifier>
+      <identifier>client</identifier>
       <description>CoAP Client</description>
-      <source EXPORT="discard">[CONFIG_DIR]/pal.c</source>
-      <commands EXPORT="discard">make pal.sky TARGET=sky</commands>
-      <firmware EXPORT="copy">[CONFIG_DIR]/pal.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/pal.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -76,7 +74,7 @@
         se.sics.cooja.mspmote.interfaces.MspMoteID
         <id>2</id>
       </interface_config>
-      <motetype_identifier>skyweb</motetype_identifier>
+      <motetype_identifier>server</motetype_identifier>
     </mote>
     <mote>
       <breakpoints />
@@ -88,9 +86,9 @@
       </interface_config>
       <interface_config>
         se.sics.cooja.mspmote.interfaces.MspMoteID
-        <id>3</id>
+        <id>1</id>
       </interface_config>
-      <motetype_identifier>sky1</motetype_identifier>
+      <motetype_identifier>client</motetype_identifier>
     </mote>
   </simulation>
   <plugin>
@@ -143,7 +141,7 @@
   </plugin>
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
-    <mote_arg>0</mote_arg>
+    <mote_arg>1</mote_arg>
     <width>240</width>
     <z>-1</z>
     <height>300</height>

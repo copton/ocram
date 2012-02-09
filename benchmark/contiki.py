@@ -50,6 +50,7 @@ def cpu_usage(elf):
             thread_ids.add(tid)
             addresses.add(address)
             continue
+            
         mo = switch_pattern.match(line)
         if mo:
             address = mo.group(1)

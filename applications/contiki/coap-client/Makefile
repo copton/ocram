@@ -1,6 +1,8 @@
 DIRS = native generated
 
-.PHONY: all clean test
+.PHONY: all clean test bench
+
+BENCH = $(ROOT)/applications/contiki/bench.py
 
 all:
 	for i in $(DIRS); do $(MAKE) -C $$i all || exit 1; done
@@ -10,3 +12,6 @@ clean:
 
 test:
 	for i in $(DIRS); do $(MAKE) -C $$i test; done
+
+bench: test $(BENCH)
+	$(BENCH) `pwd`
