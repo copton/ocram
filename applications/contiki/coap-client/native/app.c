@@ -18,7 +18,6 @@ AUTOSTART_PROCESSES(&coap_client);
 uip_ipaddr_t server_ipaddr;
 static struct etimer et;
 
-/* This function is will be passed to COAP_BLOCKING_REQUEST() to handle responses. */
 void client_chunk_handler(void *response)
 {
     coap_packet_t* packet = response;
@@ -34,6 +33,7 @@ int rand_fixed()
     do {
         value = rand();
     } while (value < 0);
+    return value;
 }
 
 PROCESS_THREAD(coap_client, ev, data)

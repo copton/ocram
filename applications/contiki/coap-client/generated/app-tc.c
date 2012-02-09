@@ -1,25 +1,27 @@
 #include "os/tc_sleep.h"
-#include "os/tc_await_button.h"
 #include "os/tc_coap_send_transaction.h"
 
-#include <stdbool.h>
-
-#include "dev/button-sensor.h"
-//#include "er-coap-07-engine.h"
+#include <stdlib.h>
 
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
-
 #define REMOTE_PORT     UIP_HTONS(COAP_DEFAULT_PORT)
-
-#define NUMBER_OF_URLS 4
-char* service_urls[NUMBER_OF_URLS] = {".well-known/core", "/actuators/toggle", "battery/", "error/in//path"};
-static int uri_switch = 0;
 
 void client_chunk_handler(void *response)
 {
+    coap_packet_t* packet = response;
     const uint8_t *chunk;
     int len = coap_get_payload(response, &chunk);
-    printf("|%.*s", len, (char *)chunk);
+    printf("coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
+}
+
+// rand is not standard compliant on this platform and sometimes returns negative values
+int rand_fixed()
+{
+    int value;
+    do {
+        value = rand();
+    } while (value < 0);
+    return value;
 }
 
 void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet_t *request)
@@ -74,7 +76,7 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
     } while (more && block_error<COAP_MAX_ATTEMPTS);
 }
 
-void send_coap_request(coap_method_t method, const char* url, uint8_t* payload, size_t len)
+void send_coap_request(coap_method_t method, const char* url, uint8_t* query, uint8_t* payload, size_t plen)
 {
     coap_packet_t request[1];
     uip_ipaddr_t server_ipaddr;
@@ -82,32 +84,45 @@ void send_coap_request(coap_method_t method, const char* url, uint8_t* payload, 
 
     coap_init_message(request, COAP_TYPE_CON, method, 0);
     coap_set_header_uri_path(request, (char*)url);
+    if (query) {
+        coap_set_header_uri_query(request, query);
+    }
     if (payload) {
-        coap_set_payload(request, payload, len);
+        coap_set_payload(request, payload, plen);
     }
 
     coap_request(&server_ipaddr, REMOTE_PORT, request);
 }
 
 
-TC_RUN_THREAD void task_toggle()
+TC_RUN_THREAD void task_query()
 {
     coap_receiver_init();
-    static char toggleCommand[] = "Toggle!";
     clock_time_t timestamp = clock_time();
-    while(true) {
+    while(1) {
         timestamp += TOGGLE_INTERVAL;
         tc_sleep(timestamp);
-        send_coap_request(COAP_POST, service_urls[1], toggleCommand, sizeof(toggleCommand));
-    }
-}
 
-TC_RUN_THREAD void task_react()
-{
-    while(true) {
-        SENSORS_ACTIVATE(button_sensor);
-        tc_await_button();
-        send_coap_request(COAP_GET, service_urls[uri_switch], 0, 0);
-        uri_switch = (uri_switch + 1) % NUMBER_OF_URLS;
+        {
+            int salt = rand_fixed() % 200;
+            char salts[4];
+            int size = snprintf(salts, sizeof(salts), "%d", salt);
+            if (size >= sizeof(salts)) {
+              printf("ASSERT: " __FILE__ ": %d\n", __LINE__);
+            }
+            printf("setting salt: %d\n", salt);
+            send_coap_request(COAP_PUT, "random/salt", NULL, salts, size);
+        }
+
+        {
+            int len = rand_fixed() % 200;
+            char query[4+4];
+            int size = snprintf(query, sizeof(query), "len=%d", len);
+            if (size >= sizeof(query)) {
+              printf("ASSERT: " __FILE__ ": %d\n", __LINE__);
+            }
+            printf("query random: %s\n", query);
+            send_coap_request(COAP_GET, "random", query, NULL, 0);
+        }
     }
 }
