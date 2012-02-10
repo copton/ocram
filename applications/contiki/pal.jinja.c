@@ -110,7 +110,6 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
 {
     PROCESS_BEGIN();
     printf("thread address: /*loop.index0*/: %p\n", process_current);
-    PROCESS_PAUSE();
 
     static void* continuation = 0;
     while(true) {

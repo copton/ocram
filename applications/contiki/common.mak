@@ -26,7 +26,7 @@ ifndef XGCC
 $(error please specify your cross compiler command line)
 endif
 
-export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/os/pal.jinja.c
+export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/pal.jinja.c
 
 all: app-ec.c pal.c contiki $(SKYS)
 
