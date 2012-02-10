@@ -47,8 +47,8 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
 
             transaction->packet_len = coap_serialize_message(request, transaction->packet);
 
-            printf("Requesting #%lu (TID %u, tr %p)\n", block_num, request->tid, transaction);
             response = tc_coap_send_transaction(transaction);
+            printf("Requested #%lu (TID %u)\n", block_num, request->tid);
 
             if (!response)
             {

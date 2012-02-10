@@ -60,9 +60,5 @@ def cpu_usage(elf):
             last_cycle_count = cycle_count
             current_thread = address
     
-    print addresses
-    x = cycles.items()
-    x.sort()
-    print x
     total = reduce(lambda x, y: x + y, [c for (a, c) in cycles.items() if a in addresses])
     return total
