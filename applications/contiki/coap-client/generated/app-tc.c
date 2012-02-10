@@ -1,7 +1,10 @@
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "os/tc_sleep.h"
 #include "os/tc_coap_send_transaction.h"
 
-#include <stdlib.h>
+#include "sim_assert.h"
 
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
 #define REMOTE_PORT     UIP_HTONS(COAP_DEFAULT_PORT)
@@ -76,28 +79,15 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
     } while (more && block_error<COAP_MAX_ATTEMPTS);
 }
 
-void send_coap_request(coap_method_t method, const char* url, uint8_t* query, uint8_t* payload, size_t plen)
-{
-    coap_packet_t request[1];
-    uip_ipaddr_t server_ipaddr;
-    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
-
-    coap_init_message(request, COAP_TYPE_CON, method, 0);
-    coap_set_header_uri_path(request, (char*)url);
-    if (query) {
-        coap_set_header_uri_query(request, query);
-    }
-    if (payload) {
-        coap_set_payload(request, payload, plen);
-    }
-
-    coap_request(&server_ipaddr, REMOTE_PORT, request);
-}
-
-
 TC_RUN_THREAD void task_query()
 {
     coap_receiver_init();
+
+    uip_ipaddr_t server_ipaddr;
+    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
+
+    coap_packet_t request[1];
+
     clock_time_t timestamp = clock_time();
     while(1) {
         timestamp += TOGGLE_INTERVAL;
@@ -107,22 +97,28 @@ TC_RUN_THREAD void task_query()
             int salt = rand_fixed() % 200;
             char salts[4];
             int size = snprintf(salts, sizeof(salts), "%d", salt);
-            if (size >= sizeof(salts)) {
-              printf("ASSERT: " __FILE__ ": %d\n", __LINE__);
-            }
+            ASSERT(size < sizeof(salts));
+
+            coap_init_message(request, COAP_TYPE_CON, COAP_PUT, 0);
+            coap_set_header_uri_path(request, "random/salt");
+            coap_set_payload(request, (uint8_t*)salts, size);
+
             printf("setting salt: %d\n", salt);
-            send_coap_request(COAP_PUT, "random/salt", NULL, salts, size);
+            coap_request(&server_ipaddr, REMOTE_PORT, request);
         }
 
         {
             int len = rand_fixed() % 200;
             char query[4+4];
             int size = snprintf(query, sizeof(query), "len=%d", len);
-            if (size >= sizeof(query)) {
-              printf("ASSERT: " __FILE__ ": %d\n", __LINE__);
-            }
+            ASSERT(size < sizeof(query));
+
+            coap_init_message(request, COAP_TYPE_CON, COAP_GET, 0);
+            coap_set_header_uri_path(request, "random");
+            coap_set_header_uri_query(request, query);
+
             printf("query random: %s\n", query);
-            send_coap_request(COAP_GET, "random", query, NULL, 0);
+            coap_request(&server_ipaddr, REMOTE_PORT, request);
         }
     }
 }
