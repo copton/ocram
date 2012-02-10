@@ -3,23 +3,82 @@
 #include "dev/light-sensor.h"
 #include "net/netstack.h"
 #include "net/uip.h"
-
-#include "common.h"
+#define DEBUG DEBUG_PRINT
+#include "net/uip-debug.h"
+#include "config.h"
 
 // config
 #define DT_SEND (120 * CLOCK_SECOND)
 #define DT_COLLECT (10 * CLOCK_SECOND)
 
-// globals
-struct uip_udp_conn *server_conn, *client_conn;
-uip_ipaddr_t server_ipaddr;
-
+// FIFO
 #define MAX_NUMBEROF_VALUES 100
 uint32_t values[MAX_NUMBEROF_VALUES];
 size_t offset;
 
+void init()
+{
+    uip_ipaddr_t ipaddr;
+    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
+    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
+    // no duty-cycling
+    NETSTACK_MAC.off(1);
+
+    offset = 0;
+}
+
+
+// send
+PROCESS(send_process, "send process");
+
+static void send_packet(uip_ipaddr_t* server_ipaddr, struct uip_udp_conn* client_conn) {
+    uint32_t buf[2] = {0xFFFFFFFF, 0};
+    size_t i;
+
+    for (i = 0; i<offset; i++) {
+        if (values[i] < buf[0]) {
+            buf[0] = values[i];
+        }
+        if (values[i] > buf[1]) {
+            buf[1] = values[i];
+        }
+    }
+    offset = 0;
+
+    PRINT6ADDR(server_ipaddr);
+    printf(": send values: %lu %lu\n", buf[0], buf[1]);
+    uip_udp_packet_sendto(client_conn, &buf[0], sizeof(buf), server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
+}
+
+PROCESS_THREAD(send_process, ev, data)
+{
+    static struct etimer periodic;
+    static uip_ipaddr_t server_ipaddr;
+    static struct uip_udp_conn* client_conn;
+
+    PROCESS_BEGIN();
+    printf("thread address: 0: %p\n", process_current);
+
+    init();
+    
+    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x212, 0x7403, 0x3, 0x303);
+    client_conn = udp_new(NULL, UIP_HTONS(UDP_SERVER_PORT), NULL); 
+    udp_bind(client_conn, UIP_HTONS(UDP_CLIENT_PORT)); 
+
+    etimer_set(&periodic, DT_SEND);
+    while(1) {
+        PROCESS_YIELD();
+        if (etimer_expired(&periodic)) {
+            etimer_reset(&periodic);
+            send_packet(&server_ipaddr, client_conn);
+        }
+    }
+
+    PROCESS_END();
+}
+
+
 // receive
-#define MAX_PAYLOAD_LEN		30
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
 PROCESS(receive_process, "receive process");
@@ -57,8 +116,9 @@ static void tcpip_handler(void) {
 PROCESS_THREAD(receive_process, ev, data)
 {
     PROCESS_BEGIN();
-    printf("thread address: 0: %p\n", process_current);
+    printf("thread address: 1: %p\n", process_current);
     
+    static struct uip_udp_conn* server_conn;
     // udp server connection
     server_conn = udp_new(NULL, UIP_HTONS(UDP_CLIENT_PORT), NULL);
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
@@ -73,53 +133,6 @@ PROCESS_THREAD(receive_process, ev, data)
     PROCESS_END();
 }
 
-// send
-PROCESS(send_process, "send process");
-
-static void send_packet() {
-    uint32_t buf[2] = {0xFFFFFFFF, 0};
-    size_t i;
-
-    for (i = 0; i<offset; i++) {
-        if (values[i] < buf[0]) {
-            buf[0] = values[i];
-        }
-        if (values[i] > buf[1]) {
-            buf[1] = values[i];
-        }
-    }
-    offset = 0;
-
-    PRINT6ADDR(&server_ipaddr);
-    printf(": send values: %lu, %lu\n", buf[0], buf[1]);
-    uip_udp_packet_sendto(client_conn, &buf[0], sizeof(buf), &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
-}
-
-PROCESS_THREAD(send_process, ev, data)
-{
-    static struct etimer periodic;
-
-    PROCESS_BEGIN();
-    printf("thread address: 2: %p\n", process_current);
-    
-    // server address
-    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x212, 0x7403, 0x3, 0x303);
-    // udp client connection
-    client_conn = udp_new(NULL, UIP_HTONS(UDP_SERVER_PORT), NULL); 
-    udp_bind(client_conn, UIP_HTONS(UDP_CLIENT_PORT)); 
-
-    etimer_set(&periodic, DT_SEND);
-    while(1) {
-        PROCESS_YIELD();
-        if (etimer_expired(&periodic)) {
-            etimer_reset(&periodic);
-            send_packet();
-        }
-    }
-
-    PROCESS_END();
-}
-
 // collect
 PROCESS(collect_process, "collect process");
 
@@ -128,7 +141,7 @@ PROCESS_THREAD(collect_process, ev, data)
     static struct etimer periodic;
 
     PROCESS_BEGIN();
-    printf("thread address: 1: %p\n", process_current);
+    printf("thread address: 2: %p\n", process_current);
 
     SENSORS_ACTIVATE(light_sensor);
 
@@ -151,32 +164,4 @@ PROCESS_THREAD(collect_process, ev, data)
     PROCESS_END();
 }
 
-// config
-PROCESS(config_process, "config process");
-
-PROCESS_THREAD(config_process, ev, data)
-{
-    PROCESS_BEGIN();
-    printf("thread address: -1: %p\n", process_current);
-    PROCESS_PAUSE();
-
-    // local IP address
-    uip_ipaddr_t ipaddr;
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
-    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
-    // no duty-cycling
-    NETSTACK_MAC.off(1);
-    print_local_addresses();
-
-    offset = 0;
-
-    PROCESS_PAUSE();
-
-    process_start(&receive_process, NULL);
-    process_start(&collect_process, NULL);
-    process_start(&send_process, NULL);
-
-    PROCESS_END();
-}
-
-AUTOSTART_PROCESSES(&config_process);
+AUTOSTART_PROCESSES(&send_process, &receive_process, &collect_process);

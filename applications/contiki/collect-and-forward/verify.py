@@ -24,38 +24,35 @@ def sensorinput(text):
     else:
         return None
 
-netinput_pattern = re.compile(r'^.*: send values: (.*)$')
-def netinput(text):
-    mo = netinput_pattern.match(text)
+netoutput_pattern = re.compile(r'^.*: send values: (.*)$')
+def netoutput(text):
+    mo = netoutput_pattern.match(text)
     if mo:
         values = map(lambda x: int(x), mo.group(1).strip().split(" "))
         return values
     else:
         return None
 
-netoutput_pattern = re.compile(r'^.*: received values: [^:]*: (.*)$')
-def netoutput(text):
-    mo = netoutput_pattern.match(text)
+netinput_pattern = re.compile(r'^.*: received values: [^:]*: (.*)$')
+def netinput(text):
+    mo = netinput_pattern.match(text)
     if mo:
         [minIs, maxIs] = map(lambda x: int(x), mo.group(1).strip().split(" "))  
         return (minIs, maxIs)
     else:
         return None
 
-def fail(valIs, valShould):
-    sys.stderr.write("verification failed: should be %d but is %d\n" % (valShould, valIs))
-    sys.exit(1)
-
 def verify(logs):
     values = []
     deliveries = 0
+    lastvals = (None, None)
 
     for line in logs:
         log = logline(line.strip())
         if log != None:
             time, node, text = log
             if node == 1:
-                vals = netinput(text)
+                vals = netoutput(text)
                 if vals != None:
                     sys.stdout.write(line)
                     values += vals
@@ -66,25 +63,26 @@ def verify(logs):
                     sys.stdout.write(line)
                     values.append(value)
 
-            elif node == 3:
                 stats = netoutput(text)
                 if stats != None:
                     sys.stdout.write(line)
                     (minIs, maxIs) = stats
                     minShould = min(values)
                     maxShould = max(values)
-                    if minIs != minShould:
-                        fail(minIs, minShould)
-                    if maxIs != maxShould:
-                        fail(maxIs, maxShould)
+                    assert minIs == minShould, "minShould=%(minShould)s, minIs=%(minIs)s" % locals()
+                    assert maxIs == maxShould, "maxShould=%(maxShould)s, maxIs=%(maxIs)s" % locals()
+                    lastvals = (minIs, maxIs)
                     values = []
+
+            elif node == 3:
+                stats = netinput(text)
+                if stats != None:
+                    sys.stdout.write(line)
+                    assert stats == lastvals, "stats=%(stats)s, lastvals=%(lastvals)s" % locals()
                     deliveries += 1
 
-    if deliveries == 0:
-        sys.stderr.write("verification failed. Not enough log data\n")
-        sys.exit(1)
-    else:
-        sys.stderr.write("verification succeeded.\n")
+    assert deliveries != 0, "Not enough log data"
+    sys.stderr.write("verification succeeded.\n")
 
 if __name__ == '__main__':
     verify(fileinput.input())

@@ -30,7 +30,7 @@ void collect_run(clock_time_t dt)
         uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
         printf("reading value from sensor: %u\n", value);
         if (offset == MAX_NUMBEROF_VALUES) {
-            printf("collect: overflow! Too many values\n");
+            printf("ASSERT: " __FILE__ ":%d\n", __LINE__);
         } else {
             values[offset++] = value;
         }
@@ -58,7 +58,7 @@ void receive_run(uint16_t lport, uint16_t rport)
         size_t i;
         for (i=0; i<numberof_values; i++) {
             if (offset == MAX_NUMBEROF_VALUES) {
-                printf("\nreceive: overflow! Too many values");
+                printf("ASSERT: " __FILE__ ":%d\n", __LINE__);
                 break; 
             }
             memcpy(&value, &buffer[i * sizeof(uint32_t)], sizeof(uint32_t));
@@ -70,6 +70,7 @@ void receive_run(uint16_t lport, uint16_t rport)
     }
 }
 
+TC_RUN_THREAD void task_send()
 void send_run(uip_ipaddr_t* ipaddr, uint16_t lport, uint16_t rport, clock_time_t dt)
 {
     struct uip_udp_conn* client_conn;
@@ -104,11 +105,17 @@ void send_run(uip_ipaddr_t* ipaddr, uint16_t lport, uint16_t rport, clock_time_t
     }
 }
 
-TC_RUN_THREAD void task_send()
+void init()
 {
     uip_ipaddr_t ipaddr;
     uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
+    NETSTACK_MAC.off(1);
+    offset = 0;
+}
+
+{
+    init();
 	send_run(&ipaddr, UIP_HTONS(UDP_CLIENT_PORT), UIP_HTONS(UDP_SERVER_PORT), 120 * CLOCK_SECOND);
 }
 
