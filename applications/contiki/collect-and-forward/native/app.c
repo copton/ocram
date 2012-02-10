@@ -3,9 +3,10 @@
 #include "dev/light-sensor.h"
 #include "net/netstack.h"
 #include "net/uip.h"
-#define DEBUG DEBUG_PRINT
 #include "net/uip-debug.h"
 #include "config.h"
+
+#include "sim_assert.h"
 
 // config
 #define DT_SEND (120 * CLOCK_SECOND)
@@ -27,28 +28,8 @@ void init()
     offset = 0;
 }
 
-
 // send
 PROCESS(send_process, "send process");
-
-static void send_packet(uip_ipaddr_t* server_ipaddr, struct uip_udp_conn* client_conn) {
-    uint32_t buf[2] = {0xFFFFFFFF, 0};
-    size_t i;
-
-    for (i = 0; i<offset; i++) {
-        if (values[i] < buf[0]) {
-            buf[0] = values[i];
-        }
-        if (values[i] > buf[1]) {
-            buf[1] = values[i];
-        }
-    }
-    offset = 0;
-
-    PRINT6ADDR(server_ipaddr);
-    printf(": send values: %lu %lu\n", buf[0], buf[1]);
-    uip_udp_packet_sendto(client_conn, &buf[0], sizeof(buf), server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
-}
 
 PROCESS_THREAD(send_process, ev, data)
 {
@@ -70,7 +51,22 @@ PROCESS_THREAD(send_process, ev, data)
         PROCESS_YIELD();
         if (etimer_expired(&periodic)) {
             etimer_reset(&periodic);
-            send_packet(&server_ipaddr, client_conn);
+            uint32_t buf[2] = {0xFFFFFFFF, 0};
+            size_t i;
+
+            for (i = 0; i<offset; i++) {
+                if (values[i] < buf[0]) {
+                    buf[0] = values[i];
+                }
+                if (values[i] > buf[1]) {
+                    buf[1] = values[i];
+                }
+            }
+            offset = 0;
+
+            uip_debug_ipaddr_print(&server_ipaddr);
+            printf(": send values: %lu %lu\n", buf[0], buf[1]);
+            uip_udp_packet_sendto(client_conn, &buf[0], sizeof(buf), &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
         }
     }
 
@@ -82,36 +78,6 @@ PROCESS_THREAD(send_process, ev, data)
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
 
 PROCESS(receive_process, "receive process");
-
-static void tcpip_handler(void) {
-    char* appdata = (char*) uip_appdata;
-    size_t numberof_values = uip_datalen() / sizeof(uint32_t);
-    uint32_t value;
-    size_t i;
-
-    if(! uip_newdata()) {
-        printf("tcpip handler called for no reason(?)\n");
-        return;
-    }
-
-    if ((uip_datalen() % sizeof(uint32_t)) != 0) {
-        printf("ignoring packet of unexpected size\n");
-        return;
-    }
-
-    PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-    printf(": received values: ");
-    for (i=0; i<numberof_values; i++) {
-        if (offset == MAX_NUMBEROF_VALUES) {
-            printf("\noverflow! Too many values\n");
-            return;
-        }
-        memcpy(&value, &appdata[i * sizeof(uint32_t)], sizeof(uint32_t));
-        printf("%lu ", value);
-        values[offset++] = value;
-    }
-    printf("\n");
-}
 
 PROCESS_THREAD(receive_process, ev, data)
 {
@@ -126,7 +92,22 @@ PROCESS_THREAD(receive_process, ev, data)
     while(1) {
         PROCESS_YIELD();
         if(ev == tcpip_event) {
-            tcpip_handler();
+            char* appdata = (char*) uip_appdata;
+            size_t numberof_values = uip_datalen() / sizeof(uint32_t);
+            uint32_t value;
+            size_t i;
+
+            ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
+
+            uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+            printf(": received values: ");
+            for (i=0; i<numberof_values; i++) {
+                ASSERT(offset < MAX_NUMBEROF_VALUES);
+                memcpy(&value, &appdata[i * sizeof(uint32_t)], sizeof(uint32_t));
+                printf("%lu ", value);
+                values[offset++] = value;
+            }
+            printf("\n");
         }
     }
 
@@ -153,11 +134,8 @@ PROCESS_THREAD(collect_process, ev, data)
             etimer_reset(&periodic);
             uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
             printf("reading value from sensor: %u\n", value);
-            if (offset == MAX_NUMBEROF_VALUES) {
-                printf("collect: overflow! Too many values\n");
-            } else {
-                values[offset++] = value;
-            }
+            ASSERT(offset < MAX_NUMBEROF_VALUES);
+            values[offset++] = value;
         }
     }
 

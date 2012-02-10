@@ -1,88 +1,54 @@
 #include "os/tc_receive.h"
 #include "os/tc_send.h"
 #include "os/tc_sleep.h"
+
+#include "sim_assert.h"
+
+#include "contiki.h"
+#include "contiki-net.h"
+#include "dev/light-sensor.h"
+#include "net/netstack.h"
+#include "net/uip.h"
+#include "net/uip-debug.h"
 #include "config.h"
 
-#include "dev/light-sensor.h"
-#include "net/uiplib.h"
-#include "net/uip-debug.h"
-#include "net/uip-ds6.h"
+// config
+#define DT_SEND (120 * CLOCK_SECOND)
+#define DT_COLLECT (10 * CLOCK_SECOND)
 
-#define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
-
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-
+// FIFO
 #define MAX_NUMBEROF_VALUES 100
 uint32_t values[MAX_NUMBEROF_VALUES];
 size_t offset;
 
-void collect_run(clock_time_t dt)
+void init()
 {
-    SENSORS_ACTIVATE(light_sensor);
+    uip_ipaddr_t ipaddr;
+    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
+    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
+    // no duty-cycling
+    NETSTACK_MAC.off(1);
 
-    clock_time_t now = clock_time();
-    while (true) {
-        tc_sleep(now + dt);
-        now += dt;
-
-        uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
-        printf("reading value from sensor: %u\n", value);
-        if (offset == MAX_NUMBEROF_VALUES) {
-            printf("ASSERT: " __FILE__ ":%d\n", __LINE__);
-        } else {
-            values[offset++] = value;
-        }
-    }
+    offset = 0;
 }
 
-void receive_run(uint16_t lport, uint16_t rport)
-{
-    struct uip_udp_conn *server_conn;
-    server_conn = udp_new(NULL, rport, NULL);
-    udp_bind(server_conn, lport);
-
-    while (true) {
-        uint8_t buffer[10];
-        size_t len;
-
-		tc_receive(buffer, sizeof(buffer), &len);
-
-        size_t numberof_values = len / sizeof(uint32_t);
-        uint32_t value;
-
-        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-        printf(": received values: ");
-
-        size_t i;
-        for (i=0; i<numberof_values; i++) {
-            if (offset == MAX_NUMBEROF_VALUES) {
-                printf("ASSERT: " __FILE__ ":%d\n", __LINE__);
-                break; 
-            }
-            memcpy(&value, &buffer[i * sizeof(uint32_t)], sizeof(uint32_t));
-            printf("%lu ", value);
-            values[offset++] = value;
-        }
-
-        printf("\n");
-    }
-}
-
+// send
 TC_RUN_THREAD void task_send()
-void send_run(uip_ipaddr_t* ipaddr, uint16_t lport, uint16_t rport, clock_time_t dt)
 {
+    uip_ipaddr_t server_ipaddr;
     struct uip_udp_conn* client_conn;
 
-    client_conn = udp_new(NULL, rport, NULL);
-    udp_bind(client_conn, lport);
+    init();
+
+    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x212, 0x7403, 0x3, 0x303);
+    client_conn = udp_new(NULL, UIP_HTONS(UDP_SERVER_PORT), NULL);
+    udp_bind(client_conn, UIP_HTONS(UDP_CLIENT_PORT));
 
     clock_time_t now = clock_time();
 
-    while (true) {
-        tc_sleep(now + dt);
-        now += dt;
+    while (1) {
+        now += DT_SEND;
+        tc_sleep(now);
 
         uint32_t buf[2];
         buf[0] = 0xFFFFFFFF;
@@ -99,32 +65,58 @@ void send_run(uip_ipaddr_t* ipaddr, uint16_t lport, uint16_t rport, clock_time_t
         }
         offset = 0;
 
-        uip_debug_ipaddr_print(ipaddr);
-        printf(": send values: %lu, %lu\n", buf[0], buf[1]);
-        tc_send(client_conn, ipaddr, rport, (uint8_t*)&buf[0], sizeof(buf));
+        uip_debug_ipaddr_print(&server_ipaddr);
+        printf(": send values: %lu %lu\n", buf[0], buf[1]);
+        tc_send(client_conn, &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT), (uint8_t*)&buf[0], sizeof(buf));
     }
 }
 
-void init()
+// receive
+#define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
+TC_RUN_THREAD void receive_run(uint16_t lport, uint16_t rport)
 {
-    uip_ipaddr_t ipaddr;
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
-    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
-    NETSTACK_MAC.off(1);
-    offset = 0;
+    struct uip_udp_conn *server_conn;
+    server_conn = udp_new(NULL, UIP_HTONS(UDP_CLIENT_PORT), NULL);
+    udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
+
+    while (1) {
+        uint8_t buffer[10];
+        size_t len;
+
+		tc_receive(buffer, sizeof(buffer), &len);
+
+        ASSERT((len % sizeof(uint32_t)) == 0);
+
+        size_t numberof_values = len / sizeof(uint32_t);
+        uint32_t value;
+
+        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
+        printf(": received values: ");
+
+        size_t i;
+        for (i=0; i<numberof_values; i++) {
+            ASSERT(offset < MAX_NUMBEROF_VALUES);
+            memcpy(&value, &buffer[i * sizeof(uint32_t)], sizeof(uint32_t));
+            printf("%lu ", value);
+            values[offset++] = value;
+        }
+        printf("\n");
+    }
 }
 
+// collect
+TC_RUN_THREAD void collect_run()
 {
-    init();
-	send_run(&ipaddr, UIP_HTONS(UDP_CLIENT_PORT), UIP_HTONS(UDP_SERVER_PORT), 120 * CLOCK_SECOND);
-}
+    SENSORS_ACTIVATE(light_sensor);
 
-TC_RUN_THREAD void task_receive()
-{
-	receive_run(UIP_HTONS(UDP_SERVER_PORT), UIP_HTONS(UDP_CLIENT_PORT));
-}
+    clock_time_t now = clock_time();
+    while (1) {
+        now += DT_COLLECT;
+        tc_sleep(now);
 
-TC_RUN_THREAD void task_collect()
-{
-	collect_run(10 * CLOCK_SECOND);
+        uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
+        printf("reading value from sensor: %u\n", value);
+        ASSERT(offset < MAX_NUMBEROF_VALUES);
+        values[offset++] = value;
+    }
 }
