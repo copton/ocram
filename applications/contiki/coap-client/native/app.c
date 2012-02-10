@@ -44,7 +44,7 @@ void my_blocking_request_callback(void *callback_data, void *response) {
     process_poll(state->process);
 }
 
-PT_THREAD(my_coap_blocking_request(struct request_state_t *state, process_event_t ev, uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet_t *request, blocking_response_handler request_callback))
+PT_THREAD(my_coap_blocking_request(struct my_request_state_t *state, process_event_t ev, uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet_t *request))
 {
     PT_BEGIN(&state->pt);
 
@@ -91,7 +91,7 @@ PT_THREAD(my_coap_blocking_request(struct request_state_t *state, process_event_
 
             if (res_block==state->block_num)
             {
-                request_callback(state->response);
+                client_chunk_handler(state->response);
                 ++(state->block_num);
             }
             else
@@ -110,7 +110,7 @@ PT_THREAD(my_coap_blocking_request(struct request_state_t *state, process_event_
     PT_END(&state->pt);
 }
 
-#define MY_COAP_BLOCKING_REQUEST(server_addr, server_port, request) \                                                                                                                                                   
+#define MY_COAP_BLOCKING_REQUEST(server_addr, server_port, request) \
     static struct my_request_state_t request_state; \
     PT_SPAWN(process_pt, &request_state.pt, my_coap_blocking_request(&request_state, ev, server_addr, server_port, request));
 
@@ -142,7 +142,7 @@ PROCESS_THREAD(coap_client, ev, data)
                 coap_set_payload(request, (uint8_t*)salts, size);
 
                 printf("setting salt: %d\n", salt);
-                COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, client_chunk_handler);
+                MY_COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request);
             }
 
             {
@@ -156,7 +156,7 @@ PROCESS_THREAD(coap_client, ev, data)
                 coap_set_header_uri_query(request, query);
 
                 printf("query random: %s\n", query);
-                COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, client_chunk_handler);
+                MY_COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request);
             }
 
             etimer_reset(&et);

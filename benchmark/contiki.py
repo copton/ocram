@@ -32,8 +32,8 @@ def max_stack_usage(elf):
 
 def cpu_usage(elf):
     f = open_elf(elf)
-    switch_pattern = re.compile(r"^cycle monitor action: ([^,]*), ([0-9]*)$")
     thread_pattern = re.compile(r"^log output: [^:]*: [^:]*: thread address: ([^:]*): (.*)$")
+    switch_pattern = re.compile(r"^cycle monitor action: ([^,]*), ([0-9]*)$")
 
     addresses = set()
     thread_ids = set()
@@ -49,7 +49,6 @@ def cpu_usage(elf):
             assert not address in addresses
             thread_ids.add(tid)
             addresses.add(address)
-            continue
             
         mo = switch_pattern.match(line)
         if mo:
@@ -61,5 +60,9 @@ def cpu_usage(elf):
             last_cycle_count = cycle_count
             current_thread = address
     
+    print addresses
+    x = cycles.items()
+    x.sort()
+    print x
     total = reduce(lambda x, y: x + y, [c for (a, c) in cycles.items() if a in addresses])
     return total
