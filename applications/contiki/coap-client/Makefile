@@ -1,4 +1,4 @@
-DIRS = native generated
+DIRS = setup native generated
 
 .PHONY: all clean test bench
 

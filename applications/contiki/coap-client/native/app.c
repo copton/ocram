@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-
 #include "contiki.h"
-#include "er-coap-07-engine.h"
-
+#include "coap.h"
 #include "sim_assert.h"
 
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
@@ -39,7 +37,7 @@ struct my_request_state_t {
 };
 
 void my_blocking_request_callback(void *callback_data, void *response) {
-    struct request_state_t *state = (struct request_state_t *) callback_data;
+    struct my_request_state_t *state = (struct my_request_state_t *) callback_data;
     state->response = (coap_packet_t*) response;
     process_poll(state->process);
 }

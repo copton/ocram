@@ -1,8 +1,6 @@
 .PHONY: all contiki clean test
 
-ifndef ROOT
-$(error no ROOT defined)
-endif
+include $(ROOT)/applications/contiki/config.mak
 
 ifndef CSC
 $(error please specify the simulation file)
@@ -12,11 +10,8 @@ ifndef APP
 $(error please specify your app)
 endif
 
-TEST = $(ROOT)/applications/contiki/test.py
 VERIFY = $(ROOT)/applications/contiki/$(APP)/verify.py
-CACHE = $(ROOT)/applications/contiki/cache.py
 SKYS = $(shell perl -ne 'if (/<firmware[^>]*>\[CONFIG_DIR\]\/([^\.][^<]*)<\/firmware>/) { print "$$1 "; }' < $(CSC))
-CHROOT = schroot -c contiki -p --
 
 ifeq ($(TYPE), native)
 all: contiki $(SKYS)
@@ -45,13 +40,6 @@ endif
 
 $(SKYS): %.cached.sky: $(CACHE) %.sky
 	$^
-
-contiki:
-	$(CHROOT) $(MAKE) -f Makefile.contiki
-
-clean:
-	$(CHROOT) $(MAKE) -f Makefile.contiki clean
-	git clean -d -x -f
 
 test: all OcramCooja.log
 
