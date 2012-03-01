@@ -8,14 +8,7 @@
 
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
 #define REMOTE_PORT     UIP_HTONS(COAP_DEFAULT_PORT)
-
-void client_chunk_handler(void *response)
-{
-    coap_packet_t* packet = response;
-    const uint8_t *chunk;
-    int len = coap_get_payload(response, &chunk);
-    printf("coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
-}
+void client_chunk_handler(void *response);
 
 // rand is not standard compliant on this platform and sometimes returns negative values
 int rand_fixed()
@@ -27,6 +20,65 @@ int rand_fixed()
     return value;
 }
 
+// TRANSACTION
+
+extern list_t transactions_list;
+
+#define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
+#define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
+
+void coap_send_transaction(coap_transaction_t *t)
+{
+  coap_send_message(&t->addr, t->port, t->packet, t->packet_len);
+
+  if (COAP_TYPE_CON==((COAP_HEADER_TYPE_MASK & t->packet[0])>>COAP_HEADER_TYPE_POSITION))
+  {
+    if (t->retrans_counter<COAP_MAX_RETRANSMIT)
+    {
+      if (t->retrans_counter==0)
+      {
+        t->retrans_timer.timer.interval = COAP_RESPONSE_TIMEOUT_TICKS + (random_rand() % (clock_time_t) COAP_RESPONSE_TIMEOUT_BACKOFF_MASK);
+      }
+      else
+      {
+        t->retrans_timer.timer.interval <<= 1; /* double */
+      }
+
+#if 0 
+      /*FIXME hack, maybe there is a better way, but avoid posting everything to the process */
+      struct process *process_actual = PROCESS_CURRENT();
+      process_current = transaction_handler_process;
+      etimer_restart(&t->retrans_timer); /* interval updated above */
+      process_current = process_actual;
+#endif
+
+      list_add(transactions_list, t); /* List itself makes sure same element is not added twice. */
+
+      t = NULL;
+    }
+    else
+    {
+      /* timeout */
+      restful_response_handler callback = t->callback;
+      void *callback_data = t->callback_data;
+
+      /* handle observers */
+      coap_remove_observer_by_client(&t->addr, t->port);
+
+      coap_clear_transaction(t);
+
+      if (callback) {
+        callback(callback_data, NULL);
+      }
+    }
+  }
+  else
+  {
+    coap_clear_transaction(t);
+  }
+}
+
+// BLOCKWISE TRANSFER
 void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet_t *request)
 {
     uint8_t more = 0;
@@ -48,17 +100,13 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
             transaction->packet_len = coap_serialize_message(request, transaction->packet);
 
             response = tc_coap_send_transaction(transaction);
-            printf("Requested #%lu (TID %u)\n", block_num, request->tid);
 
             if (!response)
             {
-                printf("Server not responding\n");
                 return;
             }
 
             coap_get_header_block2(response, &res_block, &more, NULL, NULL);
-
-            printf("Received #%lu%s (%u bytes)\n", res_block, more ? "+" : "", response->payload_len);
 
             if (res_block == block_num)
             {
@@ -67,16 +115,29 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
             }
             else
             {
-                printf("WRONG BLOCK %lu/%lu\n", res_block, block_num);
                 ++block_error;
             }
         }
         else
         {
-            printf("Could not allocate transaction buffer");
             return;
         }
     } while (more && block_error<COAP_MAX_ATTEMPTS);
+}
+
+// RECEIVER
+void coap_receiver_init()
+{
+
+}
+
+// MAIN
+void client_chunk_handler(void *response)
+{
+    coap_packet_t* packet = response;
+    const uint8_t *chunk;
+    int len = coap_get_payload(response, &chunk);
+    printf("coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
 }
 
 TC_RUN_THREAD void task_query()

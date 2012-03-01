@@ -166,7 +166,6 @@ PT_THREAD(coap_blocking_request(struct request_state_t *state, process_event_t e
 
       coap_get_header_block2(state->response, &res_block, &more, NULL, NULL);
 
-
       if (res_block==state->block_num)
       {
         request_callback(state->response);

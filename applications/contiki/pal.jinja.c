@@ -17,8 +17,7 @@
 /*{ endif }*/
 /*{ if "tc_coap_send_transaction" in all_syscalls }*/
 #include "process.h"
-#include "er-coap-07.h"
-#include "er-coap-07-transactions.h"
+#include "coap.h"
 /*{ endif }*/
 /* pal_code */
 /*{ for _ in thread_syscalls }*/
