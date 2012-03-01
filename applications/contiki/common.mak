@@ -38,6 +38,8 @@ else
 $(error unknown application type)
 endif
 
+include $(ROOT)/applications/contiki/goals.mak
+
 $(SKYS): %.cached.sky: $(CACHE) %.sky
 	$^
 
