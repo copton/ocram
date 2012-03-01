@@ -1,7 +1,7 @@
           	   text	    bss	   data	    loc	  stack	    cpu
     native	  45334	   8924	    268	    146	    304	1808669
-        tc	     -1	     -1	     -1	    123	     -1	     -1
-        ec	  46560	   9020	    274	   2020	    316	1775625
-       pal	   1452	     36	     36	    296	     -1	     -1
+     tcode	    n/a	    n/a	    n/a	    123	    n/a	    n/a
+     ecode	  46560	   9020	    274	   2313	    316	1775625
+       pal	   1452	     36	     36	    293	    n/a	    n/a
   overhead	   2.70	   1.08	   2.24	 -15.75	   3.95	  -1.83
-normalized	  -0.50	   0.67	 -11.19	     -1	     -1	     -1
+normalized	  -0.50	   0.67	 -11.19	    n/a	    n/a	    n/a

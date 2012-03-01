@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "contiki.h"
-#include "coap.h"
+#include "er-coap-07.h"
+#include "er-coap-07-transactions.h"
 #include "sim_assert.h"
 
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
