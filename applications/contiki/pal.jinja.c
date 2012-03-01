@@ -134,13 +134,6 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_receive) {
             ec_frame_tc_receive_t* frame = threads[/*loop.index0*/].ctx.tc_receive.frame;
             PROCESS_YIELD_UNTIL(ev == tcpip_event && uip_newdata());
-            frame = threads[/*loop.index0*/].ctx.tc_receive.frame;
-            if (frame->buflen < uip_datalen()) {
-                *frame->len = frame->buflen;
-            } else {
-                *frame->len = uip_datalen();
-            }
-            memcpy(frame->buffer, uip_appdata, *frame->len);
             continuation = frame->ec_cont;
         }
 /*{ endif }*/

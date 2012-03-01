@@ -80,14 +80,12 @@ TC_RUN_THREAD void receive_run(uint16_t lport, uint16_t rport)
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
 
     while (1) {
-        uint8_t buffer[10];
-        size_t len;
+		tc_receive();
+        uint8_t* buffer = uip_appdata;
 
-		tc_receive(buffer, sizeof(buffer), &len);
+        ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
 
-        ASSERT((len % sizeof(uint32_t)) == 0);
-
-        size_t numberof_values = len / sizeof(uint32_t);
+        size_t numberof_values = uip_datalen() / sizeof(uint32_t);
         uint32_t value;
 
         uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
