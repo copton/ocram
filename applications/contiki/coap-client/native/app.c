@@ -1,20 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "contiki.h"
-#include "er-coap-07.h"
-#include "er-coap-07-transactions.h"
+#include "coap.h"
 #include "sim_assert.h"
 
+// config
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
 #define REMOTE_PORT     UIP_HTONS(COAP_DEFAULT_PORT)
-
-void client_chunk_handler(void *response)
-{
-    coap_packet_t* packet = response;
-    const uint8_t *chunk;
-    int len = coap_get_payload(response, &chunk);
-    printf("coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
-}
 
 // rand is not standard compliant on this platform and sometimes returns negative values
 int rand_fixed()
@@ -26,9 +18,16 @@ int rand_fixed()
     return value;
 }
 
-PROCESS(coap_client, "COAP Client");
-AUTOSTART_PROCESSES(&coap_client);
+// BLOCKWISE TRANSFER 
+void client_chunk_handler(void *response)
+{
+    coap_packet_t* packet = response;
+    const uint8_t *chunk;
+    int len = coap_get_payload(response, &chunk);
+    printf("coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
+}
 
+/*
 struct my_request_state_t {
     struct pt pt;
     struct process *process;
@@ -112,7 +111,35 @@ PT_THREAD(my_coap_blocking_request(struct my_request_state_t *state, process_eve
 #define MY_COAP_BLOCKING_REQUEST(server_addr, server_port, request) \
     static struct my_request_state_t request_state; \
     PT_SPAWN(process_pt, &request_state.pt, my_coap_blocking_request(&request_state, ev, server_addr, server_port, request));
+*/
 
+// RECEIVER
+#if 0
+PROCESS(coap_receiver, "CoAP Receiver");
+PROCESS_THREAD(coap_receiver, ev, data)
+{
+  PROCESS_BEGIN();
+
+  coap_register_as_transaction_handler();
+  coap_init_connection(UIP_HTONS(COAP_SERVER_PORT));
+
+  while(1) {
+    PROCESS_YIELD();
+
+    if(ev == tcpip_event) {
+      handle_incoming_data();
+    } else if (ev == PROCESS_EVENT_TIMER) {
+      /* retransmissions are handled here */
+      coap_check_transactions();
+    }
+  } /* while (1) */
+
+  PROCESS_END();
+}
+#endif
+
+// MAIN
+PROCESS(coap_client, "COAP Client");
 PROCESS_THREAD(coap_client, ev, data)
 {
     static uip_ipaddr_t server_ipaddr;
@@ -141,7 +168,7 @@ PROCESS_THREAD(coap_client, ev, data)
                 coap_set_payload(request, (uint8_t*)salts, size);
 
                 printf("setting salt: %d\n", salt);
-                MY_COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request);
+                COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, &client_chunk_handler);
             }
 
             {
@@ -155,7 +182,7 @@ PROCESS_THREAD(coap_client, ev, data)
                 coap_set_header_uri_query(request, query);
 
                 printf("query random: %s\n", query);
-                MY_COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request);
+                COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, &client_chunk_handler);
             }
 
             etimer_reset(&et);
@@ -164,3 +191,5 @@ PROCESS_THREAD(coap_client, ev, data)
 
     PROCESS_END();
 }
+
+AUTOSTART_PROCESSES(&coap_client);

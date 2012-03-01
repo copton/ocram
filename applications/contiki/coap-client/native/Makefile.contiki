@@ -14,9 +14,6 @@ CFLAGS += -DREST=coap_rest_implementation
 CFLAGS += -DUIP_CONF_TCP=0
 CFLAGS += -I$(ROOT)/applications/contiki/
 
-APPS += er-coap-07
-APPS += erbium
-
-#PROJECT_SOURCEFILES+=coap.c
+PROJECT_SOURCEFILES+=coap.c
 
 include $(CONTIKI)/Makefile.include
