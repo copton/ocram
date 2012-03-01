@@ -1073,30 +1073,38 @@ coap_set_payload(void *packet, uint8_t *payload, size_t length)
 #include "coap.h"
 // #}
 
+#if 0 // {# moved to app
 /*
  * Modulo mask (+1 and +0.5 for rounding) for a random number to get the tick number for the random
  * retransmission time between COAP_RESPONSE_TIMEOUT and COAP_RESPONSE_TIMEOUT*COAP_RESPONSE_RANDOM_FACTOR.
  */
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
+#endif // #}
 
-// {# already defined
-/*#define DEBUG 0*/
-/*#if DEBUG*/
-/*#include <stdio.h>*/
-/*#define PRINTF(...) printf(__VA_ARGS__)*/
-/*#define PRINT6ADDR(addr) PRINTF("[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]", ((u8_t *)addr)[0], ((u8_t *)addr)[1], ((u8_t *)addr)[2], ((u8_t *)addr)[3], ((u8_t *)addr)[4], ((u8_t *)addr)[5], ((u8_t *)addr)[6], ((u8_t *)addr)[7], ((u8_t *)addr)[8], ((u8_t *)addr)[9], ((u8_t *)addr)[10], ((u8_t *)addr)[11], ((u8_t *)addr)[12], ((u8_t *)addr)[13], ((u8_t *)addr)[14], ((u8_t *)addr)[15])*/
-/*#define PRINTLLADDR(lladdr) PRINTF("[%02x:%02x:%02x:%02x:%02x:%02x]",(lladdr)->addr[0], (lladdr)->addr[1], (lladdr)->addr[2], (lladdr)->addr[3],(lladdr)->addr[4], (lladdr)->addr[5])*/
-/*#else*/
-/*#define PRINTF(...)*/
-/*#define PRINT6ADDR(addr)*/
-/*#define PRINTLLADDR(addr)*/
-/*#endif*/
-// #}
+#if 0 // {# already defined
+#define DEBUG 0
+#if DEBUG
+#include <stdio.h>
+#define PRINTF(...) printf(__VA_ARGS__)
+#define PRINT6ADDR(addr) PRINTF("[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]", ((u8_t *)addr)[0], ((u8_t *)addr)[1], ((u8_t *)addr)[2], ((u8_t *)addr)[3], ((u8_t *)addr)[4], ((u8_t *)addr)[5], ((u8_t *)addr)[6], ((u8_t *)addr)[7], ((u8_t *)addr)[8], ((u8_t *)addr)[9], ((u8_t *)addr)[10], ((u8_t *)addr)[11], ((u8_t *)addr)[12], ((u8_t *)addr)[13], ((u8_t *)addr)[14], ((u8_t *)addr)[15])
+#define PRINTLLADDR(lladdr) PRINTF("[%02x:%02x:%02x:%02x:%02x:%02x]",(lladdr)->addr[0], (lladdr)->addr[1], (lladdr)->addr[2], (lladdr)->addr[3],(lladdr)->addr[4], (lladdr)->addr[5])
+#else
+#define PRINTF(...)
+#define PRINT6ADDR(addr)
+#define PRINTLLADDR(addr)
+#endif
+#endif // #}
 
 MEMB(transactions_memb, coap_transaction_t, COAP_MAX_OPEN_TRANSACTIONS);
-LIST(transactions_list);
+// {# need to share with app but LIST macro creates static identifiers
+//LIST(transactions_list);
+void *LIST_CONCAT(transactions_list,_list) = NULL;
+list_t transactions_list = (list_t)&LIST_CONCAT(transactions_list,_list);
+// #}
 
+
+#if 0 // {# moved to app
 static struct process *transaction_handler_process = NULL;
 
 void
@@ -1104,6 +1112,7 @@ coap_register_as_transaction_handler()
 {
   transaction_handler_process = PROCESS_CURRENT();
 }
+#endif // #}
 
 coap_transaction_t *
 coap_new_transaction(uint16_t tid, uip_ipaddr_t *addr, uint16_t port)
@@ -1123,6 +1132,7 @@ coap_new_transaction(uint16_t tid, uip_ipaddr_t *addr, uint16_t port)
   return t;
 }
 
+#if 0 // {# moved to main
 void
 coap_send_transaction(coap_transaction_t *t)
 {
@@ -1179,6 +1189,7 @@ coap_send_transaction(coap_transaction_t *t)
     coap_clear_transaction(t);
   }
 }
+#endif // #}
 
 void
 coap_clear_transaction(coap_transaction_t *t)
@@ -1209,6 +1220,7 @@ coap_get_transaction_by_tid(uint16_t tid)
   return NULL;
 }
 
+#if 0 // {# moved to main
 void
 coap_check_transactions()
 {
@@ -1224,6 +1236,7 @@ coap_check_transactions()
     }
   }
 }
+#endif // #}
 
 // {# er-coap-engine.c #}
 #include <stdio.h>
@@ -1236,27 +1249,28 @@ coap_check_transactions()
 // #include "er-coap-07-engine.h"
 #include "coap.h"
 
-// {# already defined
-/*#define DEBUG 0 */
-/*#if DEBUG*/
-/*#define PRINTF(...) printf(__VA_ARGS__)*/
-/*#define PRINT6ADDR(addr) PRINTF("[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]", ((u8_t *)addr)[0], ((u8_t *)addr)[1], ((u8_t *)addr)[2], ((u8_t *)addr)[3], ((u8_t *)addr)[4], ((u8_t *)addr)[5], ((u8_t *)addr)[6], ((u8_t *)addr)[7], ((u8_t *)addr)[8], ((u8_t *)addr)[9], ((u8_t *)addr)[10], ((u8_t *)addr)[11], ((u8_t *)addr)[12], ((u8_t *)addr)[13], ((u8_t *)addr)[14], ((u8_t *)addr)[15])*/
-/*#define PRINTLLADDR(lladdr) PRINTF(" %02x:%02x:%02x:%02x:%02x:%02x ",(lladdr)->addr[0], (lladdr)->addr[1], (lladdr)->addr[2], (lladdr)->addr[3],(lladdr)->addr[4], (lladdr)->addr[5])*/
-/*#define PRINTBITS(buf,len) { \*/
-/*      int i,j=0; \*/
-/*      for (i=0; i<len; ++i) { \*/
-/*        for (j=7; j>=0; --j) { \*/
-/*          PRINTF("%c", (((char *)buf)[i] & 1<<j) ? '1' : '0'); \*/
-/*        } \*/
-/*        PRINTF(" "); \*/
-/*      } \*/
-/*    }*/
-/*#else*/
-/*#define PRINTF(...)*/
-/*#define PRINT6ADDR(addr)*/
-/*#define PRINTLLADDR(addr)*/
-/*#define PRINTBITS(buf,len)*/
-/*#endif*/
+#if 0 // {# already defined
+#define DEBUG 0 
+#if DEBUG
+#define PRINTF(...) printf(__VA_ARGS__)
+#define PRINT6ADDR(addr) PRINTF("[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]", ((u8_t *)addr)[0], ((u8_t *)addr)[1], ((u8_t *)addr)[2], ((u8_t *)addr)[3], ((u8_t *)addr)[4], ((u8_t *)addr)[5], ((u8_t *)addr)[6], ((u8_t *)addr)[7], ((u8_t *)addr)[8], ((u8_t *)addr)[9], ((u8_t *)addr)[10], ((u8_t *)addr)[11], ((u8_t *)addr)[12], ((u8_t *)addr)[13], ((u8_t *)addr)[14], ((u8_t *)addr)[15])
+#define PRINTLLADDR(lladdr) PRINTF(" %02x:%02x:%02x:%02x:%02x:%02x ",(lladdr)->addr[0], (lladdr)->addr[1], (lladdr)->addr[2], (lladdr)->addr[3],(lladdr)->addr[4], (lladdr)->addr[5])
+#define PRINTBITS(buf,len) { \
+      int i,j=0; \
+      for (i=0; i<len; ++i) { \
+        for (j=7; j>=0; --j) { \
+          PRINTF("%c", (((char *)buf)[i] & 1<<j) ? '1' : '0'); \
+        } \
+        PRINTF(" "); \
+      } \
+    }
+#else
+#define PRINTF(...)
+#define PRINT6ADDR(addr)
+#define PRINTLLADDR(addr)
+#define PRINTBITS(buf,len)
+#endif
+#endif // #}{#
 #if DEBUG
 #define PRINTBITS(buf,len) { \
       int i,j=0; \
@@ -1272,7 +1286,7 @@ coap_check_transactions()
 #endif
 // #}
 
-PROCESS(coap_receiver, "CoAP Receiver");
+// PROCESS(coap_receiver, "CoAP Receiver"); {# moved to main #}
 
 /*-----------------------------------------------------------------------------------*/
 /*- Variables -----------------------------------------------------------------------*/
@@ -1281,7 +1295,7 @@ static service_callback_t service_cbk = NULL;
 /*-----------------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------*/
-static
+// static {# needed from app #}
 int
 handle_incoming_data(void)
 {
@@ -1474,11 +1488,13 @@ handle_incoming_data(void)
   return coap_error_code;
 }
 /*-----------------------------------------------------------------------------------*/
+#if 0 // {# moved to main
 void
 coap_receiver_init()
 {
   process_start(&coap_receiver, NULL);
 }
+#endif // #}
 /*-----------------------------------------------------------------------------------*/
 void
 coap_set_service_callback(service_callback_t callback)
@@ -1612,6 +1628,7 @@ well_known_core_handler(void* request, void* response, uint8_t *buffer, uint16_t
 }
 #endif // #}
 /*-----------------------------------------------------------------------------------*/
+#if 0 // {# moved to app
 PROCESS_THREAD(coap_receiver, ev, data)
 {
   PROCESS_BEGIN();
@@ -1636,6 +1653,8 @@ PROCESS_THREAD(coap_receiver, ev, data)
 
   PROCESS_END();
 }
+#endif // #}
+#if 0 // {# moved to app
 /*-----------------------------------------------------------------------------------*/
 /*- Client part ---------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------*/
@@ -1712,6 +1731,7 @@ PT_THREAD(coap_blocking_request(struct request_state_t *state, process_event_t e
 
   PT_END(&state->pt);
 }
+#endif // #}
 #if 0 // {# we don't use erbium
 /*-----------------------------------------------------------------------------------*/
 /*- Engine Interface ----------------------------------------------------------------*/
@@ -1806,18 +1826,18 @@ const struct rest_implementation coap_rest_implementation = {
 
 // #include "er-coap-07-observing.h" {##}
 
-// {# already defined
-/*#define DEBUG 0*/
-/*#if DEBUG*/
-/*#define PRINTF(...) printf(__VA_ARGS__)*/
-/*#define PRINT6ADDR(addr) PRINTF("[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]", ((u8_t *)addr)[0], ((u8_t *)addr)[1], ((u8_t *)addr)[2], ((u8_t *)addr)[3], ((u8_t *)addr)[4], ((u8_t *)addr)[5], ((u8_t *)addr)[6], ((u8_t *)addr)[7], ((u8_t *)addr)[8], ((u8_t *)addr)[9], ((u8_t *)addr)[10], ((u8_t *)addr)[11], ((u8_t *)addr)[12], ((u8_t *)addr)[13], ((u8_t *)addr)[14], ((u8_t *)addr)[15])*/
-/*#define PRINTLLADDR(lladdr) PRINTF("[%02x:%02x:%02x:%02x:%02x:%02x]",(lladdr)->addr[0], (lladdr)->addr[1], (lladdr)->addr[2], (lladdr)->addr[3],(lladdr)->addr[4], (lladdr)->addr[5])*/
-/*#else*/
-/*#define PRINTF(...)*/
-/*#define PRINT6ADDR(addr)*/
-/*#define PRINTLLADDR(addr)*/
-/*#endif*/
-// #}
+#if 0 // {# already defined
+#define DEBUG 0
+#if DEBUG
+#define PRINTF(...) printf(__VA_ARGS__)
+#define PRINT6ADDR(addr) PRINTF("[%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x]", ((u8_t *)addr)[0], ((u8_t *)addr)[1], ((u8_t *)addr)[2], ((u8_t *)addr)[3], ((u8_t *)addr)[4], ((u8_t *)addr)[5], ((u8_t *)addr)[6], ((u8_t *)addr)[7], ((u8_t *)addr)[8], ((u8_t *)addr)[9], ((u8_t *)addr)[10], ((u8_t *)addr)[11], ((u8_t *)addr)[12], ((u8_t *)addr)[13], ((u8_t *)addr)[14], ((u8_t *)addr)[15])
+#define PRINTLLADDR(lladdr) PRINTF("[%02x:%02x:%02x:%02x:%02x:%02x]",(lladdr)->addr[0], (lladdr)->addr[1], (lladdr)->addr[2], (lladdr)->addr[3],(lladdr)->addr[4], (lladdr)->addr[5])
+#else
+#define PRINTF(...)
+#define PRINT6ADDR(addr)
+#define PRINTLLADDR(addr)
+#endif
+#endif // #}
 
 MEMB(observers_memb, coap_observer_t, COAP_MAX_OBSERVERS);
 LIST(observers_list);

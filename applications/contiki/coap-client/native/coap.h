@@ -311,14 +311,14 @@ typedef struct coap_transaction {
   uint8_t packet[COAP_MAX_PACKET_SIZE+1]; /* +1 for the terminating '\0' to simply and savely use snprintf(buf, len+1, "", ...) in the resource handler. */
 } coap_transaction_t;
 
-void coap_register_as_transaction_handler();
+// void coap_register_as_transaction_handler(); {# moved to main #}
 
 coap_transaction_t *coap_new_transaction(uint16_t tid, uip_ipaddr_t *addr, uint16_t port);
 void coap_send_transaction(coap_transaction_t *t);
 void coap_clear_transaction(coap_transaction_t *t);
 coap_transaction_t *coap_get_transaction_by_tid(uint16_t tid);
 
-void coap_check_transactions();
+// void coap_check_transactions(); {# moved to main
 
 // {# er-coap-07-engine.h #}
 #if !defined(REST)
@@ -333,7 +333,7 @@ void coap_check_transactions();
 #include "pt.h"
 
 /* Declare server process */
-PROCESS_NAME(coap_receiver);
+// PROCESS_NAME(coap_receiver); {# moved to app #}
 
 #define SERVER_LISTEN_PORT      UIP_HTONS(COAP_SERVER_PORT)
 
@@ -342,8 +342,10 @@ typedef coap_packet_t rest_response_t;
 
 extern const struct rest_implementation coap_rest_implementation;
 
-void coap_receiver_init(void);
+// void coap_receiver_init(void); {# moved to app #}
+int handle_incoming_data(); // {# needed from app #}
 
+#if 0 // {# moved to app
 /*-----------------------------------------------------------------------------------*/
 /*- Client part ---------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------*/
@@ -370,6 +372,7 @@ PT_SPAWN(process_pt, &request_state.pt, \
                                    request, chunk_handler) \
     );
 /*-----------------------------------------------------------------------------------*/
+#endif // #}
 
 // {# er-coap-07-observing.h #}
 
