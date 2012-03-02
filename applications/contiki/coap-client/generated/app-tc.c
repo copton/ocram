@@ -2,8 +2,10 @@
 #include <stdlib.h>
 
 #include "os/tc_sleep.h"
-#include "os/tc_coap_send_transaction.h"
+#include "os/tc_receive.h"
+#include "os/tc_condition.h"
 
+#include "coap.h"
 #include "sim_assert.h"
 
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
@@ -23,9 +25,37 @@ int rand_fixed()
 // TRANSACTION
 
 extern list_t transactions_list;
+extern struct memb transactions_memb;
 
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
+
+condition_t transactions_cond;
+
+TC_RUN_THREAD void task_transactions()
+{
+    tc_condition_wait(&transactions_cond);
+    while(1) {
+        coap_transaction_t* next = NULL;
+        coap_transaction_t *t = NULL;
+        for (t = (coap_transaction_t*)list_head(transactions_list); t; t = t->next) {
+            if (t->retrans_timer.time != 0 && (next == NULL || t->retrans_timer.time < next->retrans_timer.time)) {
+                next = t;
+            }
+        }
+
+        if (next) {
+            clock_time_t now = clock_time();
+            if (now > next->retrans_timer.time) {
+                tc_condition_time_wait(&transactions_cond, now - next->retrans_timer.time);
+            }
+            ++(next->retrans_counter);
+            coap_send_transaction(next);
+        } else {
+            tc_condition_wait(&transactions_cond);
+        }
+    }
+}
 
 void coap_send_transaction(coap_transaction_t *t)
 {
@@ -37,22 +67,16 @@ void coap_send_transaction(coap_transaction_t *t)
     {
       if (t->retrans_counter==0)
       {
-        t->retrans_timer.timer.interval = COAP_RESPONSE_TIMEOUT_TICKS + (random_rand() % (clock_time_t) COAP_RESPONSE_TIMEOUT_BACKOFF_MASK);
+        t->retrans_timer.interval = COAP_RESPONSE_TIMEOUT_TICKS + (random_rand() % (clock_time_t) COAP_RESPONSE_TIMEOUT_BACKOFF_MASK);
       }
       else
       {
-        t->retrans_timer.timer.interval <<= 1; /* double */
+        t->retrans_timer.interval <<= 1; /* double */
       }
+      t->retrans_timer.time = clock_time() + t->retrans_timer.interval;
 
-#if 0 
-      /*FIXME hack, maybe there is a better way, but avoid posting everything to the process */
-      struct process *process_actual = PROCESS_CURRENT();
-      process_current = transaction_handler_process;
-      etimer_restart(&t->retrans_timer); /* interval updated above */
-      process_current = process_actual;
-#endif
-
-      list_add(transactions_list, t); /* List itself makes sure same element is not added twice. */
+      list_add(transactions_list, t);
+      tc_condition_signal(&transactions_cond);
 
       t = NULL;
     }
@@ -78,20 +102,45 @@ void coap_send_transaction(coap_transaction_t *t)
   }
 }
 
+void coap_clear_transaction(coap_transaction_t *t)
+{
+  if (t) {
+    t->retrans_timer.time = 0;
+    list_remove(transactions_list, t);
+    memb_free(&transactions_memb, t);
+  }
+}
+
+
 // BLOCKWISE TRANSFER
+typedef struct {
+    coap_packet_t* response;
+    condition_t cond;
+} blocking_ctx_t;
+
+void blocking_request_callback(void* data, void* response)
+{
+    blocking_ctx_t* ctx = data;
+    ctx->response = response;
+    tc_condition_signal(&ctx->cond);
+}
+
 void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet_t *request)
 {
     uint8_t more = 0;
     uint32_t res_block = 0;
     uint8_t block_error = 0;
     uint32_t block_num = 0;
-    coap_packet_t* response = NULL;
     coap_transaction_t* transaction;
+    blocking_ctx_t ctx;
 
     do {
         request->tid = coap_get_tid();
         if ((transaction = coap_new_transaction(request->tid, remote_ipaddr, remote_port)))
         {
+            transaction->callback = blocking_request_callback;
+            transaction->callback_data = &ctx;
+
             if (block_num>0)
             {
                 coap_set_header_block2(request, block_num, 0, REST_MAX_CHUNK_SIZE);
@@ -99,18 +148,20 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
 
             transaction->packet_len = coap_serialize_message(request, transaction->packet);
 
-            response = tc_coap_send_transaction(transaction);
+            coap_send_transaction(transaction);
 
-            if (!response)
+            tc_condition_wait(&ctx.cond);
+
+            if (!ctx.response)
             {
                 return;
             }
 
-            coap_get_header_block2(response, &res_block, &more, NULL, NULL);
+            coap_get_header_block2(ctx.response, &res_block, &more, NULL, NULL);
 
             if (res_block == block_num)
             {
-                client_chunk_handler(response);
+                client_chunk_handler(ctx.response);
                 ++(block_num);
             }
             else
@@ -126,9 +177,21 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
 }
 
 // RECEIVER
+condition_t start_receive_thread;
+
 void coap_receiver_init()
 {
+    tc_condition_signal(&start_receive_thread);
+}
 
+TC_RUN_THREAD void task_receive()
+{
+    tc_condition_wait(&start_receive_thread);
+    coap_init_connection(SERVER_LISTEN_PORT);
+    while(1) {
+        tc_receive();
+        handle_incoming_data(); 
+    }
 }
 
 // MAIN

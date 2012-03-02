@@ -1096,9 +1096,15 @@ coap_set_payload(void *packet, uint8_t *payload, size_t length)
 #endif
 #endif // #}
 
-MEMB(transactions_memb, coap_transaction_t, COAP_MAX_OPEN_TRANSACTIONS);
 // {# need to share with app but LIST macro creates static identifiers
 //LIST(transactions_list);
+//MEMB(transactions_memb, coap_transaction_t, COAP_MAX_OPEN_TRANSACTIONS);
+char CC_CONCAT(transactions_memb,_memb_count)[COAP_MAX_OPEN_TRANSACTIONS];
+coap_transaction_t CC_CONCAT(transactions_memb,_memb_mem)[COAP_MAX_OPEN_TRANSACTIONS];
+struct memb transactions_memb = {sizeof(coap_transaction_t), COAP_MAX_OPEN_TRANSACTIONS,
+                                  CC_CONCAT(transactions_memb,_memb_count),
+                                  (void *)CC_CONCAT(transactions_memb,_memb_mem)};
+
 void *LIST_CONCAT(transactions_list,_list) = NULL;
 list_t transactions_list = (list_t)&LIST_CONCAT(transactions_list,_list);
 // #}
@@ -1132,7 +1138,7 @@ coap_new_transaction(uint16_t tid, uip_ipaddr_t *addr, uint16_t port)
   return t;
 }
 
-#if 0 // {# moved to main
+#if 0 // {# moved to app
 void
 coap_send_transaction(coap_transaction_t *t)
 {
@@ -1191,6 +1197,7 @@ coap_send_transaction(coap_transaction_t *t)
 }
 #endif // #}
 
+#if 0 // {# moved to app
 void
 coap_clear_transaction(coap_transaction_t *t)
 {
@@ -1203,6 +1210,7 @@ coap_clear_transaction(coap_transaction_t *t)
     memb_free(&transactions_memb, t);
   }
 }
+#endif // #}
 
 coap_transaction_t *
 coap_get_transaction_by_tid(uint16_t tid)
@@ -1220,7 +1228,7 @@ coap_get_transaction_by_tid(uint16_t tid)
   return NULL;
 }
 
-#if 0 // {# moved to main
+#if 0 // {# moved to app
 void
 coap_check_transactions()
 {
@@ -1286,7 +1294,7 @@ coap_check_transactions()
 #endif
 // #}
 
-// PROCESS(coap_receiver, "CoAP Receiver"); {# moved to main #}
+// PROCESS(coap_receiver, "CoAP Receiver"); {# moved to app #}
 
 /*-----------------------------------------------------------------------------------*/
 /*- Variables -----------------------------------------------------------------------*/
@@ -1488,7 +1496,7 @@ handle_incoming_data(void)
   return coap_error_code;
 }
 /*-----------------------------------------------------------------------------------*/
-#if 0 // {# moved to main
+#if 0 // {# moved to app
 void
 coap_receiver_init()
 {

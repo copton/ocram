@@ -22,6 +22,7 @@ int rand_fixed()
 static struct process *transaction_handler_process = NULL;
 
 extern list_t transactions_list;
+extern struct memb transactions_memb;
 
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
@@ -77,6 +78,16 @@ void coap_send_transaction(coap_transaction_t *t)
   else
   {
     coap_clear_transaction(t);
+  }
+}
+
+
+void coap_clear_transaction(coap_transaction_t *t)
+{
+  if (t) {
+    etimer_stop(&t->retrans_timer);
+    list_remove(transactions_list, t);
+    memb_free(&transactions_memb, t);
   }
 }
 
