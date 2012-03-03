@@ -36,6 +36,7 @@ TC_RUN_THREAD void task_transactions()
 {
     tc_condition_wait(&transactions_cond);
     while(1) {
+        printf("XXX: task_transactions: loop\n");
         coap_transaction_t* next = NULL;
         coap_transaction_t *t = NULL;
         for (t = (coap_transaction_t*)list_head(transactions_list); t; t = t->next) {
@@ -46,8 +47,9 @@ TC_RUN_THREAD void task_transactions()
 
         if (next) {
             clock_time_t now = clock_time();
-            if (now > next->retrans_timer.time) {
-                tc_condition_time_wait(&transactions_cond, now - next->retrans_timer.time);
+            printf("XXX: task_transactions: sleeping? %ld %ld\n", now, next->retrans_timer.time);
+            if (now < next->retrans_timer.time) {
+                tc_condition_time_wait(&transactions_cond, next->retrans_timer.time);
             }
             ++(next->retrans_counter);
             coap_send_transaction(next);
@@ -74,6 +76,7 @@ void coap_send_transaction(coap_transaction_t *t)
         t->retrans_timer.interval <<= 1; /* double */
       }
       t->retrans_timer.time = clock_time() + t->retrans_timer.interval;
+      printf("XXX: coap_send_transaction: %ld\n", t->retrans_timer.time);
 
       list_add(transactions_list, t);
       tc_condition_signal(&transactions_cond);
@@ -120,6 +123,7 @@ typedef struct {
 
 void blocking_request_callback(void* data, void* response)
 {
+    printf("XXX: ___: blocking_request_callback %p\n", response);
     blocking_ctx_t* ctx = data;
     ctx->response = response;
     tc_condition_signal(&ctx->cond);
@@ -150,10 +154,13 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
 
             coap_send_transaction(transaction);
 
+            printf("XXX: ___: waiting for transaction to complete\n");
             tc_condition_wait(&ctx.cond);
+            printf("XXX: ___: transaction completed\n");
 
             if (!ctx.response)
             {
+                printf("XXX: ___: no response!\n");
                 return;
             }
 
@@ -189,7 +196,9 @@ TC_RUN_THREAD void task_receive()
     tc_condition_wait(&start_receive_thread);
     coap_init_connection(SERVER_LISTEN_PORT);
     while(1) {
+        printf("XXX: task_receive: wait for data\n");
         tc_receive();
+        printf("XXX: task_receive: got some data\n");
         handle_incoming_data(); 
     }
 }
@@ -216,6 +225,7 @@ TC_RUN_THREAD void task_query()
     while(1) {
         timestamp += TOGGLE_INTERVAL;
         tc_sleep(timestamp);
+        printf("XXX: task_query: wakeup\n");
 
         {
             int salt = rand_fixed() % 200;

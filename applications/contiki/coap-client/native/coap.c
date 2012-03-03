@@ -10,7 +10,6 @@
 #include "coap.h"
 // #}
 
-
 #define DEBUG 0
 #if DEBUG
 #include <stdio.h>
