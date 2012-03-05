@@ -234,7 +234,7 @@ void client_chunk_handler(void *response)
     coap_packet_t* packet = response;
     const uint8_t *chunk;
     int len = coap_get_payload(response, &chunk);
-    printf("coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
+    printf("trace: coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
 }
 
 PROCESS(coap_client, "COAP Client");
@@ -265,7 +265,7 @@ PROCESS_THREAD(coap_client, ev, data)
                 coap_set_header_uri_path(request, "random/salt");
                 coap_set_payload(request, (uint8_t*)salts, size);
 
-                printf("setting salt: %d\n", salt);
+                printf("trace: setting salt: %d\n", salt);
                 COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, &client_chunk_handler);
             }
 
@@ -279,7 +279,7 @@ PROCESS_THREAD(coap_client, ev, data)
                 coap_set_header_uri_path(request, "random");
                 coap_set_header_uri_query(request, query);
 
-                printf("query random: %s\n", query);
+                printf("trace: query random: %s\n", query);
                 COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, &client_chunk_handler);
             }
 

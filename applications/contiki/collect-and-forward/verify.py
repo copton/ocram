@@ -4,7 +4,7 @@ import fileinput
 import re
 import sys
 
-logline_pattern = re.compile(r'^log output: ([0-9]*): ([0-9]): (.*)$')
+logline_pattern = re.compile(r'^log output: ([0-9]*): ([0-9]): trace: (.*)$')
 def logline(text):
     mo = logline_pattern.match(text)
     if mo:

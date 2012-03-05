@@ -46,4 +46,4 @@ $(SKYS): %.cached.sky: $(CACHE) %.sky
 test: all OcramCooja.log
 
 OcramCooja.log: $(TEST) $(VERIFY) $(CSC) $(SKYS)
-	$(TEST) $(VERIFY) $(CSC)
+	$(TEST) $(VERIFY) $(CSC) || (mv $@ failed$@; exit 1)
