@@ -1,6 +1,8 @@
-all: app
+all: sink source
 APPS=
 CONTIKI=/home/alex/scm/contiki/
+
+PROJECT_SOURCEFILES += common.c
 
 WITH_UIP6=1
 UIP_CONF_IPV6=1

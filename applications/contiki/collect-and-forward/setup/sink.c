@@ -45,8 +45,7 @@ static void tcpip_handler(void) {
 
     counter++;
 
-    PRINT6ADDR(&UIP_IP_BUF->srcipaddr);
-    printf(": received values: %d/4: ", counter);
+    printf("trace: received values: %d/4: ", counter);
     for (i=0; i<numberof_values; i++) {
         memcpy(&value, &appdata[i * sizeof(uint32_t)], sizeof(uint32_t));
         printf("%lu ", value);

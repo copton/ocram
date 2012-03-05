@@ -1,7 +1,1 @@
-#ifndef AHJAHNEISIEYOHYAEWOO
-#define AHJAHNEISIEYOHYAEWOO
-
-#define UDP_CLIENT_PORT 8765
-#define UDP_SERVER_PORT 5678
-
-#endif
+../setup/config.h

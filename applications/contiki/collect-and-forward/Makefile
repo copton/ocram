@@ -1,4 +1,4 @@
-DIRS = native generated
+DIRS = setup native generated
 
 .PHONY: all clean test verify bench
 
@@ -13,8 +13,8 @@ clean:
 test:
 	for i in $(DIRS); do $(MAKE) -C $$i test || exit 1; done
 
-verify: test $(VERIFY)
-	$(VERIFY) `pwd`
+compare: test $(COMPARE)
+	$(COMPARE) `pwd`
 
 bench: test $(BENCH)
 	$(BENCH) `pwd`

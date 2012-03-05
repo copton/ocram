@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "os/tc_receive.h"
 #include "os/tc_send.h"
 #include "os/tc_sleep.h"
@@ -65,8 +66,7 @@ TC_RUN_THREAD void task_send()
         }
         offset = 0;
 
-        uip_debug_ipaddr_print(&server_ipaddr);
-        printf(": send values: %lu %lu\n", buf[0], buf[1]);
+        printf("trace: send values: %lu %lu\n", buf[0], buf[1]);
         tc_send(client_conn, &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT), (uint8_t*)&buf[0], sizeof(buf));
     }
 }
@@ -88,8 +88,7 @@ TC_RUN_THREAD void receive_run(uint16_t lport, uint16_t rport)
         size_t numberof_values = uip_datalen() / sizeof(uint32_t);
         uint32_t value;
 
-        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-        printf(": received values: ");
+        printf("trace: received values: ");
 
         size_t i;
         for (i=0; i<numberof_values; i++) {
@@ -113,7 +112,8 @@ TC_RUN_THREAD void collect_run()
         tc_sleep(now);
 
         uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
-        printf("reading value from sensor: %u\n", value);
+        value = rand(); // enable comparison of logs
+        printf("trace: reading value from sensor: %u\n", value);
         ASSERT(offset < MAX_NUMBEROF_VALUES);
         values[offset++] = value;
     }

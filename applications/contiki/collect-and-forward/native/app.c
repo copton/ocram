@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "contiki.h"
 #include "contiki-net.h"
 #include "dev/light-sensor.h"
@@ -64,8 +65,7 @@ PROCESS_THREAD(send_process, ev, data)
             }
             offset = 0;
 
-            uip_debug_ipaddr_print(&server_ipaddr);
-            printf(": send values: %lu %lu\n", buf[0], buf[1]);
+            printf("trace: send values: %lu %lu\n", buf[0], buf[1]);
             uip_udp_packet_sendto(client_conn, &buf[0], sizeof(buf), &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
         }
     }
@@ -99,8 +99,7 @@ PROCESS_THREAD(receive_process, ev, data)
 
             ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
 
-            uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-            printf(": received values: ");
+            printf("trace: received values: ");
             for (i=0; i<numberof_values; i++) {
                 ASSERT(offset < MAX_NUMBEROF_VALUES);
                 memcpy(&value, &appdata[i * sizeof(uint32_t)], sizeof(uint32_t));
@@ -133,7 +132,8 @@ PROCESS_THREAD(collect_process, ev, data)
         if(etimer_expired(&periodic)) {
             etimer_reset(&periodic);
             uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
-            printf("reading value from sensor: %u\n", value);
+            value = rand(); // enable comparison of logs
+            printf("trace: reading value from sensor: %u\n", value);
             ASSERT(offset < MAX_NUMBEROF_VALUES);
             values[offset++] = value;
         }

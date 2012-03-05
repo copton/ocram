@@ -25,7 +25,10 @@ log_native = load_log("native")
 log_generated = load_log("generated")
 
 if log_native != log_generated:
+    sys.stdout.write("comparison failed!\n")
     diff = difflib.unified_diff(log_native, log_generated, fromfile="native", tofile="generated")
     for line in diff:
         sys.stdout.write(line)
     sys.exit(1)
+
+sys.stdout.write("comparison succeeded!\n")
