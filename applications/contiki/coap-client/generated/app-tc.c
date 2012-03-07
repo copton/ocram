@@ -49,9 +49,10 @@ TC_RUN_THREAD void task_transactions()
             clock_time_t now = clock_time();
             if (now < next->retrans_timer.time) {
                 tc_condition_time_wait(&transactions_cond, next->retrans_timer.time);
+            } else {
+                ++(next->retrans_counter);
+                coap_send_transaction(next);
             }
-            ++(next->retrans_counter);
-            coap_send_transaction(next);
         } else {
             tc_condition_wait(&transactions_cond);
         }
