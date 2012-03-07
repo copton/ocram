@@ -67,6 +67,7 @@ PROCESS_THREAD(send_process, ev, data)
 
             printf("trace: send values: %lu %lu\n", buf[0], buf[1]);
             uip_udp_packet_sendto(client_conn, &buf[0], sizeof(buf), &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
+            PROCESS_PAUSE(); // Contiki PAL also pauses after sending a packet
         }
     }
 
