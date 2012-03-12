@@ -1,7 +1,7 @@
 #include <stdlib.h>
-#include "os/tc_receive.h"
-#include "os/tc_send.h"
-#include "os/tc_sleep.h"
+#include "tc/tc_receive.h"
+#include "tc/tc_send.h"
+#include "tc/tc_sleep.h"
 
 #include "sim_assert.h"
 

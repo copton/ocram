@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "os/tc_sleep.h"
-#include "os/tc_receive.h"
-#include "os/tc_condition.h"
+#include "tc/tc_sleep.h"
+#include "tc/tc_receive.h"
+#include "tc/tc_condition.h"
 
 #include "coap.h"
 #include "sim_assert.h"
