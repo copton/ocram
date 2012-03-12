@@ -1,0 +1,59 @@
+From b4f742492aceffa223bd75b9c016b662df6c8737 Mon Sep 17 00:00:00 2001
+From: Alexander Bernauer <alex@copton.net>
+Date: Mon, 12 Mar 2012 16:19:04 +0100
+Subject: [PATCH 4/4] detailed CPU cycle tracking for processes
+
+---
+ core/sys/process.c |   21 ++++++++++++---------
+ 1 files changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/core/sys/process.c b/core/sys/process.c
+index 70adf67..dce0fb4 100644
+--- a/core/sys/process.c
++++ b/core/sys/process.c
+@@ -172,6 +172,7 @@ exit_process(struct process *p, struct process *fromprocess)
+   process_current = old_current;
+ }
+ /*---------------------------------------------------------------------------*/
++void* process_hook = NULL;
+ static void
+ call_process(struct process *p, process_event_t ev, process_data_t data)
+ {
+@@ -188,7 +189,9 @@ call_process(struct process *p, process_event_t ev, process_data_t data)
+     PRINTF("process: calling process '%s' with event %d\n", PROCESS_NAME_STRING(p), ev);
+     process_current = p;
+     p->state = PROCESS_STATE_CALLED;
++    process_hook = p;
+     ret = p->thread(&p->pt, ev, data);
++    process_hook = NULL;
+     if(ret == PT_EXITED ||
+        ret == PT_ENDED ||
+        ev == PROCESS_EVENT_EXIT) {
+@@ -275,15 +278,15 @@ do_event(void)
+     /* If this is a broadcast event, we deliver it to all events, in
+        order of their priority. */
+     if(receiver == PROCESS_BROADCAST) {
+-      for(p = process_list; p != NULL; p = p->next) {
+-
+-	/* If we have been requested to poll a process, we do this in
+-	   between processing the broadcast event. */
+-	if(poll_requested) {
+-	  do_poll();
+-	}
+-	call_process(p, ev, data);
+-      }
++        for(p = process_list; p != NULL; p = p->next) {
++
++            /* If we have been requested to poll a process, we do this in
++               between processing the broadcast event. */
++            if(poll_requested) {
++                do_poll();
++            }
++            call_process(p, ev, data);
++        }
+     } else {
+       /* This is not a broadcast event, so we deliver it to the
+ 	 specified process. */
+-- 
+1.7.1
+

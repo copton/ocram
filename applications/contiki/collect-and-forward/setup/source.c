@@ -26,7 +26,7 @@ AUTOSTART_PROCESSES(&udp_client_process);
 static void send_packet() {
     uint32_t values[2] = {random_rand(), random_rand()};
 
-    PRINT6ADDR(&server_ipaddr); printf(": send values: %lu %lu\n", values[0], values[1]);
+    printf("trace: send values: %lu %lu\n", values[0], values[1]);
     uip_udp_packet_sendto(client_conn, values, sizeof(values), &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
 }
 

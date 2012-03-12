@@ -34,7 +34,7 @@ int counter = 0;
 
 void salt_handler(void* request, void* response, uint8_t* buffer, uint16_t preferred_size, int32_t* offset)
 {
-    printf("salt_handler\n");
+    printf("trace: salt_handler\n");
     if (++counter == 4) {
         printf("QUIT\n");
     }
@@ -59,7 +59,7 @@ void salt_handler(void* request, void* response, uint8_t* buffer, uint16_t prefe
             REST.set_response_payload(response, (uint8_t*)error, sizeof(error));
         } else {
             salt = new_salt - 1;
-            printf("received new salt: %d\n", new_salt);
+            printf("trace: received new salt: %d\n", new_salt);
             REST.set_response_status(response, REST.status.CHANGED);
         }
     }
@@ -69,7 +69,7 @@ RESOURCE(random, METHOD_GET, "random", "title=\"Random Generator :?len=1..\";rt=
 
 void random_handler(void* request, void* response, uint8_t* buffer, uint16_t preferred_size, int32_t* offset)
 {
-    printf("random_handler\n");
+    printf("trace: random_handler\n");
     const char* lengths = NULL;
     if (REST.get_query_variable(request, "len", &lengths)) {
         int length = atoi(lengths);

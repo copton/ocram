@@ -24,7 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>server</identifier>
       <description>CoAP Server</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../native/server.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/server.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>

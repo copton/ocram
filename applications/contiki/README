@@ -1,0 +1,26 @@
+dependencies:
+============
+contiki:
+-------
+git://contiki.git.sourceforge.net/gitroot/contiki/contiki
+commit b56198dc3cc43195d070ee4bb1e1644378e7b975
+plus patches from contiki-patches/
+
+git://mspsim.git.sourceforge.net/gitroot/mspsim/mspsim
+commit d11c6d14760d60e9087f69956c9e9ecb839b0c36
+plus following patch
+---8<---
+$ git d d11c6d14760d60e9087f69956c9e9ecb839b0c36..cooja_fix 
+diff --git a/se/sics/mspsim/core/MSP430Core.java b/se/sics/mspsim/core/MSP430Core.java
+index 875e9cb..0592f9d 100644
+--- a/se/sics/mspsim/core/MSP430Core.java
++++ b/se/sics/mspsim/core/MSP430Core.java
+@@ -1767,7 +1767,7 @@ public class MSP430Core extends Chip implements MSP430Constants {
+          break;
+        case AM_INDEX:
+          // Indexed if reg != PC & CG1/CG2 - will PC be incremented?
+-         srcAddress = readRegisterCG(srcRegister, as) + read(pc, MODE_WORD);
++        srcAddress = (readRegisterCG(srcRegister, as) + read(pc, MODE_WORD)) & 0xffff;
+ //         memory[pc] + (memory[pc + 1] << 8);
+          // When is PC incremented - assuming immediately after "read"?
+--->8---          

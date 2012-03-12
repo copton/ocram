@@ -4,7 +4,7 @@ import fileinput
 import re
 import sys
 
-logline_pattern = re.compile(r'^log output: ([0-9]*): ([0-9]): (.*)$')
+logline_pattern = re.compile(r'^log output: ([0-9]*): ([0-9]): trace: (.*)$')
 def logline(text):
     mo = logline_pattern.match(text)
     if mo:
@@ -24,7 +24,7 @@ def sensorinput(text):
     else:
         return None
 
-netoutput_pattern = re.compile(r'^.*: send values: (.*)$')
+netoutput_pattern = re.compile(r'send values: (.*)$')
 def netoutput(text):
     mo = netoutput_pattern.match(text)
     if mo:
@@ -33,7 +33,7 @@ def netoutput(text):
     else:
         return None
 
-netinput_pattern = re.compile(r'^.*: received values: [^:]*: (.*)$')
+netinput_pattern = re.compile(r'received values: [^:]*: (.*)$')
 def netinput(text):
     mo = netinput_pattern.match(text)
     if mo:

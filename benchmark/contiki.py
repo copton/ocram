@@ -1,6 +1,7 @@
 import hashlib
 import os
 import re
+from collections import defaultdict
 
 def open_elf(elf):
     f = open(elf, "r")
@@ -30,6 +31,11 @@ def max_stack_usage(elf):
 
     return max_size
 
+def sort(l):
+    l2 = l[:]
+    l2.sort()
+    return l2
+
 def cpu_usage(elf):
     f = open_elf(elf)
     thread_pattern = re.compile(r"^log output: [^:]*: [^:]*: thread address: ([^:]*): (.*)$")
@@ -37,9 +43,7 @@ def cpu_usage(elf):
 
     addresses = set()
     thread_ids = set()
-    cycles = { }
-    current_thread = None
-    last_cycle_count = None
+    cycles = defaultdict(list)
     for line in f.readlines():
         mo = thread_pattern.match(line)
         if mo:
@@ -54,11 +58,12 @@ def cpu_usage(elf):
         if mo:
             address = mo.group(1)
             cycle_count = int(mo.group(2))
-            if current_thread != None:
-                cycles.setdefault(current_thread, 0)
-                cycles[current_thread] += cycle_count - last_cycle_count
-            last_cycle_count = cycle_count
-            current_thread = address
+            cycles[address].append(cycle_count)
     
-    total = reduce(lambda x, y: x + y, [c for (a, c) in cycles.items() if a in addresses])
+#    interesting_cycles = dict([(a,sort(c)) for (a,c) in cycles.items() if a in addresses])
+#    print "XXX", interesting_cycles
+#    interesting_cycles = dict(map(lambda (a, c): (a, sum(c)), interesting_cycles.iteritems()))
+#    print "XXX", interesting_cycles
+#    total = sum(interesting_cycles.values())
+    total = sum([sum(c) for (a, c) in cycles.iteritems() if a in addresses])
     return total
