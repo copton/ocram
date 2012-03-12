@@ -319,7 +319,7 @@ void coap_send_transaction(coap_transaction_t *t);
 void coap_clear_transaction(coap_transaction_t *t);
 coap_transaction_t *coap_get_transaction_by_tid(uint16_t tid);
 
-// void coap_check_transactions(); {# moved to main
+void coap_check_transactions();
 
 // {# er-coap-07-engine.h #}
 #if !defined(REST)

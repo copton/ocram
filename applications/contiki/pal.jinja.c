@@ -4,7 +4,7 @@
 /*{ if "tc_sleep" in all_syscalls }*/
 #include "clock.h"
 /*{ endif }*/
-/*{ if "tc_send" in all_syscalls or "tc_receive" in all_syscalls }*/
+/*{ if "tc_send" in all_syscalls or "tc_receive" in all_syscalls or "tc_time_receive" in all_syscalls}*/
 #include "contiki-net.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -93,6 +93,13 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_receive) {
             PROCESS_YIELD_UNTIL(ev == tcpip_event && uip_newdata());
             continuation = threads[/*loop.index0*/].ctx.tc_receive.frame->ec_cont;
+        }
+/*{ endif }*/
+/*{ if "tc_time_receive" in all_syscalls }*/
+        else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_time_receive) {
+            PROCESS_YIELD_UNTIL((ev == tcpip_event && uip_newdata()) || ev == PROCESS_EVENT_TIMER);
+            threads[/*loop.index0*/].ctx.tc_time_receive.frame->ec_result = ev == PROCESS_EVENT_TIMER;
+            continuation = threads[/*loop.index0*/].ctx.tc_time_receive.frame->ec_cont;
         }
 /*{ endif }*/
 /*{ if "tc_send" in all_syscalls }*/
