@@ -134,8 +134,10 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
                 frame->cond->waiting = true;
                 etimer_set(&et, frame->tics - now);
                 PROCESS_YIELD_UNTIL((ev == PROCESS_EVENT_CONTINUE && threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting == false) || etimer_expired(&et));
+                threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_result = etimer_expired(&et);
             } else {
                 PROCESS_PAUSE();
+                threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_result = true;
             }
             continuation = threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_cont;
         }

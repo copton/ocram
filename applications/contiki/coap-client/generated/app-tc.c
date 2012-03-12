@@ -32,6 +32,7 @@ extern struct memb transactions_memb;
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
 
 condition_t transactions_cond;
+clock_time_t next_trans_time = -1;
 
 TC_RUN_THREAD void task_transactions()
 {
@@ -48,7 +49,8 @@ TC_RUN_THREAD void task_transactions()
         if (next) {
             clock_time_t now = clock_time();
             if (now < next->retrans_timer.time) {
-                tc_condition_time_wait(&transactions_cond, next->retrans_timer.time);
+                next_trans_time = next->retrans_timer.time;
+                tc_condition_time_wait(&transactions_cond, next_trans_time);
             } else {
                 ++(next->retrans_counter);
                 coap_send_transaction(next);
@@ -78,7 +80,9 @@ void coap_send_transaction(coap_transaction_t *t)
       t->retrans_timer.time = clock_time() + t->retrans_timer.interval;
 
       list_add(transactions_list, t);
-      tc_condition_signal(&transactions_cond);
+      if (t->retrans_timer.time < next_trans_time) {
+          tc_condition_signal(&transactions_cond);
+      }
 
       t = NULL;
     }

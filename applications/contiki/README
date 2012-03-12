@@ -1,0 +1,72 @@
+dependencies:
+============
+contiki:
+-------
+git://contiki.git.sourceforge.net/gitroot/contiki/contiki
+commit b56198dc3cc43195d070ee4bb1e1644378e7b975
+local modifications:
+---8<---
+diff --git a/examples/ipv6/rpl-border-router/project-conf.h b/examples/ipv6/rpl-border-router/project-conf.h
+index 8635525..8fb5b3e 100644
+--- a/examples/ipv6/rpl-border-router/project-conf.h
++++ b/examples/ipv6/rpl-border-router/project-conf.h
+@@ -32,6 +32,9 @@
+ #ifndef __PROJECT_ROUTER_CONF_H__
+ #define __PROJECT_ROUTER_CONF_H__
+ 
++#undef NETSTACK_CONF_RDC
++#define NETSTACK_CONF_RDC     nullrdc_driver
++
+ #ifndef UIP_FALLBACK_INTERFACE
+ #define UIP_FALLBACK_INTERFACE rpl_interface
+ #endif
+diff --git a/tools/cooja/apps/mspsim/cooja.config b/tools/cooja/apps/mspsim/cooja.config
+index 6aeef14..c9ab766 100644
+--- a/tools/cooja/apps/mspsim/cooja.config
++++ b/tools/cooja/apps/mspsim/cooja.config
+@@ -1,3 +1,3 @@
+ se.sics.cooja.GUI.MOTETYPES = + se.sics.cooja.mspmote.ESBMoteType se.sics.cooja.mspmote.SkyMoteType se.sics.cooja.mspmote.Exp5438MoteType
+ se.sics.cooja.GUI.JARFILES = + cooja_mspsim.jar mspsim.jar coffee.jar jipv6.jar
+-se.sics.cooja.GUI.PLUGINS = + se.sics.cooja.mspmote.plugins.MspCLI se.sics.cooja.mspmote.plugins.MspCodeWatcher se.sics.cooja.mspmote.plugins.MspStackWatcher se.sics.cooja.mspmote.plugins.MspCycleWatcher
++se.sics.cooja.GUI.PLUGINS = + se.sics.cooja.mspmote.plugins.MspCLI se.sics.cooja.mspmote.plugins.MspCodeWatcher se.sics.cooja.mspmote.plugins.MspStackWatcher se.sics.cooja.mspmote.plugins.MspCycleWatcher se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
+diff --git a/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/OcramCoojaPlugin.java b/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/OcramCoojaPlugin.java
+new file mode 120000
+index 0000000..cd798fd
+--- /dev/null
++++ b/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/OcramCoojaPlugin.java
+@@ -0,0 +1 @@
++/home/alex/scm/ocram/applications/contiki/OcramCoojaPlugin.java
+\ No newline at end of file
+diff --git a/tools/cooja/config/cooja_applet.config b/tools/cooja/config/cooja_applet.config
+index e3460ad..d7fd4b9 100644
+--- a/tools/cooja/config/cooja_applet.config
++++ b/tools/cooja/config/cooja_applet.config
+@@ -1,5 +1,5 @@
+ se.sics.cooja.GUI.MOTETYPES = se.sics.cooja.motes.DisturberMoteType se.sics.cooja.contikimote.ContikiMoteType se.sics.cooja.mspmote.ESBMoteType se.sics.cooja.mspmote.SkyMoteType
+-se.sics.cooja.GUI.PLUGINS = se.sics.cooja.plugins.Visualizer se.sics.cooja.plugins.LogListener se.sics.cooja.plugins.MoteInformation se.sics.cooja.plugins.MoteInterfaceViewer se.sics.cooja.plugins.VariableWatcher se.sics.cooja.plugins.EventListener se.sics.cooja.plugins.RadioLogger se.sics.cooja.mspmote.plugins.MspCodeWatcher se.sics.cooja.mspmote.plugins.MspStackWatcher se.sics.cooja.mspmote.plugins.MspCycleWatcher
++se.sics.cooja.GUI.PLUGINS = se.sics.cooja.plugins.Visualizer se.sics.cooja.plugins.LogListener se.sics.cooja.plugins.MoteInformation se.sics.cooja.plugins.MoteInterfaceViewer se.sics.cooja.plugins.VariableWatcher se.sics.cooja.plugins.EventListener se.sics.cooja.plugins.RadioLogger se.sics.cooja.mspmote.plugins.MspCodeWatcher se.sics.cooja.mspmote.plugins.MspStackWatcher se.sics.cooja.mspmote.plugins.MspCycleWatcher se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
+ se.sics.cooja.GUI.IP_DISTRIBUTORS = se.sics.cooja.ipdistributors.RandomIPDistributor se.sics.cooja.ipdistributors.SpatialIPDistributor se.sics.cooja.ipdistributors.IdIPDistributor
+ se.sics.cooja.GUI.POSITIONERS = se.sics.cooja.positioners.RandomPositioner se.sics.cooja.positioners.LinearPositioner se.sics.cooja.positioners.EllipsePositioner se.sics.cooja.positioners.ManualPositioner
+ se.sics.cooja.GUI.RADIOMEDIUMS = se.sics.cooja.radiomediums.UDGM se.sics.cooja.radiomediums.UDGMConstantLoss se.sics.cooja.radiomediums.DirectedGraphMedium se.sics.mrm.MRM se.sics.cooja.radiomediums.SilentRadioMedium
+diff --git a/tools/mspsim/mspsim.jar b/tools/mspsim/mspsim.jar
+index 43689ba..8a3ac7f 100644
+Binary files a/tools/mspsim/mspsim.jar and b/tools/mspsim/mspsim.jar differ
+--->8---
+
+git://mspsim.git.sourceforge.net/gitroot/mspsim/mspsim
+commit d11c6d14760d60e9087f69956c9e9ecb839b0c36
+---8<---
+$ git d d11c6d14760d60e9087f69956c9e9ecb839b0c36..cooja_fix 
+diff --git a/se/sics/mspsim/core/MSP430Core.java b/se/sics/mspsim/core/MSP430Core.java
+index 875e9cb..0592f9d 100644
+--- a/se/sics/mspsim/core/MSP430Core.java
++++ b/se/sics/mspsim/core/MSP430Core.java
+@@ -1767,7 +1767,7 @@ public class MSP430Core extends Chip implements MSP430Constants {
+          break;
+        case AM_INDEX:
+          // Indexed if reg != PC & CG1/CG2 - will PC be incremented?
+-         srcAddress = readRegisterCG(srcRegister, as) + read(pc, MODE_WORD);
++        srcAddress = (readRegisterCG(srcRegister, as) + read(pc, MODE_WORD)) & 0xffff;
+ //         memory[pc] + (memory[pc + 1] << 8);
+          // When is PC incremented - assuming immediately after "read"?
+--->8---          
