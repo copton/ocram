@@ -38,10 +38,11 @@ TC_RUN_THREAD void task_transactions()
 {
     tc_condition_wait(&transactions_cond);
     while(1) {
-        coap_transaction_t* next = NULL;
-        coap_transaction_t *t = NULL;
-        for (t = (coap_transaction_t*)list_head(transactions_list); t; t = t->next) {
-            if (t->retrans_timer.time != 0 && (next == NULL || t->retrans_timer.time < next->retrans_timer.time)) {
+        //printf("XXX: loop\n");
+        coap_transaction_t* next = list_head(transactions_list);
+        coap_transaction_t *t = next->next;
+        for (; t; t = t->next) {
+            if (t->retrans_timer.time < next->retrans_timer.time) {
                 next = t;
             }
         }
@@ -50,12 +51,16 @@ TC_RUN_THREAD void task_transactions()
             clock_time_t now = clock_time();
             if (now < next->retrans_timer.time) {
                 next_trans_time = next->retrans_timer.time;
+                //printf("XXX: time wait %p\n", next);
                 tc_condition_time_wait(&transactions_cond, next_trans_time);
             } else {
                 ++(next->retrans_counter);
+                //printf("XXX: send transaction %p\n", next);
                 coap_send_transaction(next);
             }
         } else {
+            //printf("XXX: wait\n");
+            next_trans_time = -1;
             tc_condition_wait(&transactions_cond);
         }
     }
