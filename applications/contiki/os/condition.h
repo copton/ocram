@@ -6,7 +6,6 @@
 
 typedef struct {
     struct process *waiting_process;
-    bool waiting;
 } condition_t;
 
 #endif
