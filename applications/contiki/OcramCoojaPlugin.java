@@ -150,7 +150,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     // cpu cycle monitor
     AddressMemory memory = (AddressMemory) mote.getMemory();
     try {
-        address = memory.getVariableAddress("process_current");
+        address = memory.getVariableAddress("process_hook");
     } catch (UnknownVariableException e) {
         simulation.stopSimulation();
         logger.error("faild to install cpu cycle monitor: " + e);
@@ -158,9 +158,18 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     }
 
     cpu.setBreakPoint(address, cycleMonitor = new CPUMonitor() {
+        int current_adr = 0;
+        long enter_cycles;
         public void cpuAction(int type, int adr, int data) {
             if (type == CPUMonitor.MEMORY_WRITE) {
-                log("cycle monitor action: 0x" + Integer.toHexString(data) + ", " + cpu.cycles);
+                if (data == 0) {
+                    assert (current_adr != 0);
+                    log("cycle monitor action: 0x" + Integer.toHexString(current_adr) + ", " + (cpu.cycles - enter_cycles));
+                    current_adr = 0;
+                }  else {
+                    current_adr = data;
+                    enter_cycles = cpu.cycles;
+                }
             }
         }
     });
