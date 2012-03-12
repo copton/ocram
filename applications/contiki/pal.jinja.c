@@ -61,7 +61,7 @@ void tc_condition_signal(condition_t* cond)
 {
     if (cond->waiting) {
        cond->waiting = false;
-       process_post(cond->waiting_process, PROCESS_EVENT_CONTINUE, NULL);
+       process_post(cond->waiting_process, PROCESS_EVENT_CONTINUE, &tc_condition_signal);
     }
 }
 /*{ endif }*/
@@ -126,17 +126,10 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
 /*{ endif }*/
 /*{ if "tc_condition_time_wait" in all_syscalls }*/
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_condition_time_wait) {
-            ec_frame_tc_condition_time_wait_t* frame = threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame;
-            static struct etimer et;
-            clock_time_t now = clock_time();
-            if (frame->tics > now) {
-                frame->cond->waiting_process = PROCESS_CURRENT();
-                frame->cond->waiting = true;
-                etimer_set(&et, frame->tics - now);
-                PROCESS_YIELD_UNTIL((ev == PROCESS_EVENT_CONTINUE && threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting == false) || etimer_expired(&et));
-            } else {
-                PROCESS_PAUSE();
-            }
+            threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting_process = PROCESS_CURRENT();
+            threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting = true;
+            PROCESS_YIELD_UNTIL((ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal) || ev == PROCESS_EVENT_TIMER);
+            threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_result = ev == PROCESS_EVENT_TIMER;
             continuation = threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_cont;
         }
 /*{ endif }*/

@@ -1196,7 +1196,6 @@ coap_send_transaction(coap_transaction_t *t)
 }
 #endif // #}
 
-#if 0 // {# moved to app
 void
 coap_clear_transaction(coap_transaction_t *t)
 {
@@ -1209,7 +1208,6 @@ coap_clear_transaction(coap_transaction_t *t)
     memb_free(&transactions_memb, t);
   }
 }
-#endif // #}
 
 coap_transaction_t *
 coap_get_transaction_by_tid(uint16_t tid)
@@ -1227,7 +1225,6 @@ coap_get_transaction_by_tid(uint16_t tid)
   return NULL;
 }
 
-#if 0 // {# moved to app
 void
 coap_check_transactions()
 {
@@ -1243,7 +1240,6 @@ coap_check_transactions()
     }
   }
 }
-#endif // #}
 
 // {# er-coap-engine.c #}
 #include <stdio.h>

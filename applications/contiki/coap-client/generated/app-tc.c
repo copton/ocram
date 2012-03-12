@@ -31,37 +31,17 @@ extern struct memb transactions_memb;
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
 
+void coap_check_transactions();
 condition_t transactions_cond;
-clock_time_t next_trans_time = -1;
+coap_transaction_t* new_transaction = NULL;
 
 TC_RUN_THREAD void task_transactions()
 {
-    tc_condition_wait(&transactions_cond);
     while(1) {
-        //printf("XXX: loop\n");
-        coap_transaction_t* next = list_head(transactions_list);
-        coap_transaction_t *t = next->next;
-        for (; t; t = t->next) {
-            if (t->retrans_timer.time < next->retrans_timer.time) {
-                next = t;
-            }
-        }
-
-        if (next) {
-            clock_time_t now = clock_time();
-            if (now < next->retrans_timer.time) {
-                next_trans_time = next->retrans_timer.time;
-                //printf("XXX: time wait %p\n", next);
-                tc_condition_time_wait(&transactions_cond, next_trans_time);
-            } else {
-                ++(next->retrans_counter);
-                //printf("XXX: send transaction %p\n", next);
-                coap_send_transaction(next);
-            }
+        if (tc_condition_time_wait(&transactions_cond)) {
+            coap_check_transactions();
         } else {
-            //printf("XXX: wait\n");
-            next_trans_time = -1;
-            tc_condition_wait(&transactions_cond);
+           etimer_restart(&new_transaction->retrans_timer); 
         }
     }
 }
@@ -76,18 +56,16 @@ void coap_send_transaction(coap_transaction_t *t)
     {
       if (t->retrans_counter==0)
       {
-        t->retrans_timer.interval = COAP_RESPONSE_TIMEOUT_TICKS + (random_rand() % (clock_time_t) COAP_RESPONSE_TIMEOUT_BACKOFF_MASK);
+        t->retrans_timer.timer.interval = COAP_RESPONSE_TIMEOUT_TICKS + (random_rand() % (clock_time_t) COAP_RESPONSE_TIMEOUT_BACKOFF_MASK);
       }
       else
       {
-        t->retrans_timer.interval <<= 1; /* double */
+        t->retrans_timer.timer.interval <<= 1; /* double */
       }
-      t->retrans_timer.time = clock_time() + t->retrans_timer.interval;
 
       list_add(transactions_list, t);
-      if (t->retrans_timer.time < next_trans_time) {
-          tc_condition_signal(&transactions_cond);
-      }
+      new_transaction = t;
+      tc_condition_signal(&transactions_cond);
 
       t = NULL;
     }
@@ -112,16 +90,6 @@ void coap_send_transaction(coap_transaction_t *t)
     coap_clear_transaction(t);
   }
 }
-
-void coap_clear_transaction(coap_transaction_t *t)
-{
-  if (t) {
-    t->retrans_timer.time = 0;
-    list_remove(transactions_list, t);
-    memb_free(&transactions_memb, t);
-  }
-}
-
 
 // BLOCKWISE TRANSFER
 typedef struct {

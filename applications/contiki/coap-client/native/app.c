@@ -81,30 +81,6 @@ void coap_send_transaction(coap_transaction_t *t)
   }
 }
 
-
-void coap_clear_transaction(coap_transaction_t *t)
-{
-  if (t) {
-    etimer_stop(&t->retrans_timer);
-    list_remove(transactions_list, t);
-    memb_free(&transactions_memb, t);
-  }
-}
-
-void coap_check_transactions()
-{
-  coap_transaction_t *t = NULL;
-
-  for (t = (coap_transaction_t*)list_head(transactions_list); t; t = t->next)
-  {
-    if (etimer_expired(&t->retrans_timer))
-    {
-      ++(t->retrans_counter);
-      coap_send_transaction(t);
-    }
-  }
-}
-
 // BLOCKWISE TRANSFER 
 struct request_state_t {
     struct pt pt;
