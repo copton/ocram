@@ -1,4 +1,4 @@
-DIRS=$(shell find . -mindepth 1 -maxdepth 1 -type d ! -name os)
+DIRS= coap-client collect-and-forward
 
 .PHONY: all clean test compare bench
 
