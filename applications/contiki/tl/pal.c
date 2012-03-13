@@ -220,10 +220,6 @@ static int create_thread(int tid, void (*fcn)(), uint16_t * stack_ptr) {
     current_thread->sp = stack_ptr;
     current_thread->state = STATE_ACTIVE;
     current_thread->data.tp = fcn;
-    switch (tid) {
-        case 0: current_thread->process = &process_thread_0;
-        default: ASSERT(0);
-    }
 
     PREPARE_STACK();
     current_thread = 0;
@@ -250,10 +246,15 @@ static void wakeup_thread(uint8_t id) {
 PROCESS_THREAD(process_scheduler, ev, data)
 {
     PROCESS_BEGIN();
+    printf("scheduler mark 1\n");
     init();
+    printf("scheduler mark 2\n");
     process_start(&process_thread_0, NULL);
+    printf("scheduler mark 3\n");
     while(1) {
+        printf("scheduler waiting\n");
         PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+        printf("scheduler continue\n");
         int i;
 
         for (i = 0; i<TOSH_MAX_THREADS; i++) {
@@ -282,15 +283,21 @@ PROCESS_THREAD(process_scheduler, ev, data)
 AUTOSTART_PROCESSES(&process_scheduler);
 
 void app_thread_0();
-uint8_t* app_stack_0;
-size_t app_stack_size_0;
+extern uint8_t app_stack_0[];
+extern size_t app_stack_size_0;
+
+uint16_t* stack_top(uint16_t* stack, uint16_t size){
+  return(&(stack[(size / sizeof(uint16_t)) - 1]));
+}
 
 PROCESS_THREAD(process_thread_0, ev, data)
 {
     PROCESS_BEGIN();
     ASSERT((app_stack_size_0 % 2) == 0);
-    create_thread(0, &app_thread_0, (uint16_t*)&app_stack_0[app_stack_size_0-1]);
+    printf("thread0: creating\n");
+    create_thread(0, &app_thread_0, stack_top(app_stack_0, app_stack_size_0));
     while(1) {
+        printf("thread0: waiting\n");
         PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
         if (0) { } 
         else if (thread_table[0].syscall == SYSCALL_tc_sleep) {
