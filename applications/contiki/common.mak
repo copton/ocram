@@ -21,7 +21,7 @@ ifndef XGCC
 $(error please specify your cross compiler command line)
 endif
 
-export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/pal.jinja.c
+export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/tc/pal.jinja.c
 
 all: app-ec.c pal.c contiki $(SKYS)
 
@@ -33,6 +33,18 @@ app-tc.pped.c: app-tc.c app-tc.o
 
 app-tc.o: app-tc.c
 	    $(CHROOT) $(XGCC) -I$(ROOT)/applications/contiki -c $<
+
+else ifeq ($(TYPE), runtime)
+ifndef XGCC
+$(error please specify your cross compiler command line)
+endif
+
+export THREAD_LIBRARY_PAL_TEMPLATE = $(ROOT)/applications/contiki/tl/pal.c
+
+all: pal.c contiki $(SKYS)
+
+pal.c: $(THREAD_LIBRARY_PAL_TEMPLATE)
+	cp $< $@
 
 else
 $(error unknown application type)

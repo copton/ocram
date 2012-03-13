@@ -4,4 +4,9 @@
 #define UDP_CLIENT_PORT 8765
 #define UDP_SERVER_PORT 5678
 
+#define DT_SEND (120 * CLOCK_SECOND)
+#define DT_COLLECT (10 * CLOCK_SECOND)
+
+#define MAX_NUMBEROF_VALUES 100
+
 #endif

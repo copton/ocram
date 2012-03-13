@@ -13,12 +13,7 @@
 #include "net/uip-debug.h"
 #include "config.h"
 
-// config
-#define DT_SEND (120 * CLOCK_SECOND)
-#define DT_COLLECT (10 * CLOCK_SECOND)
-
 // FIFO
-#define MAX_NUMBEROF_VALUES 100
 uint32_t values[MAX_NUMBEROF_VALUES];
 size_t offset;
 

@@ -16,7 +16,7 @@
 #include "dev/button-sensor.h"
 /*{ endif }*/
 /*{ if (("tc_condition_wait" in all_syscalls) or ("tc_condition_time_wait" in all_syscalls)) }*/
-#include "condition.h"
+#include "tc/condition.h"
 /*{ endif }*/
 
 /* pal_code */

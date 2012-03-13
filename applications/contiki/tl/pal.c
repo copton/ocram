@@ -29,6 +29,9 @@
  */
  
 #include "sim_assert.h"
+#include <stdint.h>
+#include "contiki.h"
+#include "clock.h"
 
 #define PUSH_GPR()         \
   __asm__("push r4");     \
@@ -82,8 +85,7 @@
   __asm__("eint");                                    \
   __asm__("push r2");                                 \
   __asm__("dint");                                    \
-  for(i=0;i<12;i++)                                   \
-    __asm__("push r3");                               \
+  {int i; for(i=0;i<12;i++) {__asm__("push r3");}}    \
   SWAP_STACK_PTR(current_thread->sp, old_stack_ptr)
 
 //This must be a power of 2
@@ -106,7 +108,7 @@ typedef enum {
 } Syscall;
 
 typedef struct {
-    int ms;
+    clock_time_t tics;
 } ctx_sleep_t;
 
 typedef struct thread{
@@ -114,7 +116,7 @@ typedef struct thread{
   volatile uint8_t state;
   volatile union{
     void (*tp) ();
-    mutex * m;
+    //mutex * m;
     uint16_t sleep;
     struct {
       uint8_t type, id;
@@ -124,7 +126,7 @@ typedef struct thread{
     ctx_sleep_t sleep; 
   } ctx;
   volatile Syscall syscall;
-  volatile struct process* process;
+  struct process* process;
 }thread;
 
 void __attribute__((naked))  thread_wrapper();
@@ -147,7 +149,7 @@ volatile uint8_t process_scheduler_active = 0;
 PROCESS(process_scheduler, "scheduler");
 PROCESS(process_thread_0, "thread_0");
 
-void service_threads()__attribute__((noinline)) {
+__attribute__((noinline)) static void service_threads() {
     uint8_t i;
 
     if (process_scheduler_active)
@@ -165,14 +167,13 @@ void service_threads()__attribute__((noinline)) {
     }
 }
 
-void tl_init() {
+static void init() {
     memset(thread_table, 0, sizeof(thread) * TOSH_MAX_THREADS);
     thread_idx = 0;
     current_thread = 0;
-    process_start(&process_scheduler, NULL);
 }
 
-void platform_switch_to_thread() __attribute__((noinline)) {
+__attribute__((noinline)) static void platform_switch_to_thread() {
     PUSH_STATUS();
     PUSH_GPR();
     SWAP_STACK_PTR(old_stack_ptr, current_thread->sp);
@@ -181,7 +182,7 @@ void platform_switch_to_thread() __attribute__((noinline)) {
     return;
 }
 
-void yield() __attribute__((noinline)) {
+__attribute__((noinline)) static void yield() {
     PUSH_STATUS();
     PUSH_GPR();
     SWAP_STACK_PTR(current_thread->sp, old_stack_ptr);
@@ -190,29 +191,69 @@ void yield() __attribute__((noinline)) {
     return;
 }
 
-void remove_thread() {
+static void remove_thread() {
     current_thread->state = STATE_NULL;
     yield() ;
 }
 
-uint8_t is_thread() {
+static uint8_t is_thread() {
     return (!!current_thread);
 }
 
-void call_fcn_ptr(void (*tp)()){
+static void call_fcn_ptr(void (*tp)()){
   (*tp)();
 }
 
-void __attribute__((naked))  thread_wrapper() {
+__attribute__((naked)) void thread_wrapper() {
     call_fcn_ptr(current_thread->data.tp);
     remove_thread();
+}
+
+static int create_thread(int tid, void (*fcn)(), uint16_t * stack_ptr) {
+    if (is_thread())
+        return(0);
+
+    ASSERT(thread_table[tid].state == STATE_NULL);
+
+    current_thread = &thread_table[tid];
+    current_thread->process = PROCESS_CURRENT();
+    current_thread->sp = stack_ptr;
+    current_thread->state = STATE_ACTIVE;
+    current_thread->data.tp = fcn;
+    switch (tid) {
+        case 0: current_thread->process = &process_thread_0;
+        default: ASSERT(0);
+    }
+
+    PREPARE_STACK();
+    current_thread = 0;
+    
+    if (!process_scheduler_active) {
+        process_poll(&process_scheduler);
+        process_scheduler_active = 1;
+    }
+    return (1);
+}
+
+static void wakeup_thread(uint8_t id) {
+    if (id >= TOSH_MAX_THREADS) {
+        return;
+    }
+
+    if (thread_table[id].state == STATE_SLEEP) {
+        thread_table[id].state = STATE_ACTIVE;
+    }
+
+    service_threads();
 }
 
 PROCESS_THREAD(process_scheduler, ev, data)
 {
     PROCESS_BEGIN();
+    init();
+    process_start(&process_thread_0, NULL);
     while(1) {
-        PT_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+        PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
         int i;
 
         for (i = 0; i<TOSH_MAX_THREADS; i++) {
@@ -238,18 +279,30 @@ PROCESS_THREAD(process_scheduler, ev, data)
     PROCESS_END();
 }
 
+AUTOSTART_PROCESSES(&process_scheduler);
+
+void app_thread_0();
+uint8_t* app_stack_0;
+size_t app_stack_size_0;
+
 PROCESS_THREAD(process_thread_0, ev, data)
 {
     PROCESS_BEGIN();
-
+    ASSERT((app_stack_size_0 % 2) == 0);
+    create_thread(0, &app_thread_0, (uint16_t*)&app_stack_0[app_stack_size_0-1]);
     while(1) {
-        PT_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+        PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
         if (0) { } 
         else if (thread_table[0].syscall == SYSCALL_tc_sleep) {
             static struct etimer et;
-            etimer_set(&et, thread_table[0].ctx.sleep.ms);
-            PROCESS_YIELD_UNTIL(etimer_expired(&et));
-            tl_wakeup(0);
+            clock_time_t now = clock_time();
+            if (thread_table[0].ctx.sleep.tics > now) {
+                etimer_set(&et, thread_table[0].ctx.sleep.tics - now);
+                PROCESS_YIELD_UNTIL(etimer_expired(&et));
+            } else {
+                PROCESS_PAUSE();
+            }
+            wakeup_thread(0);
         } else {
            ASSERT(0); 
         }
@@ -258,50 +311,13 @@ PROCESS_THREAD(process_thread_0, ev, data)
     PROCESS_END();
 }
 
-int tl_create_thread(int tid, void (*fcn)(), uint16_t * stack_ptr) {
-    if (is_thread())
-        return(0);
-
-    ASSERT(thread_table[tid].state == STATE_NULL);
-
-    current_thread = &thread_table[tid];
-    current_thread->sp = stack_ptr;
-    current_thread->state = STATE_ACTIVE;
-    current_thread->data.tp = fcn;
-    switch (tid) {
-        case 0: current_thread->process = &process_thread_0;
-        default: ASSERT(0);
-    }
-
-    PREPARE_STACK();
-    current_thread = 0;
-    
-    if (!process_scheduler_active) {
-        process_poll(&process_scheduler);
-        process_scheduler_active = 1;
-    }
-    return (1);
-}
-
-void tl_sleep(int ms) {
+void tl_sleep(int tics) {
     if (!is_thread())
         return;
 
     current_thread->state = STATE_SLEEP;
     current_thread->syscall = SYSCALL_tc_sleep;
-    current_thread->ctx.sleep.ms = ms;
-    process_poll(current_thread->process, NULL);
+    current_thread->ctx.sleep.tics = tics;
+    process_poll(current_thread->process);
     yield();
-}
-
-void tl_wakeup(uint8_t id) {
-    if (id >= TOSH_MAX_THREADS) {
-        return;
-    }
-
-    if (thread_table[id].state == STATE_SLEEP) {
-        thread_table[id].state = STATE_ACTIVE;
-    }
-
-    service_threads();
 }
