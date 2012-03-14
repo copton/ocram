@@ -200,6 +200,7 @@ PROCESS_THREAD(process_scheduler, ev, data)
     static size_t thread_idx = 0;
     init();
     create_thread(0, &app_thread_0, stack_top(app_stack_0, app_stack_size_0));
+    create_thread(1, &app_thread_1, stack_top(app_stack_1, app_stack_size_1));
     while(1) {
         printf("XXX: scheduler yield\n");
         PROCESS_YIELD();

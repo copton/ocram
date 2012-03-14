@@ -19,7 +19,6 @@ void app_thread_0() {
     }
 }
 
-#if 0
 uint8_t app_stack_1[100];
 size_t app_stack_size_1 = sizeof(app_stack_1);
 
@@ -34,4 +33,3 @@ void app_thread_1() {
         printf("woot1\n");
     }
 }
-#endif
