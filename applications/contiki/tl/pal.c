@@ -35,6 +35,7 @@ volatile int loop = 0;
 #include <stdint.h>
 #include "contiki.h"
 #include "clock.h"
+#include "tl/tl.h"
 
 #define PUSH_GPR()         \
   __asm__("push r4");     \
@@ -161,10 +162,19 @@ __attribute__((naked)) void thread_wrapper() {
     remove_thread();
 }
 
-static void create_thread(int tid, void (*fcn)(), uint16_t* stack_ptr) {
+uint16_t* stack_top(uint8_t* stack_, size_t size){
+    ASSERT((size % 2) == 0);
+    uint16_t* stack = (uint16_t*) stack_;
+    return(&(stack[(size / sizeof(uint16_t)) - 1]));
+}
+
+void tl_create_thread(void (*fcn)(), uint8_t* stack, size_t size) {
+    static int tid = 0;
+    ASSERT(tid < TOSH_MAX_THREADS);
     current_thread = thread_table + tid;
+    tid++;
     ASSERT(current_thread->state == STATE_NULL);
-    current_thread->sp = stack_ptr;
+    current_thread->sp = stack_top(stack, size);
     current_thread->state = STATE_ACTIVE;
     current_thread->data.tp = fcn;
 
@@ -181,30 +191,14 @@ static void create_thread(int tid, void (*fcn)(), uint16_t* stack_ptr) {
     process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, NULL);
 }
 
-void app_thread_0();
-extern uint8_t app_stack_0[];
-extern size_t app_stack_size_0;
-void app_thread_1();
-extern uint8_t app_stack_1[];
-extern size_t app_stack_size_1;
-
-uint16_t* stack_top(uint8_t* stack_, size_t size){
-    ASSERT((size % 2) == 0);
-    uint16_t* stack = (uint16_t*) stack_;
-    return(&(stack[(size / sizeof(uint16_t)) - 1]));
-}
-
 PROCESS_THREAD(process_scheduler, ev, data)
 {
     PROCESS_BEGIN();
     static size_t thread_idx = 0;
     init();
-    create_thread(0, &app_thread_0, stack_top(app_stack_0, app_stack_size_0));
-    create_thread(1, &app_thread_1, stack_top(app_stack_1, app_stack_size_1));
+    tl_app_main();
     while(1) {
-        printf("XXX: scheduler yield\n");
         PROCESS_YIELD();
-        printf("XXX: scheduler continue\n");
 
         size_t i;
         size_t j;

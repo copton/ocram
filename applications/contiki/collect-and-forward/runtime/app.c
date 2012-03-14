@@ -5,7 +5,6 @@
 #include "config.h"
 
 uint8_t app_stack_0[100];
-size_t app_stack_size_0 = sizeof(app_stack_0);
 
 void app_thread_0() {
     printf("app0 started\n");
@@ -20,7 +19,6 @@ void app_thread_0() {
 }
 
 uint8_t app_stack_1[100];
-size_t app_stack_size_1 = sizeof(app_stack_1);
 
 void app_thread_1() {
     printf("app1 started\n");
@@ -32,4 +30,9 @@ void app_thread_1() {
         tl_sleep(now);
         printf("woot1\n");
     }
+}
+
+void tl_app_main() {
+    tl_create_thread(&app_thread_0, app_stack_0, sizeof(app_stack_0));
+    tl_create_thread(&app_thread_1, app_stack_1, sizeof(app_stack_1));
 }
