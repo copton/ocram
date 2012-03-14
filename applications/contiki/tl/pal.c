@@ -28,9 +28,6 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-volatile int mark = 0;
-volatile int loop = 0;
-
 #include "sim_assert.h"
 #include <stdint.h>
 #include "contiki.h"
@@ -104,24 +101,24 @@ typedef struct {
 } ctx_sleep_t;
 
 typedef struct thread {
-  volatile uint16_t* sp;
-  volatile State state;
-  volatile union {
+  uint16_t* sp;
+  State state;
+  union {
     void (*tp) ();
     struct {
       struct etimer timer;
     } sleep;  
   } data;
-  volatile Syscall syscall;
+  Syscall syscall;
 } thread_t;
 
 thread_t thread_table[TOSH_MAX_THREADS];
 
 // A pointer to the current thread; is null when in regular tinyos thread
-volatile thread_t* current_thread;
+thread_t* current_thread;
 
 // The tinyos stack pointer while we are executing a thread
-volatile uint16_t* old_stack_ptr = 0;
+uint16_t* old_stack_ptr = 0;
 
 PROCESS(process_scheduler, "scheduler");
 
@@ -199,35 +196,28 @@ PROCESS_THREAD(process_scheduler, ev, data)
     init();
     tl_app_main();
     while(1) {
-        printf("XXX: sched: yield\n");
         PROCESS_YIELD();
-        printf("XXX: sched: resume\n");
 
         size_t i;
         size_t j;
         thread_t* t;
         for (i=0; i<TOSH_MAX_THREADS; i++) {
-            loop++;
             j = TOSH_MAX_THREADS_MASK & (thread_idx + i);
             t = thread_table + j;
             if (0) { }
             else if (ev == PROCESS_EVENT_CONTINUE && t->state == STATE_READY) {
-                printf("XXX: sched: startup, %d\n", j);
                 t->state = STATE_ACTIVE;
                 break;
             }
             else if (ev == PROCESS_EVENT_TIMER && t->state == STATE_BLOCKED && t->syscall == SYSCALL_sleep && etimer_expired(&t->data.sleep.timer)) {
-                printf("XXX: sched: sleep, %d\n", j);
                 t->state = STATE_ACTIVE;
                 break;
             }
             else if (ev == tcpip_event && uip_newdata() && t->state == STATE_BLOCKED && t->syscall == SYSCALL_receive) {
-                printf("XXX: sched: receive, %d\n", j);
                 t->state = STATE_ACTIVE;
                 break;
             }
             else if (ev == PROCESS_EVENT_CONTINUE && t->state == STATE_BLOCKED && t->syscall == SYSCALL_send) {
-                printf("XXX: sched: send, %d\n", j);
                 t->state = STATE_ACTIVE;
                 break;
             }
@@ -245,26 +235,22 @@ PROCESS_THREAD(process_scheduler, ev, data)
 AUTOSTART_PROCESSES(&process_scheduler);
 
 void tl_sleep(clock_time_t tics) {
-    printf("XXX: app: sleep\n");
     clock_time_t now = clock_time();
     if (tics > now) {
         current_thread->state = STATE_BLOCKED;
         current_thread->syscall = SYSCALL_sleep;
-        printf("XXX: app: sleep dt = %lu\n", tics - now);
         etimer_set(&current_thread->data.sleep.timer, tics - now);
     }
     yield();
 }
 
 void tl_receive() {
-    printf("XXX: app: receive\n");
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_receive;
     yield();
 }
 
 void tl_send(struct uip_udp_conn* conn, uip_ipaddr_t* addr, uint16_t rport, uint8_t* buffer, size_t len) {
-    printf("XXX: app: send\n");
 
     uip_udp_packet_sendto(conn, buffer, len, addr, rport);
 
