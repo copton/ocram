@@ -198,7 +198,9 @@ PROCESS_THREAD(process_scheduler, ev, data)
     init();
     tl_app_main();
     while(1) {
+        printf("XXX: sched: yield\n");
         PROCESS_YIELD();
+        printf("XXX: sched: resume\n");
 
         size_t i;
         size_t j;
@@ -209,15 +211,16 @@ PROCESS_THREAD(process_scheduler, ev, data)
             t = thread_table + j;
             if (0) { }
             else if (ev == PROCESS_EVENT_CONTINUE && t->state == STATE_ACTIVE) {
+                printf("XXX: sched: CONTINUE, %d\n", j);
                 break;
             }
             else if (ev == PROCESS_EVENT_TIMER && t->state == STATE_BLOCKED && t->syscall == SYSCALL_sleep && etimer_expired(&t->data.sleep.timer)) {
+                printf("XXX: sched: TIMER, %d\n", j);
                 t->state = STATE_ACTIVE;
                 break;
             }
         }
         current_thread = t;
-        PROCESS_PAUSE();
         platform_switch_to_thread();
         current_thread = 0;
 
@@ -230,6 +233,7 @@ PROCESS_THREAD(process_scheduler, ev, data)
 AUTOSTART_PROCESSES(&process_scheduler);
 
 void tl_sleep(clock_time_t tics) {
+    printf("XXX: app: sleep\n");
     clock_time_t now = clock_time();
     if (tics > now) {
         current_thread->state = STATE_BLOCKED;
