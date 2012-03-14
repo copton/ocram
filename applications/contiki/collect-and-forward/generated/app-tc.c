@@ -68,7 +68,7 @@ TC_RUN_THREAD void task_send()
 
 // receive
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
-TC_RUN_THREAD void receive_run(uint16_t lport, uint16_t rport)
+TC_RUN_THREAD void task_receive(uint16_t lport, uint16_t rport)
 {
     struct uip_udp_conn *server_conn;
     server_conn = udp_new(NULL, UIP_HTONS(UDP_CLIENT_PORT), NULL);
@@ -97,7 +97,7 @@ TC_RUN_THREAD void receive_run(uint16_t lport, uint16_t rport)
 }
 
 // collect
-TC_RUN_THREAD void collect_run()
+TC_RUN_THREAD void task_collect()
 {
     SENSORS_ACTIVATE(light_sensor);
 
