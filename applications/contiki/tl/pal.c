@@ -246,17 +246,12 @@ static void wakeup_thread(uint8_t id) {
 PROCESS_THREAD(process_scheduler, ev, data)
 {
     PROCESS_BEGIN();
-    printf("scheduler mark 1\n");
     init();
-    printf("scheduler mark 2\n");
     process_start(&process_thread_0, NULL);
-    printf("scheduler mark 3\n");
     while(1) {
-        printf("scheduler waiting\n");
         PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
-        printf("scheduler continue\n");
-        int i;
 
+        int i;
         for (i = 0; i<TOSH_MAX_THREADS; i++) {
             uint8_t j = TOSH_MAX_THREADS_MASK & (thread_idx + i);
             if (thread_table[j].state == STATE_ACTIVE)
@@ -286,18 +281,17 @@ void app_thread_0();
 extern uint8_t app_stack_0[];
 extern size_t app_stack_size_0;
 
-uint16_t* stack_top(uint16_t* stack, uint16_t size){
-  return(&(stack[(size / sizeof(uint16_t)) - 1]));
+uint16_t* stack_top(uint8_t* stack_, size_t size){
+    uint16_t* stack = (uint16_t*) stack_;
+    return(&(stack[(size / sizeof(uint16_t)) - 1]));
 }
 
 PROCESS_THREAD(process_thread_0, ev, data)
 {
     PROCESS_BEGIN();
     ASSERT((app_stack_size_0 % 2) == 0);
-    printf("thread0: creating\n");
     create_thread(0, &app_thread_0, stack_top(app_stack_0, app_stack_size_0));
     while(1) {
-        printf("thread0: waiting\n");
         PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
         if (0) { } 
         else if (thread_table[0].syscall == SYSCALL_tc_sleep) {
@@ -318,7 +312,7 @@ PROCESS_THREAD(process_thread_0, ev, data)
     PROCESS_END();
 }
 
-void tl_sleep(int tics) {
+void tl_sleep(clock_time_t tics) {
     if (!is_thread())
         return;
 

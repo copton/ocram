@@ -12,7 +12,7 @@ void app_thread_0() {
     clock_time_t now = clock_time();
     while(1) {
         printf("app loop\n");
-        now += 10* DT_COLLECT;
+        now += DT_COLLECT;
         printf("app sleep\n");
         tl_sleep(now);
         printf("woot\n");
