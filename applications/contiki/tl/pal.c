@@ -148,6 +148,7 @@ volatile uint8_t process_scheduler_active = 0;
 
 PROCESS(process_scheduler, "scheduler");
 PROCESS(process_thread_0, "thread_0");
+PROCESS(process_thread_1, "thread_1");
 
 __attribute__((noinline)) static void service_threads() {
     uint8_t i;
@@ -248,6 +249,7 @@ PROCESS_THREAD(process_scheduler, ev, data)
     PROCESS_BEGIN();
     init();
     process_start(&process_thread_0, NULL);
+    process_start(&process_thread_1, NULL);
     while(1) {
         PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
 
@@ -277,14 +279,14 @@ PROCESS_THREAD(process_scheduler, ev, data)
 
 AUTOSTART_PROCESSES(&process_scheduler);
 
-void app_thread_0();
-extern uint8_t app_stack_0[];
-extern size_t app_stack_size_0;
-
 uint16_t* stack_top(uint8_t* stack_, size_t size){
     uint16_t* stack = (uint16_t*) stack_;
     return(&(stack[(size / sizeof(uint16_t)) - 1]));
 }
+
+void app_thread_0();
+extern uint8_t app_stack_0[];
+extern size_t app_stack_size_0;
 
 PROCESS_THREAD(process_thread_0, ev, data)
 {
@@ -304,6 +306,36 @@ PROCESS_THREAD(process_thread_0, ev, data)
                 PROCESS_PAUSE();
             }
             wakeup_thread(0);
+        } else {
+           ASSERT(0); 
+        }
+    }
+
+    PROCESS_END();
+}
+
+void app_thread_1();
+extern uint8_t app_stack_1[];
+extern size_t app_stack_size_1;
+
+PROCESS_THREAD(process_thread_1, ev, data)
+{
+    PROCESS_BEGIN();
+    ASSERT((app_stack_size_0 % 2) == 0);
+    create_thread(1, &app_thread_1, stack_top(app_stack_1, app_stack_size_1));
+    while(1) {
+        PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_POLL);
+        if (0) { } 
+        else if (thread_table[1].syscall == SYSCALL_tc_sleep) {
+            static struct etimer et;
+            clock_time_t now = clock_time();
+            if (thread_table[1].ctx.sleep.tics > now) {
+                etimer_set(&et, thread_table[1].ctx.sleep.tics - now);
+                PROCESS_YIELD_UNTIL(etimer_expired(&et));
+            } else {
+                PROCESS_PAUSE();
+            }
+            wakeup_thread(1);
         } else {
            ASSERT(0); 
         }
