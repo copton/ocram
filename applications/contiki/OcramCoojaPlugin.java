@@ -15,6 +15,7 @@ import se.sics.cooja.VisPlugin;
 import se.sics.cooja.mspmote.MspMote;
 import se.sics.mspsim.core.MSP430;
 import se.sics.mspsim.util.Utils;
+import java.io.IOException;
 
 // logging
 import org.apache.log4j.Logger;
@@ -42,6 +43,8 @@ import se.sics.cooja.SimEventCentral.LogOutputEvent;
 // cpu cycle monitor
 import se.sics.cooja.AddressMemory;
 import se.sics.cooja.AddressMemory.UnknownVariableException;
+import java.util.HashMap;
+import java.util.Map;
 
 @ClassDescription("Ocram Cooja Plugin")
 @PluginType(PluginType.MOTE_PLUGIN)
@@ -94,6 +97,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   // cycle monitor
   private CPUMonitor cycleMonitor = null;
   private int hookAddress;
+  private HashMap<Integer, Long> cycles;
 
   public OcramCoojaPlugin(Mote mote, Simulation sim, GUI gui) {
     super("Ocram Cooja Plugin", gui, false);
@@ -101,6 +105,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     mspMote = (MspMote) mote;
     cpu = mspMote.getCPU();
     appStacks = new ArrayList<AppStack>();
+    cycles = new HashMap<Integer, Long>();
   }
 
   public boolean setConfigXML(Collection<Element> configXML, boolean visAvailable) {
@@ -110,14 +115,14 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
       String name = element.getName();
       if ("appstack".equals(name)) {
         String variable = element.getText();
-        assert (! variable.isEmpty());
+        if (variable.isEmpty()) {
+          throw new OcramError("appstack without name");
+        }
         int size;
         try {
           size = element.getAttribute("size").getIntValue();
         } catch (org.jdom.DataConversionException e) {
-          AssertionError e2 = new AssertionError();
-          e2.initCause(e);
-          throw e2;
+          throw new OcramError("appstack with non-integer size attribute", e);
         }
 
         AppStack appStack = new AppStack(variable);
@@ -141,10 +146,8 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         }
         logwriter = new BufferedWriter(new FileWriter(logfile));
         log("logfile open: " + logfile.getCanonicalPath());
-    } catch (java.io.IOException e) {
-        logger.error("failed to open log file: " + e);
-        simulation.stopSimulation();
-        return;
+    } catch (IOException e) {
+        throw new OcramError("could not open logfile", e);
     }
 
     // open log
@@ -159,9 +162,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         md.update(contents);
         checksum = getHex(md.digest());
     } catch (Exception e) {
-        logger.fatal("failed to determine md5 sum of elf file: " + e);
-        simulation.stopSimulation();
-        return;
+        throw new OcramError("failed to determine md5 sum of elf file", e);
     }
     log("md5 sum of " + path  + ": " + checksum);
     log("random seed: " + simulation.getRandomSeed());
@@ -177,9 +178,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         try {
           address = memory.getVariableAddress(appstack.variable);
         } catch (UnknownVariableException e) {
-          logger.fatal("could not find stack variable: " + e);
-          simulation.stopSimulation();
-          return;
+          throw new OcramError("could not find stack variable: " + appstack.variable, e);
         }
         appstack.init(address, address + appstack.size);
       }
@@ -195,8 +194,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
               count++;
               return;
             }
-            logger.fatal("Stack overflow! (stack = " + appStackVariable + ", PC=" + Integer.toHexString(cpu.reg[MSP430.PC]) + ", adr=" + Integer.toHexString(adr) + ", data=" + Integer.toHexString(data) + ")\n");
-            simulation.stopSimulation();
+            throw new OcramError("Stack overflow! (stack = " + appStackVariable + ", PC=" + Integer.toHexString(cpu.reg[MSP430.PC]) + ", adr=" + Integer.toHexString(adr) + ", data=" + Integer.toHexString(data) + ")");
           }
         }
       };
@@ -236,26 +234,31 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     try {
         hookAddress = memory.getVariableAddress("process_hook");
     } catch (UnknownVariableException e) {
-        simulation.stopSimulation();
-        logger.error("failed to install cpu cycle monitor: " + e);
-        return;
+        throw new OcramError("failed to install cpu cycle monitor", e);
     }
 
     cpu.addWatchPoint(hookAddress, cycleMonitor = new CPUMonitor() {
-        int current_adr = 0;
-        long enter_cycles;
-        public void cpuAction(int type, int adr, int data) {
-            if (type == CPUMonitor.MEMORY_WRITE) {
-                if (data == 0) {
-                    assert (current_adr != 0);
-// XXX                    log("cycle monitor action: 0x" + Integer.toHexString(current_adr) + ", " + (cpu.cycles - enter_cycles));
-                    current_adr = 0;
-                }  else {
-                    current_adr = data;
-                    enter_cycles = cpu.cycles;
-                }
+      int currentAddress = 0;
+      long enterCycles;
+      public void cpuAction(int type, int adr, int data) {
+        if (type == CPUMonitor.MEMORY_WRITE) {
+          if (data == 0) {
+            assert (currentAddress != 0);
+
+            Long value = cycles.get(currentAddress);
+            if (value == null) {
+              value = new Long(0);
             }
+            value += cpu.cycles - enterCycles;
+            cycles.put(currentAddress, value);
+            
+            currentAddress = 0;
+          }  else {
+            currentAddress = data;
+            enterCycles = cpu.cycles;
+          }
         }
+      }
     });
 
     logger.info("Ocram Cooja Plugin loaded.");
@@ -278,6 +281,16 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
 
     // cpu cycle monitor
     cpu.removeWatchPoint(hookAddress, cycleMonitor);
+    for (Map.Entry<Integer, Long> entry : cycles.entrySet()) {
+      log("cpu cycles: " + Integer.toHexString(entry.getKey()) + ": " + entry.getValue());
+    }
+
+    // shutdown
+    try {
+      logwriter.close();
+    } catch (IOException e) {
+      throw new OcramError("failed to close logfile", e); 
+    }
   }
 
   public Mote getMote() {
@@ -292,8 +305,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         logwriter.write("\n");
         logwriter.flush();
     } catch (java.io.IOException e) {
-        logger.error("failed do write to log file: " + e);
-        simulation.stopSimulation();
+        throw new OcramError("failed to write to log file", e);
     }
   }
 
@@ -308,5 +320,18 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
          .append(HEXES.charAt((b & 0x0F)));
     }
     return hex.toString();
+  }
+
+  public class OcramError extends Error {
+    public OcramError(String what) {
+      this(what, null);
+    }
+
+    public OcramError(String what, Throwable cause) {
+      super("Exception in Ocram-Cooja plugin: " + what);
+      if (cause != null) {
+        initCause(cause);
+      }
+    }
   }
 }
