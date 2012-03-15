@@ -104,6 +104,7 @@ void task_collect()
 
 void tl_app_main()
 {
+    printf("XXX: collect = %p, receive = %p, send = %p\n", stack_collect, stack_receive, stack_send);
     uip_ipaddr_t ipaddr;
     uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
     uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);

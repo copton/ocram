@@ -31,6 +31,9 @@ import se.sics.mspsim.core.CPUMonitor;
 import se.sics.mspsim.util.MapTable;
 import java.util.Observable;
 import java.util.Observer;
+import java.util.ArrayList;
+import java.util.Collection;
+import org.jdom.Element;
 
 // log monitor
 import se.sics.cooja.SimEventCentral.LogOutputListener; 
@@ -56,19 +59,47 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   private Observer stackObserver = null;
   private int maxStack;
   private int stackStartAddress = 0xa00;
+  private class AppStack {
+    public String variable;
+    public int address;
+    public CPUMonitor monitor;
+    public AppStack(String v) {
+      variable = v;
+      address = -1;
+      monitor = null;
+    }
+  }
+  private ArrayList<AppStack> appStacks;
 
   // log monitor
   private LogOutputListener logMonitor = null;
   
   // cycle monitor
   private CPUMonitor cycleMonitor = null;
-  private int address;
+  private int hookAddress;
 
   public OcramCoojaPlugin(Mote mote, Simulation sim, GUI gui) {
     super("Ocram Cooja Plugin", gui, false);
     simulation = sim;
     mspMote = (MspMote) mote;
     cpu = mspMote.getCPU();
+    appStacks = new ArrayList<AppStack>();
+  }
+
+  public boolean setConfigXML(Collection<Element> configXML, boolean visAvailable) {
+    for (Element element : configXML) {
+      String name = element.getName();
+      if ("appstack".equals(name)) {
+        String text = element.getText();
+        assert(! text.isEmpty());
+        appStacks.add(new AppStack(text));
+      }
+    }
+    return true;
+  }
+
+  public void startPlugin() {
+    AddressMemory memory = (AddressMemory) mspMote.getMemory();
     File firmware = ((MspMoteType)mspMote.getType()).getContikiFirmwareFile();
 
     // setup
@@ -115,7 +146,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         }                                                    
     }                                                      
 
-    cpu.setRegisterWriteMonitor(MSP430.SP, stackMonitor = new CPUMonitor() {
+    cpu.addRegisterWriteMonitor(MSP430.SP, stackMonitor = new CPUMonitor() {
         public void cpuAction(int type, int adr, int data) {
             int size = ((stackStartAddress - data) + 0xffff) % 0xffff;
             if (maxStack < size) {
@@ -125,14 +156,37 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         }
     });
 
+    for (AppStack appstack : appStacks) {
+      try {
+        appstack.address = memory.getVariableAddress(appstack.variable);
+        final String appStackVariable = appstack.variable;
+        log("XXX: var = " + appstack.variable + ", addr = " + Integer.toHexString(appstack.address) + "\n");
+        appstack.monitor = new CPUMonitor() {
+          private int count = 0;
+          public void cpuAction(int type, int adr, int data) {
+            if (type == CPUMonitor.MEMORY_WRITE) {
+              // first access is by reset vector
+              if (count == 0) {
+                count++;
+                return;
+              }
+              simulation.stopSimulation();
+              logger.error("Stack overflow! (stack = " + appStackVariable + ", PC=" + Integer.toHexString(cpu.reg[MSP430.PC]) + ", adr=" + Integer.toHexString(adr) + ", data=" + Integer.toHexString(data) + ")\n");
+            }
+          }
+        };
+        cpu.addWatchPoint(appstack.address, appstack.monitor);
+      } catch (UnknownVariableException e) {
+        simulation.stopSimulation();
+        logger.error("faild to install cpu cycle monitor: " + e);
+        return;
+      }
+    }
+
     mspMote.getStackOverflowObservable().addObserver(stackObserver = new Observer() {
         public void update(Observable obs, Object obj) {
             simulation.stopSimulation();
-            logger.error(
-                "Bad memory access!\nSimulation stopped.\n" +
-                "\nCurrent stack pointer = 0x" + Utils.hex16(cpu.reg[MSP430.SP]) +
-                "\nStart of heap = 0x" + Utils.hex16(cpu.getDisAsm().getMap().heapStartAddress)
-                );
+            logger.error("Stack overflow! (runtime)\n");
         }
     });
     mspMote.monitorStack(true);
@@ -148,16 +202,15 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     });
 
     // cpu cycle monitor
-    AddressMemory memory = (AddressMemory) mote.getMemory();
     try {
-        address = memory.getVariableAddress("process_hook");
+        hookAddress = memory.getVariableAddress("process_hook");
     } catch (UnknownVariableException e) {
         simulation.stopSimulation();
         logger.error("faild to install cpu cycle monitor: " + e);
         return;
     }
 
-    cpu.setBreakPoint(address, cycleMonitor = new CPUMonitor() {
+    cpu.addWatchPoint(hookAddress, cycleMonitor = new CPUMonitor() {
         int current_adr = 0;
         long enter_cycles;
         public void cpuAction(int type, int adr, int data) {
@@ -176,17 +229,23 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
 
     logger.info("Ocram Cooja Plugin loaded.");
   }
+      
 
   public void closePlugin() {
     // stack monitor
     mspMote.getStackOverflowObservable().deleteObserver(stackObserver);
-    cpu.setRegisterWriteMonitor(MSP430.SP, null);
+    cpu.removeRegisterWriteMonitor(MSP430.SP, stackMonitor);
+    for (AppStack appstack : appStacks) {
+      if (appstack.monitor != null) {
+        cpu.removeWatchPoint(appstack.address, appstack.monitor);
+      }
+    }
 
     // log monitor
     simulation.getEventCentral().removeLogOutputListener(logMonitor);
 
     // cpu cycle monitor
-    cpu.clearBreakPoint(address);
+    cpu.removeWatchPoint(hookAddress, cycleMonitor);
   }
 
   public Mote getMote() {
