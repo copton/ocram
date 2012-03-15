@@ -28,7 +28,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "sim_assert.h"
+
+#include "debug.h"
+
 #include <stdint.h>
 #include "contiki.h"
 #include "clock.h"
@@ -133,26 +135,39 @@ static void init() {
 }
 
 __attribute__((noinline)) static void platform_switch_to_thread() {
+    debug_mark = 90;
     PUSH_STATUS();
+    debug_mark = 91;
     PUSH_GPR();
+    debug_mark = 92;
     SWAP_STACK_PTR(old_stack_ptr, current_thread->sp);
+    debug_mark = 93;
     POP_GPR();
+    debug_mark = 94;
     POP_STATUS();
+    debug_mark = 95;
     return;
 }
 
 __attribute__((noinline)) static void yield() {
+    debug_mark = 70;
     PUSH_STATUS();
+    debug_mark = 71;
     PUSH_GPR();
+    debug_mark = 72;
     SWAP_STACK_PTR(current_thread->sp, old_stack_ptr);
+    debug_mark = 73;
     POP_GPR();
+    debug_mark = 74;
     POP_STATUS();
+    debug_mark = 75;
     return;
 }
 
 static void remove_thread() {
     current_thread->state = STATE_NULL;
-    yield() ;
+    yield();
+    ASSERT(false);
 }
 
 static void call_fcn_ptr(void (*tp)()){
@@ -209,19 +224,43 @@ PROCESS_THREAD(process_scheduler, ev, data)
             j = TOSH_MAX_THREADS_MASK & (thread_idx + i);
             t = thread_table + j;
 
-            if (
-                (ev == PROCESS_EVENT_CONTINUE && t->state == STATE_READY)
-             || (t->syscall == SYSCALL_sleep && t->state == STATE_BLOCKED && ev == PROCESS_EVENT_TIMER && etimer_expired(&t->data.sleep.timer))
-             || (t->syscall == SYSCALL_receive && t->state == STATE_BLOCKED && ev == tcpip_event && uip_newdata())
-             || (t->syscall == SYSCALL_send && t->state == STATE_BLOCKED && ev == PROCESS_EVENT_CONTINUE)
-             || ((t->syscall == SYSCALL_condition_wait || t->syscall == SYSCALL_condition_time_wait) && t->state == STATE_BLOCKED && ev == PROCESS_EVENT_CONTINUE && t->data.condition.notify)
-             ) {
-                t->state = STATE_ACTIVE;
+            if (t->state == STATE_READY && ev == PROCESS_EVENT_CONTINUE) {
+                debug_mark = 81;
                 break;
             }
+            if (t->state == STATE_BLOCKED) {
+                if (t->syscall == SYSCALL_sleep && ev == PROCESS_EVENT_TIMER && etimer_expired(&t->data.sleep.timer)) {
+                    debug_mark = 82;
+                    break;
+                }
+                if (t->syscall == SYSCALL_receive && ev == tcpip_event && uip_newdata()) {
+                    debug_mark = 83;
+                    break;
+                }
+                if (t->syscall == SYSCALL_send && ev == PROCESS_EVENT_CONTINUE) {
+                    debug_mark = 84;
+                    break;
+                }
+                if (t->syscall == SYSCALL_condition_wait && ev == PROCESS_EVENT_CONTINUE && t->data.condition.notify) {
+                    debug_mark = 85;
+                    break;
+                }
+                if (t->syscall == SYSCALL_condition_time_wait && ev == PROCESS_EVENT_CONTINUE && t->data.condition.notify) {
+                    debug_mark = 86;
+                    break;
+                }
+                if (t->syscall == SYSCALL_condition_time_wait && ev == PROCESS_EVENT_TIMER) { // XXX hijacking...
+                    debug_mark = 87;
+                    break;
+                }
+            }
         }
+        ASSERT (i != TOSH_MAX_THREADS);
         current_thread = t;
+        current_thread->state = STATE_ACTIVE;
+        debug_mark = 86;
         platform_switch_to_thread();
+        debug_mark = 87;
         current_thread = 0;
 
         thread_idx++;
@@ -267,11 +306,17 @@ void tl_condition_wait(condition_t* cond) {
     yield();
 }
 
+
 bool tl_condition_time_wait(condition_t* cond) {
+    debug_mark = 50;
     cond->waiting_thread = current_thread;
+    debug_mark = 51;
     current_thread->state = STATE_BLOCKED;
+    debug_mark = 52;
     current_thread->syscall = SYSCALL_condition_time_wait;
+    debug_mark = 53;
     yield();
+    debug_mark = 54;
     return ! current_thread->data.condition.notify;
 }
 

@@ -104,9 +104,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
 
   // debugging monitor
   private int markAddress;
-  private int loopAddress;
   private CPUMonitor markMonitor;
-  private CPUMonitor loopMonitor;
 
   public OcramCoojaPlugin(Mote mote, Simulation sim, GUI gui) {
     super("Ocram Cooja Plugin", gui, false);
@@ -302,24 +300,29 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     // debugging monitor
     try {
       markAddress = memory.getVariableAddress("debug_mark");
-      loopAddress = memory.getVariableAddress("debug_loop");
+      memory.getIntValueOf("debug_file"); // just to check existence
+      memory.getIntValueOf("debug_line"); // just to check existence
       cpu.addWatchPoint(markAddress, markMonitor = new CPUMonitor() {
         public void cpuAction(int type, int adr, int data) {
           if (type == CPUMonitor.MEMORY_WRITE) {
-            log("debug monitor: mark: " + data);
+            if (data == 0xffff) {
+               int fileAddress = ((AddressMemory)mspMote.getMemory()).getIntValueOf("debug_file");
+               byte bytes[] = mspMote.getMemory().getMemorySegment(fileAddress, 20);
+               int i;
+               for (i=0; bytes[i] != 0 && i<bytes.length; i++);
+               String filename = new String(bytes, 0, i);
+               int line = ((AddressMemory)mspMote.getMemory()).getIntValueOf("debug_line");
+               String logline = "Assertion error: file=" + filename + ", line=" + line;
+               log(logline);
+               throw new OcramError(logline);
+            } else {
+               log("debug monitor: mark: " + data);
+            }
           }
         }
       });
-      cpu.addWatchPoint(loopAddress, loopMonitor = new CPUMonitor() {
-        public void cpuAction(int type, int adr, int data) {
-          if (type == CPUMonitor.MEMORY_WRITE) {
-            log("debug monitor: loop: " + data);
-          }
-        }
-      });
-
     } catch (UnknownVariableException e) {
-
+        throw new OcramError("failed to find debug variables", e);
     }
 
     logger.info("Ocram Cooja Plugin loaded.");
@@ -356,9 +359,6 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     if (markMonitor != null) {
       cpu.removeWatchPoint(markAddress, markMonitor);
     }   
-    if (loopMonitor != null) {
-      cpu.removeWatchPoint(loopAddress, loopMonitor);
-    }
 
     // shutdown
     try {
@@ -402,7 +402,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     return hex.toString();
   }
 
-  public class OcramError extends Error {
+  public class OcramError extends RuntimeException {
     public OcramError(String what) {
       this(what, null);
     }

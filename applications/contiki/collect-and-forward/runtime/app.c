@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include "tl/tl.h"
 
-#include "sim_assert.h"
+#include "debug.h"
 
 #include "contiki.h"
 #include "contiki-net.h"

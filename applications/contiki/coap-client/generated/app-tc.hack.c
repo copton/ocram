@@ -6,7 +6,7 @@
 #include "os/tc_condition.h"
 
 #include "coap.h"
-#include "sim_assert.h"
+#include "debug.h"
 
 // config
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)

@@ -14,6 +14,6 @@ CFLAGS += -DREST=coap_rest_implementation
 CFLAGS += -DUIP_CONF_TCP=0
 CFLAGS += -I$(ROOT)/applications/contiki/
 
-PROJECT_SOURCEFILES+=coap.c
+PROJECT_SOURCEFILES+=coap.c debug.c
 
 include $(CONTIKI)/Makefile.include

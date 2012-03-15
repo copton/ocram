@@ -4,15 +4,12 @@
 #include "tl/tl.h"
 
 #include "coap.h"
-#include "sim_assert.h"
+#include "debug.h"
 
 // config
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
 #define REMOTE_PORT     UIP_HTONS(COAP_DEFAULT_PORT)
 void client_chunk_handler(void *response);
-
-volatile int debug_mark;
-volatile int debug_loop;
 
 // rand is not standard compliant on this platform and sometimes returns negative values
 int rand_fixed()
@@ -38,10 +35,14 @@ coap_transaction_t* new_transaction = NULL;
 uint8_t stack_transactions[200];
 void task_transactions()
 {
+    debug_mark = 10;
     while(1) {
+        debug_mark = 11;
         if (tl_condition_time_wait(&transactions_cond)) {
+            debug_mark = 12;
             coap_check_transactions();
         } else {
+           debug_mark = 13;
            etimer_restart(&new_transaction->retrans_timer); 
         }
     }
@@ -167,10 +168,13 @@ void coap_receiver_init()
 uint8_t stack_receive[200];
 void task_receive()
 {
+    debug_mark = 20;
     tl_condition_wait(&start_receive_thread);
     coap_init_connection(SERVER_LISTEN_PORT);
     while(1) {
+        debug_mark = 21;
         tl_receive();
+        debug_mark = 22;
         handle_incoming_data(); 
     }
 }
@@ -187,6 +191,7 @@ void client_chunk_handler(void *response)
 uint8_t stack_query[200];
 void task_query()
 {
+    debug_mark = 30;
     coap_receiver_init();
 
     uip_ipaddr_t server_ipaddr;
@@ -196,8 +201,10 @@ void task_query()
 
     clock_time_t timestamp = clock_time();
     while(1) {
+        debug_mark = 31;
         timestamp += TOGGLE_INTERVAL;
         tl_sleep(timestamp);
+        debug_mark = 32;
 
         {
             int salt = rand_fixed() % 200;

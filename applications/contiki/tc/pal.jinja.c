@@ -1,5 +1,5 @@
 #include "contiki.h"
-#include "sim_assert.h"
+#include "debug.h"
 #include <stdbool.h>
 /*{ if "tc_sleep" in all_syscalls }*/
 #include "clock.h"

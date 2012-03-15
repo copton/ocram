@@ -2,7 +2,7 @@ all: pal pal.co
 APPS=
 CONTIKI=/home/alex/scm/contiki/
 
-PROJECT_SOURCEFILES += app-ec.c
+PROJECT_SOURCEFILES += app-ec.c debug.c
 
 WITH_UIP6=1
 UIP_CONF_IPV6=1

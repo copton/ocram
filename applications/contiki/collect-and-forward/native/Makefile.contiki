@@ -2,6 +2,8 @@ all: app
 APPS=
 CONTIKI=/home/alex/scm/contiki/
 
+PROJECT_SOURCEFILES += debug.c
+
 WITH_UIP6=1
 UIP_CONF_IPV6=1
 SMALL=1

@@ -3,7 +3,7 @@
 #include "tc/tc_send.h"
 #include "tc/tc_sleep.h"
 
-#include "sim_assert.h"
+#include "debug.h"
 
 #include "contiki.h"
 #include "contiki-net.h"

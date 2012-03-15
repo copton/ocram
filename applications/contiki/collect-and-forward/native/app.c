@@ -7,7 +7,7 @@
 #include "net/uip-debug.h"
 #include "config.h"
 
-#include "sim_assert.h"
+#include "debug.h"
 
 // FIFO
 uint32_t values[MAX_NUMBEROF_VALUES];
