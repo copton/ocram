@@ -57,19 +57,36 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   // stack monitor
   private CPUMonitor stackMonitor = null;
   private Observer stackObserver = null;
-  private int maxStack;
-  private int stackStartAddress = 0xa00;
   private class AppStack {
     public String variable;
-    public int address;
+    public int size;
+    public int upperAddress;
+    public int lowerAddress;
     public CPUMonitor monitor;
+    public int maxStack;
+    public int lastSP;
     public AppStack(String v) {
       variable = v;
-      address = -1;
+      upperAddress = -1;
+      lowerAddress = -1;
+      size = -1;
       monitor = null;
+      maxStack = -1;
+      lastSP = -1;
+    }
+    public void init(int low, int high) {
+      lowerAddress = low;
+      upperAddress = high;
+      size = upperAddress - lowerAddress;
+      maxStack = 0;
+      lastSP = upperAddress - 2; // our monitor get called _after_ the first push operation
+    }
+    public String toString() {
+      return variable + "[" + size + "] (0x" + Integer.toHexString(lowerAddress) + ")";
     }
   }
   private ArrayList<AppStack> appStacks;
+  AppStack currentAppStack;
 
   // log monitor
   private LogOutputListener logMonitor = null;
@@ -87,12 +104,25 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   }
 
   public boolean setConfigXML(Collection<Element> configXML, boolean visAvailable) {
+    appStacks.add(new AppStack("<<main>>"));
+
     for (Element element : configXML) {
       String name = element.getName();
       if ("appstack".equals(name)) {
-        String text = element.getText();
-        assert(! text.isEmpty());
-        appStacks.add(new AppStack(text));
+        String variable = element.getText();
+        assert (! variable.isEmpty());
+        int size;
+        try {
+          size = element.getAttribute("size").getIntValue();
+        } catch (org.jdom.DataConversionException e) {
+          AssertionError e2 = new AssertionError();
+          e2.initCause(e);
+          throw e2;
+        }
+
+        AppStack appStack = new AppStack(variable);
+        appStack.size = size;
+        appStacks.add(appStack);
       }
     }
     return true;
@@ -103,7 +133,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     File firmware = ((MspMoteType)mspMote.getType()).getContikiFirmwareFile();
 
     // setup
-    logger.info("loading Ocram Cooja Plugin...");
+    logger.info("starting Ocram Cooja Plugin...");
     try {
         File logfile = new File("OcramCooja.log");
         if (logfile.exists()) {
@@ -129,7 +159,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         md.update(contents);
         checksum = getHex(md.digest());
     } catch (Exception e) {
-        logger.error("failed to determine md5 sum of elf file: " + e);
+        logger.fatal("failed to determine md5 sum of elf file: " + e);
         simulation.stopSimulation();
         return;
     }
@@ -137,59 +167,60 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     log("random seed: " + simulation.getRandomSeed());
 
     // stack monitor
-    maxStack = 0;
-
-    if (cpu.getDisAsm() != null) {                         
-        MapTable mapTable = cpu.getDisAsm().getMap();        
-        if (mapTable != null) {                              
-            stackStartAddress = mapTable.stackStartAddress;   
-        }                                                    
-    }                                                      
-
-    cpu.addRegisterWriteMonitor(MSP430.SP, stackMonitor = new CPUMonitor() {
-        public void cpuAction(int type, int adr, int data) {
-            int size = ((stackStartAddress - data) + 0xffff) % 0xffff;
-            if (maxStack < size) {
-                maxStack = size;
-                log("max stack size: " + maxStack);
-            }
-        }
-    });
-
     for (AppStack appstack : appStacks) {
-      try {
-        appstack.address = memory.getVariableAddress(appstack.variable);
-        final String appStackVariable = appstack.variable;
-        log("XXX: var = " + appstack.variable + ", addr = " + Integer.toHexString(appstack.address) + "\n");
-        appstack.monitor = new CPUMonitor() {
-          private int count = 0;
-          public void cpuAction(int type, int adr, int data) {
-            if (type == CPUMonitor.MEMORY_WRITE) {
-              // first access is by reset vector
-              if (count == 0) {
-                count++;
-                return;
-              }
-              simulation.stopSimulation();
-              logger.error("Stack overflow! (stack = " + appStackVariable + ", PC=" + Integer.toHexString(cpu.reg[MSP430.PC]) + ", adr=" + Integer.toHexString(adr) + ", data=" + Integer.toHexString(data) + ")\n");
-            }
-          }
-        };
-        cpu.addWatchPoint(appstack.address, appstack.monitor);
-      } catch (UnknownVariableException e) {
-        simulation.stopSimulation();
-        logger.error("faild to install cpu cycle monitor: " + e);
-        return;
+      if (appstack.variable == "<<main>>") {
+        MapTable map = cpu.getDisAsm().getMap();
+        currentAppStack = appstack;
+        appstack.init(map.heapStartAddress + 2, map.stackStartAddress);
+      } else {
+        int address;
+        try {
+          address = memory.getVariableAddress(appstack.variable);
+        } catch (UnknownVariableException e) {
+          logger.fatal("could not find stack variable: " + e);
+          simulation.stopSimulation();
+          return;
+        }
+        appstack.init(address, address + appstack.size);
       }
+      log("application stack: " + appstack);
+
+      final String appStackVariable = appstack.variable;
+      appstack.monitor = new CPUMonitor() {
+        private int count = 0;
+        public void cpuAction(int type, int adr, int data) {
+          if (type == CPUMonitor.MEMORY_WRITE) {
+            // first access is by reset vector
+            if (appStackVariable != "<<main>>" && count == 0) {
+              count++;
+              return;
+            }
+            logger.fatal("Stack overflow! (stack = " + appStackVariable + ", PC=" + Integer.toHexString(cpu.reg[MSP430.PC]) + ", adr=" + Integer.toHexString(adr) + ", data=" + Integer.toHexString(data) + ")\n");
+            simulation.stopSimulation();
+          }
+        }
+      };
+      cpu.addWatchPoint(appstack.lowerAddress, appstack.monitor);
     }
 
-    mspMote.getStackOverflowObservable().addObserver(stackObserver = new Observer() {
-        public void update(Observable obs, Object obj) {
-            simulation.stopSimulation();
-            logger.error("Stack overflow! (runtime)\n");
+    cpu.addRegisterWriteMonitor(MSP430.SP, stackMonitor = new CPUMonitor() {
+        public void cpuAction(int type, int adr, int value) {
+          /* check for context switch */
+          for (AppStack appstack : appStacks) {
+            if (value == appstack.lastSP) {
+              assert (appstack != currentAppStack);
+              currentAppStack = appstack;
+              return;
+            }
+          }
+
+          currentAppStack.lastSP = value;
+          int size = ((currentAppStack.upperAddress - value) + 0xffff) % 0xffff;
+          if (currentAppStack.maxStack < size) {
+            currentAppStack.maxStack = size;
+          }
         }
     });
-    mspMote.monitorStack(true);
 
     // log  monitor
     simulation.getEventCentral().addLogOutputListener(logMonitor = new LogOutputListener() {
@@ -206,7 +237,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         hookAddress = memory.getVariableAddress("process_hook");
     } catch (UnknownVariableException e) {
         simulation.stopSimulation();
-        logger.error("faild to install cpu cycle monitor: " + e);
+        logger.error("failed to install cpu cycle monitor: " + e);
         return;
     }
 
@@ -217,7 +248,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
             if (type == CPUMonitor.MEMORY_WRITE) {
                 if (data == 0) {
                     assert (current_adr != 0);
-                    log("cycle monitor action: 0x" + Integer.toHexString(current_adr) + ", " + (cpu.cycles - enter_cycles));
+// XXX                    log("cycle monitor action: 0x" + Integer.toHexString(current_adr) + ", " + (cpu.cycles - enter_cycles));
                     current_adr = 0;
                 }  else {
                     current_adr = data;
@@ -237,7 +268,8 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     cpu.removeRegisterWriteMonitor(MSP430.SP, stackMonitor);
     for (AppStack appstack : appStacks) {
       if (appstack.monitor != null) {
-        cpu.removeWatchPoint(appstack.address, appstack.monitor);
+        cpu.removeWatchPoint(appstack.lowerAddress, appstack.monitor);
+        log("max stack: " + appstack.variable + ": " + appstack.maxStack);
       }
     }
 

@@ -164,9 +164,9 @@
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
 	<plugin_config>
-		<appstack>stack_send</appstack>
-		<appstack>stack_receive</appstack>
-		<appstack>stack_collect</appstack>
+		<appstack size="200">stack_send</appstack>
+		<appstack size="200">stack_receive</appstack>
+		<appstack size="200">stack_collect</appstack>
     </plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>
