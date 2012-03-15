@@ -21,14 +21,19 @@ def load_log(app_type):
     
     return log
 
+def diff_log(native, other, name):
+    if native != other:
+        sys.stdout.write("comparison failed!\n")
+        diff = difflib.unified_diff(native, other, fromfile="native", tofile=name)
+        for line in diff:
+            sys.stdout.write(line)
+        sys.exit(1)
+
 log_native = load_log("native")
 log_generated = load_log("generated")
+log_runtime = load_log("runtime")
 
-if log_native != log_generated:
-    sys.stdout.write("comparison failed!\n")
-    diff = difflib.unified_diff(log_native, log_generated, fromfile="native", tofile="generated")
-    for line in diff:
-        sys.stdout.write(line)
-    sys.exit(1)
+diff_log(log_native, log_generated, "generated")
+diff_log(log_native, log_runtime, "runtime")
 
 sys.stdout.write("comparison succeeded!\n")

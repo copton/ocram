@@ -14,8 +14,6 @@
 
 #include "common.h"
 
-#define DT_SEND (30 * CLOCK_SECOND)
-
 static struct uip_udp_conn *client_conn;
 static uip_ipaddr_t server_ipaddr;
 
@@ -59,7 +57,7 @@ PROCESS_THREAD(udp_client_process, ev, data)
 
     PRINTF("source started\n");
 
-    etimer_set(&periodic, DT_SEND);
+    etimer_set(&periodic, DT_SOURCE);
     while(1) {
         PROCESS_YIELD();
         if(ev == tcpip_event) {
