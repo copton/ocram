@@ -191,7 +191,6 @@ void tl_create_thread(void (*fcn)(), uint8_t* stack, size_t size) {
 PROCESS_THREAD(process_scheduler, ev, data)
 {
     PROCESS_BEGIN();
-    printf("thread address: 0: %p\n", process_current);
     static size_t thread_idx = 0;
     init();
     tl_app_main();

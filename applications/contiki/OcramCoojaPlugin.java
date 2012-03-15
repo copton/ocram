@@ -92,11 +92,13 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   AppStack currentAppStack;
 
   // log monitor
-  private LogOutputListener logMonitor = null;
+  private LogOutputListener logMonitor;
   
   // cycle monitor
-  private CPUMonitor cycleMonitor = null;
+  private CPUMonitor cycleMonitor;
   private int hookAddress;
+  private ArrayList<String> processVariables;
+  private HashMap<Integer, String> processes;
   private HashMap<Integer, Long> cycles;
 
   public OcramCoojaPlugin(Mote mote, Simulation sim, GUI gui) {
@@ -105,6 +107,8 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     mspMote = (MspMote) mote;
     cpu = mspMote.getCPU();
     appStacks = new ArrayList<AppStack>();
+    processVariables = new ArrayList<String>();
+    processes = new HashMap<Integer, String>();
     cycles = new HashMap<Integer, Long>();
   }
 
@@ -128,6 +132,12 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         AppStack appStack = new AppStack(variable);
         appStack.size = size;
         appStacks.add(appStack);
+      } else if ("process".equals(name)) {
+        String variable = element.getText();
+        if (variable.isEmpty()) {
+          throw new OcramError("process without name");
+        }
+        processVariables.add(variable);
       }
     }
     return true;
@@ -237,6 +247,16 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         throw new OcramError("failed to install cpu cycle monitor", e);
     }
 
+    for (String variable: processVariables) {
+      int address;
+      try {
+        address = memory.getVariableAddress(variable);
+      } catch (UnknownVariableException e) {
+        throw new OcramError("could not find process variable: " + variable, e);
+      }
+      processes.put(address, variable);
+    }
+
     cpu.addWatchPoint(hookAddress, cycleMonitor = new CPUMonitor() {
       int currentAddress = 0;
       long enterCycles;
@@ -282,7 +302,13 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     // cpu cycle monitor
     cpu.removeWatchPoint(hookAddress, cycleMonitor);
     for (Map.Entry<Integer, Long> entry : cycles.entrySet()) {
-      log("cpu cycles: " + Integer.toHexString(entry.getKey()) + ": " + entry.getValue());
+      String identifier;
+      if (processes.containsKey(entry.getKey())) {
+        identifier = processes.get(entry.getKey());
+      } else {
+        identifier = Integer.toHexString(entry.getKey());
+      }
+      log("cpu cycles: " + identifier + ": " + entry.getValue());
     }
 
     // shutdown

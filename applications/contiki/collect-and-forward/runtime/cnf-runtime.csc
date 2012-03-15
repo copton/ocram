@@ -167,6 +167,7 @@
 		<appstack size="200">stack_send</appstack>
 		<appstack size="200">stack_receive</appstack>
 		<appstack size="200">stack_collect</appstack>
+		<process>process_scheduler</process>
     </plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>
