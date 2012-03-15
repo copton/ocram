@@ -39,11 +39,11 @@ ifndef XGCC
 $(error please specify your cross compiler command line)
 endif
 
-export THREAD_LIBRARY_PAL_TEMPLATE = $(ROOT)/applications/contiki/tl/pal.c
+export THREAD_LIBRARY = $(ROOT)/applications/contiki/tl/pal.c
 
 all: pal.c contiki $(SKYS)
 
-pal.c: $(THREAD_LIBRARY_PAL_TEMPLATE)
+pal.c: $(THREAD_LIBRARY)
 	cp $< $@
 
 else

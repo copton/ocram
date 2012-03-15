@@ -85,15 +85,17 @@
 #define TOSH_MAX_THREADS_MASK (TOSH_MAX_THREADS - 1)
 typedef enum {
   STATE_NULL = 0,     // There is no thread here
-  STATE_READY = 1,    // created but not yet started
-  STATE_ACTIVE = 2,   // There is a thread here, not blocked or sleeping
-  STATE_BLOCKED = 3,  // This thread is blocked on a mutex
+  STATE_READY = 1,    // Read to be scheduled but not running
+  STATE_ACTIVE = 2,   // Currently executed
+  STATE_BLOCKED = 3,  // This thread is blocked due to a syscall
 } State;
 
 typedef enum {
     SYSCALL_sleep,
     SYSCALL_receive,
     SYSCALL_send,
+    SYSCALL_condition_wait,
+    SYSCALL_condition_time_wait,
 } Syscall;
 
 typedef struct {
@@ -108,6 +110,9 @@ typedef struct thread {
     struct {
       struct etimer timer;
     } sleep;  
+    struct {
+      bool notify;
+    } condition;
   } data;
   Syscall syscall;
 } thread_t;
@@ -203,20 +208,14 @@ PROCESS_THREAD(process_scheduler, ev, data)
         for (i=0; i<TOSH_MAX_THREADS; i++) {
             j = TOSH_MAX_THREADS_MASK & (thread_idx + i);
             t = thread_table + j;
-            if (0) { }
-            else if (ev == PROCESS_EVENT_CONTINUE && t->state == STATE_READY) {
-                t->state = STATE_ACTIVE;
-                break;
-            }
-            else if (ev == PROCESS_EVENT_TIMER && t->state == STATE_BLOCKED && t->syscall == SYSCALL_sleep && etimer_expired(&t->data.sleep.timer)) {
-                t->state = STATE_ACTIVE;
-                break;
-            }
-            else if (ev == tcpip_event && uip_newdata() && t->state == STATE_BLOCKED && t->syscall == SYSCALL_receive) {
-                t->state = STATE_ACTIVE;
-                break;
-            }
-            else if (ev == PROCESS_EVENT_CONTINUE && t->state == STATE_BLOCKED && t->syscall == SYSCALL_send) {
+
+            if (
+                (ev == PROCESS_EVENT_CONTINUE && t->state == STATE_READY)
+             || (t->syscall == SYSCALL_sleep && t->state == STATE_BLOCKED && ev == PROCESS_EVENT_TIMER && etimer_expired(&t->data.sleep.timer))
+             || (t->syscall == SYSCALL_receive && t->state == STATE_BLOCKED && ev == tcpip_event && uip_newdata())
+             || (t->syscall == SYSCALL_send && t->state == STATE_BLOCKED && ev == PROCESS_EVENT_CONTINUE)
+             || ((t->syscall == SYSCALL_condition_wait || t->syscall == SYSCALL_condition_time_wait) && t->state == STATE_BLOCKED && ev == PROCESS_EVENT_CONTINUE && t->data.condition.notify)
+             ) {
                 t->state = STATE_ACTIVE;
                 break;
             }
@@ -258,4 +257,26 @@ void tl_send(struct uip_udp_conn* conn, uip_ipaddr_t* addr, uint16_t rport, uint
     current_thread->syscall = SYSCALL_send;
     process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, NULL);
     yield();
+}
+
+void tl_condition_wait(condition_t* cond) {
+    cond->waiting_thread = current_thread;
+    current_thread->state = STATE_BLOCKED;
+    current_thread->syscall = SYSCALL_condition_wait;
+    current_thread->data.condition.notify = false;
+    yield();
+}
+
+bool tl_condition_time_wait(condition_t* cond) {
+    cond->waiting_thread = current_thread;
+    current_thread->state = STATE_BLOCKED;
+    current_thread->syscall = SYSCALL_condition_time_wait;
+    yield();
+    return ! current_thread->data.condition.notify;
+}
+
+void tl_condition_signal(condition_t* cond) {
+    thread_t* t = cond->waiting_thread;
+    t->data.condition.notify = true;
+    process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, NULL);
 }

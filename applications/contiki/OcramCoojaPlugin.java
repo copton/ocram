@@ -102,6 +102,12 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   private HashMap<Integer, String> processes;
   private HashMap<Integer, Long> cycles;
 
+  // debugging monitor
+  private int markAddress;
+  private int loopAddress;
+  private CPUMonitor markMonitor;
+  private CPUMonitor loopMonitor;
+
   public OcramCoojaPlugin(Mote mote, Simulation sim, GUI gui) {
     super("Ocram Cooja Plugin", gui, false);
     simulation = sim;
@@ -293,6 +299,29 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
       }
     });
 
+    // debugging monitor
+    try {
+      markAddress = memory.getVariableAddress("debug_mark");
+      loopAddress = memory.getVariableAddress("debug_loop");
+      cpu.addWatchPoint(markAddress, markMonitor = new CPUMonitor() {
+        public void cpuAction(int type, int adr, int data) {
+          if (type == CPUMonitor.MEMORY_WRITE) {
+            log("debug monitor: mark: " + data);
+          }
+        }
+      });
+      cpu.addWatchPoint(loopAddress, loopMonitor = new CPUMonitor() {
+        public void cpuAction(int type, int adr, int data) {
+          if (type == CPUMonitor.MEMORY_WRITE) {
+            log("debug monitor: loop: " + data);
+          }
+        }
+      });
+
+    } catch (UnknownVariableException e) {
+
+    }
+
     logger.info("Ocram Cooja Plugin loaded.");
   }
       
@@ -321,6 +350,14 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         identifier = hex(entry.getKey());
       }
       log("cpu cycles: " + identifier + ": " + entry.getValue());
+    }
+
+    // debugging monitor
+    if (markMonitor != null) {
+      cpu.removeWatchPoint(markAddress, markMonitor);
+    }   
+    if (loopMonitor != null) {
+      cpu.removeWatchPoint(loopAddress, loopMonitor);
     }
 
     // shutdown
