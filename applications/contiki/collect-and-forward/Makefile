@@ -16,5 +16,5 @@ test:
 compare: test $(COMPARE)
 	$(COMPARE) `pwd`
 
-bench: test $(BENCH)
+bench: compare $(BENCH)
 	$(BENCH) `pwd`

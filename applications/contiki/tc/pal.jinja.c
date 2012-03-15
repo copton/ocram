@@ -1,6 +1,6 @@
 #include "contiki.h"
+#include "sim_assert.h"
 #include <stdbool.h>
-#include <stdio.h>
 /*{ if "tc_sleep" in all_syscalls }*/
 #include "clock.h"
 /*{ endif }*/
@@ -67,7 +67,6 @@ void tc_condition_signal(condition_t* cond)
 PROCESS_THREAD(thread/*loop.index0*/, ev, data)
 {
     PROCESS_BEGIN();
-    printf("thread address: /*loop.index0*/: %p\n", process_current);
 
     static void* continuation = 0;
     while(true) {
@@ -134,9 +133,8 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
             continuation = threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_cont;
         }
 /*{ endif }*/
-
         else {
-            printf("thread /*loop.index0*/: unexpected syscall!\\n");
+            ASSERT(false);
         }
     }
     PROCESS_END();

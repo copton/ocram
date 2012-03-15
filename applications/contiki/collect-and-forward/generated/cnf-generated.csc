@@ -162,6 +162,11 @@
   </plugin>
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
+	<plugin_config>
+		<process>thread0</process>
+		<process>thread1</process>
+		<process>thread2</process>
+	</plugin_config>
     <mote_arg>1</mote_arg>
     <width>149</width>
     <z>0</z>

@@ -2,22 +2,31 @@ from measurements import *
 
 import os.path
 
+def frac(a, b):
+    return 100.0 * (b - a) / a
+
 class Properties(object):
     def __init__(self, name):
         self.name = name
         for i in Properties.attributes():
-            setattr(self, i, -1)
+            setattr(self, i, float('nan'))
+
+    def proportion(self, rhs):
+        prop = Properties("(%s)/(%s)" % (self.name, rhs.name))
+        for i in Properties.attributes():
+            setattr(prop, i, frac(getattr(self, i), getattr(rhs, i)))
+        return prop
+
+    def subtract(self, rhs):
+        prop = Properties("(%s)-(%s)" % (self.name, rhs.name))
+        for i in Properties.attributes():
+            setattr(prop, i, getattr(self, i) - getattr(rhs, i))
+        return prop
 
     @staticmethod
     def attributes():
         return ["text", "bss", "data", "loc", "stack", "cpu"]
 
-def frac(a, b):
-    if a == -1:
-        return -1
-    if b == -1:
-        return -1
-    return "%.2f" % (100.0 * (b - a) / a)
 
 class Setup(object):
     def __init__(self, platform, toolchain, basepath):
@@ -37,42 +46,22 @@ class Setup(object):
             prop.cpu = cpu_usage(self.platform, self.p(elf))
         return prop
 
-    def native_properties(self, cfile, elf, no_rti = False):
-        return self.app_properties("native", cfile, elf, no_rti)
+    def native_properties(self, cfile, elf):
+        return self.app_properties("nat", cfile, elf)
 
     def tcode_properties(self, cfile):
-        prop = Properties("tcode")
+        prop = Properties("tc")
         prop.loc = lines_of_code(self.p(cfile))
         return prop
 
-    def ecode_properties(self, ecfile, palfile, elf, no_rti = False):
-        prop = self.app_properties("ecode", ecfile, elf, no_rti)
+    def ecode_properties(self, ecfile, palfile, elf):
+        prop = self.app_properties("ec", ecfile, elf)
         prop.loc += lines_of_code(self.p(palfile))
         return prop
 
     def pal_properties(self, cfile, elf):
-        pal = Properties("pal")
-        pal.text, pal.data, pal.bss = app_section_size(self.toolchain, self.p(elf))
-        pal.loc = lines_of_code(self.p(cfile))
-        pal.stack = -1
-        return pal
+        return self.app_properties("pal", cfile, elf, no_rti=True)
 
-def get_overhead(native, tc, ec):
-    overhead = Properties("overhead")
+    def tl_properties(self, cfile, elf):
+        return self.app_properties("tl", cfile, elf)
 
-    overhead.text = frac(native.text, ec.text)
-    overhead.bss = frac(native.bss, ec.bss)
-    overhead.data = frac(native.data, ec.data)
-    overhead.loc = frac(native.loc, tc.loc)
-    overhead.stack = frac(native.stack, ec.stack)
-    overhead.cpu = frac(native.cpu, ec.cpu)
-
-    return overhead
-
-def get_normalized(native, ec, pal):
-    normalized = Properties("normalized")
-    normalized.text = frac(native.text, ec.text - pal.text)
-    normalized.bss = frac(native.bss, ec.bss - pal.bss)
-    normalized.data = frac(native.data, ec.data - pal.data)
-
-    return normalized

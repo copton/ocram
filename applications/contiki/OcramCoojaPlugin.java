@@ -44,6 +44,7 @@ import se.sics.cooja.SimEventCentral.LogOutputEvent;
 import se.sics.cooja.AddressMemory;
 import se.sics.cooja.AddressMemory.UnknownVariableException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 @ClassDescription("Ocram Cooja Plugin")
@@ -85,7 +86,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
       lastSP = upperAddress - 2; // our monitor get called _after_ the first push operation
     }
     public String toString() {
-      return variable + "[" + size + "] (0x" + Integer.toHexString(lowerAddress) + ")";
+      return variable + "[" + size + "] (" + hex(lowerAddress) + ")";
     }
   }
   private ArrayList<AppStack> appStacks;
@@ -115,6 +116,8 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   public boolean setConfigXML(Collection<Element> configXML, boolean visAvailable) {
     appStacks.add(new AppStack("<<main>>"));
 
+    HashSet<String> appStackVars = new HashSet<String>();
+    HashSet<String> processVars = new HashSet<String>();
     for (Element element : configXML) {
       String name = element.getName();
       if ("appstack".equals(name)) {
@@ -122,6 +125,10 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         if (variable.isEmpty()) {
           throw new OcramError("appstack without name");
         }
+        if (appStackVars.contains(variable)) {
+          throw new OcramError("duplicate appstack: " + variable);
+        }
+        appStackVars.add(variable);
         int size;
         try {
           size = element.getAttribute("size").getIntValue();
@@ -137,6 +144,10 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         if (variable.isEmpty()) {
           throw new OcramError("process without name");
         }
+        if (processVars.contains(variable)) {
+          throw new OcramError("dublicate process: " + variable);
+        }
+        processVars.add(variable);
         processVariables.add(variable);
       }
     }
@@ -204,7 +215,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
               count++;
               return;
             }
-            throw new OcramError("Stack overflow! (stack = " + appStackVariable + ", PC=" + Integer.toHexString(cpu.reg[MSP430.PC]) + ", adr=" + Integer.toHexString(adr) + ", data=" + Integer.toHexString(data) + ")");
+            throw new OcramError("Stack overflow! (stack = " + appStackVariable + ", PC=" + hex(cpu.reg[MSP430.PC]) + ", adr=" + hex(adr) + ", data=" + hex(data) + ")");
           }
         }
       };
@@ -254,6 +265,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
       } catch (UnknownVariableException e) {
         throw new OcramError("could not find process variable: " + variable, e);
       }
+      log("process monitoring: " + variable);
       processes.put(address, variable);
     }
 
@@ -306,7 +318,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
       if (processes.containsKey(entry.getKey())) {
         identifier = processes.get(entry.getKey());
       } else {
-        identifier = Integer.toHexString(entry.getKey());
+        identifier = hex(entry.getKey());
       }
       log("cpu cycles: " + identifier + ": " + entry.getValue());
     }
@@ -333,6 +345,11 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     } catch (java.io.IOException e) {
         throw new OcramError("failed to write to log file", e);
     }
+  }
+
+  private static String hex(Integer value)
+  {
+    return "0x" + Integer.toHexString(value);
   }
 
   private static final String HEXES = "0123456789abcdef";

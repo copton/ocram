@@ -34,7 +34,6 @@ PROCESS_THREAD(send_process, ev, data)
     static struct uip_udp_conn* client_conn;
 
     PROCESS_BEGIN();
-    printf("thread address: 0: %p\n", process_current);
 
     init();
     
@@ -78,7 +77,6 @@ PROCESS(receive_process, "receive process");
 PROCESS_THREAD(receive_process, ev, data)
 {
     PROCESS_BEGIN();
-    printf("thread address: 1: %p\n", process_current);
     
     static struct uip_udp_conn* server_conn;
     // udp server connection
@@ -117,7 +115,6 @@ PROCESS_THREAD(collect_process, ev, data)
     static struct etimer periodic;
 
     PROCESS_BEGIN();
-    printf("thread address: 2: %p\n", process_current);
 
     SENSORS_ACTIVATE(light_sensor);
 

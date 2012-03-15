@@ -163,6 +163,11 @@
   </plugin>
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
+    <plugin_config>
+        <process>send_process</process>
+        <process>receive_process</process>
+        <process>collect_process</process>
+    </plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>
     <z>0</z>
