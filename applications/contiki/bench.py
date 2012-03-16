@@ -24,13 +24,20 @@ def np(f):
 def gp(f):
     return os.path.join("generated", f)
 
-native = setup.native_properties(np("app.c"), np("app.cached.sky"))
+def rp(f):
+    return os.path.join("runtime", f)
+
+nat = setup.native_properties(np("app.c"), np("app.cached.sky"))
 tc = setup.tcode_properties(gp("app-tc.c"))
 ec = setup.ecode_properties(gp("app-ec.c"), gp("pal.c"), gp("pal.cached.sky"))
 pal = setup.pal_properties(gp("pal.c"), gp("pal.co"))
-overhead = get_overhead(native, tc, ec)
-normalized = get_normalized(native, ec, pal)
+tl = setup.tl_properties(rp("app.c"), rp("pal.cached.sky"))
+
+nat2tc = nat.proportion(tc)
+nat2ec = nat.proportion(ec)
+nat2ec_pal = nat.proportion(ec.subtract(pal))
+ec2tl = ec.proportion(tl)
 
 f = open("bench.results", "w")
-text.print_all_properties(f, [native, tc, ec, pal, overhead, normalized])
+text.print_all_properties(f, [nat, tc, ec, pal, nat2tc, nat2ec, nat2ec_pal, ec2tl])
 f.close()

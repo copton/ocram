@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "os/tc_sleep.h"
-#include "os/tc_receive.h"
-#include "os/tc_condition.h"
+#include "tl/tl.h"
 
 #include "coap.h"
 #include "debug.h"
@@ -24,7 +22,6 @@ int rand_fixed()
 }
 
 // TRANSACTION
-static struct process *transaction_handler_process = NULL;
 
 extern list_t transactions_list;
 extern struct memb transactions_memb;
@@ -32,9 +29,29 @@ extern struct memb transactions_memb;
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
 
-void coap_register_as_transaction_handler()
+condition_t transactions_cond = TL_CONDITION_INITIALIZER;
+coap_transaction_t* new_transaction = NULL;
+struct etimer* timers[COAP_MAX_OPEN_TRANSACTIONS];
+
+uint8_t stack_transactions[200];
+void task_transactions()
 {
-  transaction_handler_process = PROCESS_CURRENT();
+    while(1) {
+        if (new_transaction) {
+           etimer_restart(&new_transaction->retrans_timer); 
+           new_transaction = NULL;
+        }
+
+        int numberofTimers = 0;
+        coap_transaction_t* t;
+        for (t = (coap_transaction_t*)list_head(transactions_list); t; t=t->next) {
+            timers[numberofTimers++] = &t->retrans_timer;
+        }
+
+        if (tl_condition_time_wait(&transactions_cond, timers, numberofTimers)) {
+            coap_check_transactions();
+        }
+    }
 }
 
 void coap_send_transaction(coap_transaction_t *t)
@@ -54,13 +71,9 @@ void coap_send_transaction(coap_transaction_t *t)
         t->retrans_timer.timer.interval <<= 1; /* double */
       }
 
-      /*FIXME hack, maybe there is a better way, but avoid posting everything to the process */
-      struct process *process_actual = PROCESS_CURRENT();
-      process_current = transaction_handler_process;
-      etimer_restart(&t->retrans_timer); /* interval updated above */
-      process_current = process_actual;
-
       list_add(transactions_list, t);
+      new_transaction = t;
+      tl_condition_signal(&transactions_cond);
 
       t = NULL;
     }
@@ -96,7 +109,7 @@ void blocking_request_callback(void* data, void* response)
 {
     blocking_ctx_t* ctx = data;
     ctx->response = response;
-    tc_condition_signal(&ctx->cond);
+    tl_condition_signal(&ctx->cond);
 }
 
 void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet_t *request)
@@ -107,6 +120,7 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
     uint32_t block_num = 0;
     coap_transaction_t* transaction;
     blocking_ctx_t ctx;
+    tl_condition_init(&ctx.cond);
 
     do {
         request->tid = coap_get_tid();
@@ -124,7 +138,7 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
 
             coap_send_transaction(transaction);
 
-            tc_condition_wait(&ctx.cond);
+            tl_condition_wait(&ctx.cond);
 
             if (!ctx.response)
             {
@@ -151,24 +165,21 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
 }
 
 // RECEIVER
-condition_t start_receive_thread;
+condition_t start_receive_thread = TL_CONDITION_INITIALIZER;
 
 void coap_receiver_init()
 {
-    tc_condition_signal(&start_receive_thread);
+    tl_condition_signal(&start_receive_thread);
 }
 
-TC_RUN_THREAD void task_receive()
+uint8_t stack_receive[200];
+void task_receive()
 {
-    tc_condition_wait(&start_receive_thread);
-    coap_register_as_transaction_handler();
+    tl_condition_wait(&start_receive_thread);
     coap_init_connection(SERVER_LISTEN_PORT);
     while(1) {
-        if (tc_time_receive()) {
-            coap_check_transactions();
-        } else {
-            handle_incoming_data(); 
-        }
+        tl_receive();
+        handle_incoming_data(); 
     }
 }
 
@@ -181,18 +192,20 @@ void client_chunk_handler(void *response)
     printf("trace: coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
 }
 
-TC_RUN_THREAD void task_query()
+uint8_t stack_query[400];
+void task_query()
 {
-    uip_ipaddr_t server_ipaddr;
-    coap_packet_t request[1];
-
     coap_receiver_init();
+
+    uip_ipaddr_t server_ipaddr;
     uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
+
+    coap_packet_t request[1];
 
     clock_time_t timestamp = clock_time();
     while(1) {
         timestamp += TOGGLE_INTERVAL;
-        tc_sleep(timestamp);
+        tl_sleep(timestamp);
 
         {
             int salt = rand_fixed() % 200;
@@ -222,4 +235,11 @@ TC_RUN_THREAD void task_query()
             coap_request(&server_ipaddr, REMOTE_PORT, request);
         }
     }
+}
+
+void tl_app_main()
+{
+    tl_create_thread(task_transactions, stack_transactions, sizeof(stack_transactions));
+    tl_create_thread(task_receive, stack_receive, sizeof(stack_receive));
+    tl_create_thread(task_query, stack_query, sizeof(stack_query));
 }

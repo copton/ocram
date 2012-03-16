@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "contiki.h"
 #include "coap.h"
-#include "sim_assert.h"
+#include "debug.h"
 
 // config
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
@@ -185,7 +185,6 @@ PROCESS_THREAD(coap_receiver, ev, data)
 {
   PROCESS_BEGIN();
 
-  printf("thread address: 1: %p\n", process_current);
   // rest_activate_resource(&resource_well_known_core); {# clients don't have resources #}
 
   coap_register_as_transaction_handler();
@@ -222,7 +221,6 @@ PROCESS_THREAD(coap_client, ev, data)
     static struct etimer et;
 
     PROCESS_BEGIN();
-    printf("thread address: 0: %p\n", process_current);
 
     coap_receiver_init();
     etimer_set(&et, TOGGLE_INTERVAL);

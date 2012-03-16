@@ -1,16 +1,16 @@
 import sys
 from properties import Properties
 
-formatString = '%10s\t%7s\t%7s\t%7s\t%7s\t%7s\t%7s'
+formatString = '%20s\t%7s\t%7s\t%7s\t%7s\t%7s\t%7s'
 
 header = formatString % tuple([""] + Properties.attributes())
 
 def print_properties(prop):
     def pretty(value):
-        if value == -1:
-            return "n/a"
+        if type(value) == int:
+            return str(value)
         else:
-            return value
+            return "%.2f" % value
     ps = [pretty(getattr(prop, p)) for p in Properties.attributes()]
     return formatString % tuple([prop.name] + ps)
 

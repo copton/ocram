@@ -6,6 +6,7 @@ PROJECT_SOURCEFILES += common.c
 
 WITH_UIP6=1
 UIP_CONF_IPV6=1
+SMALL=1
 CFLAGS+= -DUIP_CONF_IPV6_RPL -I$(ROOT)/applications/contiki
 
 include $(CONTIKI)/Makefile.include

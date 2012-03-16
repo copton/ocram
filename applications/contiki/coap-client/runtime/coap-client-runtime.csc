@@ -142,9 +142,10 @@
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
     <plugin_config>
-        <process>thread0</process>
-        <process>thread1</process>
-        <process>thread2</process>
+        <process>process_scheduler</process>
+        <appstack size="200">stack_transactions</appstack>
+        <appstack size="200">stack_receive</appstack>
+        <appstack size="400">stack_query</appstack>
     </plugin_config>
     <mote_arg>1</mote_arg>
     <width>240</width>

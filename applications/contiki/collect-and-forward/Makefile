@@ -1,4 +1,4 @@
-DIRS = setup native generated
+DIRS = setup native generated runtime
 
 .PHONY: all clean test verify bench
 
@@ -16,5 +16,5 @@ test:
 compare: test $(COMPARE)
 	$(COMPARE) `pwd`
 
-bench: test $(BENCH)
+bench: compare $(BENCH)
 	$(BENCH) `pwd`

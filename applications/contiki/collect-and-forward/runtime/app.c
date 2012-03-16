@@ -1,7 +1,5 @@
 #include <stdlib.h>
-#include "tc/tc_receive.h"
-#include "tc/tc_send.h"
-#include "tc/tc_sleep.h"
+#include "tl/tl.h"
 
 #include "debug.h"
 
@@ -17,24 +15,12 @@
 uint32_t values[MAX_NUMBEROF_VALUES];
 size_t offset;
 
-void init()
-{
-    uip_ipaddr_t ipaddr;
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
-    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
-    // no duty-cycling
-    NETSTACK_MAC.off(1);
-
-    offset = 0;
-}
-
 // send
-TC_RUN_THREAD void task_send()
+uint8_t stack_send[200];
+void task_send()
 {
     uip_ipaddr_t server_ipaddr;
     struct uip_udp_conn* client_conn;
-
-    init();
 
     uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x212, 0x7403, 0x3, 0x303);
     client_conn = udp_new(NULL, UIP_HTONS(UDP_SERVER_PORT), NULL);
@@ -44,7 +30,7 @@ TC_RUN_THREAD void task_send()
 
     while (1) {
         now += DT_SEND;
-        tc_sleep(now);
+        tl_sleep(now);
 
         uint32_t buf[2];
         buf[0] = 0xFFFFFFFF;
@@ -62,20 +48,21 @@ TC_RUN_THREAD void task_send()
         offset = 0;
 
         printf("trace: send values: %lu %lu\n", buf[0], buf[1]);
-        tc_send(client_conn, &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT), (uint8_t*)&buf[0], sizeof(buf));
+        tl_send(client_conn, &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT), (uint8_t*)&buf[0], sizeof(buf));
     }
 }
 
 // receive
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
-TC_RUN_THREAD void task_receive(uint16_t lport, uint16_t rport)
+uint8_t stack_receive[200];
+void task_receive(uint16_t lport, uint16_t rport)
 {
     struct uip_udp_conn *server_conn;
     server_conn = udp_new(NULL, UIP_HTONS(UDP_CLIENT_PORT), NULL);
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
 
     while (1) {
-		tc_receive();
+		tl_receive();
         uint8_t* buffer = uip_appdata;
 
         ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
@@ -97,14 +84,15 @@ TC_RUN_THREAD void task_receive(uint16_t lport, uint16_t rport)
 }
 
 // collect
-TC_RUN_THREAD void task_collect()
+uint8_t stack_collect[200];
+void task_collect()
 {
     SENSORS_ACTIVATE(light_sensor);
 
     clock_time_t now = clock_time();
     while (1) {
         now += DT_COLLECT;
-        tc_sleep(now);
+        tl_sleep(now);
 
         uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
         value = rand(); // enable comparison of logs
@@ -112,4 +100,20 @@ TC_RUN_THREAD void task_collect()
         ASSERT(offset < MAX_NUMBEROF_VALUES);
         values[offset++] = value;
     }
+}
+
+void tl_app_main()
+{
+    printf("XXX: collect = %p, receive = %p, send = %p\n", stack_collect, stack_receive, stack_send);
+    uip_ipaddr_t ipaddr;
+    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
+    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
+    // no duty-cycling
+    NETSTACK_MAC.off(1);
+
+    offset = 0;
+
+    tl_create_thread(&task_send, stack_send, sizeof(stack_send));
+    tl_create_thread(&task_receive, stack_receive, sizeof(stack_receive));
+    tl_create_thread(&task_collect, stack_collect, sizeof(stack_collect));
 }
