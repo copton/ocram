@@ -1,4 +1,4 @@
-From a5a07225bd98a6c8b30625008cb08ef3616f1a44 Mon Sep 17 00:00:00 2001
+From 8d2569341b1cce634c6b72e96f5c7453332dc408 Mon Sep 17 00:00:00 2001
 From: Alexander Bernauer <alex@copton.net>
 Date: Fri, 16 Mar 2012 12:23:07 +0100
 Subject: [PATCH] detailed CPU cycle tracking for processes
@@ -8,27 +8,27 @@ Subject: [PATCH] detailed CPU cycle tracking for processes
  1 files changed, 3 insertions(+), 0 deletions(-)
 
 diff --git a/core/sys/process.c b/core/sys/process.c
-index 70adf67..aea0c03 100644
+index 70adf67..f9087eb 100644
 --- a/core/sys/process.c
 +++ b/core/sys/process.c
-@@ -243,6 +243,7 @@ do_poll(void)
-  * listening processes.
-  */
+@@ -172,6 +172,7 @@ exit_process(struct process *p, struct process *fromprocess)
+   process_current = old_current;
+ }
  /*---------------------------------------------------------------------------*/
-+volatile void* process_hook = 0;
++volatile void* process_hook = NULL;
  static void
- do_event(void)
+ call_process(struct process *p, process_event_t ev, process_data_t data)
  {
-@@ -282,7 +283,9 @@ do_event(void)
- 	if(poll_requested) {
- 	  do_poll();
- 	}
+@@ -188,7 +189,9 @@ call_process(struct process *p, process_event_t ev, process_data_t data)
+     PRINTF("process: calling process '%s' with event %d\n", PROCESS_NAME_STRING(p), ev);
+     process_current = p;
+     p->state = PROCESS_STATE_CALLED;
 +    process_hook = p;
- 	call_process(p, ev, data);
-+    process_hook = 0;
-       }
-     } else {
-       /* This is not a broadcast event, so we deliver it to the
+     ret = p->thread(&p->pt, ev, data);
++    process_hook = NULL;
+     if(ret == PT_EXITED ||
+        ret == PT_ENDED ||
+        ev == PROCESS_EVENT_EXIT) {
 -- 
 1.7.1
 
