@@ -25,7 +25,7 @@ class Properties(object):
 
     @staticmethod
     def attributes():
-        return ["text", "bss", "data", "loc", "stack", "cpu"]
+        return ["text", "bss", "data", "stack", "cpu"]
 
 
 class Setup(object):
@@ -40,7 +40,6 @@ class Setup(object):
     def app_properties(self, name, cfile, elf, no_rti = False):
         prop = Properties(name)
         prop.text, prop.data, prop.bss = app_section_size(self.toolchain, self.p(elf))
-        prop.loc = lines_of_code(self.p(cfile))
         if not no_rti:
             prop.stack = max_stack_usage(self.platform, self.p(elf))
             prop.cpu = cpu_usage(self.platform, self.p(elf))
@@ -49,14 +48,8 @@ class Setup(object):
     def native_properties(self, cfile, elf):
         return self.app_properties("nat", cfile, elf)
 
-    def tcode_properties(self, cfile):
-        prop = Properties("tc")
-        prop.loc = lines_of_code(self.p(cfile))
-        return prop
-
     def ecode_properties(self, ecfile, palfile, elf):
         prop = self.app_properties("ec", ecfile, elf)
-        prop.loc += lines_of_code(self.p(palfile))
         return prop
 
     def pal_properties(self, cfile, elf):

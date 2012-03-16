@@ -1,9 +1,8 @@
-                    	   text	    bss	   data	    loc	  stack	    cpu
-                 nat	  43708	   7316	    286	    269	    218	 386770
-                  tc	    nan	    nan	    nan	    230	    nan	    nan
-                  ec	  45158	   7376	    310	   2732	    214	 393227
-                 pal	   1590	     36	     36	    310	    nan	    nan
-          (nat)/(tc)	    nan	    nan	    nan	 -14.50	    nan	    nan
-          (nat)/(ec)	   3.32	   0.82	   8.39	 915.61	  -1.83	   1.67
-  (nat)/((ec)-(pal))	  -0.32	   0.33	  -4.20	 800.37	    nan	    nan
-           (ec)/(tl)	  -1.11	   8.65	  -6.45	 -91.00	 233.64	   2.54
+                    	   text	    bss	   data	  stack	    cpu
+                 nat	  43708	   7316	    286	    218	 386770
+                  ec	  45158	   7376	    310	    214	 393227
+                 pal	   1590	     36	     36	    nan	    nan
+          (nat)/(ec)	   3.32	   0.82	   8.39	  -1.83	   1.67
+  (nat)/((ec)-(pal))	  -0.32	   0.33	  -4.20	    nan	    nan
+           (ec)/(tl)	  -1.11	   8.65	  -6.45	 233.64	   2.54
+lines of code: nat = 269, tc = 230, nat/tc = -14.50
