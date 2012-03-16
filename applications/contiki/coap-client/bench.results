@@ -1,7 +1,9 @@
-          	   text	    bss	   data	    loc	  stack	    cpu
-    native	  43794	   7316	    280	    271	    218	 398318
-     tcode	    n/a	    n/a	    n/a	    227	    n/a	    n/a
-     ecode	  45114	   7384	    296	   2712	    214	 426984
-       pal	   1554	     36	     36	    298	    n/a	    n/a
-  overhead	   3.01	   0.93	   5.71	 -16.24	  -1.83	   7.20
-normalized	  -0.53	   0.44	  -7.14	    n/a	    n/a	    n/a
+                    	   text	    bss	   data	    loc	  stack	    cpu
+                 nat	  43708	   7316	    286	    269	    218	 386770
+                  tc	    nan	    nan	    nan	    230	    nan	    nan
+                  ec	  45158	   7376	    310	   2732	    214	 393227
+                 pal	   1590	     36	     36	    310	    nan	    nan
+          (nat)/(tc)	    nan	    nan	    nan	 -14.50	    nan	    nan
+          (nat)/(ec)	   3.32	   0.82	   8.39	 915.61	  -1.83	   1.67
+  (nat)/((ec)-(pal))	  -0.32	   0.33	  -4.20	 800.37	    nan	    nan
+           (ec)/(tl)	  -1.11	   8.65	  -6.45	 -91.00	 233.64	   2.54
