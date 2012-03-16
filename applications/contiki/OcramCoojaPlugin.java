@@ -2,9 +2,10 @@
 // contiki/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/plugins/
 //
 // and build it using the cooja build system
+
 package se.sics.cooja.mspmote.plugins;
 
-
+//<1 imports
 import se.sics.cooja.ClassDescription;
 import se.sics.cooja.GUI;
 import se.sics.cooja.Mote;
@@ -46,187 +47,134 @@ import se.sics.cooja.AddressMemory.UnknownVariableException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+//>1
 
 @ClassDescription("Ocram Cooja Plugin")
 @PluginType(PluginType.MOTE_PLUGIN)
 public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
-  private static Logger logger = Logger.getLogger(OcramCoojaPlugin.class);
-  
-  private MspMote mspMote;
-  private MSP430 cpu;
-  private Simulation simulation;
+  private static abstract class Monitor { //<1
+    protected MspMote mote;
+    protected MSP430 cpu;
+    protected Simulation simulation;
 
-  private BufferedWriter logwriter;
-
-  // stack monitor
-  private CPUMonitor stackMonitor = null;
-  private Observer stackObserver = null;
-  private class AppStack {
-    public String variable;
-    public int size;
-    public int upperAddress;
-    public int lowerAddress;
-    public CPUMonitor monitor;
-    public int maxStack;
-    public int lastSP;
-    public AppStack(String v) {
-      variable = v;
-      upperAddress = -1;
-      lowerAddress = -1;
-      size = -1;
-      monitor = null;
-      maxStack = -1;
-      lastSP = -1;
+    public Monitor(Simulation simulation, MspMote mote) {
+      this.simulation = simulation;
+      this.mote = mote;
+      this.cpu = mote.getCPU();
     }
-    public void init(int low, int high) {
-      lowerAddress = low;
-      upperAddress = high;
-      size = upperAddress - lowerAddress;
-      maxStack = 0;
-      lastSP = upperAddress - 2; // our monitor get called _after_ the first push operation
-    }
-    public String toString() {
-      return variable + "[" + size + "] (" + hex(lowerAddress) + ")";
-    }
-  }
-  private ArrayList<AppStack> appStacks;
-  AppStack currentAppStack;
-
-  // log monitor
-  private LogOutputListener logMonitor;
-  
-  // cycle monitor
-  private CPUMonitor cycleMonitor;
-  private int hookAddress;
-  private ArrayList<String> processVariables;
-  private HashMap<Integer, String> processes;
-  private HashMap<Integer, Long> cycles;
-
-  // debugging monitor
-  private int markAddress;
-  private CPUMonitor markMonitor;
-
-  public OcramCoojaPlugin(Mote mote, Simulation sim, GUI gui) {
-    super("Ocram Cooja Plugin", gui, false);
-    simulation = sim;
-    mspMote = (MspMote) mote;
-    cpu = mspMote.getCPU();
-    appStacks = new ArrayList<AppStack>();
-    processVariables = new ArrayList<String>();
-    processes = new HashMap<Integer, String>();
-    cycles = new HashMap<Integer, Long>();
+    public void configure(Collection<Element> config) { }
+    public abstract void start();
+    public void stop() { }
   }
 
-  public boolean setConfigXML(Collection<Element> configXML, boolean visAvailable) {
-    appStacks.add(new AppStack("<<main>>"));
+  private static class StackMonitor extends Monitor {  //<1
+    public StackMonitor(Simulation s, MspMote m) { 
+      super(s, m);
+      appStacks = new ArrayList<AppStack>();
+    }
 
-    HashSet<String> appStackVars = new HashSet<String>();
-    HashSet<String> processVars = new HashSet<String>();
-    for (Element element : configXML) {
-      String name = element.getName();
-      if ("appstack".equals(name)) {
-        String variable = element.getText();
-        if (variable.isEmpty()) {
-          throw new OcramError("appstack without name");
-        }
-        if (appStackVars.contains(variable)) {
-          throw new OcramError("duplicate appstack: " + variable);
-        }
-        appStackVars.add(variable);
-        int size;
-        try {
-          size = element.getAttribute("size").getIntValue();
-        } catch (org.jdom.DataConversionException e) {
-          throw new OcramError("appstack with non-integer size attribute", e);
-        }
+    private CPUMonitor stackMonitor = null;
+    private Observer stackObserver = null;
+    private ArrayList<AppStack> appStacks;
+    private AppStack currentAppStack;
 
-        AppStack appStack = new AppStack(variable);
-        appStack.size = size;
-        appStacks.add(appStack);
-      } else if ("process".equals(name)) {
-        String variable = element.getText();
-        if (variable.isEmpty()) {
-          throw new OcramError("process without name");
-        }
-        if (processVars.contains(variable)) {
-          throw new OcramError("dublicate process: " + variable);
-        }
-        processVars.add(variable);
-        processVariables.add(variable);
+    private class AppStack { 
+      public String variable;
+      public int size;
+      public int upperAddress;
+      public int lowerAddress;
+      public CPUMonitor monitor;
+      public int maxStack;
+      public int lastSP;
+
+      public AppStack(String v) {
+        variable = v;
+        upperAddress = -1;
+        lowerAddress = -1;
+        size = -1;
+        monitor = null;
+        maxStack = -1;
+        lastSP = -1;
+      }
+
+      public void init(int low, int high) {
+        lowerAddress = low;
+        upperAddress = high;
+        size = upperAddress - lowerAddress;
+        maxStack = 0;
+        lastSP = upperAddress - 2; // our monitor get called _after_ the first push operation
+      }
+
+      public String toString() {
+        return variable + "[" + size + "] (" + hex(lowerAddress) + ")";
       }
     }
-    return true;
-  }
 
-  public void startPlugin() {
-    AddressMemory memory = (AddressMemory) mspMote.getMemory();
-    File firmware = ((MspMoteType)mspMote.getType()).getContikiFirmwareFile();
 
-    // setup
-    logger.info("starting Ocram Cooja Plugin...");
-    try {
-        File logfile = new File("OcramCooja.log");
-        if (logfile.exists()) {
-            logfile.delete();
-        }
-        logwriter = new BufferedWriter(new FileWriter(logfile));
-        log("logfile open: " + logfile.getCanonicalPath());
-    } catch (IOException e) {
-        throw new OcramError("could not open logfile", e);
-    }
-
-    // open log
-    String path;
-    String checksum;
-    try {
-        byte[] contents = new byte[(int)firmware.length()];
-        FileInputStream input = new FileInputStream(firmware);
-        input.read(contents);
-        path = firmware.getCanonicalPath();
-        MessageDigest md = MessageDigest.getInstance("MD5");
-        md.update(contents);
-        checksum = getHex(md.digest());
-    } catch (Exception e) {
-        throw new OcramError("failed to determine md5 sum of elf file", e);
-    }
-    log("md5 sum of " + path  + ": " + checksum);
-    log("random seed: " + simulation.getRandomSeed());
-
-    // stack monitor
-    for (AppStack appstack : appStacks) {
-      if (appstack.variable == "<<main>>") {
-        MapTable map = cpu.getDisAsm().getMap();
-        currentAppStack = appstack;
-        appstack.init(map.heapStartAddress + 2, map.stackStartAddress);
-      } else {
-        int address;
-        try {
-          address = memory.getVariableAddress(appstack.variable);
-        } catch (UnknownVariableException e) {
-          throw new OcramError("could not find stack variable: " + appstack.variable, e);
-        }
-        appstack.init(address, address + appstack.size);
-      }
-      log("application stack: " + appstack);
-
-      final String appStackVariable = appstack.variable;
-      appstack.monitor = new CPUMonitor() {
-        private int count = 0;
-        public void cpuAction(int type, int adr, int data) {
-          if (type == CPUMonitor.MEMORY_WRITE) {
-            // first access is by reset vector
-            if (appStackVariable != "<<main>>" && count == 0) {
-              count++;
-              return;
-            }
-            throw new OcramError("Stack overflow! (stack = " + appStackVariable + ", PC=" + hex(cpu.reg[MSP430.PC]) + ", adr=" + hex(adr) + ", data=" + hex(data) + ")");
+    public void configure(Collection<Element> config) { 
+      HashSet<String> appStackVars = new HashSet<String>();
+      appStacks.add(new AppStack("<<main>>"));
+      for (Element element : config) {
+        String name = element.getName();
+        if ("appstack".equals(name)) {
+          String variable = element.getText();
+          if (variable.isEmpty()) {
+            throw new OcramError("appstack without name");
           }
+          if (appStackVars.contains(variable)) {
+            throw new OcramError("duplicate appstack: " + variable);
+          }
+          appStackVars.add(variable);
+          int size;
+          try {
+            size = element.getAttribute("size").getIntValue();
+          } catch (org.jdom.DataConversionException e) {
+            throw new OcramError("appstack with non-integer size attribute", e);
+          }
+
+          AppStack appStack = new AppStack(variable);
+          appStack.size = size;
+          appStacks.add(appStack);
         }
-      };
-      cpu.addWatchPoint(appstack.lowerAddress, appstack.monitor);
+      }  
     }
 
-    cpu.addRegisterWriteMonitor(MSP430.SP, stackMonitor = new CPUMonitor() {
+    public void start() {  
+      AddressMemory memory = (AddressMemory) mote.getMemory();
+      for (AppStack appstack : appStacks) {
+        if (appstack.variable == "<<main>>") {
+          MapTable map = cpu.getDisAsm().getMap();
+          currentAppStack = appstack;
+          appstack.init(map.heapStartAddress + 2, map.stackStartAddress);
+        } else {
+          int address;
+          try {
+            address = memory.getVariableAddress(appstack.variable);
+          } catch (UnknownVariableException e) {
+            throw new OcramError("could not find stack variable: " + appstack.variable, e);
+          }
+          appstack.init(address, address + appstack.size);
+        }
+        log("application stack: " + appstack);
+
+        final String appStackVariable = appstack.variable;
+        appstack.monitor = new CPUMonitor() {
+          private int count = 0;
+          public void cpuAction(int type, int adr, int data) {
+            if (type == CPUMonitor.MEMORY_WRITE) {
+              // first access is by reset vector
+              if (appStackVariable != "<<main>>" && count == 0) {
+                count++;
+                return;
+              }
+              throw new OcramError("Stack overflow! (stack = " + appStackVariable + ", PC=" + hex(cpu.reg[MSP430.PC]) + ", adr=" + hex(adr) + ", data=" + hex(data) + ")");
+            }
+          }
+        };
+        cpu.addWatchPoint(appstack.lowerAddress, appstack.monitor);
+      }
+
+      cpu.addRegisterWriteMonitor(MSP430.SP, stackMonitor = new CPUMonitor() {
         public void cpuAction(int type, int adr, int value) {
           /* check for context switch */
           for (AppStack appstack : appStacks) {
@@ -243,122 +191,248 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
             currentAppStack.maxStack = size;
           }
         }
-    });
+      });
+    }
 
-    // log  monitor
-    simulation.getEventCentral().addLogOutputListener(logMonitor = new LogOutputListener() {
+    public void stop() { 
+      mote.getStackOverflowObservable().deleteObserver(stackObserver);
+      cpu.removeRegisterWriteMonitor(MSP430.SP, stackMonitor);
+      for (AppStack appstack : appStacks) {
+        if (appstack.monitor != null) {
+          cpu.removeWatchPoint(appstack.lowerAddress, appstack.monitor);
+          log("max stack: " + appstack.variable + ": " + appstack.maxStack);
+        }
+      }
+    }
+  }
+
+  private static class LogMonitor extends Monitor { //<1
+    private LogOutputListener logMonitor;
+
+    public LogMonitor(Simulation s, MspMote m) {
+      super(s, m);
+    }
+
+    public void start() {
+      simulation.getEventCentral().addLogOutputListener(logMonitor = new LogOutputListener() {
         public void moteWasAdded(Mote mote) { }
         public void moteWasRemoved(Mote mote) { }
         public void removedLogOutput(LogOutputEvent ev) { }
         public void newLogOutput(LogOutputEvent ev) {
-            log("log output: " + ev.getTime() + ": " + ev.getMote().getID() + ": " + ev.msg);
+          log("log output: " + ev.getTime() + ": " + ev.getMote().getID() + ": " + ev.msg);
         }
-    });
-
-    // cpu cycle monitor
-    try {
-        hookAddress = memory.getVariableAddress("process_hook");
-    } catch (UnknownVariableException e) {
-        throw new OcramError("failed to install cpu cycle monitor", e);
+      });
     }
 
-    for (String variable: processVariables) {
-      int address;
-      try {
-        address = memory.getVariableAddress(variable);
-      } catch (UnknownVariableException e) {
-        throw new OcramError("could not find process variable: " + variable, e);
-      }
-      log("process monitoring: " + variable);
-      processes.put(address, variable);
+    public void stop() {
+      simulation.getEventCentral().removeLogOutputListener(logMonitor);
+    }
+  }
+
+  private static class CycleMonitor extends Monitor {  //<1
+    private CPUMonitor cycleMonitor;
+    private int hookAddress;
+    private ArrayList<String> processVariables;
+    private HashMap<Integer, String> processes;
+    private HashMap<Integer, Long> cycles;
+
+    public CycleMonitor(Simulation s, MspMote m) { 
+      super(s, m);
+
+      processVariables = new ArrayList<String>();
+      processes = new HashMap<Integer, String>();
+      cycles = new HashMap<Integer, Long>();
     }
 
-    cpu.addWatchPoint(hookAddress, cycleMonitor = new CPUMonitor() {
-      int currentAddress = 0;
-      long enterCycles;
-      public void cpuAction(int type, int adr, int data) {
-        if (type == CPUMonitor.MEMORY_WRITE) {
-          if (data == 0) {
-            assert (currentAddress != 0);
-
-            Long value = cycles.get(currentAddress);
-            if (value == null) {
-              value = new Long(0);
-            }
-            value += cpu.cycles - enterCycles;
-            cycles.put(currentAddress, value);
-            
-            currentAddress = 0;
-          }  else {
-            currentAddress = data;
-            enterCycles = cpu.cycles;
+    public void configure(Collection<Element> config) { 
+      HashSet<String> processVars = new HashSet<String>();
+      for (Element element : config) {
+        String name = element.getName();
+        if ("process".equals(name)) {
+          String variable = element.getText();
+          if (variable.isEmpty()) {
+            throw new OcramError("process without name");
           }
+          if (processVars.contains(variable)) {
+            throw new OcramError("dublicate process: " + variable);
+          }
+          processVars.add(variable);
+          processVariables.add(variable);
         }
       }
-    });
+    }
 
-    // debugging monitor
-    try {
-      markAddress = memory.getVariableAddress("debug_mark");
-      memory.getIntValueOf("debug_file"); // just to check existence
-      memory.getIntValueOf("debug_line"); // just to check existence
-      cpu.addWatchPoint(markAddress, markMonitor = new CPUMonitor() {
+    public void start() { 
+      AddressMemory memory = (AddressMemory) mote.getMemory();
+      try {
+        hookAddress = memory.getVariableAddress("process_hook");
+      } catch (UnknownVariableException e) {
+        throw new OcramError("failed to install cpu cycle monitor", e);
+      }
+
+      for (String variable: processVariables) {
+        int address;
+        try {
+          address = memory.getVariableAddress(variable);
+        } catch (UnknownVariableException e) {
+          throw new OcramError("could not find process variable: " + variable, e);
+        }
+        log("process monitoring: " + variable);
+        processes.put(address, variable);
+      }
+
+      cpu.addWatchPoint(hookAddress, cycleMonitor = new CPUMonitor() {
+        int currentAddress = 0;
+        long enterCycles;
         public void cpuAction(int type, int adr, int data) {
           if (type == CPUMonitor.MEMORY_WRITE) {
-            if (data == 0xffff) {
-               int fileAddress = ((AddressMemory)mspMote.getMemory()).getIntValueOf("debug_file");
-               byte bytes[] = mspMote.getMemory().getMemorySegment(fileAddress, 20);
-               int i;
-               for (i=0; bytes[i] != 0 && i<bytes.length; i++);
-               String filename = new String(bytes, 0, i);
-               int line = ((AddressMemory)mspMote.getMemory()).getIntValueOf("debug_line");
-               String logline = "Assertion error: file=" + filename + ", line=" + line;
-               log(logline);
-               throw new OcramError(logline);
-            } else {
-               log("debug monitor: mark: " + data);
+            if (data == 0) {
+              assert (currentAddress != 0);
+
+              Long value = cycles.get(currentAddress);
+              if (value == null) {
+                value = new Long(0);
+              }
+              value += cpu.cycles - enterCycles;
+              cycles.put(currentAddress, value);
+
+              currentAddress = 0;
+            }  else {
+              currentAddress = data;
+              enterCycles = cpu.cycles;
             }
           }
         }
       });
-    } catch (UnknownVariableException e) {
+    }
+
+    public void stop() { 
+      // cpu cycle monitor
+      cpu.removeWatchPoint(hookAddress, cycleMonitor);
+      for (Map.Entry<Integer, Long> entry : cycles.entrySet()) {
+        String identifier;
+        if (processes.containsKey(entry.getKey())) {
+          identifier = processes.get(entry.getKey());
+        } else {
+          identifier = hex(entry.getKey());
+        }
+        log("cpu cycles: " + identifier + ": " + entry.getValue());
+      }
+    }
+  }
+
+  private static class DebugMonitor extends Monitor { //<1
+    private int markAddress;
+    private CPUMonitor markMonitor;
+
+    public DebugMonitor(Simulation s, MspMote m) { 
+      super(s, m);
+    }
+
+    public void start() {
+      AddressMemory memory = (AddressMemory) mote.getMemory();
+      try {
+        markAddress = memory.getVariableAddress("debug_mark");
+        memory.getIntValueOf("debug_file"); // just to check existence
+        memory.getIntValueOf("debug_line"); // just to check existence
+        cpu.addWatchPoint(markAddress, markMonitor = new CPUMonitor() {
+          public void cpuAction(int type, int adr, int data) {
+            if (type == CPUMonitor.MEMORY_WRITE) {
+              if (data == 0xffff) {
+                int fileAddress = ((AddressMemory)mote.getMemory()).getIntValueOf("debug_file");
+                byte bytes[] = mote.getMemory().getMemorySegment(fileAddress, 20);
+                int i;
+                for (i=0; bytes[i] != 0 && i<bytes.length; i++);
+                String filename = new String(bytes, 0, i);
+                int line = ((AddressMemory)mote.getMemory()).getIntValueOf("debug_line");
+                String logline = "Assertion error: file=" + filename + ", line=" + line;
+                log(logline);
+                throw new OcramError(logline);
+              } else {
+                log("debug monitor: mark: " + data);
+              }
+            }
+          }
+        });
+      } catch (UnknownVariableException e) {
         throw new OcramError("failed to find debug variables", e);
+      }
+    }
+
+    public void stop() { 
+      if (markMonitor != null) {
+        cpu.removeWatchPoint(markAddress, markMonitor);
+      }   
+    }
+  }
+
+  //<1 OcramCooja
+  private ArrayList<Monitor> monitors;
+  private MspMote mote;
+  private Simulation simulation;
+
+  public OcramCoojaPlugin(Mote mote_, Simulation sim, GUI gui) { 
+    super("Ocram Cooja Plugin", gui, false);
+    simulation = sim;
+    mote = (MspMote) mote_;
+
+    monitors = new ArrayList<Monitor>();
+    monitors.add(new StackMonitor(simulation, mote));
+    monitors.add(new LogMonitor(simulation, mote));
+    monitors.add(new CycleMonitor(simulation, mote));
+    monitors.add(new DebugMonitor(simulation, mote));
+  }
+
+  public boolean setConfigXML(Collection<Element> configXML, boolean visAvailable) { //<2
+    for (Monitor monitor: monitors) {
+      monitor.configure(configXML);
+    }
+    return true;
+  }
+
+  public void startPlugin() { //<2
+    // setup
+    logger.info("starting Ocram Cooja Plugin...");
+    try {
+      File logfile = new File("OcramCooja.log");
+      if (logfile.exists()) {
+        logfile.delete();
+      }
+      logwriter = new BufferedWriter(new FileWriter(logfile));
+      log("logfile open: " + logfile.getCanonicalPath());
+    } catch (IOException e) {
+      throw new OcramError("could not open logfile", e);
+    }
+
+    // open log
+    String path;
+    String checksum;
+    try {
+      File firmware = ((MspMoteType)mote.getType()).getContikiFirmwareFile();
+      byte[] contents = new byte[(int)firmware.length()];
+      FileInputStream input = new FileInputStream(firmware);
+      input.read(contents);
+      path = firmware.getCanonicalPath();
+      MessageDigest md = MessageDigest.getInstance("MD5");
+      md.update(contents);
+      checksum = getHex(md.digest());
+    } catch (Exception e) {
+      throw new OcramError("failed to determine md5 sum of elf file", e);
+    }
+    log("md5 sum of " + path  + ": " + checksum);
+    log("random seed: " + simulation.getRandomSeed());
+
+    for (Monitor monitor : monitors) {
+      monitor.start();
     }
 
     logger.info("Ocram Cooja Plugin loaded.");
   }
-      
 
-  public void closePlugin() {
-    // stack monitor
-    mspMote.getStackOverflowObservable().deleteObserver(stackObserver);
-    cpu.removeRegisterWriteMonitor(MSP430.SP, stackMonitor);
-    for (AppStack appstack : appStacks) {
-      if (appstack.monitor != null) {
-        cpu.removeWatchPoint(appstack.lowerAddress, appstack.monitor);
-        log("max stack: " + appstack.variable + ": " + appstack.maxStack);
-      }
+  public void closePlugin() { //<2
+    for (Monitor monitor : monitors) {
+      monitor.stop();
     }
-
-    // log monitor
-    simulation.getEventCentral().removeLogOutputListener(logMonitor);
-
-    // cpu cycle monitor
-    cpu.removeWatchPoint(hookAddress, cycleMonitor);
-    for (Map.Entry<Integer, Long> entry : cycles.entrySet()) {
-      String identifier;
-      if (processes.containsKey(entry.getKey())) {
-        identifier = processes.get(entry.getKey());
-      } else {
-        identifier = hex(entry.getKey());
-      }
-      log("cpu cycles: " + identifier + ": " + entry.getValue());
-    }
-
-    // debugging monitor
-    if (markMonitor != null) {
-      cpu.removeWatchPoint(markAddress, markMonitor);
-    }   
 
     // shutdown
     try {
@@ -368,22 +442,41 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     }
   }
 
-  public Mote getMote() {
-    return mspMote;
+  public Mote getMote() { //<2
+    return mote;
   }
 
-  private void log(String logline) {
+  //<2 logging
+  private static Logger logger = Logger.getLogger(OcramCoojaPlugin.class);
+  private static BufferedWriter logwriter;
+
+  private static void log(String logline) {
     logger.info(logline);
 
     try {
-        logwriter.write(logline);
-        logwriter.write("\n");
-        logwriter.flush();
+      logwriter.write(logline);
+      logwriter.write("\n");
+      logwriter.flush();
     } catch (java.io.IOException e) {
-        throw new OcramError("failed to write to log file", e);
+      throw new OcramError("failed to write to log file", e);
     }
   }
 
+  //<2 OcramError
+  public static class OcramError extends RuntimeException {
+    public OcramError(String what) {
+      this(what, null);
+    }
+
+    public OcramError(String what, Throwable cause) {
+      super("Exception in Ocram-Cooja plugin: " + what);
+      if (cause != null) {
+        initCause(cause);
+      }
+    }
+  }
+
+  //<2 utilities
   private static String hex(Integer value)
   {
     return "0x" + Integer.toHexString(value);
@@ -397,21 +490,8 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     final StringBuilder hex = new StringBuilder( 2 * raw.length );
     for ( final byte b : raw ) {
       hex.append(HEXES.charAt((b & 0xF0) >> 4))
-         .append(HEXES.charAt((b & 0x0F)));
+        .append(HEXES.charAt((b & 0x0F)));
     }
     return hex.toString();
-  }
-
-  public class OcramError extends RuntimeException {
-    public OcramError(String what) {
-      this(what, null);
-    }
-
-    public OcramError(String what, Throwable cause) {
-      super("Exception in Ocram-Cooja plugin: " + what);
-      if (cause != null) {
-        initCause(cause);
-      }
-    }
   }
 }
