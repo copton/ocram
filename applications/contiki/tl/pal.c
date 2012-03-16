@@ -114,6 +114,8 @@ typedef struct thread {
     } sleep;  
     struct {
       bool notify;
+      struct etimer** timers;
+      size_t numberofTimers; 
     } condition;
   } data;
   Syscall syscall;
@@ -135,32 +137,20 @@ static void init() {
 }
 
 __attribute__((noinline)) static void platform_switch_to_thread() {
-    debug_mark = 90;
     PUSH_STATUS();
-    debug_mark = 91;
     PUSH_GPR();
-    debug_mark = 92;
     SWAP_STACK_PTR(old_stack_ptr, current_thread->sp);
-    debug_mark = 93;
     POP_GPR();
-    debug_mark = 94;
     POP_STATUS();
-    debug_mark = 95;
     return;
 }
 
 __attribute__((noinline)) static void yield() {
-    debug_mark = 70;
     PUSH_STATUS();
-    debug_mark = 71;
     PUSH_GPR();
-    debug_mark = 72;
     SWAP_STACK_PTR(current_thread->sp, old_stack_ptr);
-    debug_mark = 73;
     POP_GPR();
-    debug_mark = 74;
     POP_STATUS();
-    debug_mark = 75;
     return;
 }
 
@@ -188,6 +178,7 @@ uint16_t* stack_top(uint8_t* stack_, size_t size){
 void tl_create_thread(void (*fcn)(), uint8_t* stack, size_t size) {
     static int tid = 0;
     ASSERT(tid < TOSH_MAX_THREADS);
+    ASSERT((size % 2) == 0);
     current_thread = thread_table + tid;
     tid++;
     ASSERT(current_thread->state == STATE_NULL);
@@ -215,7 +206,9 @@ PROCESS_THREAD(process_scheduler, ev, data)
     init();
     tl_app_main();
     while(1) {
+        debug_mark = 81;
         PROCESS_YIELD();
+        debug_mark = 82;
 
         size_t i;
         size_t j;
@@ -225,42 +218,43 @@ PROCESS_THREAD(process_scheduler, ev, data)
             t = thread_table + j;
 
             if (t->state == STATE_READY && ev == PROCESS_EVENT_CONTINUE) {
-                debug_mark = 81;
-                break;
+                goto schedule;
             }
             if (t->state == STATE_BLOCKED) {
                 if (t->syscall == SYSCALL_sleep && ev == PROCESS_EVENT_TIMER && etimer_expired(&t->data.sleep.timer)) {
-                    debug_mark = 82;
-                    break;
+                    goto schedule;
                 }
                 if (t->syscall == SYSCALL_receive && ev == tcpip_event && uip_newdata()) {
-                    debug_mark = 83;
-                    break;
+                    goto schedule;
                 }
                 if (t->syscall == SYSCALL_send && ev == PROCESS_EVENT_CONTINUE) {
-                    debug_mark = 84;
-                    break;
+                    goto schedule;
                 }
                 if (t->syscall == SYSCALL_condition_wait && ev == PROCESS_EVENT_CONTINUE && t->data.condition.notify) {
-                    debug_mark = 85;
-                    break;
+                    goto schedule;
                 }
                 if (t->syscall == SYSCALL_condition_time_wait && ev == PROCESS_EVENT_CONTINUE && t->data.condition.notify) {
-                    debug_mark = 86;
-                    break;
+                    goto schedule;
                 }
-                if (t->syscall == SYSCALL_condition_time_wait && ev == PROCESS_EVENT_TIMER) { // XXX hijacking...
-                    debug_mark = 87;
-                    break;
+                if (t->syscall == SYSCALL_condition_time_wait && ev == PROCESS_EVENT_TIMER) {
+                    int i;
+                    for (i=0; i<t->data.condition.numberofTimers; i++) {
+                        if (etimer_expired(t->data.condition.timers[i])) {
+                            goto schedule;
+                        }
+                    }
                 }
             }
         }
-        ASSERT (i != TOSH_MAX_THREADS);
+        debug_mark = 85;
+        continue;
+
+schedule:
         current_thread = t;
         current_thread->state = STATE_ACTIVE;
-        debug_mark = 86;
+        debug_mark = 88;
         platform_switch_to_thread();
-        debug_mark = 87;
+        debug_mark = 89;
         current_thread = 0;
 
         thread_idx++;
@@ -288,9 +282,7 @@ void tl_receive() {
 }
 
 void tl_send(struct uip_udp_conn* conn, uip_ipaddr_t* addr, uint16_t rport, uint8_t* buffer, size_t len) {
-
     uip_udp_packet_sendto(conn, buffer, len, addr, rport);
-
 
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_send;
@@ -307,21 +299,20 @@ void tl_condition_wait(condition_t* cond) {
 }
 
 
-bool tl_condition_time_wait(condition_t* cond) {
-    debug_mark = 50;
+bool tl_condition_time_wait(condition_t* cond, struct etimer** timers, size_t numberofTimers) {
     cond->waiting_thread = current_thread;
-    debug_mark = 51;
     current_thread->state = STATE_BLOCKED;
-    debug_mark = 52;
     current_thread->syscall = SYSCALL_condition_time_wait;
-    debug_mark = 53;
+    current_thread->data.condition.timers = timers;
+    current_thread->data.condition.numberofTimers = numberofTimers;
+    current_thread->data.condition.notify = false;
     yield();
-    debug_mark = 54;
     return ! current_thread->data.condition.notify;
 }
 
 void tl_condition_signal(condition_t* cond) {
     thread_t* t = cond->waiting_thread;
+    if (! t->state == STATE_BLOCKED) return;
     t->data.condition.notify = true;
     process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, NULL);
 }

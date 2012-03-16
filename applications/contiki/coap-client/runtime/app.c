@@ -31,18 +31,21 @@ extern struct memb transactions_memb;
 
 condition_t transactions_cond;
 coap_transaction_t* new_transaction = NULL;
+struct etimer* timers[COAP_MAX_OPEN_TRANSACTIONS];
 
 uint8_t stack_transactions[200];
 void task_transactions()
 {
-    debug_mark = 10;
     while(1) {
-        debug_mark = 11;
-        if (tl_condition_time_wait(&transactions_cond)) {
-            debug_mark = 12;
+        int numberofTimers = 0;
+        coap_transaction_t* t;
+        for (t = (coap_transaction_t*)list_head(transactions_list); t; t=t->next) {
+            timers[numberofTimers++] = &t->retrans_timer;
+        }
+
+        if (tl_condition_time_wait(&transactions_cond, timers, numberofTimers)) {
             coap_check_transactions();
         } else {
-           debug_mark = 13;
            etimer_restart(&new_transaction->retrans_timer); 
         }
     }
@@ -168,13 +171,10 @@ void coap_receiver_init()
 uint8_t stack_receive[200];
 void task_receive()
 {
-    debug_mark = 20;
     tl_condition_wait(&start_receive_thread);
     coap_init_connection(SERVER_LISTEN_PORT);
     while(1) {
-        debug_mark = 21;
         tl_receive();
-        debug_mark = 22;
         handle_incoming_data(); 
     }
 }
@@ -191,7 +191,6 @@ void client_chunk_handler(void *response)
 uint8_t stack_query[200];
 void task_query()
 {
-    debug_mark = 30;
     coap_receiver_init();
 
     uip_ipaddr_t server_ipaddr;
@@ -201,10 +200,8 @@ void task_query()
 
     clock_time_t timestamp = clock_time();
     while(1) {
-        debug_mark = 31;
         timestamp += TOGGLE_INTERVAL;
         tl_sleep(timestamp);
-        debug_mark = 32;
 
         {
             int salt = rand_fixed() % 200;
@@ -238,10 +235,7 @@ void task_query()
 
 void tl_app_main()
 {
-    debug_mark = 1;
     tl_create_thread(task_transactions, stack_transactions, sizeof(stack_transactions));
-    debug_mark = 2;
     tl_create_thread(task_receive, stack_receive, sizeof(stack_receive));
-    debug_mark = 3;
     tl_create_thread(task_query, stack_query, sizeof(stack_query));
 }

@@ -349,7 +349,9 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
                 log(logline);
                 throw new OcramError(logline);
               } else {
-                log("debug monitor: mark: " + data);
+                long simtime = simulation.getSimulationTimeMillis();
+                long systime = System.currentTimeMillis();
+                log("debug monitor: simulation time=" + simtime + ", system time=" + systime + ": mark: " + data);
               }
             }
           }
