@@ -31,16 +31,18 @@ extern struct memb transactions_memb;
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
 
-condition_t transactions_cond;
+condition_t transactions_cond = TC_CONDITION_INITIALIZER;
 coap_transaction_t* new_transaction = NULL;
 
 TC_RUN_THREAD void task_transactions()
 {
     while(1) {
+        if (new_transaction) {
+           etimer_restart(&new_transaction->retrans_timer); 
+           new_transaction = NULL;
+        }
         if (tc_condition_time_wait(&transactions_cond)) {
             coap_check_transactions();
-        } else {
-           etimer_restart(&new_transaction->retrans_timer); 
         }
     }
 }
@@ -111,6 +113,7 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
     uint32_t block_num = 0;
     coap_transaction_t* transaction;
     blocking_ctx_t ctx;
+    tc_condition_init(&ctx.cond);
 
     do {
         request->tid = coap_get_tid();
@@ -155,7 +158,7 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
 }
 
 // RECEIVER
-condition_t start_receive_thread;
+condition_t start_receive_thread = TC_CONDITION_INITIALIZER;
 
 void coap_receiver_init()
 {

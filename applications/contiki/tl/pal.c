@@ -113,7 +113,7 @@ typedef struct thread {
       struct etimer timer;
     } sleep;  
     struct {
-      bool notify;
+      condition_t* cond;
       struct etimer** timers;
       size_t numberofTimers; 
     } condition;
@@ -206,9 +206,7 @@ PROCESS_THREAD(process_scheduler, ev, data)
     init();
     tl_app_main();
     while(1) {
-        debug_mark = 81;
         PROCESS_YIELD();
-        debug_mark = 82;
 
         size_t i;
         size_t j;
@@ -221,40 +219,46 @@ PROCESS_THREAD(process_scheduler, ev, data)
                 goto schedule;
             }
             if (t->state == STATE_BLOCKED) {
-                if (t->syscall == SYSCALL_sleep && ev == PROCESS_EVENT_TIMER && etimer_expired(&t->data.sleep.timer)) {
-                    goto schedule;
+                if (t->syscall == SYSCALL_sleep) {
+                    if (ev == PROCESS_EVENT_TIMER && data == &t->data.sleep.timer) {
+                        ASSERT(etimer_expired(&t->data.sleep.timer));
+                        goto schedule;
+                    } else if (ev == PROCESS_EVENT_CONTINUE && data == t) {
+                        goto schedule;
+                    }
                 }
                 if (t->syscall == SYSCALL_receive && ev == tcpip_event && uip_newdata()) {
                     goto schedule;
                 }
-                if (t->syscall == SYSCALL_send && ev == PROCESS_EVENT_CONTINUE) {
+                if (t->syscall == SYSCALL_send && ev == PROCESS_EVENT_CONTINUE && data == t) {
                     goto schedule;
                 }
-                if (t->syscall == SYSCALL_condition_wait && ev == PROCESS_EVENT_CONTINUE && t->data.condition.notify) {
+                if (t->syscall == SYSCALL_condition_wait && ev == PROCESS_EVENT_CONTINUE && data == t) {
+                    ASSERT(t->data.condition.cond->waiting == false);
                     goto schedule;
                 }
-                if (t->syscall == SYSCALL_condition_time_wait && ev == PROCESS_EVENT_CONTINUE && t->data.condition.notify) {
-                    goto schedule;
-                }
-                if (t->syscall == SYSCALL_condition_time_wait && ev == PROCESS_EVENT_TIMER) {
-                    int i;
-                    for (i=0; i<t->data.condition.numberofTimers; i++) {
-                        if (etimer_expired(t->data.condition.timers[i])) {
-                            goto schedule;
+                if (t->syscall == SYSCALL_condition_time_wait) {
+                    if (ev == PROCESS_EVENT_CONTINUE && data == t) {
+                        ASSERT(t->data.condition.cond->waiting == false);
+                        goto schedule;
+                    } else if (ev == PROCESS_EVENT_TIMER) {
+                        int i;
+                        for (i=0; i<t->data.condition.numberofTimers; i++) {
+                            if (data == t->data.condition.timers[i]) {
+                                ASSERT(etimer_expired(t->data.condition.timers[i]));
+                                goto schedule;
+                            }
                         }
                     }
                 }
             }
         }
-        debug_mark = 85;
         continue;
 
 schedule:
         current_thread = t;
         current_thread->state = STATE_ACTIVE;
-        debug_mark = 88;
         platform_switch_to_thread();
-        debug_mark = 89;
         current_thread = 0;
 
         thread_idx++;
@@ -267,10 +271,12 @@ AUTOSTART_PROCESSES(&process_scheduler);
 
 void tl_sleep(clock_time_t tics) {
     clock_time_t now = clock_time();
+    current_thread->state = STATE_BLOCKED;
+    current_thread->syscall = SYSCALL_sleep;
     if (tics > now) {
-        current_thread->state = STATE_BLOCKED;
-        current_thread->syscall = SYSCALL_sleep;
         etimer_set(&current_thread->data.sleep.timer, tics - now);
+    } else {
+        process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, current_thread);
     }
     yield();
 }
@@ -286,33 +292,41 @@ void tl_send(struct uip_udp_conn* conn, uip_ipaddr_t* addr, uint16_t rport, uint
 
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_send;
-    process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, NULL);
+    process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, current_thread);
     yield();
+}
+
+void tl_condition_init(condition_t* cond) {
+    cond->waiting_thread = NULL;
+    cond->waiting = false;
 }
 
 void tl_condition_wait(condition_t* cond) {
+    cond->waiting = true;
     cond->waiting_thread = current_thread;
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_condition_wait;
-    current_thread->data.condition.notify = false;
+    current_thread->data.condition.cond = cond;
     yield();
 }
 
-
 bool tl_condition_time_wait(condition_t* cond, struct etimer** timers, size_t numberofTimers) {
+    cond->waiting = true;
     cond->waiting_thread = current_thread;
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_condition_time_wait;
+    current_thread->data.condition.cond = cond;
     current_thread->data.condition.timers = timers;
     current_thread->data.condition.numberofTimers = numberofTimers;
-    current_thread->data.condition.notify = false;
     yield();
-    return ! current_thread->data.condition.notify;
+    bool timeout = cond->waiting;
+    cond->waiting = false;
+    return timeout;
 }
 
 void tl_condition_signal(condition_t* cond) {
-    thread_t* t = cond->waiting_thread;
-    if (! t->state == STATE_BLOCKED) return;
-    t->data.condition.notify = true;
-    process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, NULL);
+    if (! cond->waiting) return;
+
+    cond->waiting = false;
+    process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, cond->waiting_thread);
 }

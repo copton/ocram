@@ -59,7 +59,16 @@ void /*syscall*/(ec_frame_/*syscall*/_t* frame) {
 /*{ if "tc_condition_wait" in all_syscalls or "tc_condition_time_wait" in all_syscalls}*/
 void tc_condition_signal(condition_t* cond)
 {
+   if (! cond->waiting) return;
+
+   cond->waiting = false;
    process_post(cond->waiting_process, PROCESS_EVENT_CONTINUE, &tc_condition_signal);
+}
+
+void tc_condition_init(condition_t* cond)
+{
+    cond->waiting_process = NULL;
+    cond->waiting = false;
 }
 /*{ endif }*/
 
@@ -121,14 +130,17 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
 /*{ if "tc_condition_wait" in all_syscalls }*/
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_condition_wait) {
             threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting_process = PROCESS_CURRENT();
-            PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal);
+            threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting = true;
+            PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting == false);
             continuation = threads[/*loop.index0*/].ctx.tc_condition_wait.frame->ec_cont;
         }
 /*{ endif }*/
 /*{ if "tc_condition_time_wait" in all_syscalls }*/
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_condition_time_wait) {
             threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting_process = PROCESS_CURRENT();
-            PROCESS_YIELD_UNTIL((ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal) || ev == PROCESS_EVENT_TIMER);
+            threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting = true;
+            PROCESS_YIELD_UNTIL((ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting == false) || ev == PROCESS_EVENT_TIMER);
+            threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting = false;
             threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_result = ev == PROCESS_EVENT_TIMER;
             continuation = threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_cont;
         }

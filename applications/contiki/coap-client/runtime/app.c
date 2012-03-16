@@ -29,7 +29,7 @@ extern struct memb transactions_memb;
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
 
-condition_t transactions_cond;
+condition_t transactions_cond = TL_CONDITION_INITIALIZER;
 coap_transaction_t* new_transaction = NULL;
 struct etimer* timers[COAP_MAX_OPEN_TRANSACTIONS];
 
@@ -37,6 +37,11 @@ uint8_t stack_transactions[200];
 void task_transactions()
 {
     while(1) {
+        if (new_transaction) {
+           etimer_restart(&new_transaction->retrans_timer); 
+           new_transaction = NULL;
+        }
+
         int numberofTimers = 0;
         coap_transaction_t* t;
         for (t = (coap_transaction_t*)list_head(transactions_list); t; t=t->next) {
@@ -45,8 +50,6 @@ void task_transactions()
 
         if (tl_condition_time_wait(&transactions_cond, timers, numberofTimers)) {
             coap_check_transactions();
-        } else {
-           etimer_restart(&new_transaction->retrans_timer); 
         }
     }
 }
@@ -117,6 +120,7 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
     uint32_t block_num = 0;
     coap_transaction_t* transaction;
     blocking_ctx_t ctx;
+    tl_condition_init(&ctx.cond);
 
     do {
         request->tid = coap_get_tid();
@@ -161,7 +165,7 @@ void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet
 }
 
 // RECEIVER
-condition_t start_receive_thread;
+condition_t start_receive_thread = TL_CONDITION_INITIALIZER;
 
 void coap_receiver_init()
 {
@@ -188,7 +192,7 @@ void client_chunk_handler(void *response)
     printf("trace: coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
 }
 
-uint8_t stack_query[200];
+uint8_t stack_query[400];
 void task_query()
 {
     coap_receiver_init();
