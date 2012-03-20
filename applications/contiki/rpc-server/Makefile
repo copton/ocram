@@ -1,4 +1,4 @@
-DIRS = setup native generated runtime
+DIRS = setup native generated
 
 .PHONY: all clean test compare bench
 
