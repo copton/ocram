@@ -160,10 +160,10 @@ bool rpc_unmarshall_response(rpc_response_t* response, uint8_t* buffer, size_t l
         case RPC_TELL: {
         } break;
         case RPC_READ_SLOW_SENSOR: {
-            if (rcopy(response->data.read_slow_sensor.value, sizeof(response->data.read_slow_sensor.value), buffer, len, &offset)) return false;
+            if (rcopy(&response->data.read_slow_sensor.value, sizeof(response->data.read_slow_sensor.value), buffer, len, &offset)) return false;
         }
         case RPC_READ_FAST_SENSOR: {
-            if (rcopy(response->data.read_fast_sensor.value, sizeof(response->data.read_fast_sensor.value), buffer, len, &offset)) return false;
+            if (rcopy(&response->data.read_fast_sensor.value, sizeof(response->data.read_fast_sensor.value), buffer, len, &offset)) return false;
         }
     }
 

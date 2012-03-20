@@ -6,6 +6,7 @@
 #include "debug.h"
 #include "rpc.h"
 #include "config.h"
+#include "common.h"
 
 PROCESS(rpc_client, "RPC Client");
 PROCESS_THREAD(rpc_client, ev, data)
@@ -21,9 +22,10 @@ PROCESS_THREAD(rpc_client, ev, data)
 
     PROCESS_BEGIN();
 
+    ipconfig(true);
     uip_ip6addr(&peer, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
-    conn = udp_new(NULL, UIP_HTONS(UDP_SERVER_PORT), NULL);
-    udp_bind(conn, UIP_HTONS(UDP_CLIENT_PORT));
+    conn = udp_new(NULL, UDP_SERVER_PORT, NULL);
+    udp_bind(conn, UDP_CLIENT_PORT);
 
     etimer_set(&et, CALL_INTERVAL);
     while(1) {
