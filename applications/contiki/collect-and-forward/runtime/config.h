@@ -1,1 +1,1 @@
-../native/config.h
+../setup/config.h
