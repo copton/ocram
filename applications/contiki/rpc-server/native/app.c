@@ -67,7 +67,7 @@ PROCESS_THREAD(worker0, ev, data)
             rpc_response_read_fast_sensor(rand(), &worker->call, &worker->response);
             printf("trace: sending fast sensor value: %d\n", worker->response.data.read_fast_sensor.value);
         }
-        process_post(&server_process, PROCESS_EVENT_CONTINUE, workers + 0);
+        process_post(&server_process, PROCESS_EVENT_CONTINUE, worker);
     }
     PROCESS_END();
 }
@@ -102,7 +102,7 @@ PROCESS_THREAD(worker1, ev, data)
             rpc_response_read_fast_sensor(rand(), &worker->call, &worker->response);
             printf("trace: sending fast sensor value: %d\n", worker->response.data.read_fast_sensor.value);
         }
-        process_post(&server_process, PROCESS_EVENT_CONTINUE, workers + 0);
+        process_post(&server_process, PROCESS_EVENT_CONTINUE, worker);
     }
     PROCESS_END();
 }
@@ -118,6 +118,7 @@ PROCESS_THREAD(server_process, ev, data)
         workers[i].busy = false;
     }
     workers[0].process = &worker0;
+    workers[1].process = &worker1;
 
     ipconfig(false);
 
@@ -127,7 +128,7 @@ PROCESS_THREAD(server_process, ev, data)
     while(1) {
         PROCESS_YIELD();
         if (ev == tcpip_event && uip_newdata()) {
-//            printf("XXX: received %d bytes from ", uip_datalen()); uip_debug_ipaddr_print(&workers[i].peer); printf("\n");
+            printf("XXX: received %d bytes from ", uip_datalen()); uip_debug_ipaddr_print(&workers[i].peer); printf("\n");
             for (i=0; i<sizeof(workers)/sizeof(worker_t); i++) {
                 worker_t* worker = workers + i;
                 if (worker->busy == false) {
@@ -144,7 +145,7 @@ PROCESS_THREAD(server_process, ev, data)
             worker->busy = false;
             int16_t size = rpc_marshall_response(&worker->response, uip_appdata, UIP_BUFSIZE);
             ASSERT(size != -1);
-//            printf("XXX: sending %d bytes to ", size); uip_debug_ipaddr_print(&worker->peer); printf("\n");
+            printf("XXX: sending %d bytes to ", size); uip_debug_ipaddr_print(&worker->peer); printf("\n");
             uip_udp_packet_sendto(conn, uip_appdata, size, &worker->peer, UDP_CLIENT_PORT);
         }
     }
