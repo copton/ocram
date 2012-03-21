@@ -13,9 +13,8 @@ PROCESS_THREAD(rpc_client, ev, data)
 {
     static uip_ipaddr_t peer;
     static struct etimer et;
-    static rpc_call_t call_tell, call_fast_sensor, call_slow_sensor;
+    static rpc_call_t call_tell, call_remote, call_fast_sensor, call_slow_sensor;
     static rpc_response_t response;
-    static uint8_t buffer[UIP_BUFSIZE];
     static struct uip_udp_conn* conn;
     int16_t size;
     bool success;
@@ -24,26 +23,27 @@ PROCESS_THREAD(rpc_client, ev, data)
 
     ipconfig(true);
     uip_ip6addr(&peer, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
-    conn = udp_new(NULL, UDP_SERVER_PORT, NULL);
+    conn = udp_new(NULL, 0, NULL);
     udp_bind(conn, UDP_CLIENT_PORT);
 
     etimer_set(&et, CALL_INTERVAL);
     while(1) {
+        static int pending = 0;
         PROCESS_YIELD_UNTIL(etimer_expired(&et));
 
         rpc_call_read_slow_sensor(1, &call_slow_sensor);
-        size = rpc_marshall_call(&call_slow_sensor, buffer, sizeof(buffer));
+        size = rpc_marshall_call(&call_slow_sensor, uip_appdata, UIP_BUFSIZE);
         ASSERT(size != -1);
         printf("trace: calling slow sensor 1\n");
-        uip_udp_packet_sendto(conn, buffer, size, &peer, UDP_SERVER_PORT);
+        uip_udp_packet_sendto(conn, uip_appdata, size, &peer, UDP_SERVER_PORT);
+        pending++;
 
         rpc_call_read_fast_sensor(1, &call_fast_sensor);
-        size = rpc_marshall_call(&call_fast_sensor, buffer, sizeof(buffer));
+        size = rpc_marshall_call(&call_fast_sensor, uip_appdata, UIP_BUFSIZE);
         ASSERT (size != -1);
         printf("trace: calling fast sensor 1\n");
-        uip_udp_packet_sendto(conn, buffer, size, &peer, UDP_SERVER_PORT);
-
-        static int pending = 2;
+        uip_udp_packet_sendto(conn, uip_appdata, size, &peer, UDP_SERVER_PORT);
+        pending++;
 
         while(pending != 0) {
             PROCESS_YIELD_UNTIL(ev == tcpip_event && uip_newdata());
