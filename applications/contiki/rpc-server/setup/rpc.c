@@ -100,14 +100,14 @@ bool rpc_unmarshall_call(rpc_call_t* call, uint8_t* buffer, size_t len)
     return true;
 }
 
-void rpc_responde_tell(rpc_call_t* call, rpc_response_t* response)
+void rpc_response_tell(rpc_call_t* call, rpc_response_t* response)
 {
     ASSERT(call->function == RPC_TELL);
     response->function = call->function;
     response->sequence = call->sequence;
 }
 
-void rpc_reponsde_read_slow_sensor(int16_t value, rpc_call_t* call, rpc_response_t* response)
+void rpc_response_read_slow_sensor(int16_t value, rpc_call_t* call, rpc_response_t* response)
 {
     ASSERT(call->function == RPC_READ_SLOW_SENSOR);
     response->function = call->function;
@@ -115,7 +115,7 @@ void rpc_reponsde_read_slow_sensor(int16_t value, rpc_call_t* call, rpc_response
     response->data.read_slow_sensor.value = value;
 }
 
-void rpc_reponsde_read_fast_sensor(int16_t value, rpc_call_t* call, rpc_response_t* response)
+void rpc_response_read_fast_sensor(int16_t value, rpc_call_t* call, rpc_response_t* response)
 {
     ASSERT(call->function == RPC_READ_FAST_SENSOR);
     response->function = call->function;

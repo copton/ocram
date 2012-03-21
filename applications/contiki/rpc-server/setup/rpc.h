@@ -8,8 +8,8 @@
 
 typedef enum {
     RPC_TELL = 1,         // recursion
-    RPC_READ_SLOW_SENSOR, // blocking 
-    RPC_READ_FAST_SENSOR  // non-blocking
+    RPC_READ_SLOW_SENSOR = 2, // blocking 
+    RPC_READ_FAST_SENSOR = 3,  // non-blocking
 } rpc_function_t;
 
 struct rpc_call {
@@ -57,9 +57,9 @@ typedef struct {
     } data;
 } rpc_response_t;
 
-void rpc_responde_tell(rpc_call_t* call, rpc_response_t* response);
-void rpc_reponsde_read_slow_sensor(int16_t value, rpc_call_t* call, rpc_response_t* response);
-void rpc_reponsde_read_fast_sensor(int16_t value, rpc_call_t* call, rpc_response_t* response);
+void rpc_response_tell(rpc_call_t* call, rpc_response_t* response);
+void rpc_response_read_slow_sensor(int16_t value, rpc_call_t* call, rpc_response_t* response);
+void rpc_response_read_fast_sensor(int16_t value, rpc_call_t* call, rpc_response_t* response);
 int16_t rpc_marshall_response(rpc_response_t* response, uint8_t* buffer, size_t len);
 bool rpc_unmarshall_response(rpc_response_t* call, uint8_t* buffer, size_t len);
 
