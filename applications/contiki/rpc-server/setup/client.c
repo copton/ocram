@@ -37,14 +37,14 @@ PROCESS_THREAD(rpc_client, ev, data)
         rpc_call_tell(&peer2, &call_slow_sensor, &call_tell);
         size = rpc_marshall_call(&call_tell, uip_appdata, UIP_BUFSIZE);
         ASSERT (size != -1);
-        printf("trace: calling slow sensor via tell\n");
+        printf("trace: "); rpc_print_call(&call_tell);
         uip_udp_packet_sendto(conn, uip_appdata, size, &peer1, UDP_SERVER_PORT);
         pending++;
 
         rpc_call_read_fast_sensor(1, &call_fast_sensor);
         size = rpc_marshall_call(&call_fast_sensor, uip_appdata, UIP_BUFSIZE);
         ASSERT (size != -1);
-        printf("trace: calling fast sensor 1\n");
+        printf("trace: "); rpc_print_call(&call_fast_sensor);
         uip_udp_packet_sendto(conn, uip_appdata, size, &peer1, UDP_SERVER_PORT);
         pending++;
 
@@ -53,16 +53,15 @@ PROCESS_THREAD(rpc_client, ev, data)
             success = rpc_unmarshall_response(responses, MAX_TELL_DEPTH, uip_appdata, uip_datalen());
             rpc_response_t* response = responses + 0;
             ASSERT(success == true);
+            printf("trace: "); rpc_print_response(response);
             if (0) {
             } else if (response->sequence == call_fast_sensor.sequence) {
                 ASSERT(response->function == RPC_READ_FAST_SENSOR);
-                printf("trace: received value from fast sensor: %d\n", response->data.read_fast_sensor.value);
                 pending--;
             } else if (response->sequence == call_tell.sequence) {
                 ASSERT(response->function == RPC_TELL);
                 ASSERT(response->data.tell.response->sequence == call_tell.data.tell.call->sequence);
                 ASSERT(response->data.tell.response->function == RPC_READ_SLOW_SENSOR);
-                printf("trace: received value from slow sensor via tell: %d\n", response->data.tell.response->data.read_fast_sensor.value);
                 pending--;
             }
         }

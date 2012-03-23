@@ -40,10 +40,9 @@ typedef struct {
 PT_THREAD(worker_thread(worker_t* worker, process_event_t ev)) {
     PT_BEGIN(&worker->pt);
 
-    rpc_print_call(CALL);
+    printf("trace: "); rpc_print_call(CALL);
     if (0) { 
     } else if(CALL->function == RPC_TELL) {
-        printf("trace: telling peer "); uip_debug_ipaddr_print(&CALL->data.tell.peer); printf("\n");
         int16_t size = rpc_marshall_call(CALL->data.tell.call, uip_appdata, UIP_BUFSIZE);
         ASSERT(size != -1);
         uip_udp_packet_sendto(worker->conn, uip_appdata, size, &CALL->data.tell.peer, UDP_SERVER_PORT);
@@ -52,23 +51,18 @@ PT_THREAD(worker_thread(worker_t* worker, process_event_t ev)) {
         bool success = rpc_unmarshall_response(RESPONSE + 1, MAX_TELL_DEPTH - 1, uip_appdata, uip_datalen());
         ASSERT(success == true);
         rpc_response_tell(RESPONSE + 1, CALL, RESPONSE);
-        printf("trace: sending tell response\n");
     } else if (CALL->function == RPC_READ_SLOW_SENSOR) {
-        printf("trace: reading slow sensor: %d\n", CALL->data.read_slow_sensor.sensor);
         static struct etimer et;
         etimer_set(&et, SLOW_SENSOR_DELAY);
         PT_YIELD_UNTIL(&worker->pt, etimer_expired(&et));
         rpc_response_read_slow_sensor(rand(), CALL, RESPONSE);
-        printf("trace: sending slow sensor value: %d\n", RESPONSE->data.read_slow_sensor.value);
     } else if (CALL->function == RPC_READ_FAST_SENSOR) {
-        printf("trace: reading fast sensor: %d\n", CALL->data.read_fast_sensor.sensor);
         rpc_response_read_fast_sensor(rand(), CALL, RESPONSE);
-        printf("trace: sending fast sensor value: %d\n", RESPONSE->data.read_fast_sensor.value);
     } else {
         ASSERT(false);
     }
     
-    rpc_print_response(RESPONSE);
+    printf("trace: "); rpc_print_response(RESPONSE);
     PT_END(&worker->pt);
 }
 
@@ -135,14 +129,11 @@ PROCESS_THREAD(server_process, ev, data)
     while(1) {
         PROCESS_YIELD();
         if (ev == tcpip_event && uip_newdata()) {
-            printf("XXX: received packet from "); uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr); printf(": "); print_buffer(uip_appdata, uip_datalen()); printf("\n");
-
             for (i=0; i<sizeof(workers)/sizeof(worker_t); i++) {
                 worker_t* worker = workers + i;
                 if (worker->busy == false) {
                     worker->busy = true;
-                    bool success = rpc_unmarshall_call(&worker->call[0], MAX_TELL_DEPTH, uip_appdata, uip_datalen());
-                    rpc_print_call(&worker->call[0]);
+                    bool success = rpc_unmarshall_call(CALL, MAX_TELL_DEPTH, uip_appdata, uip_datalen());
                     ASSERT(success == true);
                     worker->peer = UIP_IP_BUF->srcipaddr;
                     process_poll(worker->process);
@@ -153,9 +144,8 @@ PROCESS_THREAD(server_process, ev, data)
         } else if (ev == PROCESS_EVENT_CONTINUE) {
             worker_t* worker = data;
             worker->busy = false;
-            int16_t size = rpc_marshall_response(&worker->response[0], uip_appdata, UIP_BUFSIZE);
+            int16_t size = rpc_marshall_response(RESPONSE, uip_appdata, UIP_BUFSIZE);
             ASSERT(size != -1);
-            printf("XXX: sending packet to "); uip_debug_ipaddr_print(&worker->peer); printf(": "); print_buffer(uip_appdata, size); printf("\n");
             uip_udp_packet_sendto(conn, uip_appdata, size, &worker->peer, UDP_CLIENT_PORT);
         }
     }
