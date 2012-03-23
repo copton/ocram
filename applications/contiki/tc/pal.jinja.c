@@ -1,10 +1,11 @@
 #include "contiki.h"
 #include "debug.h"
 #include <stdbool.h>
+#include "tc/condition.h"
 /*{ if "tc_sleep" in all_syscalls }*/
 #include "clock.h"
 /*{ endif }*/
-/*{ if "tc_send" in all_syscalls or "tc_receive" in all_syscalls or "tc_time_receive" in all_syscalls}*/
+/*{ if "tc_send" in all_syscalls or "tc_receive" in all_syscalls }*/
 #include "contiki-net.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -14,9 +15,6 @@
 /*{ endif }*/
 /*{ if "tc_await_button" in all_syscalls }*/
 #include "dev/button-sensor.h"
-/*{ endif }*/
-/*{ if (("tc_condition_wait" in all_syscalls) or ("tc_condition_time_wait" in all_syscalls)) }*/
-#include "tc/condition.h"
 /*{ endif }*/
 
 /* pal_code */
@@ -56,12 +54,12 @@ void /*syscall*/(ec_frame_/*syscall*/_t* frame) {
 }
 /*{ endfor }*/
 
-/*{ if "tc_condition_wait" in all_syscalls or "tc_condition_time_wait" in all_syscalls}*/
-void tc_condition_signal(condition_t* cond)
+void tc_condition_signal(condition_t* cond, void* data)
 {
    if (! cond->waiting) return;
 
    cond->waiting = false;
+   cond->data = data;
    process_post(cond->waiting_process, PROCESS_EVENT_CONTINUE, &tc_condition_signal);
 }
 
@@ -69,8 +67,8 @@ void tc_condition_init(condition_t* cond)
 {
     cond->waiting_process = NULL;
     cond->waiting = false;
+    cond->data = NULL;
 }
-/*{ endif }*/
 
 /*{ for syscalls in thread_syscalls }*/
 PROCESS_THREAD(thread/*loop.index0*/, ev, data)
@@ -84,30 +82,57 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
         if (0) { }
 /*{ if "tc_sleep" in all_syscalls }*/
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_sleep) {
-            ec_frame_tc_sleep_t* frame = threads[/*loop.index0*/].ctx.tc_sleep.frame;
+            if (threads[/*loop.index0*/].ctx.tc_sleep.frame->cond) {
+                threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting = true;
+                threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting_process = PROCESS_CURRENT();
+            }
             static struct etimer et; 
             clock_time_t now = clock_time();
-            if (frame->tics > now) {
-                etimer_set(&et, frame->tics - now);
-                PROCESS_YIELD_UNTIL(etimer_expired(&et));
+            if (threads[/*loop.index0*/].ctx.tc_sleep.frame->tics > now) {
+                etimer_set(&et, threads[/*loop.index0*/].ctx.tc_sleep.frame->tics - now);
+                do {
+                    PROCESS_YIELD();
+                    if (ev == PROCESS_EVENT_TIMER && data == &et) {
+                        threads[/*loop.index0*/].ctx.tc_sleep.frame->ec_result = false;
+                        break;
+                    }
+                    if (ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond != NULL && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting == false) {
+                        threads[/*loop.index0*/].ctx.tc_sleep.frame->ec_result = true;
+                        break;
+                    }
+                } while(1);
             } else {
                 PROCESS_PAUSE();
+                threads[/*loop.index0*/].ctx.tc_sleep.frame->ec_result = false;
             }
-            frame = threads[/*loop.index0*/].ctx.tc_sleep.frame;
-            continuation = frame->ec_cont;
+            if (threads[/*loop.index0*/].ctx.tc_sleep.frame->cond) {
+                threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting = false;
+            }
+            continuation = threads[/*loop.index0*/].ctx.tc_sleep.frame->ec_cont;
         }
 /*{ endif }*/ 
 /*{ if "tc_receive" in all_syscalls }*/
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_receive) {
-            PROCESS_YIELD_UNTIL(ev == tcpip_event && uip_newdata());
+            if (threads[/*loop.index0*/].ctx.tc_receive.frame->cond) {
+                threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting = true;
+                threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting_process = PROCESS_CURRENT();
+            }
+            do {
+                PROCESS_YIELD();
+                if (ev == tcpip_event && uip_newdata()) {
+                    threads[/*loop.index0*/].ctx.tc_receive.frame->ec_result = false;
+                    break;
+                }
+                if (ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond != NULL && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting == false) {
+                    threads[/*loop.index0*/].ctx.tc_receive.frame->ec_result = true;
+                    break;
+                }
+            } while(1);
+            if (threads[/*loop.index0*/].ctx.tc_receive.frame->cond) {
+                threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting = false;
+                break;
+            }
             continuation = threads[/*loop.index0*/].ctx.tc_receive.frame->ec_cont;
-        }
-/*{ endif }*/
-/*{ if "tc_time_receive" in all_syscalls }*/
-        else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_time_receive) {
-            PROCESS_YIELD_UNTIL((ev == tcpip_event && uip_newdata()) || ev == PROCESS_EVENT_TIMER);
-            threads[/*loop.index0*/].ctx.tc_time_receive.frame->ec_result = ev == PROCESS_EVENT_TIMER;
-            continuation = threads[/*loop.index0*/].ctx.tc_time_receive.frame->ec_cont;
         }
 /*{ endif }*/
 /*{ if "tc_send" in all_syscalls }*/
@@ -133,16 +158,6 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
             threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting = true;
             PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting == false);
             continuation = threads[/*loop.index0*/].ctx.tc_condition_wait.frame->ec_cont;
-        }
-/*{ endif }*/
-/*{ if "tc_condition_time_wait" in all_syscalls }*/
-        else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_condition_time_wait) {
-            threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting_process = PROCESS_CURRENT();
-            threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting = true;
-            PROCESS_YIELD_UNTIL((ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting == false) || ev == PROCESS_EVENT_TIMER);
-            threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->cond->waiting = false;
-            threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_result = ev == PROCESS_EVENT_TIMER;
-            continuation = threads[/*loop.index0*/].ctx.tc_condition_time_wait.frame->ec_cont;
         }
 /*{ endif }*/
         else {

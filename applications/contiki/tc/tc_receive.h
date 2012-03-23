@@ -3,8 +3,8 @@
 
 #include "ocram.h"
 #include <stdbool.h>
+#include "condition.h"
 
-TC_BLOCKING void tc_receive();
-TC_BLOCKING bool tc_time_receive();
+TC_BLOCKING bool tc_receive(condition_t* cond);
 
 #endif

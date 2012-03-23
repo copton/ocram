@@ -6,7 +6,6 @@
 #include "config.h"
 #include "contiki.h"
 #include "contiki-net.h"
-#define ASSERT_PRINTF
 #include "debug.h"
 #include "net/uip-debug.h"
 #include "net/uip.h"
