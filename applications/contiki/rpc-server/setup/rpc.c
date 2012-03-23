@@ -125,25 +125,25 @@ const char* rpc_function_to_string(rpc_function_t function) {
 }
 
 static void print_call(rpc_call_t* call) {
-    printf("seq=%d, fun=%s, ", call->sequence, rpc_function_to_string(call->function));
+    printf("\"type\":\"call\", \"seq\":%d, \"fun\":\"%s\", ", call->sequence, rpc_function_to_string(call->function));
     if (0) {
     } else if (call->function == RPC_TELL) {
-        printf("peer="); uip_debug_ipaddr_print(&call->data.tell.peer); printf(", call=");
-        printf("<");
+        printf("\"peer\":\""); uip_debug_ipaddr_print(&call->data.tell.peer); printf("\", \"call\":{");
         print_call(call->data.tell.call);
-        printf(">");
+        printf("}");
     } else if (call->function == RPC_READ_SLOW_SENSOR) {
-        printf("sensor=%d", call->data.read_slow_sensor.sensor);
+        printf("\"sensor\":%d", call->data.read_slow_sensor.sensor);
     } else if (call->function == RPC_READ_FAST_SENSOR) {
-        printf("sensor=%d", call->data.read_fast_sensor.sensor);
+        printf("\"sensor\":%d", call->data.read_fast_sensor.sensor);
     } else {
         ASSERT(false);
     }
 }
 
 void rpc_print_call(rpc_call_t* call) {
+    printf("{");
     print_call(call);
-    printf("\n");
+    printf("}\n");
 }
 void rpc_response_tell(rpc_response_t* remote_response, rpc_call_t* call, rpc_response_t* response)
 {
@@ -225,16 +225,16 @@ bool rpc_unmarshall_response(rpc_response_t* response, size_t numberofResponses,
 
 static void print_response(rpc_response_t* response)
 {
-    printf("seq=%d, fun=%s, ", response->sequence, rpc_function_to_string(response->function));
+    printf("\"type\":\"response\", \"seq\":%d, \"fun\":\"%s\", ", response->sequence, rpc_function_to_string(response->function));
     if (0) {
     } else if (response->function == RPC_TELL) {
-        printf("<");
+        printf("\"call\":{");
         print_response(response->data.tell.response);
-        printf(">");
+        printf("}");
     } else if (response->function == RPC_READ_SLOW_SENSOR) {
-        printf("value=%d", response->data.read_slow_sensor.value);
+        printf("\"value\":%d", response->data.read_slow_sensor.value);
     } else if (response->function == RPC_READ_FAST_SENSOR) {
-        printf("value=%d", response->data.read_fast_sensor.value);
+        printf("\"value\":%d", response->data.read_fast_sensor.value);
     } else {
         ASSERT(false);
     }
@@ -242,6 +242,7 @@ static void print_response(rpc_response_t* response)
 
 void rpc_print_response(rpc_response_t* response)
 {
+    printf("{");
     print_response(response);
-    printf("\n");
+    printf("}\n");
 }
