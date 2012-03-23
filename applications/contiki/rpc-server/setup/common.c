@@ -28,6 +28,15 @@ void print_local_addresses(void) {
     PRINTF("\n");
 }
 
+void print_buffer(uint8_t* buffer, size_t len)
+{
+    size_t i;
+    printf("(%d) ", len);
+    for (i=0; i<len; i++) {
+        printf("%.2x", buffer[i]);
+    }
+}
+
 void ipconfig(bool root)
 {
     struct uip_ds6_addr *root_if;

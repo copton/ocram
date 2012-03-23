@@ -24,7 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky1</identifier>
       <description>source</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/client.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/client.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -90,6 +90,20 @@
       </interface_config>
       <motetype_identifier>sky3</motetype_identifier>
     </mote>
+    <mote>
+      <breakpoints />
+      <interface_config>
+        se.sics.cooja.interfaces.Position
+        <x>33.54401348168856</x>
+        <y>26.245953015143673</y>
+        <z>0.0</z>
+      </interface_config>
+      <interface_config>
+        se.sics.cooja.mspmote.interfaces.MspMoteID
+        <id>3</id>
+      </interface_config>
+      <motetype_identifier>sky3</motetype_identifier>
+    </mote>
   </simulation>
   <plugin>
     se.sics.cooja.plugins.SimControl
@@ -106,10 +120,10 @@
       <skin>se.sics.cooja.plugins.skins.TrafficVisualizerSkin</skin>
       <skin>se.sics.cooja.plugins.skins.UDGMVisualizerSkin</skin>
       <skin>se.sics.cooja.plugins.skins.IDVisualizerSkin</skin>
-      <viewport>10.816250021861679 0.0 0.0 10.816250021861679 -252.53735239740297 -213.17902392861043</viewport>
+      <viewport>5.123888698059074 0.0 0.0 5.123888698059074 -37.875791566365194 -13.481342024084146</viewport>
     </plugin_config>
     <width>319</width>
-    <z>1</z>
+    <z>0</z>
     <height>379</height>
     <location_x>-1</location_x>
     <location_y>186</location_y>
@@ -121,19 +135,21 @@
       <coloring />
     </plugin_config>
     <width>1094</width>
-    <z>2</z>
+    <z>1</z>
     <height>672</height>
     <location_x>319</location_x>
     <location_y>1</location_y>
   </plugin>
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
-    <plugin_config>
-        <process>server_process</process>
-    </plugin_config>
-    <mote_arg>1</mote_arg>
+	<plugin_config>
+		<process>server_process</process>
+		<process>worker0</process>
+		<process>worker1</process>
+	</plugin_config>
+    <mote_arg>2</mote_arg>
     <width>207</width>
-    <z>0</z>
+    <z>4</z>
     <height>80</height>
     <location_x>42</location_x>
     <location_y>599</location_y>
@@ -141,7 +157,7 @@
   <plugin>
     se.sics.cooja.plugins.ScriptRunner
     <plugin_config>
-      <scriptfile>[CONFIG_DIR]/../../quit.js</scriptfile>
+      <scriptfile>/home/alex/scm/ocram/applications/contiki/rpc-server/native/../../quit.js</scriptfile>
       <active>true</active>
     </plugin_config>
     <width>600</width>

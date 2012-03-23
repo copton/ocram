@@ -1,4 +1,4 @@
-all: app
+all: app client
 PROJECT_SOURCEFILES += debug.c rpc.c common.c
 
 APPS=
