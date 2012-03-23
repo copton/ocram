@@ -130,7 +130,6 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
             } while(1);
             if (threads[/*loop.index0*/].ctx.tc_receive.frame->cond) {
                 threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting = false;
-                break;
             }
             continuation = threads[/*loop.index0*/].ctx.tc_receive.frame->ec_cont;
         }
