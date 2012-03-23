@@ -24,7 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky1</identifier>
       <description>source</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/client.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/client.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
