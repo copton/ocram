@@ -52,9 +52,6 @@ endif
 
 include $(ROOT)/applications/contiki/goals.mak
 
-$(SKYS): %.cached.sky: $(CACHE) %.sky
-	$^
-
 test: all OcramCooja.log
 
 OcramCooja.log: $(TEST) $(VERIFY) $(CSC) $(SKYS)

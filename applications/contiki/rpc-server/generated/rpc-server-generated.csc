@@ -66,7 +66,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky3</identifier>
       <description>app</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../native/app.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/peer.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -168,7 +168,7 @@
 		<process>thread1</process>
 		<process>thread2</process>
 	</plugin_config>
-    <mote_arg>2</mote_arg>
+    <mote_arg>1</mote_arg>
     <width>207</width>
     <z>4</z>
     <height>80</height>
