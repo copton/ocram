@@ -98,6 +98,7 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
                     }
                     if (ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond != NULL && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting == false) {
                         threads[/*loop.index0*/].ctx.tc_sleep.frame->ec_result = true;
+                        etimer_stop(&et);
                         break;
                     }
                 } while(1);

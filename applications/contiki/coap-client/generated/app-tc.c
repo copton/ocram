@@ -32,7 +32,6 @@ extern struct memb transactions_memb;
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
 
 condition_t transactions_cond = TC_CONDITION_INITIALIZER;
-coap_transaction_t* new_transaction = NULL;
 
 TC_RUN_THREAD void task_transactions()
 {
