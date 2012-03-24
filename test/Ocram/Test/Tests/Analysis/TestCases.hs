@@ -33,13 +33,6 @@ test_cases = [
 		[]
 		[NoThreads]
 		[]
--- single blocking function declaration {{{2
---   ,TCase
---     "__attribute__((tc_blocking)) void block(int x, ...);"
---     []
---     []
---     [NoThreads]
---     []
 -- single start function {{{2
 	,TCase
 		"__attribute__((tc_run_thread)) void start() { };"
@@ -277,4 +270,21 @@ test_cases = [
     [NoVarName]
     undefined
     [TTCallGraph, TTConstraints] 
+-- no ellipses for critical functions {{{2
+   ,TCase
+    [paste|
+     __attribute__((tc_blocking)) void block(int x, ...);
+     void non_critical(int x, ...) { }
+     void critical(int x, ...) {
+       block(x);
+       non_critical(x);
+     } 
+     __attribute__((tc_run_thread)) void start() {
+        critical(23);
+     }
+    |]
+     undefined
+     []
+     [Ellipses, Ellipses]
+     [TTCallGraph]
 	]
