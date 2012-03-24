@@ -5,6 +5,8 @@
 #include "net/uip-ds6.h"
 #include "net/uip-udp-packet.h"
 #include "sys/ctimer.h"
+#include "net/netstack.h"
+#include "config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -28,19 +30,9 @@ static void send_packet() {
     uip_udp_packet_sendto(client_conn, values, sizeof(values), &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
 }
 
-static void ipconfig(void) {
-    uip_ipaddr_t ipaddr;
-
-    // local IP address
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
-    uip_ds6_set_addr_iid(&ipaddr, &uip_lladdr);
-    uip_ds6_addr_add(&ipaddr, 0, ADDR_AUTOCONF);
-
-    // server IP address
+static void init() {
+    ipconfig(false);
     uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x212, 0x7402, 0x2, 0x202);
-//    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x212, 0x7403, 0x3, 0x303);
-
-    // udp client connection
     client_conn = udp_new(NULL, UIP_HTONS(UDP_SERVER_PORT), NULL); 
     udp_bind(client_conn, UIP_HTONS(UDP_CLIENT_PORT)); 
 }
@@ -52,8 +44,7 @@ PROCESS_THREAD(udp_client_process, ev, data)
     PROCESS_BEGIN();
     PROCESS_PAUSE();
 
-    ipconfig();
-    print_local_addresses();
+    init();
 
     PRINTF("source started\n");
 

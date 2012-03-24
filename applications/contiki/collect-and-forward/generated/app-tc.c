@@ -11,6 +11,7 @@
 #include "net/netstack.h"
 #include "net/uip.h"
 #include "net/uip-debug.h"
+#include "common.h"
 #include "config.h"
 
 // FIFO
@@ -19,12 +20,7 @@ size_t offset;
 
 void init()
 {
-    uip_ipaddr_t ipaddr;
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
-    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
-    // no duty-cycling
-    NETSTACK_MAC.off(1);
-
+    ipconfig(false);
     offset = 0;
 }
 
@@ -44,7 +40,7 @@ TC_RUN_THREAD void task_send()
 
     while (1) {
         now += DT_SEND;
-        tc_sleep(now);
+        tc_sleep(now, NULL);
 
         uint32_t buf[2];
         buf[0] = 0xFFFFFFFF;
@@ -75,7 +71,7 @@ TC_RUN_THREAD void task_receive(uint16_t lport, uint16_t rport)
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
 
     while (1) {
-		tc_receive();
+		tc_receive(NULL);
         uint8_t* buffer = uip_appdata;
 
         ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
@@ -104,7 +100,7 @@ TC_RUN_THREAD void task_collect()
     clock_time_t now = clock_time();
     while (1) {
         now += DT_COLLECT;
-        tc_sleep(now);
+        tc_sleep(now, NULL);
 
         uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
         value = rand(); // enable comparison of logs

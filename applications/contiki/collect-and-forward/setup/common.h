@@ -1,11 +1,11 @@
 #ifndef AIYACHEMOOGAEHEIXIEZ
 #define AIYACHEMOOGAEHEIXIEZ
 
-#include "config.h"
+#include <stdbool.h>
 
-#define DEBUG DEBUG_PRINT
-#include "net/uip-debug.h"
 
 void print_local_addresses(void);
+void ipconfig(bool root);
 
 #endif
+

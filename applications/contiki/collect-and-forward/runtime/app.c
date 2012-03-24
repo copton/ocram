@@ -1,15 +1,15 @@
 #include <stdlib.h>
-#include "tl/tl.h"
 
-#include "debug.h"
-
+#include "common.h"
+#include "config.h"
 #include "contiki.h"
 #include "contiki-net.h"
+#include "debug.h"
 #include "dev/light-sensor.h"
 #include "net/netstack.h"
-#include "net/uip.h"
 #include "net/uip-debug.h"
-#include "config.h"
+#include "net/uip.h"
+#include "tl/tl.h"
 
 // FIFO
 uint32_t values[MAX_NUMBEROF_VALUES];
@@ -30,7 +30,7 @@ void task_send()
 
     while (1) {
         now += DT_SEND;
-        tl_sleep(now);
+        tl_sleep(now, NULL);
 
         uint32_t buf[2];
         buf[0] = 0xFFFFFFFF;
@@ -62,7 +62,7 @@ void task_receive(uint16_t lport, uint16_t rport)
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
 
     while (1) {
-		tl_receive();
+		tl_receive(NULL);
         uint8_t* buffer = uip_appdata;
 
         ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
@@ -92,7 +92,7 @@ void task_collect()
     clock_time_t now = clock_time();
     while (1) {
         now += DT_COLLECT;
-        tl_sleep(now);
+        tl_sleep(now, NULL);
 
         uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
         value = rand(); // enable comparison of logs
@@ -104,13 +104,7 @@ void task_collect()
 
 void tl_app_main()
 {
-    printf("XXX: collect = %p, receive = %p, send = %p\n", stack_collect, stack_receive, stack_send);
-    uip_ipaddr_t ipaddr;
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
-    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
-    // no duty-cycling
-    NETSTACK_MAC.off(1);
-
+    ipconfig(false);
     offset = 0;
 
     tl_create_thread(&task_send, stack_send, sizeof(stack_send));

@@ -1,11 +1,11 @@
 #include "contiki.h"
 #include "contiki-lib.h"
 #include "contiki-net.h"
-#include "net/uip.h"
-#include "net/rpl/rpl.h"
-
-#include "net/netstack.h"
 #include "dev/button-sensor.h"
+#include "net/netstack.h"
+#include "net/uip.h"
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,32 +57,11 @@ static void tcpip_handler(void) {
     }
 }
 
-static void ipconfig(void) {
-    struct uip_ds6_addr *root_if;
-    uip_ipaddr_t ipaddr;
+static void init() {
+    ipconfig(true);
 
-    // local address
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
-    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
-
-    // RPL stuff...
-    root_if = uip_ds6_addr_lookup(&ipaddr);
-    if(root_if != NULL) {
-        rpl_dag_t *dag;
-        dag = rpl_set_root(RPL_DEFAULT_INSTANCE, (uip_ip6addr_t *)&ipaddr);
-        uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0, 0, 0);
-        rpl_set_prefix(dag, &ipaddr, 64);
-        PRINTF("created a new RPL dag\n");
-    } else {
-        PRINTF("failed to create a new RPL DAG\n");
-    }
-
-    // udp server connection
     server_conn = udp_new(NULL, UIP_HTONS(UDP_CLIENT_PORT), NULL);
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
-    
-    // no duty-cycling
-    NETSTACK_MAC.off(1);
 }
 
 PROCESS_THREAD(udp_server_process, ev, data)
@@ -90,8 +69,7 @@ PROCESS_THREAD(udp_server_process, ev, data)
     PROCESS_BEGIN();
     PROCESS_PAUSE();
 
-    ipconfig();
-    print_local_addresses();
+    init();
 
     PRINTF("sink started\n");
 

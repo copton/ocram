@@ -6,7 +6,7 @@
 #include "net/uip.h"
 #include "net/uip-debug.h"
 #include "config.h"
-
+#include "common.h"
 #include "debug.h"
 
 // FIFO
@@ -15,12 +15,7 @@ size_t offset;
 
 void init()
 {
-    uip_ipaddr_t ipaddr;
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
-    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
-    // no duty-cycling
-    NETSTACK_MAC.off(1);
-
+    ipconfig(false);
     offset = 0;
 }
 

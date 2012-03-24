@@ -176,6 +176,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
 
       cpu.addRegisterWriteMonitor(MSP430.SP, stackMonitor = new CPUMonitor() {
         public void cpuAction(int type, int adr, int value) {
+          // XXX nur schreibzugriff?
           /* check for context switch */
           for (AppStack appstack : appStacks) {
             if (value == appstack.lastSP) {
@@ -186,6 +187,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
           }
 
           currentAppStack.lastSP = value;
+          // XXX negative Stackpointer?
           int size = ((currentAppStack.upperAddress - value) + 0xffff) % 0xffff;
           if (currentAppStack.maxStack < size) {
             currentAppStack.maxStack = size;

@@ -2,10 +2,8 @@
 
 include $(ROOT)/applications/contiki/config.mak
 
-all: contiki server.cached.sky
-
-server.cached.sky: $(CACHE) server.sky
-	$^
+SKYS = server.cached.sky
+all: contiki $(SKYS)
 
 test: all
 
