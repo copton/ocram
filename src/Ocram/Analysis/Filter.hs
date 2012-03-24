@@ -41,6 +41,7 @@ data ErrorCode =
   | CriticalRecursion
   | InitializerList 
   | NoVarName
+  | Ellipses
   deriving (Eq, Enum, Show)
 
 errors :: [(ErrorCode, String)]
@@ -54,6 +55,7 @@ errors = [
   , (CriticalRecursion, "recursion of critical functions")
   , (InitializerList, "Sorry, initializer list in critical functions is not supported yet.")
   , (NoVarName, "Function parameters of blocking functions must have names.")
+  , (Ellipses, "No ellipses for critical functions")
   ]
 
 errorText :: ErrorCode -> String
@@ -97,6 +99,22 @@ check_constraints ast cg = failOrPass $
   ++ checkStartFunctions cg ast
   ++ checkThreads cg
   ++ checkInitList cg ast
+  ++ checkEllipses cg ast
+
+checkEllipses :: CallGraph -> Ast -> [OcramError] -- {{{2
+checkEllipses cg ast = everything (++) (mkQ [] ellipses) ast
+  where
+  ellipses :: CExtDecl -> [OcramError]
+  ellipses (CDeclExt cd)
+    | is_blocking_function' cd = everything (++) (mkQ [] ellipses') cd
+    | otherwise = []
+  ellipses (CFDefExt fd)
+    | is_critical cg (symbol fd) = everything (++) (mkQ [] ellipses') fd
+    | otherwise = []
+  ellipses _ = []
+  ellipses' :: CDerivedDeclr -> [OcramError]
+  ellipses' x@(CFunDeclr (Right (_, True)) _ _) = [newError Ellipses Nothing (Just (nodeInfo x))]
+  ellipses' _ = []
 
 checkInitList :: CallGraph -> Ast -> [OcramError] -- {{{2
 checkInitList cg ast = everything (++) (mkQ [] saneDecls) $ mapMaybe (function_definition ast) $ critical_functions cg
