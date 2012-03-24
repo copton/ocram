@@ -130,10 +130,12 @@ thread_t* current_thread;
 uint16_t* old_stack_ptr = 0;
 
 PROCESS(process_scheduler, "scheduler");
+process_event_t event_cond_signal;
 
 static void init() {
     memset(thread_table, 0, sizeof(thread_t) * TOSH_MAX_THREADS);
     current_thread = 0;
+    event_cond_signal = process_alloc_event();
 }
 
 __attribute__((noinline)) static void platform_switch_to_thread() {
@@ -225,10 +227,16 @@ PROCESS_THREAD(process_scheduler, ev, data)
                         goto schedule;
                     } else if (ev == PROCESS_EVENT_CONTINUE && data == t) {
                         goto schedule;
+                    } else if (ev == event_cond_signal && data == t) {
+                        goto schedule;
                     }
                 }
-                if (t->syscall == SYSCALL_receive && ev == tcpip_event && uip_newdata()) {
-                    goto schedule;
+                if (t->syscall == SYSCALL_receive) {
+                    if (ev == tcpip_event && uip_newdata()) {
+                        goto schedule;
+                    } else if (ev == event_cond_signal && data == t) {
+                        goto schedule;
+                    }
                 }
                 if (t->syscall == SYSCALL_send && ev == PROCESS_EVENT_CONTINUE && data == t) {
                     goto schedule;
@@ -269,7 +277,11 @@ schedule:
 
 AUTOSTART_PROCESSES(&process_scheduler);
 
-void tl_sleep(clock_time_t tics) {
+bool tl_sleep(clock_time_t tics, condition_t* cond) {
+    if (cond) {
+        cond->waiting = true;
+        cond->waiting_thread = current_thread;
+    }
     clock_time_t now = clock_time();
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_sleep;
@@ -278,13 +290,32 @@ void tl_sleep(clock_time_t tics) {
     } else {
         process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, current_thread);
     }
+
     yield();
+
+    bool result = false;
+    if (cond) {
+        result = cond->waiting == false;
+        cond->waiting = false;
+    }       
+    return result;
 }
 
-void tl_receive() {
+bool tl_receive(condition_t* cond) {
+    if (cond) {
+        cond->waiting = true;
+        cond->waiting_thread = current_thread;
+    }
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_receive;
     yield();
+
+    bool result = false;
+    if (cond) {
+        result = cond->waiting == false;
+        cond->waiting = false;
+    }       
+    return result;
 }
 
 void tl_send(struct uip_udp_conn* conn, uip_ipaddr_t* addr, uint16_t rport, uint8_t* buffer, size_t len) {
@@ -299,6 +330,7 @@ void tl_send(struct uip_udp_conn* conn, uip_ipaddr_t* addr, uint16_t rport, uint
 void tl_condition_init(condition_t* cond) {
     cond->waiting_thread = NULL;
     cond->waiting = false;
+    cond->data = NULL;
 }
 
 void tl_condition_wait(condition_t* cond) {
@@ -324,9 +356,10 @@ bool tl_condition_time_wait(condition_t* cond, struct etimer** timers, size_t nu
     return timeout;
 }
 
-void tl_condition_signal(condition_t* cond) {
+void tl_condition_signal(condition_t* cond, void* data) {
     if (! cond->waiting) return;
 
     cond->waiting = false;
-    process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, cond->waiting_thread);
+    cond->data = data;
+    process_post(PROCESS_CURRENT(), event_cond_signal, cond->waiting_thread);
 }

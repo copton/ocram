@@ -30,7 +30,7 @@ void task_send()
 
     while (1) {
         now += DT_SEND;
-        tl_sleep(now);
+        tl_sleep(now, NULL);
 
         uint32_t buf[2];
         buf[0] = 0xFFFFFFFF;
@@ -62,7 +62,7 @@ void task_receive(uint16_t lport, uint16_t rport)
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
 
     while (1) {
-		tl_receive();
+		tl_receive(NULL);
         uint8_t* buffer = uip_appdata;
 
         ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
@@ -92,7 +92,7 @@ void task_collect()
     clock_time_t now = clock_time();
     while (1) {
         now += DT_COLLECT;
-        tl_sleep(now);
+        tl_sleep(now, NULL);
 
         uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
         value = rand(); // enable comparison of logs
