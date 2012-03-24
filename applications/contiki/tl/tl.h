@@ -19,7 +19,7 @@ typedef struct {
 void tl_condition_init(condition_t* cond);
 
 bool tl_sleep(clock_time_t tics, condition_t* cond);
-bool tl_receive(condition_t* cond);
+bool tl_receive(struct uip_udp_conn* conn, condition_t* cond);
 void tl_send(struct uip_udp_conn* conn, uip_ipaddr_t* addr, uint16_t rport, uint8_t* buffer, size_t len);
 
 void tl_condition_wait(condition_t* cond);

@@ -173,23 +173,23 @@ int16_t rpc_marshall_response(rpc_response_t* response, uint8_t* buffer, size_t 
 {
     int16_t offset = 0;
     
-    if (offset + 1 > len) { debug_mark = 20; return -1; }
+    if (offset + 1 > len) { return -1; }
     buffer[offset++] = response->sequence;
 
-    if (offset + 1 > len) { debug_mark = 21; return -1; }
+    if (offset + 1 > len) { return -1; }
     buffer[offset++] = response->function;
 
     if (0) {
     } else if (response->function == RPC_TELL) {
         size_t size = rpc_marshall_response(response->data.tell.response, buffer + offset, len - offset);
-        if (size == -1) { debug_mark = 22; return -1; }
+        if (size == -1) { return -1; }
         offset += size;
     } else if (response->function == RPC_READ_SLOW_SENSOR) {
-        if (copy(&response->data.read_slow_sensor.value, sizeof(response->data.read_slow_sensor.value), buffer, len, &offset)) { debug_mark = 23; return -1; }
+        if (copy(&response->data.read_slow_sensor.value, sizeof(response->data.read_slow_sensor.value), buffer, len, &offset)) { return -1; }
     } else if (response->function == RPC_READ_FAST_SENSOR) {
-        if (copy(&response->data.read_slow_sensor.value, sizeof(response->data.read_slow_sensor.value), buffer, len, &offset)) { debug_mark = 24; return -1; }
+        if (copy(&response->data.read_slow_sensor.value, sizeof(response->data.read_slow_sensor.value), buffer, len, &offset)) { return -1; }
     } else {
-        debug_mark = 25; return -1;
+        return -1;
     }
     return offset;
 }

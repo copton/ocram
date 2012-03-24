@@ -116,6 +116,9 @@ typedef struct thread {
       struct etimer** timers;
       size_t numberofTimers; 
     } condition;
+    struct {
+        struct uip_udp_conn* conn;
+    } receive;
   } data;
   Syscall syscall;
 } thread_t;
@@ -200,6 +203,8 @@ void tl_create_thread(void (*fcn)(), uint8_t* stack, size_t size) {
     process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, NULL);
 }
 
+#define UDPBUF ((struct uip_udpip_hdr *)&uip_buf[UIP_LLH_LEN])
+
 PROCESS_THREAD(process_scheduler, ev, data)
 {
     PROCESS_BEGIN();
@@ -231,7 +236,7 @@ PROCESS_THREAD(process_scheduler, ev, data)
                     }
                 }
                 if (t->syscall == SYSCALL_receive) {
-                    if (ev == tcpip_event && uip_newdata()) {
+                    if (ev == tcpip_event && uip_newdata() && UDPBUF->destport == t->data.receive.conn->lport) {
                         goto schedule;
                     } else if (ev == event_cond_signal && data == t) {
                         goto schedule;
@@ -286,13 +291,14 @@ bool tl_sleep(clock_time_t tics, condition_t* cond) {
     return result;
 }
 
-bool tl_receive(condition_t* cond) {
+bool tl_receive(struct uip_udp_conn* conn, condition_t* cond) {
     if (cond) {
         cond->waiting = true;
         cond->waiting_thread = current_thread;
     }
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_receive;
+    current_thread->data.receive.conn = conn;
 
     yield();
 
@@ -332,6 +338,6 @@ void tl_condition_signal(condition_t* cond, void* data) {
     if (! cond->waiting) return;
 
     cond->waiting = false;
-    cond->data = NULL;
+    cond->data = data;
     process_post(PROCESS_CURRENT(), event_cond_signal, cond->waiting_thread);
 }
