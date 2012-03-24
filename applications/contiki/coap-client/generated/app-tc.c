@@ -44,7 +44,9 @@ TC_RUN_THREAD void task_transactions()
             }
         }
 
-        if (! tc_sleep(next, &transactions_cond)) {
+        if (next == -1) {
+            tc_condition_wait(&transactions_cond);
+        } else if (! tc_sleep(next, &transactions_cond)) {
             coap_check_transactions();
         }
     }

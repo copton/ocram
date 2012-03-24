@@ -30,25 +30,22 @@ extern struct memb transactions_memb;
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
 
 condition_t transactions_cond = TL_CONDITION_INITIALIZER;
-coap_transaction_t* new_transaction = NULL;
-struct etimer* timers[COAP_MAX_OPEN_TRANSACTIONS];
 
 uint8_t stack_transactions[200];
 void task_transactions()
 {
     while(1) {
-        if (new_transaction) {
-           etimer_restart(&new_transaction->retrans_timer); 
-           new_transaction = NULL;
+        clock_time_t next = -1;
+        coap_transaction_t *t = NULL;
+        for (t = (coap_transaction_t*)list_head(transactions_list); t; t = t->next) {
+            if (t->retrans_timer.timer.start + t->retrans_timer.timer.interval < next) {
+                next = t->retrans_timer.timer.start + t->retrans_timer.timer.interval;
+            }
         }
 
-        int numberofTimers = 0;
-        coap_transaction_t* t;
-        for (t = (coap_transaction_t*)list_head(transactions_list); t; t=t->next) {
-            timers[numberofTimers++] = &t->retrans_timer;
-        }
-
-        if (tl_condition_time_wait(&transactions_cond, timers, numberofTimers)) {
+        if (next == -1) {
+            tl_condition_wait(&transactions_cond);
+        } else if (! tl_sleep(next, &transactions_cond)) {
             coap_check_transactions();
         }
     }
@@ -71,9 +68,11 @@ void coap_send_transaction(coap_transaction_t *t)
         t->retrans_timer.timer.interval <<= 1; /* double */
       }
 
+      t->retrans_timer.timer.start = clock_time();
+
+
       list_add(transactions_list, t);
-      new_transaction = t;
-      tl_condition_signal(&transactions_cond);
+      tl_condition_signal(&transactions_cond, NULL);
 
       t = NULL;
     }
@@ -109,7 +108,7 @@ void blocking_request_callback(void* data, void* response)
 {
     blocking_ctx_t* ctx = data;
     ctx->response = response;
-    tl_condition_signal(&ctx->cond);
+    tl_condition_signal(&ctx->cond, NULL);
 }
 
 void coap_request(uip_ipaddr_t *remote_ipaddr, uint16_t remote_port, coap_packet_t *request)
@@ -169,7 +168,7 @@ condition_t start_receive_thread = TL_CONDITION_INITIALIZER;
 
 void coap_receiver_init()
 {
-    tl_condition_signal(&start_receive_thread);
+    tl_condition_signal(&start_receive_thread, NULL);
 }
 
 uint8_t stack_receive[200];
@@ -178,7 +177,7 @@ void task_receive()
     tl_condition_wait(&start_receive_thread);
     coap_init_connection(SERVER_LISTEN_PORT);
     while(1) {
-        tl_receive();
+        tl_receive(NULL);
         handle_incoming_data(); 
     }
 }
@@ -205,7 +204,7 @@ void task_query()
     clock_time_t timestamp = clock_time();
     while(1) {
         timestamp += TOGGLE_INTERVAL;
-        tl_sleep(timestamp);
+        tl_sleep(timestamp, NULL);
 
         {
             int salt = rand_fixed() % 200;

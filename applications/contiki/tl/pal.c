@@ -97,7 +97,6 @@ typedef enum {
     SYSCALL_receive,
     SYSCALL_send,
     SYSCALL_condition_wait,
-    SYSCALL_condition_time_wait,
 } Syscall;
 
 typedef struct {
@@ -241,23 +240,9 @@ PROCESS_THREAD(process_scheduler, ev, data)
                 if (t->syscall == SYSCALL_send && ev == PROCESS_EVENT_CONTINUE && data == t) {
                     goto schedule;
                 }
-                if (t->syscall == SYSCALL_condition_wait && ev == PROCESS_EVENT_CONTINUE && data == t) {
+                if (t->syscall == SYSCALL_condition_wait && ev == event_cond_signal && data == t) {
                     ASSERT(t->data.condition.cond->waiting == false);
                     goto schedule;
-                }
-                if (t->syscall == SYSCALL_condition_time_wait) {
-                    if (ev == PROCESS_EVENT_CONTINUE && data == t) {
-                        ASSERT(t->data.condition.cond->waiting == false);
-                        goto schedule;
-                    } else if (ev == PROCESS_EVENT_TIMER) {
-                        int i;
-                        for (i=0; i<t->data.condition.numberofTimers; i++) {
-                            if (data == t->data.condition.timers[i]) {
-                                ASSERT(etimer_expired(t->data.condition.timers[i]));
-                                goto schedule;
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -290,14 +275,14 @@ bool tl_sleep(clock_time_t tics, condition_t* cond) {
     } else {
         process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, current_thread);
     }
-
     yield();
 
+    etimer_stop(&current_thread->data.sleep.timer);
     bool result = false;
     if (cond) {
         result = cond->waiting == false;
         cond->waiting = false;
-    }       
+    }
     return result;
 }
 
@@ -308,13 +293,14 @@ bool tl_receive(condition_t* cond) {
     }
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_receive;
+
     yield();
 
     bool result = false;
     if (cond) {
         result = cond->waiting == false;
         cond->waiting = false;
-    }       
+    }
     return result;
 }
 
@@ -342,24 +328,10 @@ void tl_condition_wait(condition_t* cond) {
     yield();
 }
 
-bool tl_condition_time_wait(condition_t* cond, struct etimer** timers, size_t numberofTimers) {
-    cond->waiting = true;
-    cond->waiting_thread = current_thread;
-    current_thread->state = STATE_BLOCKED;
-    current_thread->syscall = SYSCALL_condition_time_wait;
-    current_thread->data.condition.cond = cond;
-    current_thread->data.condition.timers = timers;
-    current_thread->data.condition.numberofTimers = numberofTimers;
-    yield();
-    bool timeout = cond->waiting;
-    cond->waiting = false;
-    return timeout;
-}
-
 void tl_condition_signal(condition_t* cond, void* data) {
     if (! cond->waiting) return;
 
     cond->waiting = false;
-    cond->data = data;
+    cond->data = NULL;
     process_post(PROCESS_CURRENT(), event_cond_signal, cond->waiting_thread);
 }
