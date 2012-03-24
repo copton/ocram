@@ -11,7 +11,7 @@ import Ocram.Test.Tests.Analysis.Types
 
 -- test_cases :: [TCase] {{{1
 test_cases :: [TCase]
-test_cases = [[
+test_cases = [
 -- empty code {{{2
 	 TCase 
 		""
@@ -265,4 +265,4 @@ test_cases = [[
     undefined
     []
 		[TTCallGraph, TTSanity]
-	] !! 6]
+	]
