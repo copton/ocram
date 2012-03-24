@@ -24,7 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky1</identifier>
       <description>source</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/source.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/source.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -45,7 +45,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky2</identifier>
       <description>sink</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/sink.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/sink.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -163,6 +163,11 @@
   </plugin>
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
+    <plugin_config>
+        <process>send_process</process>
+        <process>receive_process</process>
+        <process>collect_process</process>
+    </plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>
     <z>0</z>

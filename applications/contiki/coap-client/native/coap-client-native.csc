@@ -24,7 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>server</identifier>
       <description>CoAP Server</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/server.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/server.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -141,6 +141,10 @@
   </plugin>
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
+	<plugin_config>
+		<process>coap_receiver</process>
+		<process>coap_client</process>
+	</plugin_config>
     <mote_arg>1</mote_arg>
     <width>240</width>
     <z>-1</z>

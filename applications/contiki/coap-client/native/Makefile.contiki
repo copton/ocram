@@ -1,4 +1,4 @@
-all: app server
+all: app
 
 CONTIKI=/home/alex/scm/contiki
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
@@ -14,7 +14,6 @@ CFLAGS += -DREST=coap_rest_implementation
 CFLAGS += -DUIP_CONF_TCP=0
 CFLAGS += -I$(ROOT)/applications/contiki/
 
-APPS += er-coap-07
-APPS += erbium
+PROJECT_SOURCEFILES+=coap.c debug.c
 
 include $(CONTIKI)/Makefile.include

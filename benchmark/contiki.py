@@ -1,6 +1,7 @@
 import hashlib
 import os
 import re
+from collections import defaultdict
 
 def open_elf(elf):
     f = open(elf, "r")
@@ -19,46 +20,27 @@ def open_elf(elf):
 
 def max_stack_usage(elf):
     f = open_elf(elf)
-    pattern = re.compile(r"^max stack size: (.*)$")
-    max_size = 0
+    pattern = re.compile(r"^max stack: ([^:]*): ([0-9]*)$")
+    total = 0
     for line in f.readlines():
         mo = pattern.match(line)
         if mo:
-            size = int(mo.group(1))
-            if size > max_size:
-                max_size = size
+            size = int(mo.group(2))
+            total += size;
 
-    return max_size
+    return total
 
 def cpu_usage(elf):
     f = open_elf(elf)
-    thread_pattern = re.compile(r"^log output: [^:]*: [^:]*: thread address: ([^:]*): (.*)$")
-    switch_pattern = re.compile(r"^cycle monitor action: ([^,]*), ([0-9]*)$")
+    pattern = re.compile(r"^cpu cycles: ([^:]*): ([0-9]*)$")
 
-    addresses = set()
-    thread_ids = set()
-    cycles = { }
-    current_thread = None
-    last_cycle_count = None
+    total = 0;
     for line in f.readlines():
-        mo = thread_pattern.match(line)
+        mo = pattern.match(line)
         if mo:
-            tid = int(mo.group(1))
-            address = mo.group(2)
-            assert not tid in thread_ids
-            assert not address in addresses
-            thread_ids.add(tid)
-            addresses.add(address)
-            
-        mo = switch_pattern.match(line)
-        if mo:
-            address = mo.group(1)
-            cycle_count = int(mo.group(2))
-            if current_thread != None:
-                cycles.setdefault(current_thread, 0)
-                cycles[current_thread] += cycle_count - last_cycle_count
-            last_cycle_count = cycle_count
-            current_thread = address
-    
-    total = reduce(lambda x, y: x + y, [c for (a, c) in cycles.items() if a in addresses])
+            identifier = mo.group(1)
+            cycles = int(mo.group(2))
+            if not identifier.startswith("0x"):
+                total += cycles
+
     return total

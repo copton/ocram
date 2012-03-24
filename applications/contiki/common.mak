@@ -1,8 +1,6 @@
 .PHONY: all contiki clean test
 
-ifndef ROOT
-$(error no ROOT defined)
-endif
+include $(ROOT)/applications/contiki/config.mak
 
 ifndef CSC
 $(error please specify the simulation file)
@@ -12,11 +10,8 @@ ifndef APP
 $(error please specify your app)
 endif
 
-TEST = $(ROOT)/applications/contiki/test.py
 VERIFY = $(ROOT)/applications/contiki/$(APP)/verify.py
-CACHE = $(ROOT)/applications/contiki/cache.py
 SKYS = $(shell perl -ne 'if (/<firmware[^>]*>\[CONFIG_DIR\]\/([^\.][^<]*)<\/firmware>/) { print "$$1 "; }' < $(CSC))
-CHROOT = schroot -c contiki -p --
 
 ifeq ($(TYPE), native)
 all: contiki $(SKYS)
@@ -26,7 +21,7 @@ ifndef XGCC
 $(error please specify your cross compiler command line)
 endif
 
-export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/pal.jinja.c
+export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/tc/pal.jinja.c
 
 all: app-ec.c pal.c contiki $(SKYS)
 
@@ -39,21 +34,25 @@ app-tc.pped.c: app-tc.c app-tc.o
 app-tc.o: app-tc.c
 	    $(CHROOT) $(XGCC) -I$(ROOT)/applications/contiki -c $<
 
+else ifeq ($(TYPE), runtime)
+ifndef XGCC
+$(error please specify your cross compiler command line)
+endif
+
+export THREAD_LIBRARY = $(ROOT)/applications/contiki/tl/pal.c
+
+all: pal.c contiki $(SKYS)
+
+pal.c: $(THREAD_LIBRARY)
+	cp $< $@
+
 else
 $(error unknown application type)
 endif
 
-$(SKYS): %.cached.sky: $(CACHE) %.sky
-	$^
-
-contiki:
-	$(CHROOT) $(MAKE) -f Makefile.contiki
-
-clean:
-	$(CHROOT) $(MAKE) -f Makefile.contiki clean
-	git clean -d -x -f
+include $(ROOT)/applications/contiki/goals.mak
 
 test: all OcramCooja.log
 
 OcramCooja.log: $(TEST) $(VERIFY) $(CSC) $(SKYS)
-	$(TEST) $(VERIFY) $(CSC)
+	$(TEST) $(VERIFY) $(CSC) || (mv $@ failed$@; exit 1)

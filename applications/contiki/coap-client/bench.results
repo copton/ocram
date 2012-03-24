@@ -1,7 +1,8 @@
-          	   text	    bss	   data	    loc	  stack	    cpu
-    native	  46424	   7350	    314	    168	    214	 672539
-        tc	     -1	     -1	     -1	    125	     -1	     -1
-        ec	  46680	   7368	    316	   2468	    214	 660709
-       pal	    450	     12	     12	    147	     -1	     -1
-  overhead	   0.55	   0.24	   0.64	 -25.60	   0.00	  -1.76
-normalized	  -0.42	   0.08	  -3.18	     -1	     -1	     -1
+                    	   text	    bss	   data	  stack	    cpu
+                 nat	  43708	   8296	    286	    218	 389866
+                  ec	  45408	   8370	    314	    214	 401243
+                 pal	   1728	     36	     36	    nan	    nan
+          (nat)/(ec)	   3.89	   0.89	   9.79	  -1.83	   2.92
+  (nat)/((ec)-(pal))	  -0.06	   0.46	  -2.80	    nan	    nan
+           (ec)/(tl)	  -1.66	   7.46	  -7.64	 229.91	   1.40
+lines of code: nat = 269, tc = 234, nat/tc = -13.01

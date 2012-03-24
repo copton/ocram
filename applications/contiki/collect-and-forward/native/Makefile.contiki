@@ -1,11 +1,14 @@
-all: sink source app
+all: app
+PROJECT_SOURCEFILES += debug.c common.c
+
 APPS=
 CONTIKI=/home/alex/scm/contiki/
-
-PROJECT_SOURCEFILES += common.c
+CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
+SMALL=1
+CFLAGS += -I$(ROOT)/applications/contiki
 
 WITH_UIP6=1
 UIP_CONF_IPV6=1
-CFLAGS+= -DUIP_CONF_IPV6_RPL -I$(ROOT)/applications/contiki
+UIP_CONF_RPL=1
 
 include $(CONTIKI)/Makefile.include

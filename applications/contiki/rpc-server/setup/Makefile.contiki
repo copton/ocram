@@ -1,0 +1,14 @@
+all: client peer
+PROJECT_SOURCEFILES += debug.c rpc.c common.c
+
+APPS=
+CONTIKI=/home/alex/scm/contiki
+CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
+SMALL=1
+CFLAGS += -I$(ROOT)/applications/contiki/
+
+WITH_UIP6=1
+UIP_CONF_IPV6=1
+UIP_CONF_RPL=1
+
+include $(CONTIKI)/Makefile.include

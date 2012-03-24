@@ -8,8 +8,8 @@ assert os.environ.has_key("ROOT")
 sys.path.insert(0, pjoin(os.environ["ROOT"], "benchmark"))
 
 from properties import *
+from measurements import lines_of_code
 import text
-import measurements
 
 assert len(sys.argv) == 2
 app_path = sys.argv[1]
@@ -17,18 +17,32 @@ assert os.path.isdir(app_path)
 
 platform = "contiki"
 toolchain = "schroot -c contiki -- msp430-"
-npath = pjoin(app_path, "native")
-gpath = pjoin(app_path, "generated")
+setup = Setup(platform, toolchain, app_path)
 
-native = app_properties("native", platform, toolchain, pjoin(npath, "app.c"), pjoin(npath, "app.cached.sky"))
-tc = Properties("tc")
-tc.loc = lines_of_code(pjoin(gpath, "app-tc.c"))
-ec = app_properties("ec", platform, toolchain, pjoin(gpath, "app-ec.c"), pjoin(gpath, "pal.cached.sky"))
+def np(f):
+    return os.path.join("native", f)
 
-pal = pal_properties(toolchain, pjoin(gpath, "pal.c"), pjoin(gpath, "pal.co"))
-overhead = get_overhead(native, tc, ec)
-normalized = get_normalized(native, ec, pal)
+def gp(f):
+    return os.path.join("generated", f)
+
+def rp(f):
+    return os.path.join("runtime", f)
+
+nat = setup.native_properties(np("app.c"), np("app.cached.sky"))
+ec = setup.ecode_properties(gp("app-ec.c"), gp("pal.c"), gp("pal.cached.sky"))
+pal = setup.pal_properties(gp("pal.c"), gp("pal.co"))
+tl = setup.tl_properties(rp("app.c"), rp("pal.cached.sky"))
+
+nat2ec = nat.proportion(ec)
+nat2ec_pal = nat.proportion(ec.subtract(pal))
+ec2tl = ec.proportion(tl)
 
 f = open("bench.results", "w")
-text.print_all_properties(f, [native, tc, ec, pal, overhead, normalized])
+text.print_all_properties(f, [nat, ec, pal, nat2ec, nat2ec_pal, ec2tl])
+
+nat_loc = lines_of_code(np("app.c"));
+tc_loc = lines_of_code(gp("app-tc.c"))
+
+f.write("lines of code: nat = %d, tc = %d, nat/tc = %.2f\n" % (nat_loc, tc_loc, frac(nat_loc, tc_loc)))
+
 f.close()

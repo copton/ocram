@@ -1,8 +1,9 @@
-#include "os/tc_receive.h"
-#include "os/tc_send.h"
-#include "os/tc_sleep.h"
+#include <stdlib.h>
+#include "tc/tc_receive.h"
+#include "tc/tc_send.h"
+#include "tc/tc_sleep.h"
 
-#include "sim_assert.h"
+#include "debug.h"
 
 #include "contiki.h"
 #include "contiki-net.h"
@@ -10,25 +11,16 @@
 #include "net/netstack.h"
 #include "net/uip.h"
 #include "net/uip-debug.h"
+#include "common.h"
 #include "config.h"
 
-// config
-#define DT_SEND (120 * CLOCK_SECOND)
-#define DT_COLLECT (10 * CLOCK_SECOND)
-
 // FIFO
-#define MAX_NUMBEROF_VALUES 100
 uint32_t values[MAX_NUMBEROF_VALUES];
 size_t offset;
 
 void init()
 {
-    uip_ipaddr_t ipaddr;
-    uip_ip6addr(&ipaddr, 0xaaaa, 0, 0, 0, 0, 0x00ff, 0xfe00, 3);
-    uip_ds6_addr_add(&ipaddr, 0, ADDR_MANUAL);
-    // no duty-cycling
-    NETSTACK_MAC.off(1);
-
+    ipconfig(false);
     offset = 0;
 }
 
@@ -48,7 +40,7 @@ TC_RUN_THREAD void task_send()
 
     while (1) {
         now += DT_SEND;
-        tc_sleep(now);
+        tc_sleep(now, NULL);
 
         uint32_t buf[2];
         buf[0] = 0xFFFFFFFF;
@@ -65,33 +57,29 @@ TC_RUN_THREAD void task_send()
         }
         offset = 0;
 
-        uip_debug_ipaddr_print(&server_ipaddr);
-        printf(": send values: %lu %lu\n", buf[0], buf[1]);
+        printf("trace: send values: %lu %lu\n", buf[0], buf[1]);
         tc_send(client_conn, &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT), (uint8_t*)&buf[0], sizeof(buf));
     }
 }
 
 // receive
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
-TC_RUN_THREAD void receive_run(uint16_t lport, uint16_t rport)
+TC_RUN_THREAD void task_receive(uint16_t lport, uint16_t rport)
 {
     struct uip_udp_conn *server_conn;
     server_conn = udp_new(NULL, UIP_HTONS(UDP_CLIENT_PORT), NULL);
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
 
     while (1) {
-        uint8_t buffer[10];
-        size_t len;
+		tc_receive(NULL);
+        uint8_t* buffer = uip_appdata;
 
-		tc_receive(buffer, sizeof(buffer), &len);
+        ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
 
-        ASSERT((len % sizeof(uint32_t)) == 0);
-
-        size_t numberof_values = len / sizeof(uint32_t);
+        size_t numberof_values = uip_datalen() / sizeof(uint32_t);
         uint32_t value;
 
-        uip_debug_ipaddr_print(&UIP_IP_BUF->srcipaddr);
-        printf(": received values: ");
+        printf("trace: received values: ");
 
         size_t i;
         for (i=0; i<numberof_values; i++) {
@@ -105,17 +93,18 @@ TC_RUN_THREAD void receive_run(uint16_t lport, uint16_t rport)
 }
 
 // collect
-TC_RUN_THREAD void collect_run()
+TC_RUN_THREAD void task_collect()
 {
     SENSORS_ACTIVATE(light_sensor);
 
     clock_time_t now = clock_time();
     while (1) {
         now += DT_COLLECT;
-        tc_sleep(now);
+        tc_sleep(now, NULL);
 
         uint16_t value = light_sensor.value(LIGHT_SENSOR_PHOTOSYNTHETIC);
-        printf("reading value from sensor: %u\n", value);
+        value = rand(); // enable comparison of logs
+        printf("trace: reading value from sensor: %u\n", value);
         ASSERT(offset < MAX_NUMBEROF_VALUES);
         values[offset++] = value;
     }
