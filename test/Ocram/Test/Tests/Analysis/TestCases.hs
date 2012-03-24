@@ -34,12 +34,12 @@ test_cases = [
 		[NoThreads]
 		[]
 -- single blocking function declaration {{{2
-	,TCase
-		"__attribute__((tc_blocking)) void block(int x, ...);"
-		[]
-		[]
-		[NoThreads]
-		[]
+--   ,TCase
+--     "__attribute__((tc_blocking)) void block(int x, ...);"
+--     []
+--     []
+--     [NoThreads]
+--     []
 -- single start function {{{2
 	,TCase
 		"__attribute__((tc_run_thread)) void start() { };"
@@ -265,4 +265,16 @@ test_cases = [
     undefined
     []
 		[TTCallGraph, TTSanity]
+-- name-less parameters of blocking functions {{{2
+  ,TCase
+    [paste|
+      __attribute__((tc_blocking)) void block(int);
+      __attribute__((tc_run_thread)) void start() {
+        block(23);
+      }
+    |]
+    undefined
+    [NoVarName]
+    undefined
+    [TTCallGraph, TTConstraints] 
 	]

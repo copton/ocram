@@ -122,7 +122,7 @@ functionDefinition _ = Nothing
 
 functionParameters :: CDerivedDeclr -> [CDecl]
 functionParameters (CFunDeclr (Right (ps, False)) _ _) = ps
-functionParameters _ = $abort "unexpected parameters"
+functionParameters _ = $abort "unexpected parameters: "
 
 extractTypeSpec :: [CDeclSpec] -> CTypeSpec
 extractTypeSpec [] = $abort "type specifier expected"

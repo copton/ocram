@@ -9,12 +9,12 @@ module Ocram.Analysis.Filter
 import Data.Generics (mkQ, everything, extQ)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
-import Language.C.Data.Node (NodeInfo)
+import Language.C.Data.Node (NodeInfo, nodeInfo)
 import Language.C.Syntax.AST
 import Ocram.Analysis.CallGraph (start_functions, is_start, is_critical, critical_functions)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
-import Ocram.Query (is_start_function', function_definition)
+import Ocram.Query (is_start_function', function_definition, is_blocking_function', function_parameters_cd)
 import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Types (Ast)
@@ -40,6 +40,7 @@ data ErrorCode =
   | ThreadNotBlocking
   | CriticalRecursion
   | InitializerList 
+  | NoVarName
   deriving (Eq, Enum, Show)
 
 errors :: [(ErrorCode, String)]
@@ -52,6 +53,7 @@ errors = [
   , (ThreadNotBlocking, "thread does not call any blocking functions")
   , (CriticalRecursion, "recursion of critical functions")
   , (InitializerList, "Sorry, initializer list in critical functions is not supported yet.")
+  , (NoVarName, "Function parameters of blocking functions must have names.")
   ]
 
 errorText :: ErrorCode -> String
@@ -62,8 +64,9 @@ check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` sane
 
 saneExtDecls :: CExtDecl -> [OcramError]
 
-saneExtDecls (CDeclExt (CDecl ts _ ni))
+saneExtDecls (CDeclExt cd@(CDecl ts _ ni))
   | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
+  | is_blocking_function' cd = map (\p -> newError NoVarName Nothing (Just (nodeInfo p))) $ filter noVarName $ function_parameters_cd cd
   | otherwise = []
 
 saneExtDecls (CFDefExt (CFunDef ts (CDeclr _ ps _ _ _) _ _ ni))
@@ -77,12 +80,15 @@ saneStats :: CStat -> [OcramError]
 saneStats (CAsm _ ni) = [newError AssemblerCode Nothing (Just ni)]
 saneStats _ = []
 
-
 hasReturnType :: [CDeclSpec] -> Bool
 hasReturnType = any isTypeSpec
   where
     isTypeSpec (CTypeSpec _) = True
     isTypeSpec _ = False
+
+noVarName :: CDecl -> Bool
+noVarName (CDecl _ [] _) = True
+noVarName _ = False
 
 check_constraints :: Ast -> CallGraph -> Either [OcramError] () -- {{{1
 check_constraints ast cg = failOrPass $
