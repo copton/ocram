@@ -6,6 +6,8 @@
 #define BLOCK
 #endif
 
+#include <stdint.h>
+
 BLOCK void tc_sleep(uint32_t);
 uint32_t tc_time();
 void tc_toggle_led_0();

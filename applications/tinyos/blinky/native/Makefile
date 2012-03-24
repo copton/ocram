@@ -8,5 +8,5 @@ all:
 clean:
 	$(CHROOT) $(MAKE) -f Makefile.tinyos clean
 
-test:
+test: all
 	$(CHROOT) ./test.py
