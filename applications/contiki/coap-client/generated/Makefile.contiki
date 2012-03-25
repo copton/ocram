@@ -1,20 +1,18 @@
 all: pal pal.co
-
-CONTIKI=/home/alex/scm/contiki
-CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
-
 PROJECT_SOURCEFILES += app-ec.c coap.c debug.c
+APPS =
+
+CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
+CFLAGS += -I$(ROOT)/applications/contiki
+SMALL=1
 
 WITH_UIP6=1
 UIP_CONF_IPV6=1
 WITH_COAP=7
+UIP_CONF_RPL=1
 
-SMALL=1
-
-CFLAGS += -DUIP_CONF_IPV6_RPL=1
-CFLAGS += -DWITH_COAP=7
 CFLAGS += -DREST=coap_rest_implementation
 CFLAGS += -DUIP_CONF_TCP=0
-CFLAGS += -I$(ROOT)/applications/contiki
 
+CONTIKI=/home/alex/scm/contiki
 include $(CONTIKI)/Makefile.include

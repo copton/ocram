@@ -93,8 +93,8 @@
   </simulation>
   <plugin>
     se.sics.cooja.plugins.SimControl
-    <width>259</width>
-    <z>1</z>
+    <width>279</width>
+    <z>3</z>
     <height>179</height>
     <location_x>0</location_x>
     <location_y>0</location_y>
@@ -113,8 +113,8 @@
     <width>300</width>
     <z>2</z>
     <height>178</height>
-    <location_x>261</location_x>
-    <location_y>1</location_y>
+    <location_x>279</location_x>
+    <location_y>4</location_y>
   </plugin>
   <plugin>
     se.sics.cooja.plugins.LogListener
@@ -122,8 +122,8 @@
       <filter />
       <coloring />
     </plugin_config>
-    <width>632</width>
-    <z>3</z>
+    <width>652</width>
+    <z>4</z>
     <height>491</height>
     <location_x>2</location_x>
     <location_y>182</location_y>
@@ -131,21 +131,21 @@
   <plugin>
     se.sics.cooja.plugins.RadioLogger
     <plugin_config>
-      <split>204</split>
+      <split>150</split>
     </plugin_config>
-    <width>734</width>
+    <width>542</width>
     <z>0</z>
-    <height>469</height>
-    <location_x>657</location_x>
-    <location_y>218</location_y>
+    <height>489</height>
+    <location_x>651</location_x>
+    <location_y>183</location_y>
   </plugin>
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
-    <plugin_config>
+	<plugin_config>
         <process>thread0</process>
         <process>thread1</process>
         <process>thread2</process>
-    </plugin_config>
+	</plugin_config>
     <mote_arg>1</mote_arg>
     <width>240</width>
     <z>-1</z>
@@ -157,7 +157,7 @@
   <plugin>
     se.sics.cooja.plugins.ScriptRunner
     <plugin_config>
-      <scriptfile>/home/alex/scm/ocram/applications/contiki/coap-client/generated/../../quit.js</scriptfile>
+      <scriptfile>[CONFIG_DIR]/../../quit.js</scriptfile>
       <active>true</active>
     </plugin_config>
     <width>600</width>
