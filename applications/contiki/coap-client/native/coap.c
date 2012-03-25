@@ -25,7 +25,7 @@
 /*-----------------------------------------------------------------------------------*/
 /*- Variables -----------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------------*/
-static struct uip_udp_conn *udp_conn = NULL;
+/* static {# need access from runtime app #} */ struct uip_udp_conn *udp_conn = NULL;
 static uint16_t current_tid = 0;
 
 coap_status_t coap_error_code = NO_ERROR;

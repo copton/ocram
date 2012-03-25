@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "contiki.h"
+#include "coap.h"
+#include "debug.h"
 
 #include "tc/tc_sleep.h"
 #include "tc/tc_receive.h"
 #include "tc/tc_condition.h"
-
-#include "coap.h"
-#include "debug.h"
 
 // config
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
@@ -24,14 +24,12 @@ int rand_fixed()
 }
 
 // TRANSACTION
-
+condition_t transactions_cond = TC_CONDITION_INITIALIZER;
 extern list_t transactions_list;
 extern struct memb transactions_memb;
 
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
-
-condition_t transactions_cond = TC_CONDITION_INITIALIZER;
 
 TC_RUN_THREAD void task_transactions()
 {
@@ -191,12 +189,11 @@ void client_chunk_handler(void *response)
 
 TC_RUN_THREAD void task_query()
 {
-    coap_receiver_init();
-
-    uip_ipaddr_t server_ipaddr;
-    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
-
     coap_packet_t request[1];
+    uip_ipaddr_t server_ipaddr;
+
+    coap_receiver_init();
+    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
 
     clock_time_t timestamp = clock_time();
     while(1) {

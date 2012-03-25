@@ -95,7 +95,6 @@ typedef enum {
 typedef enum {
     SYSCALL_sleep,
     SYSCALL_receive,
-    SYSCALL_send,
     SYSCALL_condition_wait,
 } Syscall;
 
@@ -242,9 +241,6 @@ PROCESS_THREAD(process_scheduler, ev, data)
                         goto schedule;
                     }
                 }
-                if (t->syscall == SYSCALL_send && ev == PROCESS_EVENT_CONTINUE && data == t) {
-                    goto schedule;
-                }
                 if (t->syscall == SYSCALL_condition_wait && ev == event_cond_signal && data == t) {
                     ASSERT(t->data.condition.cond->waiting == false);
                     goto schedule;
@@ -308,15 +304,6 @@ bool tl_receive(struct uip_udp_conn* conn, condition_t* cond) {
         cond->waiting = false;
     }
     return result;
-}
-
-void tl_send(struct uip_udp_conn* conn, uip_ipaddr_t* addr, uint16_t rport, uint8_t* buffer, size_t len) {
-    uip_udp_packet_sendto(conn, buffer, len, addr, rport);
-
-    current_thread->state = STATE_BLOCKED;
-    current_thread->syscall = SYSCALL_send;
-    process_post(PROCESS_CURRENT(), PROCESS_EVENT_CONTINUE, current_thread);
-    yield();
 }
 
 void tl_condition_init(condition_t* cond) {

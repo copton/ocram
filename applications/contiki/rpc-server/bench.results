@@ -5,4 +5,4 @@
           (nat)/(ec)	   4.31	   1.34	   4.92	   0.00	   0.69
   (nat)/((ec)-(pal))	   0.51	   0.87	  -9.84	    nan	    nan
            (ec)/(tl)	  -2.44	   7.35	  -7.81	 135.10	   1.00
-lines of code: nat = 155, tc = 141, nat/tc = -9.03
+lines of code: nat = 155, tc = 143, nat/tc = -7.74

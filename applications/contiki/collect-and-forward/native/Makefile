@@ -1,4 +1,3 @@
-CSC = cnf-native.csc
 APP = collect-and-forward
 TYPE = native
 

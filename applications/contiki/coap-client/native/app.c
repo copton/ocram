@@ -20,7 +20,6 @@ int rand_fixed()
 
 // TRANSACTION
 static struct process *transaction_handler_process = NULL;
-
 extern list_t transactions_list;
 extern struct memb transactions_memb;
 
@@ -223,9 +222,9 @@ PROCESS_THREAD(coap_client, ev, data)
     PROCESS_BEGIN();
 
     coap_receiver_init();
-    etimer_set(&et, TOGGLE_INTERVAL);
-    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202); /* cooja2 */
+    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
 
+    etimer_set(&et, TOGGLE_INTERVAL);
     while(1) {
         PROCESS_YIELD();
 

@@ -1,20 +1,18 @@
 #include <stdlib.h>
-#include "tc/tc_receive.h"
-#include "tc/tc_send.h"
-#include "tc/tc_sleep.h"
-
-#include "debug.h"
-
 #include "contiki.h"
 #include "contiki-net.h"
 #include "dev/light-sensor.h"
 #include "net/netstack.h"
 #include "net/uip.h"
 #include "net/uip-debug.h"
+
 #include "common.h"
 #include "config.h"
+#include "debug.h"
 
-// FIFO
+#include "tc/tc_receive.h"
+#include "tc/tc_sleep.h"
+
 uint32_t values[MAX_NUMBEROF_VALUES];
 size_t offset;
 
@@ -58,7 +56,7 @@ TC_RUN_THREAD void task_send()
         offset = 0;
 
         printf("trace: send values: %lu %lu\n", buf[0], buf[1]);
-        tc_send(client_conn, &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT), (uint8_t*)&buf[0], sizeof(buf));
+        uip_udp_packet_sendto(client_conn, (uint8_t*)&buf[0], sizeof(buf), &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
     }
 }
 
@@ -72,19 +70,16 @@ TC_RUN_THREAD void task_receive(uint16_t lport, uint16_t rport)
 
     while (1) {
 		tc_receive(NULL);
-        uint8_t* buffer = uip_appdata;
-
+        uint8_t* appdata = uip_appdata;
         ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
-
         size_t numberof_values = uip_datalen() / sizeof(uint32_t);
-        uint32_t value;
 
         printf("trace: received values: ");
-
+        uint32_t value;
         size_t i;
         for (i=0; i<numberof_values; i++) {
             ASSERT(offset < MAX_NUMBEROF_VALUES);
-            memcpy(&value, &buffer[i * sizeof(uint32_t)], sizeof(uint32_t));
+            memcpy(&value, &appdata[i * sizeof(uint32_t)], sizeof(uint32_t));
             printf("%lu ", value);
             values[offset++] = value;
         }

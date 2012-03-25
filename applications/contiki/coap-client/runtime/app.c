@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-
-#include "tl/tl.h"
-
+#include "contiki.h"
 #include "coap.h"
 #include "debug.h"
+
+#include "tl/tl.h"
 
 // config
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)
@@ -22,14 +22,12 @@ int rand_fixed()
 }
 
 // TRANSACTION
-
+condition_t transactions_cond = TL_CONDITION_INITIALIZER;
 extern list_t transactions_list;
 extern struct memb transactions_memb;
 
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
-
-condition_t transactions_cond = TL_CONDITION_INITIALIZER;
 
 uint8_t stack_transactions[200];
 void task_transactions()
@@ -69,7 +67,6 @@ void coap_send_transaction(coap_transaction_t *t)
       }
 
       t->retrans_timer.timer.start = clock_time();
-
 
       list_add(transactions_list, t);
       tl_condition_signal(&transactions_cond, NULL);
@@ -171,13 +168,14 @@ void coap_receiver_init()
     tl_condition_signal(&start_receive_thread, NULL);
 }
 
+extern struct uip_udp_conn *udp_conn; // from coap.c
 uint8_t stack_receive[200];
 void task_receive()
 {
     tl_condition_wait(&start_receive_thread);
     coap_init_connection(SERVER_LISTEN_PORT);
     while(1) {
-        tl_receive(NULL);
+        tl_receive(udp_conn, NULL);
         handle_incoming_data(); 
     }
 }
@@ -194,12 +192,11 @@ void client_chunk_handler(void *response)
 uint8_t stack_query[400];
 void task_query()
 {
-    coap_receiver_init();
-
-    uip_ipaddr_t server_ipaddr;
-    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
-
     coap_packet_t request[1];
+    uip_ipaddr_t server_ipaddr;
+
+    coap_receiver_init();
+    uip_ip6addr(&server_ipaddr, 0xfe80, 0, 0, 0, 0x0212, 0x7402, 0x0002, 0x0202);
 
     clock_time_t timestamp = clock_time();
     while(1) {
