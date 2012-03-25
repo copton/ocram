@@ -1,14 +1,14 @@
 all: pal pal.co
 PROJECT_SOURCEFILES += app-ec.c debug.c common.c
-
 APPS=
-CONTIKI=/home/alex/scm/contiki/
-SMALL=1
+
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
 CFLAGS += -I$(ROOT)/applications/contiki
+SMALL=1
 
 WITH_UIP6=1
 UIP_CONF_IPV6=1
 UIP_CONF_RPL=1
 
+CONTIKI=/home/alex/scm/contiki/
 include $(CONTIKI)/Makefile.include

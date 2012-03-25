@@ -5,7 +5,7 @@
 /*{ if "tc_sleep" in all_syscalls }*/
 #include "clock.h"
 /*{ endif }*/
-/*{ if "tc_send" in all_syscalls or "tc_receive" in all_syscalls }*/
+/*{ if "tc_receive" in all_syscalls }*/
 #include "contiki-net.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -133,15 +133,6 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
                 threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting = false;
             }
             continuation = threads[/*loop.index0*/].ctx.tc_receive.frame->ec_cont;
-        }
-/*{ endif }*/
-/*{ if "tc_send" in all_syscalls }*/
-        else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_send) {
-            ec_frame_tc_send_t* frame = threads[/*loop.index0*/].ctx.tc_send.frame;
-            uip_udp_packet_sendto(frame->conn, frame->buffer, frame->len, frame->addr, frame->rport);
-            PROCESS_PAUSE();
-            frame = threads[/*loop.index0*/].ctx.tc_send.frame;
-            continuation = frame->ec_cont;
         }
 /*{ endif }*/
 /*{ if "tc_await_button" in all_syscalls }*/

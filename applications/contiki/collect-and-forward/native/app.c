@@ -5,11 +5,11 @@
 #include "net/netstack.h"
 #include "net/uip.h"
 #include "net/uip-debug.h"
-#include "config.h"
+
 #include "common.h"
+#include "config.h"
 #include "debug.h"
 
-// FIFO
 uint32_t values[MAX_NUMBEROF_VALUES];
 size_t offset;
 
@@ -56,7 +56,6 @@ PROCESS_THREAD(send_process, ev, data)
 
             printf("trace: send values: %lu %lu\n", buf[0], buf[1]);
             uip_udp_packet_sendto(client_conn, &buf[0], sizeof(buf), &server_ipaddr, UIP_HTONS(UDP_SERVER_PORT));
-            PROCESS_PAUSE(); // Contiki PAL also pauses after sending a packet
         }
     }
 
@@ -66,29 +65,26 @@ PROCESS_THREAD(send_process, ev, data)
 
 // receive
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
-
 PROCESS(receive_process, "receive process");
-
 PROCESS_THREAD(receive_process, ev, data)
 {
     PROCESS_BEGIN();
     
     static struct uip_udp_conn* server_conn;
-    // udp server connection
     server_conn = udp_new(NULL, UIP_HTONS(UDP_CLIENT_PORT), NULL);
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
 
     while(1) {
         PROCESS_YIELD();
         if(ev == tcpip_event) {
-            char* appdata = (char*) uip_appdata;
-            size_t numberof_values = uip_datalen() / sizeof(uint32_t);
-            uint32_t value;
-            size_t i;
-
+            uint8_t* appdata = uip_appdata;
             ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
+            size_t numberof_values = uip_datalen() / sizeof(uint32_t);
+
 
             printf("trace: received values: ");
+            uint32_t value;
+            size_t i;
             for (i=0; i<numberof_values; i++) {
                 ASSERT(offset < MAX_NUMBEROF_VALUES);
                 memcpy(&value, &appdata[i * sizeof(uint32_t)], sizeof(uint32_t));
@@ -104,7 +100,6 @@ PROCESS_THREAD(receive_process, ev, data)
 
 // collect
 PROCESS(collect_process, "collect process");
-
 PROCESS_THREAD(collect_process, ev, data)
 {
     static struct etimer periodic;

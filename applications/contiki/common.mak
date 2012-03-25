@@ -2,14 +2,11 @@
 
 include $(ROOT)/applications/contiki/config.mak
 
-ifndef CSC
-$(error please specify the simulation file)
-endif
-
 ifndef APP
 $(error please specify your app)
 endif
 
+CSC = simulation.csc
 VERIFY = $(ROOT)/applications/contiki/$(APP)/verify.py
 SKYS = $(shell perl -ne 'if (/<firmware[^>]*>\[CONFIG_DIR\]\/([^\.][^<]*)<\/firmware>/) { print "$$1 "; }' < $(CSC))
 
