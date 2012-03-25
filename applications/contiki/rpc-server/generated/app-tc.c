@@ -1,17 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+
+#include "common.h" 
+#include "config.h"
+#include "contiki.h"
+#include "contiki-net.h"
+#include "debug.h"
+#include "net/uip-debug.h"
+#include "net/uip.h"
+#include "rpc.h"
+
 #include "tc/tc_receive.h"
-#include "tc/tc_send.h"
 #include "tc/tc_sleep.h"
 #include "tc/tc_condition.h"
-
-#include "rpc.h"
-#include "common.h"
-#include "config.h"
-#include "debug.h"
-
-#include "net/uip.h"
-#include "net/uip-udp-packet.h"
 
 // rand is not standard compliant on this platform and sometimes returns negative values
 int rand_fixed()
