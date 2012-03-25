@@ -1,3 +1,2 @@
 export ROOT=`pwd`
 export OCRAM=$ROOT/cabal-dev/bin/ocram
-export PALGEN=$ROOT/applications/pal.py
