@@ -3,5 +3,5 @@ export TOSDIR=$(TOSROOT)/tos
 export MAKERULES=$(TOSROOT)/support/make/Makerules
 export PATH=/opt/local/bin:/opt/jdk1.7.0_02/bin:$(TOSROOT)/tools/tinyos/misc:/home/alex/code/permasense/tools/msp430Xgcc/bin/:/usr/local/bin:/usr/bin:/bin
 
-COMPONENT=BlinkAppC
+COMPONENT=AppC
 include $(MAKERULES)

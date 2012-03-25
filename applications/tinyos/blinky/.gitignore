@@ -3,3 +3,5 @@ _TOSSIMmodule.so
 app.xml
 simbuild
 *.pped.c
+*.pyc
+app-ec.c
