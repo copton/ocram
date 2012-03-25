@@ -26,6 +26,8 @@ implementation
     syscall_t syscall;	
   } thread_t;
 
+  thread_t current_thread;
+
   thread_t threads[3];
  
   event void Timer0.fired()
