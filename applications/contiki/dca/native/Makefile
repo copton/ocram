@@ -1,5 +1,4 @@
-CSC = rpc-server-native.csc
-APP = rpc-server
+APP = dca
 TYPE = native
 
 include $(ROOT)/applications/contiki/common.mak

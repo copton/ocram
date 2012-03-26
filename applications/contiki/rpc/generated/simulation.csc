@@ -164,10 +164,9 @@
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
 	<plugin_config>
-		<process>process_scheduler</process>
-        <appstack size="200">stack_server</appstack>
-        <appstack size="200">stack_worker0</appstack>
-        <appstack size="200">stack_worker1</appstack>
+		<process>thread0</process>
+		<process>thread1</process>
+		<process>thread2</process>
 	</plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>
@@ -179,7 +178,7 @@
   <plugin>
     se.sics.cooja.plugins.ScriptRunner
     <plugin_config>
-      <scriptfile>/home/alex/scm/ocram/applications/contiki/rpc-server/native/../../quit.js</scriptfile>
+      <scriptfile>[CONFIG_DIR]/../../quit.js</scriptfile>
       <active>true</active>
     </plugin_config>
     <width>600</width>

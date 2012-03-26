@@ -1,5 +1,4 @@
-CSC = coap-client-native.csc
-APP = coap-client
+APP = rpc
 TYPE = native
 
 include $(ROOT)/applications/contiki/common.mak

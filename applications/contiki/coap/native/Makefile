@@ -1,4 +1,4 @@
-APP = collect-and-forward
+APP = coap
 TYPE = native
 
 include $(ROOT)/applications/contiki/common.mak

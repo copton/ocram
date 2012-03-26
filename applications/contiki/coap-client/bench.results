@@ -1,8 +1,0 @@
-                    	   text	    bss	   data	  stack	    cpu
-                 nat	  43708	   8296	    286	    218	 389866
-                  ec	  45396	   8370	    312	    214	 399836
-                 pal	   1680	     36	     36	    nan	    nan
-          (nat)/(ec)	   3.86	   0.89	   9.09	  -1.83	   2.56
-  (nat)/((ec)-(pal))	   0.02	   0.46	  -3.50	    nan	    nan
-           (ec)/(tl)	  -1.61	   7.38	  -6.41	 231.78	   2.63
-lines of code: nat = 268, tc = 232, nat/tc = -13.43

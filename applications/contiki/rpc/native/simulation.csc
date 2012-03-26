@@ -6,7 +6,7 @@
   <project EXPORT="discard">[CONTIKI_DIR]/tools/cooja/apps/serial_socket</project>
   <project EXPORT="discard">[CONTIKI_DIR]/tools/cooja/apps/collect-view</project>
   <simulation>
-    <title>cnf_runtime</title>
+    <title>cnf_native</title>
     <delaytime>0</delaytime>
     <randomseed>123456</randomseed>
     <motedelay_us>1000000</motedelay_us>
@@ -24,7 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky1</identifier>
       <description>source</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/source.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/client.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -44,8 +44,8 @@
     <motetype>
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky2</identifier>
-      <description>sink</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/sink.cached.sky</firmware>
+      <description>app</description>
+      <firmware EXPORT="copy">[CONFIG_DIR]/app.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -66,7 +66,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky3</identifier>
       <description>app</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/pal.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/peer.cached.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -109,21 +109,21 @@
         se.sics.cooja.mspmote.interfaces.MspMoteID
         <id>2</id>
       </interface_config>
-      <motetype_identifier>sky3</motetype_identifier>
+      <motetype_identifier>sky2</motetype_identifier>
     </mote>
     <mote>
       <breakpoints />
       <interface_config>
         se.sics.cooja.interfaces.Position
-        <x>34.257469238273636</x>
-        <y>26.643154822248587</y>
+        <x>33.54401348168856</x>
+        <y>26.245953015143673</y>
         <z>0.0</z>
       </interface_config>
       <interface_config>
         se.sics.cooja.mspmote.interfaces.MspMoteID
         <id>3</id>
       </interface_config>
-      <motetype_identifier>sky2</motetype_identifier>
+      <motetype_identifier>sky3</motetype_identifier>
     </mote>
   </simulation>
   <plugin>
@@ -141,10 +141,10 @@
       <skin>se.sics.cooja.plugins.skins.TrafficVisualizerSkin</skin>
       <skin>se.sics.cooja.plugins.skins.UDGMVisualizerSkin</skin>
       <skin>se.sics.cooja.plugins.skins.IDVisualizerSkin</skin>
-      <viewport>10.816250021861679 0.0 0.0 10.816250021861679 -252.53735239740297 -213.17902392861043</viewport>
+      <viewport>5.123888698059074 0.0 0.0 5.123888698059074 -37.875791566365194 -13.481342024084146</viewport>
     </plugin_config>
     <width>319</width>
-    <z>1</z>
+    <z>0</z>
     <height>379</height>
     <location_x>-1</location_x>
     <location_y>186</location_y>
@@ -156,7 +156,7 @@
       <coloring />
     </plugin_config>
     <width>1094</width>
-    <z>2</z>
+    <z>1</z>
     <height>672</height>
     <location_x>319</location_x>
     <location_y>1</location_y>
@@ -164,14 +164,13 @@
   <plugin>
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
 	<plugin_config>
-		<appstack size="200">stack_send</appstack>
-		<appstack size="200">stack_receive</appstack>
-		<appstack size="200">stack_collect</appstack>
-		<process>process_scheduler</process>
-    </plugin_config>
+		<process>server_process</process>
+		<process>worker0</process>
+		<process>worker1</process>
+	</plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>
-    <z>0</z>
+    <z>4</z>
     <height>80</height>
     <location_x>42</location_x>
     <location_y>599</location_y>
