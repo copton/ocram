@@ -29,20 +29,14 @@ def rp(f):
     return os.path.join("runtime", f)
 
 nat = setup.native_properties(np("app.c"), np("app.cached.sky"))
-ec = setup.ecode_properties(gp("app-ec.c"), gp("pal.c"), gp("pal.cached.sky"))
+tc = setup.tcode_properties(gp("app-tc.c"), gp("app-ec.c"), gp("pal.cached.sky"))
 pal = setup.pal_properties(gp("pal.c"), gp("pal.co"))
 tl = setup.tl_properties(rp("app.c"), rp("pal.cached.sky"))
 
-nat2ec = nat.proportion(ec)
-nat2ec_pal = nat.proportion(ec.subtract(pal))
-ec2tl = ec.proportion(tl)
+nat2tc = nat.proportion(tc)
+nat2tc_pal = nat.proportion(tc.subtract(pal))
+tc2tl = tc.proportion(tl)
 
 f = open("bench.results", "w")
-text.print_all_properties(f, [nat, ec, pal, nat2ec, nat2ec_pal, ec2tl])
-
-nat_loc = lines_of_code(np("app.c"));
-tc_loc = lines_of_code(gp("app-tc.c"))
-
-f.write("lines of code: nat = %d, tc = %d, nat/tc = %.2f\n" % (nat_loc, tc_loc, frac(nat_loc, tc_loc)))
-
+text.print_all_properties(f, [nat, tc, tl, pal, nat2tc, nat2tc_pal, tc2tl])
 f.close()

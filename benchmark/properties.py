@@ -25,7 +25,7 @@ class Properties(object):
 
     @staticmethod
     def attributes():
-        return ["text", "bss", "data", "stack", "cpu"]
+        return ["loc", "text", "bss", "data", "stack", "cpu"]
 
 
 class Setup(object):
@@ -37,9 +37,11 @@ class Setup(object):
     def p(self, f):
         return os.path.join(self.basepath, f)
 
-    def app_properties(self, name, cfile, elf, no_rti = False):
+    def app_properties(self, name, cfile, elf, no_rti=False, no_loc=False):
         prop = Properties(name)
         prop.text, prop.data, prop.bss = app_section_size(self.toolchain, self.p(elf))
+        if not no_loc:
+            prop.loc = lines_of_code(cfile)
         if not no_rti:
             prop.stack = max_stack_usage(self.platform, self.p(elf))
             prop.cpu = cpu_usage(self.platform, self.p(elf))
@@ -48,12 +50,13 @@ class Setup(object):
     def native_properties(self, cfile, elf):
         return self.app_properties("nat", cfile, elf)
 
-    def ecode_properties(self, ecfile, palfile, elf):
-        prop = self.app_properties("ec", ecfile, elf)
+    def tcode_properties(self, tfile, ecfile, elf):
+        prop = self.app_properties("tc", ecfile, elf, no_loc=True)
+        prop.loc = lines_of_code(tfile)
         return prop
 
     def pal_properties(self, cfile, elf):
-        return self.app_properties("pal", cfile, elf, no_rti=True)
+        return self.app_properties("pal", cfile, elf, no_rti=True, no_loc=True)
 
     def tl_properties(self, cfile, elf):
         return self.app_properties("tl", cfile, elf)
