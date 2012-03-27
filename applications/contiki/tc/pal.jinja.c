@@ -13,9 +13,6 @@
 #include "net/uip.h"
 #include "net/uiplib.h"
 /*{ endif }*/
-/*{ if "tc_await_button" in all_syscalls }*/
-#include "dev/button-sensor.h"
-/*{ endif }*/
 
 /* pal_code */
 /*{ for _ in thread_syscalls }*/
@@ -83,8 +80,11 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
 /*{ if "tc_sleep" in all_syscalls }*/
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_sleep) {
             if (threads[/*loop.index0*/].ctx.tc_sleep.frame->cond) {
+                OBS("sleep: tics=%ld, cond.waiting=%d", threads[/*loop.index0*/].ctx.tc_sleep.frame->tics, threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting);
                 threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting = true;
                 threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting_process = PROCESS_CURRENT();
+            } else {
+                OBS("sleep: tics=%ld", threads[/*loop.index0*/].ctx.tc_sleep.frame->tics);
             }
             static struct etimer et; 
             clock_time_t now = clock_time();
@@ -115,8 +115,11 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
 /*{ if "tc_receive" in all_syscalls }*/
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_receive) {
             if (threads[/*loop.index0*/].ctx.tc_receive.frame->cond) {
+                OBS("receive: cond.waiting=%d", threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting);
                 threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting = true;
                 threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting_process = PROCESS_CURRENT();
+            } else {
+                OBS("receive");
             }
             do {
                 PROCESS_YIELD();
@@ -135,16 +138,9 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
             continuation = threads[/*loop.index0*/].ctx.tc_receive.frame->ec_cont;
         }
 /*{ endif }*/
-/*{ if "tc_await_button" in all_syscalls }*/
-        else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_await_button) {
-            ec_frame_tc_await_button_t* frame = threads[/*loop.index0*/].ctx.tc_await_button.frame;
-            PROCESS_YIELD_UNTIL(ev == sensors_event && data == &button_sensor);
-            frame = threads[/*loop.index0*/].ctx.tc_await_button.frame;
-            continuation = frame->ec_cont;
-        }
-/*{ endif }*/
 /*{ if "tc_condition_wait" in all_syscalls }*/
         else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_condition_wait) {
+            OBS("condition_wait: cond.waiting=%d", threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting);
             threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting_process = PROCESS_CURRENT();
             threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting = true;
             PROCESS_YIELD_UNTIL(ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting == false);
