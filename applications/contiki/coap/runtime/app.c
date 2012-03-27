@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "contiki.h"
 #include "coap.h"
-#include "debug.h"
+#include "cooja.h"
 
 #include "tl/tl.h"
 

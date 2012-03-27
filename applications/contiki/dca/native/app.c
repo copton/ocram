@@ -8,7 +8,7 @@
 
 #include "common.h"
 #include "config.h"
-#include "debug.h"
+#include "cooja.h"
 
 uint32_t values[MAX_NUMBEROF_VALUES];
 size_t offset;

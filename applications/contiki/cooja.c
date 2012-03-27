@@ -1,4 +1,4 @@
-#include "debug.h"
+#include "cooja.h"
 
 volatile int debug_mark = 0;
 volatile int debug_line = 0;

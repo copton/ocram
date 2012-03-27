@@ -1,5 +1,5 @@
 #include "contiki.h"
-#include "debug.h"
+#include "cooja.h"
 #include <stdbool.h>
 #include "tc/condition.h"
 /*{ if "tc_sleep" in all_syscalls }*/

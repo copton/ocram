@@ -1,5 +1,5 @@
 all: app
-PROJECT_SOURCEFILES += coap.c debug.c
+PROJECT_SOURCEFILES += coap.c cooja.c
 APPS =
 
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"

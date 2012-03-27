@@ -6,7 +6,7 @@
 #include "config.h"
 #include "contiki.h"
 #include "contiki-net.h"
-#include "debug.h"
+#include "cooja.h"
 #include "net/uip-debug.h"
 #include "net/uip.h"
 #include "rpc.h"

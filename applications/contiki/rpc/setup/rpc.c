@@ -1,5 +1,5 @@
 #include "rpc.h"
-#include "debug.h"
+#include "cooja.h"
 #include "net/uip-debug.h"
 #include <string.h>
 #include <stdio.h>

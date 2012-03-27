@@ -29,7 +29,7 @@
  */
 
 
-#include "debug.h"
+#include "cooja.h"
 
 #include <stdint.h>
 #include "contiki.h"
