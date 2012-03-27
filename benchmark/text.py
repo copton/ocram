@@ -1,7 +1,7 @@
 import sys
 from properties import Properties
 
-formatString = '%20s\t%7s\t%7s\t%7s\t%7s\t%7s'
+formatString = '%20s\t%7s\t%7s\t%7s\t%7s\t%7s\t%7s'
 
 header = formatString % tuple([""] + Properties.attributes())
 
