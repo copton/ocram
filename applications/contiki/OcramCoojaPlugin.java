@@ -35,6 +35,7 @@ import java.util.Observable;
 import java.util.Observer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import org.jdom.Element;
 
 // log monitor
@@ -45,7 +46,7 @@ import se.sics.cooja.SimEventCentral.LogOutputEvent;
 import se.sics.cooja.AddressMemory;
 import se.sics.cooja.AddressMemory.UnknownVariableException;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Stack;
 import java.util.Map;
 //>1
 
@@ -237,6 +238,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     private ArrayList<String> processVariables;
     private HashMap<Integer, String> processes;
     private HashMap<Integer, Long> cycles;
+    private Stack<Integer> scopes;
 
     public CycleMonitor(Simulation s, MspMote m) { 
       super(s, m);
@@ -244,6 +246,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
       processVariables = new ArrayList<String>();
       processes = new HashMap<Integer, String>();
       cycles = new HashMap<Integer, Long>();
+      scopes = new Stack<Integer>();
     }
 
     public void configure(Collection<Element> config) { 
@@ -284,26 +287,36 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
       }
 
       cpu.addWatchPoint(hookAddress, cycleMonitor = new CPUMonitor() {
-        int currentAddress = 0;
-        long enterCycles;
+        boolean first = true;
+        int current_process = 0;
+        long enterCycles = 0;
         public void cpuAction(int type, int adr, int data) {
           if (type == CPUMonitor.MEMORY_WRITE) {
+            if (first) { // reset vector
+              assert (data == 0);
+              first = false;
+              return;
+            }
+            if (data != 0) {
+              addCycles();
+              scopes.push(current_process);
+              current_process = data;
+            }
             if (data == 0) {
-              assert (currentAddress != 0);
-
-              Long value = cycles.get(currentAddress);
-              if (value == null) {
-                value = new Long(0);
-              }
-              value += cpu.cycles - enterCycles;
-              cycles.put(currentAddress, value);
-
-              currentAddress = 0;
-            }  else {
-              currentAddress = data;
-              enterCycles = cpu.cycles;
+              addCycles();
+              current_process = scopes.pop();
             }
           }
+        }
+
+        private void addCycles() {
+          Long value = cycles.get(current_process);
+          if (value == null) {
+            value = new Long(0);
+          }
+          value += cpu.cycles - enterCycles;
+          cycles.put(current_process, value);
+          enterCycles = cpu.cycles;
         }
       });
     }

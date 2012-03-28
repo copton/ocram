@@ -21,4 +21,10 @@ extern volatile char* debug_file;
 #endif
 
 #include <stdio.h>
-#define OBS(format, ...) printf("observe: " format "\n", __VA_ARGS__)
+#include "ocram_cooja.h"
+#define OBS(format, ...) do {\
+    ENTER_PRINTF(); \
+    printf("observe: " format "\n", __VA_ARGS__); \
+    LEAVE_PRINTF();\
+    } while(0)
+

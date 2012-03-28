@@ -2,7 +2,7 @@ DIRS= dca coap rpc1 rpc2 rpc3
 
 .PHONY: all clean test compare bench plot
 
-PLOT = $(ROOT)/applications/contiki/plot/plot.py
+PLOT = $(ROOT)/applications/contiki/plot.py
 
 all:
 	for i in $(DIRS); do $(MAKE) -C $$i all || exit 1; done
