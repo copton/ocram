@@ -52,7 +52,6 @@ PT_THREAD(worker_thread(worker_t* worker, process_event_t ev)) {
         ASSERT(success == true);
         rpc_response_tell(RESPONSE + 1, CALL, RESPONSE);
     } else if (CALL->function == RPC_READ_SLOW_SENSOR) {
-        static struct etimer et;
         etimer_set(&worker->et, SLOW_SENSOR_DELAY);
         PT_YIELD_UNTIL(&worker->pt, etimer_expired(&worker->et));
         rpc_response_read_slow_sensor(rand(), CALL, RESPONSE);

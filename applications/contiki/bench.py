@@ -39,4 +39,5 @@ tc2tl = tc.proportion(tl)
 
 f = open("bench.results", "w")
 text.print_all_properties(f, [nat, tc, tl, pal, nat2tc, nat2tc_pal, tc2tl])
+text.export_all_properties(f, os.path.basename(app_path), [nat, tc, tl, pal])
 f.close()

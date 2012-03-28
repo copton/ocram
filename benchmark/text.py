@@ -1,4 +1,5 @@
 import sys
+import pickle
 from properties import Properties
 
 formatString = '%20s\t%7s\t%7s\t%7s\t%7s\t%7s\t%7s'
@@ -15,5 +16,16 @@ def print_properties(prop):
     return formatString % tuple([prop.name] + ps)
 
 def print_all_properties(out, props):
-    out.write("\n".join([header] + [print_properties(x) for x in props]))
+    out.write("# ")
+    out.write("\n# ".join([header] + [print_properties(x) for x in props]))
     out.write("\n")
+
+def export_all_properties(out, app, props):
+    data = { }
+    for prop in props:
+        for measurement in Properties.attributes():
+            key = (app, prop.name, measurement)
+            assert not data.has_key(key)
+            data[key] = getattr(prop, measurement)
+
+    pickle.dump(data, out)

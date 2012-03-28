@@ -24,9 +24,8 @@ def max_stack_usage(elf):
     total = 0
     for line in f.readlines():
         mo = pattern.match(line)
-        if mo:
-            size = int(mo.group(2))
-            total += size;
+        if mo and mo.group(1) == "<<main>>":
+            total += int(mo.group(2))
 
     return total
 
