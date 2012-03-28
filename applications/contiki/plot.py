@@ -20,4 +20,4 @@ data = text.import_all_properties(croot, "bench.results")
 
 for importer, name, ispkg in pkgutil.iter_modules(plots.__path__):
     module = __import__("plots." + name, fromlist=[name])
-    module.plot(*data)
+    module.plot(pjoin(croot, "plots"), *data)

@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 import os
+import StringIO
 
 class Tmpfile(object):
     def __init__(self):
@@ -18,6 +19,15 @@ class Tmpfile(object):
 
 def out(f, row):
     f.write("\t".join(map(lambda x: str(x), row)) + "\n")
+
+def grouped_boxes(values, apps, variants, measurement):
+    plotdata = StringIO.StringIO()
+
+    out(plotdata, ["app"] + variants)
+    for app in apps:
+        out(plotdata, [app] + [values[(app, variant, measurement)] for variant in variants])
+
+    return plotdata.getvalue()
 
 def plot(script, config, data):
     datafile = Tmpfile()

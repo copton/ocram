@@ -16,15 +16,16 @@ set yrange [0:*]
 plot '%(infile)s' using 2:xtic(1) title col, '' using 3:xtic(1) title col, '' using 4:xtic(1) title col
 """
 
-def plot(values, (apps_, variants, measurements)):
+def plot(path, values, (apps_, variants_, measurements)):
     assert "text" in measurements
-    apps = ["rpc2", "dca", "coap"]
-    assert set(apps).issubset(set(apps_)), str(apps)
-    plotdata = StringIO.StringIO()
+    
+    apps = ["dca", "coap", "rpc2"]
+    assert set(apps).issubset(set(apps_)), str(apps_)
 
-    gnuplot.out(plotdata, ["app"] + list(variants))
-    for app in apps:
-        gnuplot.out(plotdata, [app] + [values[(app, variant, "text")] for variant in variants if variant != "pal"])
+    variants = ["nat", "tl", "tc"]
+    assert set(variants).issubset(set(variants_)), str(variants_)
 
-    config = {'outfile': os.path.join(os.environ["ROOT"], "applications", "contiki", "plots", "rom")}
-    gnuplot.plot(script, config, plotdata.getvalue())
+    plotdata = gnuplot.grouped_boxes(values, apps, variants, "text")
+
+    config = {'outfile': os.path.join(path, "rom")}
+    gnuplot.plot(script, config, plotdata)

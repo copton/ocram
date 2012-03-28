@@ -17,15 +17,5 @@ plot '%(infile)s' using 2:xtic(1) title col, '' using 3:xtic(1) title col, '' us
 """
 
 def plot(path, values, (apps_, variants_, measurements)):
-    assert "loc" in measurements
-    
-    apps = ["dca", "coap", "rpc2"]
-    assert set(apps).issubset(set(apps_)), str(apps_)
+    return
 
-    variants = ["nat", "tl", "tc"]
-    assert set(variants).issubset(set(variants_)), str(variants_)
-
-    plotdata = gnuplot.grouped_boxes(values, apps, variants, "loc")
-
-    config = {'outfile': os.path.join(path, "loc")}
-    gnuplot.plot(script, config, plotdata)
