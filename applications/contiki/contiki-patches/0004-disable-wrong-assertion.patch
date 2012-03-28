@@ -1,0 +1,25 @@
+From 957db2439879ef424eedc7161fa44d57388cfb36 Mon Sep 17 00:00:00 2001
+From: Alexander Bernauer <alex@copton.net>
+Date: Wed, 28 Mar 2012 08:24:53 +0200
+Subject: [PATCH 4/5] disable wrong (?) assertion
+
+---
+ .../se/sics/cooja/motes/AbstractWakeupMote.java    |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/tools/cooja/java/se/sics/cooja/motes/AbstractWakeupMote.java b/tools/cooja/java/se/sics/cooja/motes/AbstractWakeupMote.java
+index 2092b6a..ad76a92 100644
+--- a/tools/cooja/java/se/sics/cooja/motes/AbstractWakeupMote.java
++++ b/tools/cooja/java/se/sics/cooja/motes/AbstractWakeupMote.java
+@@ -123,7 +123,7 @@ public abstract class AbstractWakeupMote implements Mote {
+ //      simulation = getSimulation();
+ //    }
+ 
+-      assert simulation.isSimulationThread() : "Scheduling event from non-simulation thread";
++ //     assert simulation.isSimulationThread() : "Scheduling event from non-simulation thread";
+       
+     if (executeMoteEvent.isScheduled() &&
+         executeMoteEvent.getTime() <= time) {
+-- 
+1.7.1
+
