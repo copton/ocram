@@ -29,7 +29,7 @@ extern struct memb transactions_memb;
 #define COAP_RESPONSE_TIMEOUT_TICKS         (CLOCK_SECOND * COAP_RESPONSE_TIMEOUT)
 #define COAP_RESPONSE_TIMEOUT_BACKOFF_MASK  ((CLOCK_SECOND * COAP_RESPONSE_TIMEOUT * (COAP_RESPONSE_RANDOM_FACTOR - 1)) + 1.5)
 
-uint8_t stack_transactions[200];
+uint8_t stack_transactions[162];
 void task_transactions()
 {
     while(1) {
@@ -169,7 +169,7 @@ void coap_receiver_init()
 }
 
 extern struct uip_udp_conn *udp_conn; // from coap.c
-uint8_t stack_receive[200];
+uint8_t stack_receive[132];
 void task_receive()
 {
     tl_condition_wait(&start_receive_thread);
@@ -189,7 +189,7 @@ void client_chunk_handler(void *response)
     printf("trace: coap response: %d.%02d: %.*s\n", packet->code/32, packet->code % 32, len, (char *)chunk);
 }
 
-uint8_t stack_query[400];
+uint8_t stack_query[366];
 void task_query()
 {
     coap_packet_t request[1];

@@ -165,8 +165,8 @@
     se.sics.cooja.mspmote.plugins.OcramCoojaPlugin
 	<plugin_config>
 		<process>process_scheduler</process>
-        <appstack size="200">stack_server</appstack>
-        <appstack size="200">stack_worker0</appstack>
+        <appstack size="152">stack_server</appstack>
+        <appstack size="170">stack_worker0</appstack>
 	</plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>

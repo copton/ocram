@@ -62,7 +62,7 @@ void task_send()
 
 // receive
 #define UIP_IP_BUF   ((struct uip_ip_hdr *)&uip_buf[UIP_LLH_LEN])
-uint8_t stack_receive[150];
+uint8_t stack_receive[154];
 void task_receive(uint16_t lport, uint16_t rport)
 {
     struct uip_udp_conn *server_conn;
@@ -89,7 +89,7 @@ void task_receive(uint16_t lport, uint16_t rport)
 }
 
 // collect
-uint8_t stack_collect[150];
+uint8_t stack_collect[162];
 void task_collect()
 {
     SENSORS_ACTIVATE(light_sensor);
