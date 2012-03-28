@@ -27,5 +27,5 @@ def plot(path, values, (apps_, variants_, measurements)):
 
     plotdata = gnuplot.grouped_boxes(values, apps, variants, "text")
 
-    config = {'outfile': os.path.join(path, "rom")}
+    config = {'outfile': os.path.join(path, "text")}
     gnuplot.plot(script, config, plotdata)
