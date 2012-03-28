@@ -269,7 +269,7 @@ bool tl_sleep(clock_time_t tics, condition_t* cond) {
         cond->waiting = true;
         cond->waiting_thread = current_thread;
     } else {
-        OBS("sleep: tics=%ld");
+        OBS("sleep: tics=%ld", tics);
     }
     clock_time_t now = clock_time();
     current_thread->state = STATE_BLOCKED;
@@ -296,7 +296,7 @@ bool tl_receive(struct uip_udp_conn* conn, condition_t* cond) {
         cond->waiting = true;
         cond->waiting_thread = current_thread;
     } else {
-        OBS("receive");
+        OBS("receive: %s", "-");
     }
 
     current_thread->state = STATE_BLOCKED;

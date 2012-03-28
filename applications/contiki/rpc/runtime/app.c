@@ -144,7 +144,7 @@ void server_thread()
 
 void tl_app_main()
 {
-    tl_create_thread(server_thread, stack_server, sizeof(stack_server));
     tl_create_thread(worker0, stack_worker0, sizeof(stack_worker0));
     tl_create_thread(worker1, stack_worker1, sizeof(stack_worker1));
+    tl_create_thread(server_thread, stack_server, sizeof(stack_server));
 }

@@ -6,10 +6,6 @@ extern volatile int debug_line;
 extern volatile char* debug_file;
 
 #ifdef ASSERT_PRINTF
-#include <stdio.h>
-#endif
-
-#ifdef ASSERT_PRINTF
 #define ASSERT(cond) do {\
     if (!(cond)) { \
         printf("ASSERTION FAILED:, file=" __FILE__ ", line=%d\n", __LINE__); \
@@ -24,9 +20,5 @@ extern volatile char* debug_file;
 #endif
 #endif
 
-#ifdef OBSERVE_BEHAVIOR
 #include <stdio.h>
-#define OBS(format, ...) printf("observable behavior" format "\n", __VA_ARGS__)
-#else
-#define OBS(...)
-#endif
+#define OBS(format, ...) printf("observe: " format "\n", __VA_ARGS__)

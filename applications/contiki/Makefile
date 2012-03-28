@@ -16,8 +16,6 @@ test:
 compare:
 	for i in $(DIRS); do $(MAKE) -C $$i compare || exit 1; done
 
-observe:
-
 bench:
 	for i in $(DIRS); do $(MAKE) -C $$i bench || exit 1; done
 

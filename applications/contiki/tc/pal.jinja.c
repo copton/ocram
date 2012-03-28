@@ -119,7 +119,7 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
                 threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting = true;
                 threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting_process = PROCESS_CURRENT();
             } else {
-                OBS("receive");
+                OBS("receive: %s", "-");
             }
             do {
                 PROCESS_YIELD();
