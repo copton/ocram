@@ -20,6 +20,14 @@ class Tmpfile(object):
 def out(f, row):
     f.write("\t".join(map(lambda x: str(x), row)) + "\n")
 
+def stacked_grouped_boxes(values, apps, variants, measurements):
+    plotdata = StringIO.StringIO()
+    out(plotdata, ["variant"] + [m for a in apps for m in measurements])
+    for v in variants:
+        out(plotdata, [v] + [values[(a, v, m)] for a in apps for m in measurements])
+
+    return plotdata.getvalue()
+
 def grouped_boxes(values, apps, variants, measurement):
     plotdata = StringIO.StringIO()
 
