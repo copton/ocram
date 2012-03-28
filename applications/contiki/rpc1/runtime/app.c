@@ -69,7 +69,7 @@ void handle_call(worker_t* worker)
 
 worker_t workers[1];
 
-uint8_t stack_worker0[200];
+uint8_t stack_worker0[170];
 void worker0()
 {
     worker_t* worker = workers + 0;
@@ -87,7 +87,7 @@ void worker0()
     }
 }
 
-uint8_t stack_server[200];
+uint8_t stack_server[152];
 void server_thread()
 {
     int i=0;
