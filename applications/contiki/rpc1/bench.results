@@ -1,8 +1,141 @@
-                    	    loc	   text	    bss	   data	  stack	    cpu
-                 nat	    135	  44000	   7494	    234	    302	1303521
-                  tc	    126	  45492	   7556	    244	    302	1706464
-                  tl	    132	  45128	   7960	    236	    582	1716631
-                 pal	    nan	   1564	     24	     24	    nan	    nan
-          (nat)/(tc)	  -6.67	   3.39	   0.83	   4.27	   0.00	  30.91
-  (nat)/((tc)-(pal))	    nan	  -0.16	   0.51	  -5.98	    nan	    nan
-           (tc)/(tl)	   4.76	  -0.80	   5.35	  -3.28	  92.72	   0.60
+#                     	    loc	   text	    bss	   data	  stack	    cpu
+#                  nat	    135	  44000	   7494	    234	    302	1303521
+#                   tc	    126	  45492	   7556	    244	    302	1706464
+#                   tl	    132	  45128	   7882	    236	    302	1716519
+#                  pal	    nan	   1564	     24	     24	    nan	    nan
+#           (nat)/(tc)	  -6.67	   3.39	   0.83	   4.27	   0.00	  30.91
+#   (nat)/((tc)-(pal))	    nan	  -0.16	   0.51	  -5.98	    nan	    nan
+#            (tc)/(tl)	   4.76	  -0.80	   4.31	  -3.28	   0.00	   0.59
+(dp0
+(S'rpc1'
+p1
+S'pal'
+p2
+S'cpu'
+p3
+tp4
+Fnan
+s(g1
+S'tl'
+p5
+S'loc'
+p6
+tp7
+I132
+s(g1
+S'nat'
+p8
+S'text'
+p9
+tp10
+I44000
+s(g1
+S'tc'
+p11
+S'data'
+p12
+tp13
+I244
+s(g1
+g2
+g9
+tp14
+I1564
+s(g1
+g8
+g6
+tp15
+I135
+s(g1
+g2
+S'stack'
+p16
+tp17
+Fnan
+s(g1
+g2
+g12
+tp18
+I24
+s(g1
+g11
+g6
+tp19
+I126
+s(g1
+g8
+g3
+tp20
+I1303521
+s(g1
+g2
+g6
+tp21
+Fnan
+s(g1
+g2
+S'bss'
+p22
+tp23
+I24
+s(g1
+g11
+g9
+tp24
+I45492
+s(g1
+g5
+g3
+tp25
+I1716519
+s(g1
+g8
+g16
+tp26
+I302
+s(g1
+g8
+g22
+tp27
+I7494
+s(g1
+g11
+g16
+tp28
+I302
+s(g1
+g11
+g22
+tp29
+I7556
+s(g1
+g8
+g12
+tp30
+I234
+s(g1
+g5
+g9
+tp31
+I45128
+s(g1
+g5
+g16
+tp32
+I302
+s(g1
+g5
+g22
+tp33
+I7882
+s(g1
+g11
+g3
+tp34
+I1706464
+s(g1
+g5
+g12
+tp35
+I236
+s.

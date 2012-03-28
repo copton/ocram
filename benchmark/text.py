@@ -1,3 +1,4 @@
+import os
 import sys
 import pickle
 from properties import Properties
@@ -29,3 +30,16 @@ def export_all_properties(out, app, props):
             data[key] = getattr(prop, measurement)
 
     pickle.dump(data, out)
+
+def import_all_properties(path, result_file):
+    data = {}
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        if result_file in filenames:
+            dirnames[:] = []
+            fname = os.path.join(dirpath, result_file)
+            f = open(fname, "r")
+
+            data.update(pickle.loads("".join(filter(lambda l: not l.startswith('#'), f.readlines()))))
+
+    meta = map(lambda s: set(s), zip(*data.keys()))
+    return data, meta
