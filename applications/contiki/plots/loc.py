@@ -16,15 +16,15 @@ set yrange [0:*]
 plot '%(infile)s' using 2:xtic(1) title col, '' using 3:xtic(1) title col, '' using 4:xtic(1) title col
 """
 
-def plot(values, (apps_, variants, measurements)):
-    assert "cpu" in measurements
+def plot(data, (apps_, variants, measurements)):
+    assert "loc" in measurements
     apps = ["rpc2", "dca", "coap"]
     assert set(apps).issubset(set(apps_)), str(apps)
     plotdata = StringIO.StringIO()
 
     gnuplot.out(plotdata, ["app"] + list(variants))
     for app in apps:
-        gnuplot.out(plotdata, [app] + [values[(app, variant, "cpu")] for variant in variants if variant != "pal"])
+        gnuplot.out(plotdata, [app] + [data[(app, variant, "loc")] for variant in variants if variant != "pal"])
 
-    config = {'outfile': os.path.join(os.environ["ROOT"], "applications", "contiki", "plots", "cpu")}
+    config = {'outfile': os.path.join(os.environ["ROOT"], "applications", "contiki", "plots", "loc")}
     gnuplot.plot(script, config, plotdata.getvalue())
