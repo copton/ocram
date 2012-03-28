@@ -1,5 +1,5 @@
 all: sink source
-PROJECT_SOURCEFILES += common.c debug.c
+PROJECT_SOURCEFILES += common.c cooja.c
 APPS=
 
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"

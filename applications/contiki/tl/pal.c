@@ -29,7 +29,7 @@
  */
 
 
-#include "debug.h"
+#include "cooja.h"
 
 #include <stdint.h>
 #include "contiki.h"
@@ -265,8 +265,11 @@ AUTOSTART_PROCESSES(&process_scheduler);
 
 bool tl_sleep(clock_time_t tics, condition_t* cond) {
     if (cond) {
+        OBS("sleep: tics=%ld, cond.waiting=%d", tics, cond->waiting);
         cond->waiting = true;
         cond->waiting_thread = current_thread;
+    } else {
+        OBS("sleep: tics=%ld", tics);
     }
     clock_time_t now = clock_time();
     current_thread->state = STATE_BLOCKED;
@@ -289,9 +292,13 @@ bool tl_sleep(clock_time_t tics, condition_t* cond) {
 
 bool tl_receive(struct uip_udp_conn* conn, condition_t* cond) {
     if (cond) {
+        OBS("receive: cond.waiting=%d", cond->waiting);
         cond->waiting = true;
         cond->waiting_thread = current_thread;
+    } else {
+        OBS("receive: %s", "-");
     }
+
     current_thread->state = STATE_BLOCKED;
     current_thread->syscall = SYSCALL_receive;
     current_thread->data.receive.conn = conn;
@@ -313,6 +320,7 @@ void tl_condition_init(condition_t* cond) {
 }
 
 void tl_condition_wait(condition_t* cond) {
+    OBS("condition_wait: cond.waiting=%d", cond->waiting);
     cond->waiting = true;
     cond->waiting_thread = current_thread;
     current_thread->state = STATE_BLOCKED;

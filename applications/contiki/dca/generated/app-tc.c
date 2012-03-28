@@ -8,7 +8,7 @@
 
 #include "common.h"
 #include "config.h"
-#include "debug.h"
+#include "cooja.h"
 
 #include "tc/tc_receive.h"
 #include "tc/tc_sleep.h"

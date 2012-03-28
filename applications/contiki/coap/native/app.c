@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "contiki.h"
 #include "coap.h"
-#include "debug.h"
+#include "cooja.h"
 
 // config
 #define TOGGLE_INTERVAL (10 * CLOCK_SECOND)

@@ -1,5 +1,5 @@
 all: pal pal.co
-PROJECT_SOURCEFILES += app-ec.c debug.c common.c
+PROJECT_SOURCEFILES += app-ec.c cooja.c common.c
 APPS=
 
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"

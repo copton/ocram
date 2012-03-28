@@ -2,7 +2,7 @@
 #include "contiki.h"
 #include "contiki-net.h"
 #include "net/rpl/rpl.h"
-#include "debug.h"
+#include "cooja.h"
 
 #define DEBUG DEBUG_PRINT
 #include "net/uip-debug.h"

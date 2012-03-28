@@ -1,5 +1,5 @@
 all: client peer
-PROJECT_SOURCEFILES += debug.c rpc.c common.c
+PROJECT_SOURCEFILES += cooja.c rpc.c common.c
 APPS=
 
 CFLAGS += -DPROJECT_CONF_H=\"project-conf.h\"
