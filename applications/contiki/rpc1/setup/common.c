@@ -1,1 +1,1 @@
-../../rpc/setup/common.c
+../../rpc2/setup/common.c

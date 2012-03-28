@@ -1,1 +1,1 @@
-../../rpc/setup/project-conf.h
+../../rpc2/setup/project-conf.h

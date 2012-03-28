@@ -1,1 +1,1 @@
-../../rpc/setup/Makefile
+../../rpc2/setup/Makefile

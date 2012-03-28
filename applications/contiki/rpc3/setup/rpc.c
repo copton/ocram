@@ -1,1 +1,1 @@
-../../rpc/setup/rpc.c
+../../rpc2/setup/rpc.c
