@@ -167,6 +167,7 @@
 		<process>thread0</process>
 		<process>thread1</process>
 		<process>thread2</process>
+		<process>thread3</process>
 	</plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>

@@ -167,6 +167,7 @@
 		<process>server_process</process>
 		<process>worker0</process>
 		<process>worker1</process>
+		<process>worker2</process>
 	</plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>
