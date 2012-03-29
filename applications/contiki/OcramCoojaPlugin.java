@@ -234,18 +234,27 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
 
   private static class CycleMonitor extends Monitor {  //<1
     private CPUMonitor cycleMonitor;
-    private int hookAddress;
     private ArrayList<String> processVariables;
     private HashMap<Integer, String> processes;
-    private HashMap<Integer, Long> cycles;
+    private class Unit {
+      public long cycles;
+      public int counter;
+      Unit() { cycles = 0; counter = 0; }
+    }
+    private HashMap<Integer, Unit> cycles;
     private Stack<Integer> scopes;
+    private int numberofInterrupts = 0;
+    private int numberofPrintfs = 0;
+    private int process_hook;
+    private int interrupt_pseudo_process;
+    private int printf_pseudo_process;
 
     public CycleMonitor(Simulation s, MspMote m) { 
       super(s, m);
 
       processVariables = new ArrayList<String>();
       processes = new HashMap<Integer, String>();
-      cycles = new HashMap<Integer, Long>();
+      cycles = new HashMap<Integer, Unit>();
       scopes = new Stack<Integer>();
     }
 
@@ -270,7 +279,9 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     public void start() { 
       AddressMemory memory = (AddressMemory) mote.getMemory();
       try {
-        hookAddress = memory.getVariableAddress("process_hook");
+        process_hook = memory.getVariableAddress("process_hook");
+        interrupt_pseudo_process = memory.getVariableAddress("interrupt_pseudo_process");
+        printf_pseudo_process = memory.getVariableAddress("printf_pseudo_process");
       } catch (UnknownVariableException e) {
         throw new OcramError("failed to install cpu cycle monitor", e);
       }
@@ -286,7 +297,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         processes.put(address, variable);
       }
 
-      cpu.addWatchPoint(hookAddress, cycleMonitor = new CPUMonitor() {
+      cpu.addWatchPoint(process_hook, cycleMonitor = new CPUMonitor() {
         boolean first = true;
         int current_process = 0;
         long enterCycles = 0;
@@ -298,40 +309,62 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
               return;
             }
             if (data != 0) {
-              addCycles();
+              addCycles(data);
               scopes.push(current_process);
               current_process = data;
             }
             if (data == 0) {
-              addCycles();
+              addCycles(data);
               current_process = scopes.pop();
             }
+            if (data == interrupt_pseudo_process) numberofInterrupts++;
+            if (data == printf_pseudo_process) printf_pseudo_process++;
           }
         }
 
-        private void addCycles() {
-          Long value = cycles.get(current_process);
-          if (value == null) {
-            value = new Long(0);
+        private void addCycles(int data) {
+          final int prolog_overhead = 20; // 4 x push
+          final int epilog_overhead = 25; // 4 x pop + 1 x reti
+          final int hook_overhead = 5; // 1 x mov #4568, &0x11da (e.g.)
+            
+          Unit unit = cycles.get(current_process);
+          if (unit == null) {
+            unit = new Unit();
           }
-          value += cpu.cycles - enterCycles;
-          cycles.put(current_process, value);
+          unit.counter++;
+          unit.cycles += cpu.cycles - enterCycles;
           enterCycles = cpu.cycles;
+
+          if (data == interrupt_pseudo_process) {
+            unit.cycles -= prolog_overhead;
+            enterCycles -= prolog_overhead;
+          }
+          if (current_process == interrupt_pseudo_process) {
+            unit.cycles += epilog_overhead;
+            enterCycles += epilog_overhead;
+          }
+          unit.cycles -= hook_overhead;
+          enterCycles += hook_overhead;
+
+          cycles.put(current_process, unit);
         }
       });
     }
 
     public void stop() { 
       // cpu cycle monitor
-      cpu.removeWatchPoint(hookAddress, cycleMonitor);
-      for (Map.Entry<Integer, Long> entry : cycles.entrySet()) {
+      cpu.removeWatchPoint(process_hook, cycleMonitor);
+      processes.put(interrupt_pseudo_process, "#interrupt_pseudo_process");
+      processes.put(printf_pseudo_process, "#printf_pseudo_process");
+      for (Map.Entry<Integer, Unit> entry : cycles.entrySet()) {
         String identifier;
         if (processes.containsKey(entry.getKey())) {
           identifier = processes.get(entry.getKey());
         } else {
-          identifier = hex(entry.getKey());
+          identifier = "#" + hex(entry.getKey());
         }
-        log("cpu cycles: " + identifier + ": " + entry.getValue());
+        log("cpu cycles: " + identifier + ": " + entry.getValue().cycles);
+        log("process count: " + identifier + ": " + entry.getValue().counter);
       }
     }
   }

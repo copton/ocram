@@ -39,7 +39,7 @@ def cpu_usage(elf):
         if mo:
             identifier = mo.group(1)
             cycles = int(mo.group(2))
-            if not identifier.startswith("0x"):
+            if not identifier.startswith("#"):
                 total += cycles
 
     return total
