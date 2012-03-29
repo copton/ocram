@@ -24,7 +24,7 @@ def plot(path, values, (apps_, variants_, measurements_)):
     apps = ["dca", "coap", "rpc2"]
     assert set(apps).issubset(set(apps_)), str(apps_)
 
-    variants = ["nat", "tl", "tc"]
+    variants = ["nat", "tl", "gen"]
     assert set(variants).issubset(set(variants_)), str(variants_)
 
     plotdata = gnuplot.stacked_grouped_boxes(values, apps, variants, measurements)

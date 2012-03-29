@@ -51,7 +51,7 @@ class Setup(object):
         return self.app_properties("nat", cfile, elf)
 
     def tcode_properties(self, tfile, ecfile, elf):
-        prop = self.app_properties("tc", ecfile, elf, no_loc=True)
+        prop = self.app_properties("gen", ecfile, elf, no_loc=True)
         prop.loc = lines_of_code(tfile)
         return prop
 

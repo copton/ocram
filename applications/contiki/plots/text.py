@@ -24,7 +24,7 @@ def plot(path, values_, (apps_, variants_, measurements_)):
     apps = ["dca", "coap", "rpc2"]
     assert set(apps).issubset(set(apps_)), str(apps_)
 
-    variants = ["nat", "tl", "tc", "pal"]
+    variants = ["nat", "tl", "gen", "pal"]
     assert set(variants).issubset(set(variants_)), str(variants_)
 
     variants.remove("pal")
@@ -32,7 +32,7 @@ def plot(path, values_, (apps_, variants_, measurements_)):
     values = {}
     for a in apps:
         for v in variants:
-            if v == "tc":
+            if v == "gen":
                 values[(a, v, "text")] = str(values_[(a, v, "text")] - values_[(a, "pal", "text")])
                 values[(a, v, "pal")] = str(values_[(a, "pal", "text")])
             else:

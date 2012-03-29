@@ -22,7 +22,7 @@ def plot(path, values, (apps_, variants_, measurements_)):
     apps = ["rpc1", "rpc2", "rpc3"]
     assert set(apps).issubset(set(apps_)), str(apps_)
 
-    variants = ["nat", "tl", "tc"]
+    variants = ["nat", "tl", "gen"]
     assert set(variants).issubset(set(variants_)), str(variants_)
 
     plotdata = gnuplot.linespoints(values, apps, variants, ["text"])
