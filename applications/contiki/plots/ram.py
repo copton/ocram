@@ -18,7 +18,7 @@ plot newhistogram "dca", '%(infile)s' using 2:xtic(1) t col, '' u 3 t col, '' u 
 """
 
 def plot(path, values, (apps_, variants_, measurements_)):
-    measurements = ["data", "bss", "stack"]
+    measurements = ["bss", "data", "stack"]
     assert set(measurements).issubset(measurements_), str(measurements_)
 
     apps = ["dca", "coap", "rpc2"]
