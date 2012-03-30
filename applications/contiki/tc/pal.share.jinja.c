@@ -77,25 +77,24 @@ PT_THREAD(application_thread(ThreadContext* thread, process_event_t ev, void* da
 /*{ if "tc_sleep" in all_syscalls }*/
         else if (thread->syscall == SYSCALL_tc_sleep) {
             if (thread->ctx.tc_sleep->cond) {
-                OBS("sleep: tics=%ld, cond.waiting=%d", thread->ctx.tc_sleep->tics, threads[/*loop.index0*/].ctx.tc_sleep->cond->waiting);
+                OBS("sleep: tics=%ld, cond.waiting=%d", thread->ctx.tc_sleep->tics, thread->ctx.tc_sleep->cond->waiting);
                 thread->ctx.tc_sleep->cond->waiting = true;
                 thread->ctx.tc_sleep->cond->waiting_process = PROCESS_CURRENT();
             } else {
                 OBS("sleep: tics=%ld", thread->ctx.tc_sleep->tics);
             }
-            static struct etimer et; 
             clock_time_t now = clock_time();
             if (thread->ctx.tc_sleep->tics > now) {
-                etimer_set(&et, thread->ctx.tc_sleep->tics - now);
+                etimer_set(&thread->et, thread->ctx.tc_sleep->tics - now);
                 do {
                     PT_YIELD(&thread->pt);
-                    if (ev == PROCESS_EVENT_TIMER && data == &et) {
+                    if (ev == PROCESS_EVENT_TIMER && data == &thread->et) {
                         thread->ctx.tc_sleep->ec_result = false;
                         break;
                     }
-                    if (ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && thread->ctx.tc_sleep->cond != NULL && threads[/*loop.index0*/].ctx.tc_sleep->cond->waiting == false) {
+                    if (ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && thread->ctx.tc_sleep->cond != NULL && thread->ctx.tc_sleep->cond->waiting == false) {
                         thread->ctx.tc_sleep->ec_result = true;
-                        etimer_stop(&et);
+                        etimer_stop(&thread->et);
                         break;
                     }
                 } while(1);
@@ -124,7 +123,7 @@ PT_THREAD(application_thread(ThreadContext* thread, process_event_t ev, void* da
                     thread->ctx.tc_receive->ec_result = false;
                     break;
                 }
-                if (ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && thread->ctx.tc_sleep->cond != NULL && threads[/*loop.index0*/].ctx.tc_sleep->cond->waiting == false) {
+                if (ev == PROCESS_EVENT_CONTINUE && data == &tc_condition_signal && thread->ctx.tc_sleep->cond != NULL && thread->ctx.tc_sleep->cond->waiting == false) {
                     thread->ctx.tc_receive->ec_result = true;
                     break;
                 }

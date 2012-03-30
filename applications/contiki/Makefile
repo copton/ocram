@@ -1,4 +1,4 @@
-DIRS= dca coap rpc1 rpc2 rpc3
+DIRS= dca coap rpc1 rpc2 rpc3 rpc4
 
 .PHONY: all clean test compare bench plot
 

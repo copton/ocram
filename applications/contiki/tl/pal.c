@@ -82,9 +82,7 @@
   __asm__("mov.w r1,%0" : "=r" (OLD));  \
   __asm__("mov.w %0,r1" : : "m" (NEW))
  
-//This must be a power of 2
-#define TOSH_MAX_THREADS      4
-#define TOSH_MAX_THREADS_MASK (TOSH_MAX_THREADS - 1)
+#define TOSH_MAX_THREADS      5
 typedef enum {
   STATE_NULL = 0,     // There is no thread here
   STATE_READY = 1,    // Read to be scheduled but not running
@@ -217,7 +215,7 @@ PROCESS_THREAD(process_scheduler, ev, data)
         size_t j;
         thread_t* t;
         for (i=0; i<TOSH_MAX_THREADS; i++) {
-            j = TOSH_MAX_THREADS_MASK & (thread_idx + i);
+            j = (thread_idx + i) % TOSH_MAX_THREADS;
             t = thread_table + j;
 
             if (t->state == STATE_READY && ev == PROCESS_EVENT_CONTINUE) {
@@ -255,8 +253,7 @@ schedule:
         platform_switch_to_thread();
         current_thread = 0;
 
-        thread_idx++;
-        thread_idx = (TOSH_MAX_THREADS_MASK & (thread_idx));
+        thread_idx = (thread_idx + 1) % TOSH_MAX_THREADS;
     }
     PROCESS_END();
 }
