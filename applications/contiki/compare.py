@@ -52,7 +52,7 @@ else:
             if mo_tc != None and mo_tl != None and mo_tc.group(2) == mo_tl.group(2):
                 sleep_tc = int(mo_tc.group(1))
                 sleep_tl = int(mo_tl.group(1))
-                if abs(sleep_tc - sleep_tl) <= 5:
+                if abs(sleep_tc - sleep_tl) <= 6:
                     continue
             diff_log(log_generated, log_runtime, "generated", "runtime")
 

@@ -12,14 +12,14 @@ set palette gray
 set auto x
 set auto y
 
-plot '%(infile)s' using 2:xtic(1) title columnheader(2), '' using 3 title columnheader(3), '' using 4 title columnheader(4), '' using 5 title columnheader(5)
+plot '%(infile)s' using 2:xtic(1) title columnheader(2), for [i=3:5] '' using i title columnheader(i)
 """
 
 def plot(path, values_, (apps_, variants_, measurements_)):
     measurements = ["text"]
     assert set(measurements).issubset(set(measurements_)), str(measurements_)
 
-    apps = ["rpc1", "rpc2", "rpc3"]
+    apps = ["rpc1", "rpc2", "rpc3", "rpc4"]
     assert set(apps).issubset(set(apps_)), str(apps_)
 
     variants = ["nat", "tl", "gen"]
