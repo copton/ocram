@@ -1,15 +1,14 @@
+#include <stdbool.h>
+
 #include "contiki.h"
 #include "cooja.h"
-#include <stdbool.h>
+
 #include "tc/condition.h"
 /*{ if "tc_sleep" in all_syscalls }*/
 #include "clock.h"
 /*{ endif }*/
 /*{ if "tc_receive" in all_syscalls }*/
 #include "contiki-net.h"
-#include <stdint.h>
-#include <stddef.h>
-#include <string.h>
 #include "net/uip.h"
 #include "net/uiplib.h"
 /*{ endif }*/
