@@ -1,4 +1,4 @@
-import gnuplot
+import plotting
 import os
 
 script = """
@@ -15,7 +15,7 @@ set auto y
 plot '%(infile)s' using 2:xtic(1) title columnheader(2), for [i=3:4] '' using i title columnheader(i)
 """
 
-def plot(path, values_, (apps_, variants_, measurements_)):
+def plot(path, values_, (apps_, variants_, measurements_), numbers):
     measurements = ["data", "bss", "stack"]
     assert set(measurements).issubset(set(measurements_)), str(measurements_)
 
@@ -30,7 +30,11 @@ def plot(path, values_, (apps_, variants_, measurements_)):
         for v in variants:
             values[(a, v, "ram")] = sum([values_[(a, v, m)] for m in ["data", "bss", "stack"]])
 
-    plotdata = gnuplot.linespoints(values, apps, variants, ["ram"])
+    plotdata = plotting.linespoints(values, apps, variants, ["ram"])
 
     config = {'outfile': os.path.join(path, "pt_ram")}
-    gnuplot.plot(script, config, plotdata)
+    plotting.plot(script, config, plotdata)
+
+    for v in variants:
+        slope = 1.0 * (values[("rpc4", v, "ram")] - values[("rpc1", v, "ram")]) / 3
+        numbers.write("slope: %s: %.2f\n" % (v, slope))

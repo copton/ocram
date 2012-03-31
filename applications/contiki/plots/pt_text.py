@@ -1,4 +1,4 @@
-import gnuplot
+import plotting
 import os
 
 script = """
@@ -15,7 +15,7 @@ set auto y
 plot '%(infile)s' using 2:xtic(1) title columnheader(2), for [i=3:5] '' using i title columnheader(i)
 """
 
-def plot(path, values_, (apps_, variants_, measurements_)):
+def plot(path, values_, (apps_, variants_, measurements_), numbers):
     measurements = ["text"]
     assert set(measurements).issubset(set(measurements_)), str(measurements_)
 
@@ -32,7 +32,11 @@ def plot(path, values_, (apps_, variants_, measurements_)):
         values[(a,"gen_nopal", "text")] = values_[(a,"gen","text")] - values_[(a, "pal", "text")]
 
     variants.append("gen_nopal")
-    plotdata = gnuplot.linespoints(values, apps, variants, measurements)
+    plotdata = plotting.linespoints(values, apps, variants, measurements)
 
     config = {'outfile': os.path.join(path, "pt_text")}
-    gnuplot.plot(script, config, plotdata)
+    plotting.plot(script, config, plotdata)
+
+    for v in variants:
+        slope = 1.0 * (values[("rpc4", v, "text")] - values[("rpc1", v, "text")]) / 3
+        numbers.write("slope: %s: %.2f\n" % (v, slope))

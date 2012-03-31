@@ -1,4 +1,4 @@
-import gnuplot
+import plotting
 import StringIO
 import os
 
@@ -17,7 +17,7 @@ set yrange [0:*]
 plot newhistogram "dca", '%(infile)s' using 2:xtic(1) t col, '' u 3 t col, '' u 4 t col, newhistogram "coap", '' u 5:xtic(1) t col, '' u 6 t col, '' u 7 t col, newhistogram "rpc2", '' u 8:xtic(1) t col, '' u 9 t col, '' u 10 t col
 """
 
-def plot(path, values, (apps_, variants_, measurements_)):
+def plot(path, values, (apps_, variants_, measurements_), numbers):
     measurements = ["bss", "data", "stack"]
     assert set(measurements).issubset(measurements_), str(measurements_)
 
@@ -27,7 +27,18 @@ def plot(path, values, (apps_, variants_, measurements_)):
     variants = ["nat", "tl", "gen"]
     assert set(variants).issubset(set(variants_)), str(variants_)
 
-    plotdata = gnuplot.stacked_grouped_boxes(values, apps, variants, measurements)
+    plotdata = plotting.stacked_grouped_boxes(values, apps, variants, measurements)
    
     config = {'outfile': os.path.join(path, "ram")}
-    gnuplot.plot(script, config, plotdata)
+    plotting.plot(script, config, plotdata)
+
+    lst_bss = []
+    lst_ram = []
+    for a in apps:
+        lst_bss.append(plotting.frac(values[(a, "nat", "bss")], values[(a, "gen", "bss")]))
+        lst_ram.append(plotting.frac(
+            sum([values[(a, "nat", m)] for m in measurements]),
+            sum([values[(a, "gen", m)] for m in measurements])))
+
+    numbers.write("overhead: bss: max: %.2f\n" % max(lst_bss))
+    numbers.write("overhead: ram: max: %.2f\n" % max(lst_ram))

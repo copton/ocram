@@ -1,9 +1,7 @@
 from measurements import *
+from plotting import frac
 
 import os.path
-
-def frac(a, b):
-    return 100.0 * (b - a) / a
 
 class Properties(object):
     def __init__(self, name):

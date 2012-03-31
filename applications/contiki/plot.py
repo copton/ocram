@@ -16,8 +16,14 @@ sys.path.insert(0, croot)
 
 import plots
 
+ppath = pjoin(croot, "plots")
+
 data = text.import_all_properties(croot, "bench.results")
 
+f = open(pjoin(ppath, "number.txt"), "w")
 for importer, name, ispkg in pkgutil.iter_modules(plots.__path__):
     module = __import__("plots." + name, fromlist=[name])
-    module.plot(pjoin(croot, "plots"), *data)
+    f.write("\n" + name + "\n" + ("=" * len(name)) + "\n")
+    module.plot(ppath, *data, numbers=f)
+
+f.close()

@@ -17,6 +17,9 @@ class Tmpfile(object):
     def __del__(self):
         os.unlink(self.name)
 
+def frac(base, value):
+    return 100.0 * (value - base) / base
+
 def out(f, row):
     f.write("\t".join(map(lambda x: str(x), row)) + "\n")
 

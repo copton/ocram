@@ -1,4 +1,4 @@
-import gnuplot
+import plotting
 import StringIO
 import os
 
@@ -16,7 +16,7 @@ set yrange [0:*]
 plot '%(infile)s' using 2:xtic(1) title col, '' using 3:xtic(1) title col, '' using 4:xtic(1) title col
 """
 
-def plot(path, values, (apps_, variants_, measurements)):
+def plot(path, values, (apps_, variants_, measurements), numbers):
     assert "loc" in measurements
     
     apps = ["dca", "coap", "rpc2"]
@@ -25,7 +25,14 @@ def plot(path, values, (apps_, variants_, measurements)):
     variants = ["nat", "tl", "gen"]
     assert set(variants).issubset(set(variants_)), str(variants_)
 
-    plotdata = gnuplot.grouped_boxes(values, apps, variants, "loc")
+    plotdata = plotting.grouped_boxes(values, apps, variants, "loc")
 
     config = {'outfile': os.path.join(path, "loc")}
-    gnuplot.plot(script, config, plotdata)
+    plotting.plot(script, config, plotdata)
+
+    lst = []
+    for a in apps:
+        lst.append(plotting.frac(values[(a, "nat", "loc")], values[(a, "gen", "loc")]))
+
+    numbers.write("savings: min: %.2f\n" % min(lst))
+    numbers.write("savings: max: %.2f\n" % max(lst))
