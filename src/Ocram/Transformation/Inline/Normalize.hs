@@ -29,7 +29,7 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
     trCriticalFunction = normalizeStatements . deferCriticalInitializations . unlistDeclarations . wrapDanglingStatements . explicitReturn
 
     -- TODO: only add an explicit return if the last line is reachable
-    explicitReturn o@(CFunDef x1 x2 x3 (CCompound x4 body x6) x7)
+    explicitReturn o@(CFunDef x1 x2 x3 (CCompound x4 body x6) x7) -- {{{2
       | isReturn (last body) = o
       | otherwise = CFunDef x1 x2 x3 (CCompound x4 body' x6) x7
       where

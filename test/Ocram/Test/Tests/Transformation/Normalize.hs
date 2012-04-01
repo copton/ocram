@@ -328,7 +328,22 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         }
         return; 
       } 
-    |])
+    |]),
+-- critical call in l-value of 2nd normal form
+  ([paste|
+    __attribute__((tc_blocking)) int* block();
+    __attribute__((tc_run_thread)) void start() {
+      *block() = *block();
+    }
+  |], [paste|
+    __attribute__((tc_blocking)) int* block();
+    __attribute__((tc_run_thread)) void start() {
+      int* ec_tmp_1 = block();
+      int* ec_tmp_0 = block();
+      *ec_tmp_0 = *ec_tmp_1;
+      return;
+    }
+  |])
   ]
 -- implementation {{{2
   where
