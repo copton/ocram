@@ -71,6 +71,14 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
           return $ CCompound y1 (concat items') y2
         trBlock _ = $abort "unexpected parameters"
 
+        -- critical calls in return expressions -- {{{3
+        trBlockItem o@(CBlockStmt (CReturn (Just cexpr) ni))
+          | containsCriticalCall cexpr = do
+              (cexpr', extraDecls) <- extractCriticalCalls cexpr
+              let o' = CBlockStmt $ CReturn (Just cexpr') ni
+              return $ extraDecls ++ [o']
+          | otherwise = return [o]
+
         -- critical calls in nested expressions -- {{{3
         trBlockItem o@(CBlockStmt (CExpr (Just cexpr) ni))
           | isInNormalForm cexpr = return [o]

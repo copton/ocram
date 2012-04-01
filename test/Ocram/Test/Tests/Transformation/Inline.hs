@@ -364,6 +364,66 @@ tests = runTests [ -- {{{1
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
 	|])
+-- critical function, chained return {{{2
+	,([paste|
+		__attribute__((tc_blocking)) int block(int b);
+
+		int critical(int c) {
+			return block(c+1);	
+		}
+
+		__attribute__((tc_run_thread)) void start() { 
+				critical(23);
+		}
+	|],[paste|
+		typedef struct {
+				void* ec_cont;
+        int ec_result;
+				int b;
+		} ec_frame_block_t;
+
+		typedef struct {
+			void* ec_cont;
+      int ec_result;
+			union {
+				ec_frame_block_t block;
+			} ec_frames;
+			int c;	
+      int ec_tmp_0;
+		} ec_frame_critical_t;
+
+		typedef struct {
+				union {
+						ec_frame_critical_t critical;
+				} ec_frames;
+		} ec_frame_start_t;
+		
+		ec_frame_start_t ec_stack_start;
+
+		void block(ec_frame_block_t*);
+
+		void ec_thread_0(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+				ec_stack_start.ec_frames.critical.c = 23;
+				ec_stack_start.ec_frames.critical.ec_cont = &&ec_label_start_1;
+				goto ec_label_critical_0;
+			ec_label_start_1: ;
+				return;	
+			
+			ec_label_critical_0: ;
+				ec_stack_start.ec_frames.critical.ec_frames.block.b = ec_stack_start.ec_frames.critical.c + 1;
+				ec_stack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_label_critical_1;
+				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
+				return;
+			ec_label_critical_1: ;
+        ec_stack_start.ec_frames.critical.ec_tmp_0 = ec_stack_start.ec_frames.critical.ec_frames.block.ec_result;
+        ec_stack_start.ec_frames.critical.ec_result = ec_stack_start.ec_frames.critical.ec_tmp_0;
+				goto *ec_stack_start.ec_frames.critical.ec_cont;
+		}
+	|])
 -- two threads {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -728,6 +788,72 @@ tests = runTests [ -- {{{1
         return;
     }
     |])
+-- returns {{{2
+  , ([paste|
+    __attribute__((tc_blocking)) int block(char* c);
+
+    int critical(int i) {
+      if (i == 0) {
+        return 0;
+      } else {
+        block(0);
+        return 42;
+      }
+    }
+
+    __attribute__((tc_run_thread)) void start() {
+      critical(23);
+    }
+  |],[paste|
+    typedef struct {
+      void* ec_cont;
+      int ec_result;
+      char* c;
+    } ec_frame_block_t;
+
+    typedef struct {
+      void* ec_cont;
+      int ec_result;
+      union {
+        ec_frame_block_t block;
+      } ec_frames;
+      int i;
+    } ec_frame_critical_t;
+
+    typedef struct {
+      union {
+        ec_frame_critical_t critical;
+      } ec_frames;
+    } ec_frame_start_t;
+
+    ec_frame_start_t ec_stack_start;
+
+    void block(ec_frame_block_t*);
+
+    void ec_thread_0(void* ec_cont) {
+      if (ec_cont)
+        goto *ec_cont;
+
+        ec_stack_start.ec_frames.critical.i = 23;
+        ec_stack_start.ec_frames.critical.ec_cont = &&ec_label_start_1;
+        goto ec_label_critical_0;
+      ec_label_start_1: ;
+        return;
+
+      ec_label_critical_0: ;
+        if (ec_stack_start.ec_frames.critical.i == 0) {
+          goto *ec_stack_start.ec_frames.critical.ec_cont;
+        }  else {
+				ec_stack_start.ec_frames.critical.ec_frames.block.c = 0;
+				ec_stack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_label_critical_1;
+				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
+				return;
+      ec_label_critical_1: ;
+         ec_stack_start.ec_frames.critical.ec_result = 42; 
+         goto *ec_stack_start.ec_frames.critical.ec_cont;
+        }
+    }
+  |])
 -- struct {{{2
   , ([paste|
     struct S {
