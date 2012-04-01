@@ -36,6 +36,5 @@ def plot(path, values, (apps_, variants_, measurements), numbers):
         lst_tl.append(plotting.frac(values[(a, "nat", "cpu")], values[(a, "tl", "cpu")]))
         lst_gen.append(plotting.frac(values[(a, "nat", "cpu")], values[(a, "gen", "cpu")]))
 
-    print apps, lst_tl
     numbers.write("overhead: tl: max: %.2f\n" % max(lst_tl))
     numbers.write("overhead: gen: max: %.2f\n" % max(lst_gen))

@@ -26,7 +26,17 @@ import qualified Data.Traversable as T
 normalize :: Transformation -- {{{1
 normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg ast trCriticalFunction
   where
-    trCriticalFunction = normalizeStatements . deferCriticalInitializations . unlistDeclarations . wrapDanglingStatements
+    trCriticalFunction = normalizeStatements . deferCriticalInitializations . unlistDeclarations . wrapDanglingStatements . explicitReturn
+
+    -- TODO: only add an explicit return if the last line is reachable
+    explicitReturn o@(CFunDef x1 x2 x3 (CCompound x4 body x6) x7)
+      | isReturn (last body) = o
+      | otherwise = CFunDef x1 x2 x3 (CCompound x4 body' x6) x7
+      where
+        body' = body ++ [CBlockStmt (CReturn Nothing un)]
+        isReturn (CBlockStmt (CReturn _ _)) = True
+        isReturn _ = False
+    explicitReturn o = o
 
     wrapDanglingStatements = everywhere $ mkT dsStat -- {{{2
       where

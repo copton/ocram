@@ -36,7 +36,7 @@ createThreadFunction cg ast (tid, startFunction) =
     functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
 
 inlineCriticalFunction :: CallGraph -> Ast -> Symbol -> (Bool, Symbol) -> [CBlockItem] -- {{{2
-inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody ++ close : []
+inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody
   where
     callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
     fd = $fromJust_s $ function_definition ast inlinedFunction
@@ -46,14 +46,22 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
       then Nothing
       else Just $ createLabel inlinedFunction 0
 
-    close = CBlockStmt $ if startFunction == inlinedFunction
-      then CReturn Nothing un
-      else CGotoPtr (stackAccess callChain (Just contVar)) un
-
-    inlinedBody = extractBody $ (rewriteCriticalFunctionCalls . rewriteLocalVariableAccess . rewriteLocalVariableDecls) fd
+    inlinedBody = extractBody $ (rewriteCriticalFunctionCalls . rewriteReturns . rewriteLocalVariableAccess . rewriteLocalVariableDecls) fd
 
     extractBody (CFunDef _ _ _ (CCompound _ body _) _) = body
     extractBody _ = $abort "unexpected parameters"
+
+    rewriteReturns :: CFunDef -> CFunDef -- {{{3
+    rewriteReturns fdef
+      | startFunction == inlinedFunction = fdef
+      | otherwise = everywhere (mkT rewrite) fdef
+      where
+        rewrite :: CStat -> CStat
+        rewrite (CReturn Nothing _) = goto
+        rewrite (CReturn (Just cexpr) _) = CCompound [] (map CBlockStmt [assign cexpr, goto]) un
+        rewrite o = o
+        assign e = CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just resVar)) e un)) un
+        goto = CGotoPtr (stackAccess callChain (Just contVar)) un
 
     rewriteLocalVariableAccess :: CFunDef -> CFunDef -- {{{3
     rewriteLocalVariableAccess = everywhere (mkT rewrite)

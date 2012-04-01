@@ -30,6 +30,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         int i;
         int j;
         block();
+        return;
       }
     |]),
 -- unlist declarations - nested scope-- {{{2
@@ -49,6 +50,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
           int j;
           block();
         }
+        return;
       }
     |]),
 -- dangling statements -- {{{2
@@ -76,6 +78,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         for(;;) {
           block();
         }
+        return;
       }
     |]),
 -- dangling statements - nested -- {{{2
@@ -103,6 +106,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         { for(;;) {
           block();
         } }
+        return;
       }
     |]),
 -- critical call in initialization -- {{{2
@@ -116,6 +120,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
       __attribute__((tc_run_thread)) void start() {
         int i;
         i = block();
+        return;
       }
     |]),
 -- critical call in initialization - nested -- {{{2
@@ -133,6 +138,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
           int i;
           i = block();
         }
+        return;
       }
     |]),
 -- critical call in if condition -- {{{2
@@ -154,6 +160,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         if (ec_tmp_1 < 23) {
           ;
         }
+        return;
       }
     |]),
 -- critical call in if condition - nested -- {{{2
@@ -175,6 +182,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         if (ec_tmp_1 < 23) {
           ;
         } }
+        return;
       }
     |]),
 -- critical call in nested expression -- {{{2
@@ -194,6 +202,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         i = ec_tmp_0 < 23;
         int ec_tmp_1 = block();
         i = j[ec_tmp_1];
+        return; 
       }
     |]),
 -- critical call in condition of while loop -- {{{2
@@ -212,6 +221,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
           }
           ;
         }
+        return; 
       } 
     |]),
 -- critical call in condition of do loop -- {{{2
@@ -230,6 +240,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
             break;
           }
         } while(1);
+        return; 
       } 
     |]),
 -- critical call in condition of for loop -- {{{2
@@ -248,6 +259,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
             break;
           }
         }
+        return; 
       } 
     |]),
 -- critical call in initial expression of for loop -- {{{2
@@ -267,6 +279,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         int ec_tmp_0 = block();
         i = ec_tmp_0 + 23;
         for (;;) {;}
+        return; 
       } 
     |]),
 -- critical call in declaration of for loop -- {{{2
@@ -286,6 +299,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
         int k;
         k = block();
         for (;;) {;}
+        return; 
       } 
     |]),
 -- interactions -- {{{2
@@ -312,6 +326,7 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
           int ec_tmp_1 = block();
           j[ec_tmp_1] = 23;
         }
+        return; 
       } 
     |])
   ]

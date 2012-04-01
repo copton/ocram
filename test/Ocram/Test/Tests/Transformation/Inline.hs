@@ -420,8 +420,10 @@ tests = runTests [ -- {{{1
 				return;
 			ec_label_critical_1: ;
         ec_stack_start.ec_frames.critical.ec_tmp_0 = ec_stack_start.ec_frames.critical.ec_frames.block.ec_result;
+        {
         ec_stack_start.ec_frames.critical.ec_result = ec_stack_start.ec_frames.critical.ec_tmp_0;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
+        }
 		}
 	|])
 -- two threads {{{2
@@ -842,16 +844,22 @@ tests = runTests [ -- {{{1
 
       ec_label_critical_0: ;
         if (ec_stack_start.ec_frames.critical.i == 0) {
+          {
+          ec_stack_start.ec_frames.critical.ec_result = 0; 
           goto *ec_stack_start.ec_frames.critical.ec_cont;
+          }
         }  else {
 				ec_stack_start.ec_frames.critical.ec_frames.block.c = 0;
 				ec_stack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_label_critical_1;
 				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
 				return;
       ec_label_critical_1: ;
+         {
          ec_stack_start.ec_frames.critical.ec_result = 42; 
          goto *ec_stack_start.ec_frames.critical.ec_cont;
+         }
         }
+       goto *ec_stack_start.ec_frames.critical.ec_cont;
     }
   |])
 -- struct {{{2
