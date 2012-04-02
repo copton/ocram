@@ -3,7 +3,7 @@ import StringIO
 import os
 
 script = """
-set terminal pngcairo size 640, 480
+set terminal pngcairo mono size 640, 480
 set style fill pattern 1 border
 set output '%(outfile)s.png'
          

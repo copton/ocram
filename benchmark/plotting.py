@@ -57,6 +57,6 @@ def plot(script, config, data):
     scriptfile.write(script % config)
     scriptfile.close()
 
-    proc = subprocess.Popen(["/home/alex/local/bin/gnuplot", scriptfile.name])
+    proc = subprocess.Popen(["/usr/bin/gnuplot", scriptfile.name])
     proc.communicate()
     assert proc.returncode == 0, proc.returncode

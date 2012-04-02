@@ -2,7 +2,7 @@ import plotting
 import os
 
 script = """
-set terminal pngcairo size 640, 480
+set terminal pngcairo mono size 640, 480
 set output '%(outfile)s.png'
 
 set style data histogram
