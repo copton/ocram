@@ -14,10 +14,6 @@
 /*{ endif }*/
 
 /* pal_code */
-/*{ for _ in thread_syscalls }*/
-void ec_thread_/*loop.index0*/(void*);
-PROCESS(thread/*loop.index0*/, "thread/*loop.index0*/");
-/*{ endfor }*/
 
 int tid;
 typedef enum {
@@ -113,8 +109,10 @@ void tc_condition_init(condition_t* cond)
     cond->data = NULL;
 }
 
+
 /*{ for syscalls in thread_syscalls }*/
-PROCESS_THREAD(thread/*loop.index0*/, ev, data)
+void ec_thread_/*loop.index0*/(void*);
+static char event_handler_thread/*loop.index0*/(struct pt *process_pt, process_event_t ev, process_data_t data)
 {
     PROCESS_BEGIN();
 
@@ -183,6 +181,8 @@ PROCESS_THREAD(thread/*loop.index0*/, ev, data)
     }
     PROCESS_END();
 }
+
+struct process thread/*loop.index0*/ = { ((void *)0), "thread/*loop.index0*/", event_handler_thread/*loop.index0*/};
 /*{ endfor }*/
 
 AUTOSTART_PROCESSES(/*{ for _ in thread_syscalls }*/&thread/*loop.index0*/ /*{ if not loop.last }*/, /*{ endif }*//*{ endfor }*/);
