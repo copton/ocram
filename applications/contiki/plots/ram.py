@@ -3,21 +3,25 @@ import StringIO
 import os
 
 script = """
-set terminal pngcairo mono size 640, 480
+set terminal pngcairo size 640, 480
+set style fill pattern 1 border
 set output '%(outfile)s.png'
          
 set style data histograms
-set style histogram rowstacked title
-set style fill pattern 1 border
+set style histogram columnstacked
 
+set key right
 set auto x
-set yrange [0:*]
-
+set yrange [7000:9500]
 set ylabel "RAM [bytes]"
+set xlabel "dca                       coap                       rpc"
 
-plot newhistogram "dca", '%(infile)s' using 2:xtic(1) t col, '' u 3 t col, '' u 4 t col, \\
-     newhistogram "coap", '' u 5:xtic(1) t col, '' u 6 t col, '' u 7 t col, \\
-     newhistogram "rpc2", '' u 8:xtic(1) t col, '' u 9 t col, '' u 10 t col
+set xtics ("" 0, \\
+           "nat" 1, "tl" 2, "gen" 3, "" 4, \\
+           "nat" 5, "tl" 6, "gen" 7, "" 8, \\
+           "nat" 9, "tl" 10, "gen" 11, "" 12)
+
+plot for [i=2:13] '%(infile)s' using i, '' u 14:key(1)
 """
 
 def plot(path, values, (apps_, variants_, measurements_), numbers):
@@ -30,8 +34,12 @@ def plot(path, values, (apps_, variants_, measurements_), numbers):
     variants = ["nat", "tl", "gen"]
     assert set(variants).issubset(set(variants_)), str(variants_)
 
-    plotdata = plotting.stacked_grouped_boxes(values, apps, variants, measurements)
-   
+    data = StringIO.StringIO()
+    for m in measurements:
+        vals = [values[(a, v, m)] for a in apps for v in variants]
+        plotting.out(data, [m] + [0] + vals[0:3] + [0] + vals[3:6] + [0] + vals[6:9] + [0])
+    plotdata = data.getvalue()
+
     config = {'outfile': os.path.join(path, "ram")}
     plotting.plot(script, config, plotdata)
 

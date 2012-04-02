@@ -2,7 +2,7 @@ import plotting
 import os
 
 script = """
-set terminal pngcairo mono size 640, 480
+set terminal pngcairo size 640, 480
 set output '%(outfile)s.png'
 
 set style data histogram
@@ -12,7 +12,7 @@ set style fill pattern 1 border
 
 set key left
 set auto x
-set yrange [0:900000]
+set yrange [600000:820000]
 
 set ylabel "CPU cycles"
 
