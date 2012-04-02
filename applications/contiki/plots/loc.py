@@ -3,16 +3,20 @@ import StringIO
 import os
 
 script = """
-set terminal png
+set terminal pngcairo mono size 640, 480
 set output '%(outfile)s.png'
 
 set style data histogram
 set style histogram cluster gap 1
-set palette gray
 
 set style fill pattern 1 border
+
+set key left
 set auto x
 set yrange [0:*]
+
+set ylabel "lines of code"
+
 plot '%(infile)s' using 2:xtic(1) title col, '' using 3:xtic(1) title col, '' using 4:xtic(1) title col
 """
 

@@ -29,7 +29,7 @@ PROCESS_THREAD(rpc_client, ev, data)
 
     static int counter = 0;
     etimer_set(&et, CALL_INTERVAL);
-    for (counter=0; counter<10; counter++) {
+    for (counter=0; counter<4; counter++) {
         static int pending = 0;
         PROCESS_YIELD_UNTIL(etimer_expired(&et));
 

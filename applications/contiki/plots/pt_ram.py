@@ -2,15 +2,17 @@ import plotting
 import os
 
 script = """
-set terminal pngcairo size 1024, 1024
+set terminal pngcairo mono size 640, 480
 set output '%(outfile)s.png'
-set key inside right top vertical Right noreverse noenhanced autotitles nobox
 
 set style data linespoints
-set palette gray
 
-set auto x
+set key left
+set xrange [-0.5:3.5]
 set auto y
+
+set ylabel "RAM [byte]"
+set xlabel "number of worker threads"
 
 plot '%(infile)s' using 2:xtic(1) title columnheader(2), for [i=3:4] '' using i title columnheader(i)
 """

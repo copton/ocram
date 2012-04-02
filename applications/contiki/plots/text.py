@@ -3,19 +3,25 @@ import StringIO
 import os
 
 script = """
-set terminal pngcairo size 1024, 1024
+set terminal pngcairo mono size 640, 480
 set output '%(outfile)s.png'
          
-set style histogram rowstacked title  offset character 2, 0.25, 0
 set style data histograms
+set style histogram rowstacked title
+
 set style fill pattern 1 border
-set palette gray 
+
 set datafile missing '0'
 
+set key left
 set auto x
 set yrange [0:*]
 
-plot newhistogram "dca", '%(infile)s' using 2:xtic(1) t col, '' u 3 t col, newhistogram "coap", '' u 4:xtic(1) t col, '' u 5 t col, newhistogram "rpc2", '' u 6:xtic(1) t col, '' u 7 t col
+set ylabel "text [bytes]"
+
+plot newhistogram "dca", '%(infile)s' using 2:xtic(1) t col, '' u 3 t col, \\
+     newhistogram "coap", '' u 4:xtic(1) t col, '' u 5 t col, \\
+     newhistogram "rpc2", '' u 6:xtic(1) t col, '' u 7 t col
 """
 
 def plot(path, values_, (apps_, variants_, measurements_), numbers):

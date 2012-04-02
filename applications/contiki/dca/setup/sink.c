@@ -45,14 +45,14 @@ static void tcpip_handler(void) {
 
     counter++;
 
-    printf("trace: received values: %d/4: ", counter);
+    printf("trace: received values: %d/5: ", counter);
     for (i=0; i<numberof_values; i++) {
         memcpy(&value, &appdata[i * sizeof(uint32_t)], sizeof(uint32_t));
         printf("%lu ", value);
     }
     printf("\n");
 
-    if (counter == 4) {
+    if (counter == 5) {
         printf("QUIT\n");
     }
 }

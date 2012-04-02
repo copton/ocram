@@ -25,7 +25,7 @@ def out(f, row):
 
 def linespoints(values, apps, variants, measurements):
     plotdata = StringIO.StringIO()
-    out(plotdata, ["app"] + ["%s-%s" % (v, m) for v in variants for m in measurements])
+    out(plotdata, ["app"] + [v for v in variants for m in measurements])
     for a in apps:
         out(plotdata, [a] + [values[(a, v, m)] for v in variants for m in measurements])
     return plotdata.getvalue()
