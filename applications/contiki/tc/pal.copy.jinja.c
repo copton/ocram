@@ -105,74 +105,79 @@ void tc_condition_init(condition_t* cond)
     cond->data = NULL;
 }
 
+static void* event_handler(process_event_t ev, process_data_t data)
+{
+    if (0) { }
+/*{ if "tc_sleep" in all_syscalls }*/
+    else if (thread->syscall == SYSCALL_tc_sleep) {
+        if (0) {
+        } else if (ev == PROCESS_EVENT_TIMER && data == &thread->ctx.tc_sleep.et) {
+            thread->ctx.tc_sleep.frame->ec_result = false;
+        } else if (ev == PROCESS_EVENT_CONTINUE
+                && data == &tc_condition_signal
+                && thread->ctx.tc_sleep.frame->cond != NULL
+                && thread->ctx.tc_sleep.frame->cond->waiting == false) {
+            thread->ctx.tc_sleep.frame->ec_result = true;
+            etimer_stop(&thread->ctx.tc_sleep.et);
+        } else if (ev == PROCESS_EVENT_CONTINUE && data == &tc_sleep) {
+            thread->ctx.tc_sleep.frame->ec_result = false;
+        } else {
+            ASSERT(false);
+        }
+        if (thread->ctx.tc_sleep.frame->cond) {
+            thread->ctx.tc_sleep.frame->cond->waiting = false;
+        }
+        return thread->ctx.tc_sleep.frame->ec_cont;
+    }
+/*{ endif }*/ 
+/*{ if "tc_receive" in all_syscalls }*/
+    else if (thread->syscall == SYSCALL_tc_receive) {
+        if (0) {
+        } else if (ev == tcpip_event && uip_newdata()) {
+            thread->ctx.tc_receive.frame->ec_result = false;
+        } else if (ev == PROCESS_EVENT_CONTINUE
+                && data == &tc_condition_signal
+                && thread->ctx.tc_sleep.frame->cond != NULL
+                && thread->ctx.tc_sleep.frame->cond->waiting == false) {
+            thread->ctx.tc_receive.frame->ec_result = true;
+        } else {
+            ASSERT(false);
+        }   
+        if (thread->ctx.tc_receive.frame->cond) {
+            thread->ctx.tc_receive.frame->cond->waiting = false;
+        }
+        return thread->ctx.tc_receive.frame->ec_cont;
+    }
+/*{ endif }*/
+/*{ if "tc_condition_wait" in all_syscalls }*/
+    else if (thread->syscall == SYSCALL_tc_condition_wait) {
+        if (0) {
+        } else if (ev == PROCESS_EVENT_CONTINUE
+                && data == &tc_condition_signal
+                && thread->ctx.tc_condition_wait.frame->cond->waiting == false) {
+        } else {
+            ASSERT(false);
+        }
+        return thread->ctx.tc_condition_wait.frame->ec_cont;
+    }
+/*{ endif }*/
+    else {
+        ASSERT(false);
+        return (void*) -1;
+    }
+}
 
 /*{ for syscalls in thread_syscalls }*/
 void ec_thread_/*loop.index0*/(void*);
 static char event_handler_thread/*loop.index0*/(struct pt* ptinfo, process_event_t ev, process_data_t data)
 {
-    void* continuation;
     thread = threads + /*loop.index0*/;
+    void* continuation;
     if (ptinfo->lc == 0) {
         ptinfo->lc = 1;
         continuation = 0;
     } else {
-        if (0) { }
-/*{ if "tc_sleep" in syscalls }*/
-        else if (thread->syscall == SYSCALL_tc_sleep) {
-            if (0) {
-            } else if (ev == PROCESS_EVENT_TIMER && data == &thread->ctx.tc_sleep.et) {
-                thread->ctx.tc_sleep.frame->ec_result = false;
-            } else if (ev == PROCESS_EVENT_CONTINUE
-                    && data == &tc_condition_signal
-                    && thread->ctx.tc_sleep.frame->cond != NULL
-                    && thread->ctx.tc_sleep.frame->cond->waiting == false) {
-                thread->ctx.tc_sleep.frame->ec_result = true;
-                etimer_stop(&thread->ctx.tc_sleep.et);
-            } else if (ev == PROCESS_EVENT_CONTINUE && data == &tc_sleep) {
-                thread->ctx.tc_sleep.frame->ec_result = false;
-            } else {
-                ASSERT(false);
-            }
-            if (thread->ctx.tc_sleep.frame->cond) {
-                thread->ctx.tc_sleep.frame->cond->waiting = false;
-            }
-            continuation = thread->ctx.tc_sleep.frame->ec_cont;
-        }
-/*{ endif }*/ 
-/*{ if "tc_receive" in syscalls }*/
-        else if (thread->syscall == SYSCALL_tc_receive) {
-            if (0) {
-            } else if (ev == tcpip_event && uip_newdata()) {
-                thread->ctx.tc_receive.frame->ec_result = false;
-            } else if (ev == PROCESS_EVENT_CONTINUE
-                    && data == &tc_condition_signal
-                    && thread->ctx.tc_sleep.frame->cond != NULL
-                    && thread->ctx.tc_sleep.frame->cond->waiting == false) {
-                thread->ctx.tc_receive.frame->ec_result = true;
-            } else {
-                ASSERT(false);
-            }   
-            if (thread->ctx.tc_receive.frame->cond) {
-                thread->ctx.tc_receive.frame->cond->waiting = false;
-            }
-            continuation = thread->ctx.tc_receive.frame->ec_cont;
-        }
-/*{ endif }*/
-/*{ if "tc_condition_wait" in syscalls }*/
-        else if (thread->syscall == SYSCALL_tc_condition_wait) {
-            if (0) {
-            } else if (ev == PROCESS_EVENT_CONTINUE
-                    && data == &tc_condition_signal
-                    && thread->ctx.tc_condition_wait.frame->cond->waiting == false) {
-            } else {
-                ASSERT(false);
-            }
-            continuation = thread->ctx.tc_condition_wait.frame->ec_cont;
-        }
-/*{ endif }*/
-        else {
-            ASSERT(false);
-        }
+        continuation = event_handler(ev, data);
     }
     ec_thread_/*loop.index0*/(continuation);
     return PT_YIELDED;
