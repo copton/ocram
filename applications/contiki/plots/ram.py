@@ -13,7 +13,7 @@ set style histogram columnstacked
 set key right
 set auto x
 set yrange [7000:9500]
-set ylabel "RAM [bytes]"
+set ylabel "RAM [byte]"
 set xlabel "dca                       coap                       rpc"
 
 set xtics ("" 0, \\
