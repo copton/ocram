@@ -34,8 +34,9 @@ int counter = 0;
 
 void salt_handler(void* request, void* response, uint8_t* buffer, uint16_t preferred_size, int32_t* offset)
 {
-    printf("trace: salt_handler\n");
-    if (++counter == 4) {
+    counter++;
+    printf("trace: salt_handler (%d/6)\n", counter);
+    if (counter == 7) {
         printf("QUIT\n");
     }
     const rest_resource_flags_t method = REST.get_method_type(request);
@@ -71,8 +72,11 @@ void random_handler(void* request, void* response, uint8_t* buffer, uint16_t pre
 {
     printf("trace: random_handler\n");
     const char* lengths = NULL;
-    if (REST.get_query_variable(request, "len", &lengths)) {
+    int size;
+    if ((size = REST.get_query_variable(request, "len", &lengths))) {
+        lengths[size] = 0;
         int length = atoi(lengths);
+        printf("XXX: length = %d\n", length);
         if (length <= 0) {
             REST.set_response_status(response, REST.status.BAD_REQUEST);
             const char error[] = "query variable 'len' has to be a non-zero, positive integer";

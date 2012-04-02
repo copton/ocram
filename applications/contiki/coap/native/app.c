@@ -226,39 +226,37 @@ PROCESS_THREAD(coap_client, ev, data)
 
     etimer_set(&et, TOGGLE_INTERVAL);
     while(1) {
-        PROCESS_YIELD();
+        PROCESS_YIELD_UNTIL(etimer_expired(&et));
 
-        if (etimer_expired(&et)) {
-            {
-                int salt = rand_fixed() % 200;
-                static char salts[4];
-                int size = snprintf(salts, sizeof(salts), "%d", salt);
-                ASSERT(size < sizeof(salts));
+        {
+            int salt = rand_fixed() % 200;
+            static char salts[4];
+            int size = snprintf(salts, sizeof(salts), "%d", salt);
+            ASSERT(size < sizeof(salts));
 
-                coap_init_message(request, COAP_TYPE_CON, COAP_PUT, 0);
-                coap_set_header_uri_path(request, "random/salt");
-                coap_set_payload(request, (uint8_t*)salts, size);
+            coap_init_message(request, COAP_TYPE_CON, COAP_PUT, 0);
+            coap_set_header_uri_path(request, "random/salt");
+            coap_set_payload(request, (uint8_t*)salts, size);
 
-                printf("trace: setting salt: %d\n", salt);
-                COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, &client_chunk_handler);
-            }
-
-            {
-                int len = rand_fixed() % 200;
-                static char query[4+4];
-                int size = snprintf(query, sizeof(query), "len=%d", len);
-                ASSERT(size < sizeof(query));
-
-                coap_init_message(request, COAP_TYPE_CON, COAP_GET, 0);
-                coap_set_header_uri_path(request, "random");
-                coap_set_header_uri_query(request, query);
-
-                printf("trace: query random: %s\n", query);
-                COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, &client_chunk_handler);
-            }
-
-            etimer_reset(&et);
+            printf("trace: setting salt: %d\n", salt);
+            COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, &client_chunk_handler);
         }
+
+        {
+            int len = rand_fixed() % 200;
+            static char query[4+4];
+            int size = snprintf(query, sizeof(query), "len=%d", len);
+            ASSERT(size < sizeof(query));
+
+            coap_init_message(request, COAP_TYPE_CON, COAP_GET, 0);
+            coap_set_header_uri_path(request, "random");
+            coap_set_header_uri_query(request, query);
+
+            printf("trace: query random: %s\n", query);
+            COAP_BLOCKING_REQUEST(&server_ipaddr, REMOTE_PORT, request, &client_chunk_handler);
+        }
+
+        etimer_reset(&et);
     }
 
     PROCESS_END();
