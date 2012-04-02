@@ -15,13 +15,11 @@
 
 /* pal_code */
 
-int tid;
 typedef enum {
 /*{ for syscall in all_syscalls }*/
     SYSCALL_/*syscall*/,
 /*{ endfor }*/
 } Syscall;
-
 
 /*{ for syscall in all_syscalls }*/
 typedef struct {
@@ -42,10 +40,10 @@ typedef struct {
 } ThreadContext;
 
 ThreadContext threads[/*numberof_threads*/];
+ThreadContext* thread;
 
 /*{ if "tc_sleep" in all_syscalls }*/
 void tc_sleep(ec_frame_tc_sleep_t* frame) {
-    ThreadContext* thread = threads + tid;
     thread->ctx.tc_sleep.frame = frame;
     thread->syscall = SYSCALL_tc_sleep;
 
@@ -68,7 +66,6 @@ void tc_sleep(ec_frame_tc_sleep_t* frame) {
 
 /*{ if "tc_receive" in all_syscalls }*/
 void tc_receive(ec_frame_tc_receive_t* frame) {
-    ThreadContext* thread = threads + tid;
     thread->ctx.tc_receive.frame = frame;
     thread->syscall = SYSCALL_tc_receive;
 
@@ -84,7 +81,6 @@ void tc_receive(ec_frame_tc_receive_t* frame) {
 
 /*{ if "tc_condition_wait" in all_syscalls }*/
 void tc_condition_wait(ec_frame_tc_condition_wait_t* frame) {
-    ThreadContext* thread = threads + tid;
     thread->ctx.tc_condition_wait.frame = frame;
     thread->syscall = SYSCALL_tc_receive;
 
@@ -112,74 +108,74 @@ void tc_condition_init(condition_t* cond)
 
 /*{ for syscalls in thread_syscalls }*/
 void ec_thread_/*loop.index0*/(void*);
-static char event_handler_thread/*loop.index0*/(struct pt *process_pt, process_event_t ev, process_data_t data)
+static char event_handler_thread/*loop.index0*/(struct pt* ptinfo, process_event_t ev, process_data_t data)
 {
-    PROCESS_BEGIN();
-
-    static void* continuation = 0;
-    while(true) {
-        tid = /*loop.index0*/;
-        ec_thread_/*loop.index0*/(continuation);
-        PROCESS_YIELD();
+    void* continuation;
+    thread = threads + /*loop.index0*/;
+    if (ptinfo->lc == 0) {
+        ptinfo->lc = 1;
+        continuation = 0;
+    } else {
         if (0) { }
 /*{ if "tc_sleep" in syscalls }*/
-        else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_sleep) {
+        else if (thread->syscall == SYSCALL_tc_sleep) {
             if (0) {
-            } else if (ev == PROCESS_EVENT_TIMER && data == &threads[/*loop.index0*/].ctx.tc_sleep.et) {
-                threads[/*loop.index0*/].ctx.tc_sleep.frame->ec_result = false;
+            } else if (ev == PROCESS_EVENT_TIMER && data == &thread->ctx.tc_sleep.et) {
+                thread->ctx.tc_sleep.frame->ec_result = false;
             } else if (ev == PROCESS_EVENT_CONTINUE
                     && data == &tc_condition_signal
-                    && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond != NULL
-                    && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting == false) {
-                threads[/*loop.index0*/].ctx.tc_sleep.frame->ec_result = true;
-                etimer_stop(&threads[/*loop.index0*/].ctx.tc_sleep.et);
+                    && thread->ctx.tc_sleep.frame->cond != NULL
+                    && thread->ctx.tc_sleep.frame->cond->waiting == false) {
+                thread->ctx.tc_sleep.frame->ec_result = true;
+                etimer_stop(&thread->ctx.tc_sleep.et);
             } else if (ev == PROCESS_EVENT_CONTINUE && data == &tc_sleep) {
-                threads[/*loop.index0*/].ctx.tc_sleep.frame->ec_result = false;
+                thread->ctx.tc_sleep.frame->ec_result = false;
             } else {
                 ASSERT(false);
             }
-            if (threads[/*loop.index0*/].ctx.tc_sleep.frame->cond) {
-                threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting = false;
+            if (thread->ctx.tc_sleep.frame->cond) {
+                thread->ctx.tc_sleep.frame->cond->waiting = false;
             }
-            continuation = threads[/*loop.index0*/].ctx.tc_sleep.frame->ec_cont;
+            continuation = thread->ctx.tc_sleep.frame->ec_cont;
         }
 /*{ endif }*/ 
 /*{ if "tc_receive" in syscalls }*/
-        else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_receive) {
+        else if (thread->syscall == SYSCALL_tc_receive) {
             if (0) {
             } else if (ev == tcpip_event && uip_newdata()) {
-                threads[/*loop.index0*/].ctx.tc_receive.frame->ec_result = false;
+                thread->ctx.tc_receive.frame->ec_result = false;
             } else if (ev == PROCESS_EVENT_CONTINUE
                     && data == &tc_condition_signal
-                    && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond != NULL
-                    && threads[/*loop.index0*/].ctx.tc_sleep.frame->cond->waiting == false) {
-                threads[/*loop.index0*/].ctx.tc_receive.frame->ec_result = true;
+                    && thread->ctx.tc_sleep.frame->cond != NULL
+                    && thread->ctx.tc_sleep.frame->cond->waiting == false) {
+                thread->ctx.tc_receive.frame->ec_result = true;
             } else {
                 ASSERT(false);
             }   
-            if (threads[/*loop.index0*/].ctx.tc_receive.frame->cond) {
-                threads[/*loop.index0*/].ctx.tc_receive.frame->cond->waiting = false;
+            if (thread->ctx.tc_receive.frame->cond) {
+                thread->ctx.tc_receive.frame->cond->waiting = false;
             }
-            continuation = threads[/*loop.index0*/].ctx.tc_receive.frame->ec_cont;
+            continuation = thread->ctx.tc_receive.frame->ec_cont;
         }
 /*{ endif }*/
 /*{ if "tc_condition_wait" in syscalls }*/
-        else if (threads[/*loop.index0*/].syscall == SYSCALL_tc_condition_wait) {
+        else if (thread->syscall == SYSCALL_tc_condition_wait) {
             if (0) {
             } else if (ev == PROCESS_EVENT_CONTINUE
                     && data == &tc_condition_signal
-                    && threads[/*loop.index0*/].ctx.tc_condition_wait.frame->cond->waiting == false) {
+                    && thread->ctx.tc_condition_wait.frame->cond->waiting == false) {
             } else {
                 ASSERT(false);
             }
-            continuation = threads[/*loop.index0*/].ctx.tc_condition_wait.frame->ec_cont;
+            continuation = thread->ctx.tc_condition_wait.frame->ec_cont;
         }
 /*{ endif }*/
         else {
             ASSERT(false);
         }
     }
-    PROCESS_END();
+    ec_thread_/*loop.index0*/(continuation);
+    return PT_YIELDED;
 }
 
 struct process thread/*loop.index0*/ = { ((void *)0), "thread/*loop.index0*/", event_handler_thread/*loop.index0*/};
