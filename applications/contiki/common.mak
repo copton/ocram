@@ -8,10 +8,7 @@ endif
 
 PALGEN = $(ROOT)/applications/contiki/tc/pal.py
 VERIFY = $(ROOT)/applications/contiki/$(APP)/verify.py
-ifndef PALTYPE
-PALTYPE=copy
-endif
-export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/tc/pal.$(PALTYPE).jinja.c
+export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/tc/pal.jinja.c
 CSC = simulation.csc
 SKYS = $(shell perl -ne 'if (/<firmware[^>]*>\[CONFIG_DIR\]\/([^\.][^<]*)<\/firmware>/) { print "$$1 "; }' < $(CSC))
 
