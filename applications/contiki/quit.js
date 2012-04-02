@@ -1,4 +1,4 @@
-TIMEOUT(600000);
+TIMEOUT(700000);
 
 while (true) {
 	YIELD();
