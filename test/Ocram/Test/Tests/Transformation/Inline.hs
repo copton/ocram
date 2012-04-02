@@ -858,8 +858,7 @@ tests = runTests [ -- {{{1
          ec_stack_start.ec_frames.critical.ec_result = 42; 
          goto *ec_stack_start.ec_frames.critical.ec_cont;
          }
-        }
-       goto *ec_stack_start.ec_frames.critical.ec_cont;
+       }
     }
   |])
 -- struct {{{2

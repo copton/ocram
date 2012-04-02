@@ -14,7 +14,7 @@ import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants (cInteger)
 import Ocram.Analysis (is_critical)
-import Ocram.Query (return_type)
+import Ocram.Query (return_type, return_type_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Names (tempVar)
 import Ocram.Transformation.Inline.Types (Transformation)
@@ -28,11 +28,16 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
   where
     trCriticalFunction = normalizeStatements . deferCriticalInitializations . unlistDeclarations . wrapDanglingStatements . explicitReturn
 
-    -- TODO: only add an explicit return if the last line is reachable
     explicitReturn o@(CFunDef x1 x2 x3 (CCompound x4 body x6) x7) -- {{{2
-      | isReturn (last body) = o
-      | otherwise = CFunDef x1 x2 x3 (CCompound x4 body' x6) x7
+      | isVoid (return_type_fd o) && needExplicitReturn body
+        = CFunDef x1 x2 x3 (CCompound x4 body' x6) x7
+      | otherwise = o
       where
+        isVoid (CVoidType _, _) = True
+        isVoid _ = False
+        -- TODO: only add an explicit return if the last line is reachable
+        -- example: void foo() { if (cond) { return } else { return } }
+        needExplicitReturn = not . isReturn . last
         body' = body ++ [CBlockStmt (CReturn Nothing un)]
         isReturn (CBlockStmt (CReturn _ _)) = True
         isReturn _ = False
