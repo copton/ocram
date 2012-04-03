@@ -6,7 +6,7 @@ import os
 
 verify = sys.argv[1]
 csc = sys.argv[2]
-contiki = "/home/alex/scm/contiki"
+contiki = "/home/blinded//scm/contiki"
 cwd = os.getcwd()
 
 os.environ["JAVA_HOME"] = "/opt/jdk1.6.0_30"

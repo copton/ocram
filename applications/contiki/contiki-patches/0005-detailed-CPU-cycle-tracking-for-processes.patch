@@ -1,5 +1,5 @@
 From 6be852076931b13fd43100fcb6f287e5b7eace4f Mon Sep 17 00:00:00 2001
-From: Alexander Bernauer <alex@copton.net>
+From: blinded
 Date: Fri, 16 Mar 2012 12:23:07 +0100
 Subject: [PATCH 5/5] detailed CPU cycle tracking for processes
 

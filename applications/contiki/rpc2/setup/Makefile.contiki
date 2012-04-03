@@ -10,5 +10,5 @@ WITH_UIP6=1
 UIP_CONF_IPV6=1
 UIP_CONF_RPL=1
 
-CONTIKI=/home/alex/scm/contiki
+CONTIKI=/home/blinded//scm/contiki
 include $(CONTIKI)/Makefile.include

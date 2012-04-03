@@ -1,7 +1,7 @@
 .PHONY: all contiki clean test
 
 CHROOT = schroot -c tinyos -p --
-XGCC = /home/alex/code/permasense/tools/msp430Xgcc/bin/msp430-gcc
+XGCC = /home/blinded//code/permasense/tools/msp430Xgcc/bin/msp430-gcc
 NESCC = /opt/local/bin/nescc
 
 all: app-ec.c pal.c tinyos

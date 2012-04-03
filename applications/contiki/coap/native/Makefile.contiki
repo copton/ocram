@@ -15,5 +15,5 @@ CFLAGS += -DREST=coap_rest_implementation
 CFLAGS += -DUIP_CONF_TCP=0
 
 
-CONTIKI=/home/alex/scm/contiki
+CONTIKI=/home/blinded//scm/contiki
 include $(CONTIKI)/Makefile.include

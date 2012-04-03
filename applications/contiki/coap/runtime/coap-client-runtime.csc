@@ -158,7 +158,7 @@
   <plugin>
     se.sics.cooja.plugins.ScriptRunner
     <plugin_config>
-      <scriptfile>/home/alex/scm/ocram/applications/contiki/coap-client/generated/../../quit.js</scriptfile>
+      <scriptfile>/home/blinded//scm/ocram/applications/contiki/coap-client/generated/../../quit.js</scriptfile>
       <active>true</active>
     </plugin_config>
     <width>600</width>

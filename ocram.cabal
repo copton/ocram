@@ -5,8 +5,8 @@ Synopsis:            Threads-to-Events compiler
 Homepage:            https://github.com/copton/ocram
 License:             GPL-2
 License-file:        LICENSE
-Author:              Alexander Bernauer <bernauer@inf.ethz.ch>
-Maintainer:          Alexander Bernauer <bernauer@inf.ethz.ch>
+Author:              blinded
+Maintainer:          blinded
 Category:            Development
 Tested-with:         GHC==7.0.3
 Build-type:          Simple

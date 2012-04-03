@@ -1,5 +1,5 @@
 From b0c40355b4d78cb3722eeed8d6b31cfffae10c78 Mon Sep 17 00:00:00 2001
-From: Alexander Bernauer <alex@copton.net>
+From: blinded
 Date: Thu, 9 Feb 2012 15:40:06 +0100
 Subject: [PATCH 3/5] OcramCoojaPlugin
 
@@ -14,7 +14,7 @@ index 0000000..cd798fd
 --- /dev/null
 +++ b/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/OcramCoojaPlugin.java
 @@ -0,0 +1 @@
-+/home/alex/scm/ocram/applications/contiki/OcramCoojaPlugin.java
++/home/blinded//scm/ocram/applications/contiki/OcramCoojaPlugin.java
 \ No newline at end of file
 -- 
 1.7.1

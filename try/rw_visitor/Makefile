@@ -1,2 +1,0 @@
-all:
-	runhaskell ignore.hs
