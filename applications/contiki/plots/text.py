@@ -15,7 +15,7 @@ set datafile missing '-'
 
 set key right 
 set auto x
-set yrange [40000:47000]
+set yrange [42000:47000]
 set ylabel "text [bytes]"
 set xlabel "dca                       coap                       rpc"
 

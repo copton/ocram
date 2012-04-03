@@ -12,7 +12,7 @@ set style fill pattern 1 border
 
 set key left
 set auto x
-set yrange [600000:820000]
+set yrange [650000:820000]
 
 set ylabel "CPU cycles"
 

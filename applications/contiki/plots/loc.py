@@ -13,7 +13,7 @@ set style fill pattern 1 border
 
 set key left
 set auto x
-set yrange [0:*]
+set yrange [50:*]
 
 set ylabel "lines of code"
 
