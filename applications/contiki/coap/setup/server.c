@@ -76,7 +76,6 @@ void random_handler(void* request, void* response, uint8_t* buffer, uint16_t pre
     if ((size = REST.get_query_variable(request, "len", &lengths))) {
         lengths[size] = 0;
         int length = atoi(lengths);
-        printf("XXX: length = %d\n", length);
         if (length <= 0) {
             REST.set_response_status(response, REST.status.BAD_REQUEST);
             const char error[] = "query variable 'len' has to be a non-zero, positive integer";
