@@ -16,7 +16,7 @@ Description: Translating cooperative threads into a semantically equivalent reac
 Cabal-version:       >=1.10
 
 Data-files:
-  README,
+  README.mkd,
   LICENSE
 
 Extra-source-files:  
