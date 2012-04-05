@@ -1,18 +1,17 @@
 import plotting
 import StringIO
 import os
+from plots import script_prolog
 
-script = """
-set terminal pngcairo mono size 640, 480
-set style fill pattern 1 border
-set output '%(outfile)s.png'
-         
+script = script_prolog + """
 set style data histograms
 set style histogram columnstacked
+set style fill pattern
 
 set key right
 set auto x
 set yrange [7000:9500]
+
 set ylabel "RAM [byte]"
 set xlabel "dca                       coap                       rpc"
 

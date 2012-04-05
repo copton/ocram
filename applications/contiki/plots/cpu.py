@@ -1,16 +1,13 @@
 import plotting
 import os
+from plots import script_prolog
 
-script = """
-set terminal pngcairo mono size 640, 480
-set output '%(outfile)s.png'
-
+script = script_prolog + """
 set style data histogram
 set style histogram cluster gap 1
+set style fill pattern
 
-set style fill pattern 1 border
-
-set key left
+set key right
 set auto x
 set yrange [650000:820000]
 
