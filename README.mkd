@@ -32,6 +32,7 @@ Note:
  
 	$ cd /path/to/repository
 	$ source ./setup
+	$ cabal-dev install
 	$ ./make
 
 # Running the evaluation

@@ -1,11 +1,10 @@
 import plotting
 import os
+from plots import script_prolog
 
-script = """
-set terminal pngcairo mono size 640, 480
-set output '%(outfile)s.png'
-
+script = script_prolog + """
 set style data linespoints
+set pointsize 2.0
 
 set key left
 set xrange [-0.5:3.5]
@@ -30,15 +29,16 @@ def plot(path, values_, (apps_, variants_, measurements_), numbers):
     values = {}
     for a in apps:
         for v in variants:
-            values[(a,v,"text")] = values_[(a,v,"text")]
-        values[(a,"gen_nopal", "text")] = values_[(a,"gen","text")] - values_[(a, "pal", "text")]
+            values[(a[3],v,"text")] = values_[(a,v,"text")]
+        values[(a[3],"gen_nopal", "text")] = values_[(a,"gen","text")] - values_[(a, "pal", "text")]
 
     variants.append("gen_nopal")
+    apps = ["1", "2", "3", "4"]
     plotdata = plotting.linespoints(values, apps, variants, measurements)
 
     config = {'outfile': os.path.join(path, "pt_text")}
     plotting.plot(script, config, plotdata)
 
     for v in variants:
-        slope = 1.0 * (values[("rpc4", v, "text")] - values[("rpc1", v, "text")]) / 3
+        slope = 1.0 * (values[("4", v, "text")] - values[("1", v, "text")]) / 3
         numbers.write("slope: %s: %.2f\n" % (v, slope))
