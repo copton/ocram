@@ -5,8 +5,6 @@ Subject: [PATCH 5/5] detailed CPU cycle tracking for processes
 
 ---
  core/sys/process.c             |    3 +++
- cpu/msp430/.ocram_cooja.c.swp  |  Bin 0 -> 12288 bytes
- cpu/msp430/.ocram_cooja.h.swp  |  Bin 0 -> 12288 bytes
  cpu/msp430/Makefile.msp430     |    3 ++-
  cpu/msp430/cc2420-arch-sfd.c   |    3 +++
  cpu/msp430/cc2420-arch.c       |    3 +++
@@ -24,8 +22,6 @@ Subject: [PATCH 5/5] detailed CPU cycle tracking for processes
  cpu/msp430/ocram_cooja.h       |   17 +++++++++++++++++
  cpu/msp430/watchdog.c          |    3 +++
  19 files changed, 70 insertions(+), 2 deletions(-)
- create mode 100644 cpu/msp430/.ocram_cooja.c.swp
- create mode 100644 cpu/msp430/.ocram_cooja.h.swp
  create mode 100644 cpu/msp430/ocram_cooja.c
  create mode 100644 cpu/msp430/ocram_cooja.h
 
@@ -48,41 +44,6 @@ index 70adf67..24317c6 100644
      if(ret == PT_EXITED ||
         ret == PT_ENDED ||
         ev == PROCESS_EVENT_EXIT) {
-diff --git a/cpu/msp430/.ocram_cooja.c.swp b/cpu/msp430/.ocram_cooja.c.swp
-new file mode 100644
-index 0000000000000000000000000000000000000000..0789fcd935871b08f8635fc6c8a8a8de5749e68f
-GIT binary patch
-literal 12288
-zcmeI&!Ait15C-6>=us4Xf!MtXZtJd~AfCm82!dWqOtUm@+k_@rJSlkgEqoN;MV~@2
-zl?sap+oOd)Fbv5|Li629dzao`T(aZwgu>V+s?P1zOSDd(1raahL%Y0caO3T&p0@tj
-z9++5BB|_Iu%~c|dPbzDUrfH%@!>deaeb2|D&uQp^00epqcsDyZ*`(>@Fm3mY;yt#z
-zbJKe}8X*7y2tWV=5P$##AOL~k3pf+eQ@F-jca@DUN5676MS=hXAOHafKmY;|fB*y_
-z009U<V1NQVC%WDudJfTk|NnXa{|NK<5N{z~Lwwf<ct1Qc1Rwwb2tWV=5P$##AOHaf
-zK;Rz;EW*$wcdC?Zp;f-mOrwRgHY>EAvon^Sk|=l+mR0R$nX%I6I_sL2>Y*x|#vAu%
-S3yoAQN}o#>FaKv>#PkJ-x=|7U
-
-literal 0
-HcmV?d00001
-
-diff --git a/cpu/msp430/.ocram_cooja.h.swp b/cpu/msp430/.ocram_cooja.h.swp
-new file mode 100644
-index 0000000000000000000000000000000000000000..482d5313c88cc6dcc34891edf38dfffa97291d76
-GIT binary patch
-literal 12288
-zcmeI&-D(p-6bJCr;%&9o7Z?qcMzFiKf<o~k$Ve7UQqtX6yl`1}XUW=RXV{N^;McWJ
-z;Zt~L?^<8Pw-5x+>LyZ22}&<o_z(P<Br|j7@Jnt&^2#1K9r18|gLo_x9ly+bM|6#T
-z42gn~I;>uvHv&`U^Y&Eh@2i4V9*(V0r$w@tSfMGcac&-L+LjKpVC;ulzYf;<ZVU)O
-z-~t88BEI)%i8eRx+f~)Zo!jEpig$q*pcDik009U<00Izz00ba#*#!!-Kp(it#k$d(
-z^}O)cTtCGG0SG_<0uX=z1Rwwb2tWV=5P-lH6bK?BZ;9wLr~3VW^8NqY4Wh4{Q_d&O
-zTh1=$IcJe`dY$Nm^O4i#bU5F+#xdv1q}~<uK+6z-00bZa0SG_<0uX=z1TK|8L#0s?
-z^Pe~)6(^|@&tz*L{q4Tfb)T*^MKvNV-UyTFQ02Kl)Ot@m7WS5SCk}?mNUhn;>0#M*
-zWq<zRRg)!Y5&I@rWu*PO^t7U=N=|D|8tOffJ3CcJ|K85;qoz6YsF~h7<62gb{l2&D
-z{?Em853jO<%CgcF=TZD>NgeX8RP5_fP%t<@NTR!E-jFS-_k_bB<CR&uXSSSs@gMh=
-c+?CFt<+i2Q?zLT~<GpaGk;Ex~P{ho|pC5tg`v3p{
-
-literal 0
-HcmV?d00001
-
 diff --git a/cpu/msp430/Makefile.msp430 b/cpu/msp430/Makefile.msp430
 index c388004..b7dece1 100644
 --- a/cpu/msp430/Makefile.msp430

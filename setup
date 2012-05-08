@@ -1,2 +1,2 @@
 export ROOT=`pwd`
-export OCRAM=$ROOT/cabal-dev/bin/ocram
+export OCRAM=$ROOT/ocram/cabal-dev/bin/ocram

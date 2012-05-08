@@ -7,13 +7,13 @@ module Ocram.Test.Tests.Transformation.UniqueIdentifiers
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
 import Ocram.Types
-import Ocram.Test.Lib
+import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Transformation.Inline.UniqueIdentifiers (unique_identifiers)
 import Ocram.Analysis (analysis)
 import Ocram.Text (show_errors)
-import Test.HUnit
+import Test.HUnit (Assertion, assertFailure, (@=?))
 
-tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
+tests = enumTestGroup "UniqueIdentifiers" $ map runTest [ -- {{{1
 -- simple decl -- {{{2
   ([paste|
     __attribute__((tc_blocking)) void block(int i);
@@ -199,14 +199,15 @@ tests = TestLabel "UniqueIdentifiers" $ TestList $ map runTest [ -- {{{1
     }
   |])
   ]
-  where
-    runTest (code, expected) = TestCase $
-      let ast = enrich code in
-      case analysis ast of
-        Left es -> assertFailure $ show_errors "analysis" es
-        Right cg ->
-          let
-            result = reduce $ fst $ runWriter (unique_identifiers cg ast)
-            expected' = (reduce $ (enrich expected :: Ast) :: String)
-          in
-            expected' @=? result
+ 
+runTest :: (String, String) -> Assertion
+runTest (code, expected) =
+  let ast = enrich code in
+  case analysis ast of
+    Left es -> assertFailure $ show_errors "analysis" es
+    Right cg ->
+      let
+        result = reduce $ fst $ runWriter (unique_identifiers cg ast)
+        expected' = (reduce $ (enrich expected :: Ast) :: String)
+      in
+        expected' @=? result

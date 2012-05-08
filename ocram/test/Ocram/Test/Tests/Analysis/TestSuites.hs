@@ -10,6 +10,7 @@ import Ocram.Test.Tests.Analysis.Types
 import Ocram.Test.Tests.Analysis.Utils (runTests)
 import Ocram.Text (OcramError(errCode))
 import Ocram.Types
+import Test.Framework (testGroup)
 
 -- tests {{{1
 tests = [cg_tests, con_tests, san_tests]

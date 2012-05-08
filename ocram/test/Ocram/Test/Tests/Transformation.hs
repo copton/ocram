@@ -6,6 +6,6 @@ import qualified Ocram.Test.Tests.Transformation.UniqueIdentifiers as A
 import qualified Ocram.Test.Tests.Transformation.Normalize as B
 import qualified Ocram.Test.Tests.Transformation.Inline as C
 
-import Test.HUnit
+import Test.Framework (testGroup)
 
-tests = TestLabel "Transformation" $ TestList [A.tests, B.tests, C.tests]
+tests = testGroup "Transformation" [A.tests, B.tests, C.tests]

@@ -9,6 +9,9 @@ import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Types (Ast)
+import Test.HUnit (Assertion)
+import Test.Framework (testGroup, Test)
+import Test.Framework.Providers.HUnit (testCase)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
@@ -30,6 +33,9 @@ paste = QuasiQuoter {
 	quoteDec = undefined 
 	}
 
+
+enumTestGroup :: String -> [Assertion] -> Test
+enumTestGroup name assertions = testGroup name $ zipWith (testCase . show) [1..] assertions
 
 -- types {{{1
 class TestData d t where

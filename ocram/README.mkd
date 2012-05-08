@@ -1,0 +1,66 @@
+# Dependencies
+
+ * Language support
+  * [GHC 7.03](http://www.haskell.org/ghc/download_ghc_7_0_3)
+  * [msp430-gcc 3.2.3](http://mspgcc.sourceforge.net/) 
+  * [gcc 4.4.5](http://gcc.gnu.org/)
+  * [Python 2.6.6](http://www.python.org/getit/releases/2.6.6/)
+  * [JDK 1.6.0_30](http://java.sun.com)
+ * Build tools
+  * [cabal-dev 0.9](http://hackage.haskell.org/package/cabal-dev-0.9.1)
+  * [GNU Make 3.81](http://www.gnu.org/software/make/)
+  * [Ant 1.7.1](http://ant.apache.org/)
+ * Operating systems
+  * [Contiki 2.5](http://www.contiki-os.org/)
+   * [commit b56198d](http://contiki.git.sourceforge.net/git/gitweb.cgi?p=contiki/contiki;a=commit;h=b56198dc3cc43195d070ee4bb1e1644378e7b975)
+     * patches from applications/contiki/contiki-patches/
+     * [TinyOS](http://tinyos-main.googlecode.com/svn/trunk)
+ * Tools and Libraries
+  * [Jinja2](http://jinja.pocoo.org/)
+  * [gnuplot 4.4](http://www.gnuplot.info/download.html)
+  * [schroot 1.4.7](http://www.debian-administration.org/articles/566)
+ * Minor
+  * [git 1.7.1](http://git-scm.com/)
+  * [wdiff 0.6.3](http://www.gnu.org/software/wdiff/)
+
+Note:
+
+ * of course, different versions might work as well. This is what worked for us.
+ * if you just want to build and test Ocram itself, GHC and cabal-dev are enough.
+ 
+# Building and Testing Ocram
+ 
+	$ cd /path/to/repository
+	$ source ./setup
+	$ cabal-dev install
+	$ ./make
+
+# Running the evaluation
+
+## Setup Contiki chroot
+ 
+ * we recommend debootstrap
+ * configure schroot (use chroot name "contiki")
+ * install the following packages in the chroot:
+  * msp430-gcc
+  * JDK
+  * Ant
+
+# Prepare Cooja
+
+	$ schroot -c contiki
+	$ cd /path/to/contiki/tools/cooja
+	$ ant jar
+	
+# Run the evaluation
+
+	$ cd /path/to/repository
+	$ source ./setup
+	$ cd applications/contiki
+	$ make plot
+	
+# See the results
+
+ * */bench.results
+ * plots/numbers.txt
+ * plots/*.png

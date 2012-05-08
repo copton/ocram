@@ -7,13 +7,13 @@ module Ocram.Test.Tests.Transformation.Normalize
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
 import Ocram.Types
-import Ocram.Test.Lib
+import Ocram.Test.Lib (enumTestGroup, enrich, reduce, paste)
 import Ocram.Transformation.Inline.Normalize (normalize)
 import Ocram.Analysis (analysis)
 import Ocram.Text (show_errors)
-import Test.HUnit
+import Test.HUnit (Assertion, assertFailure, (@=?))
 
-tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
+tests = enumTestGroup "Normalize" $ map runTest [ -- {{{1
 -- unlist declarations -- {{{2
     ([paste|
       int a, b;
@@ -345,15 +345,15 @@ tests = TestLabel "Normalize" $ TestList $ map runTest [ -- {{{1
     }
   |])
   ]
--- implementation {{{2
-  where
-    runTest (code, expected) = TestCase $
-      let ast = enrich code in
-      case analysis ast of
-        Left es -> assertFailure $ show_errors "analysis" es
-        Right cg ->
-          let
-            result = reduce $ fst $ runWriter (normalize cg ast)
-            expected' = (reduce $ (enrich expected :: Ast) :: String)
-          in
-            expected' @=? result
+  
+runTest :: (String, String) -> Assertion -- {{{1
+runTest (code, expected) =
+  let ast = enrich code in
+  case analysis ast of
+    Left es -> assertFailure $ show_errors "analysis" es
+    Right cg ->
+      let
+        result = reduce $ fst $ runWriter (normalize cg ast)
+        expected' = (reduce $ (enrich expected :: Ast) :: String)
+      in
+        expected' @=? result

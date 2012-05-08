@@ -4,18 +4,16 @@ module Ocram.Test.Tests.Transformation.Inline
 	tests
 ) where
 -- import {{{1
-import Test.HUnit
 import Ocram.Types
-import Ocram.Test.Lib
+import Ocram.Test.Lib (paste, enrich, reduce, enumTestGroup)
 import Ocram.Transformation.Inline (transformation)
 import Ocram.Analysis (analysis)
 import Ocram.Text (show_errors)
 
 import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
+import Test.HUnit (assertFailure, Assertion, (@=?))
 
-import Test.HUnit (Test(TestLabel,TestCase,TestList), assertEqual)
-
-tests = runTests [ -- {{{1
+tests = enumTestGroup "Inline" $ map runTest [ -- {{{1
 -- setup {{{2
 	([paste|
 		__attribute__((tc_blocking)) void block(int i);
@@ -952,17 +950,15 @@ tests = runTests [ -- {{{1
 --     |])
 	]
 
-runTests :: [(String, String)] -> Test -- {{{2
-runTests cases = TestLabel "Inline" $ TestList $ map runTest cases
-  where
-    runTest (code, expected) = TestCase $
-      let ast = enrich code in
-      case analysis ast of
-        Left es -> assertFailure $ show_errors "analysis" es
-        Right ana ->
-          let
-            result = reduce $ fst $ transformation ana ast
-            expected' = (reduce $ (enrich expected :: Ast) :: String)
-          in
-            expected' @=? result
 
+runTest :: (String, String) -> Assertion -- {{{1
+runTest (code, expected) =
+  let ast = enrich code in
+  case analysis ast of
+    Left es -> assertFailure $ show_errors "analysis" es
+    Right ana ->
+      let
+        result = reduce $ fst $ transformation ana ast
+        expected' = (reduce $ (enrich expected :: Ast) :: String)
+      in
+        expected' @=? result

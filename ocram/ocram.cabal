@@ -90,7 +90,9 @@ Executable Test
     bytestring == 0.9.*,
     fgl == 5.4.*,
     syb == 0.3.*,
-    template-haskell
+    template-haskell,
+    test-framework == 0.6.*,
+    test-framework-hunit == 0.2.*
   Other-modules:
     Ocram.Test.Lib
     Ocram.Test.Main
