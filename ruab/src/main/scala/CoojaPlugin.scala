@@ -8,11 +8,11 @@ import se.sics.cooja.PluginType
 import se.sics.cooja.Simulation
 import se.sics.cooja.VisPlugin
 
-package ch.ethz.inf.vs.ocram {
+package ch.ethz.inf.vs.ruab {
 
 @ClassDescription("Ruab Cooja Plugin")
 @PluginType(PluginType.MOTE_PLUGIN)
-class Ruab(mote: Mote, sim: Simulation, gui:GUI)
+class CoojaPlugin(mote: Mote, sim: Simulation, gui:GUI)
   extends VisPlugin("Ruab plugin", gui, false)
   with MotePlugin
 {
