@@ -1,7 +1,7 @@
 From c87e62b9279937fde97c5b9cc5b791adda831dfd Mon Sep 17 00:00:00 2001
 From: Alexander Bernauer <alex@copton.net>
 Date: Thu, 9 Feb 2012 15:34:27 +0100
-Subject: [PATCH 2/5] mspsim fix
+Subject: [PATCH 2/6] mspsim fix
 
 ---
  tools/mspsim/mspsim.jar |  Bin 645956 -> 646095 bytes

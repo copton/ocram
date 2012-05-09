@@ -1,7 +1,7 @@
 From 957db2439879ef424eedc7161fa44d57388cfb36 Mon Sep 17 00:00:00 2001
 From: Alexander Bernauer <alex@copton.net>
 Date: Wed, 28 Mar 2012 08:24:53 +0200
-Subject: [PATCH 4/5] disable wrong (?) assertion
+Subject: [PATCH 4/6] disable wrong (?) assertion
 
 ---
  .../se/sics/cooja/motes/AbstractWakeupMote.java    |    2 +-

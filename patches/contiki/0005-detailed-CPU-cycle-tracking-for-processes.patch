@@ -1,7 +1,7 @@
-From 6be852076931b13fd43100fcb6f287e5b7eace4f Mon Sep 17 00:00:00 2001
+From 07e6e700861314d2174ac617a9fee5d077a7b965 Mon Sep 17 00:00:00 2001
 From: Alexander Bernauer <alex@copton.net>
 Date: Fri, 16 Mar 2012 12:23:07 +0100
-Subject: [PATCH 5/5] detailed CPU cycle tracking for processes
+Subject: [PATCH 5/6] detailed CPU cycle tracking for processes
 
 ---
  core/sys/process.c             |    3 +++
@@ -21,7 +21,7 @@ Subject: [PATCH 5/5] detailed CPU cycle tracking for processes
  cpu/msp430/ocram_cooja.c       |    5 +++++
  cpu/msp430/ocram_cooja.h       |   17 +++++++++++++++++
  cpu/msp430/watchdog.c          |    3 +++
- 19 files changed, 70 insertions(+), 2 deletions(-)
+ 17 files changed, 70 insertions(+), 2 deletions(-)
  create mode 100644 cpu/msp430/ocram_cooja.c
  create mode 100644 cpu/msp430/ocram_cooja.h
 
