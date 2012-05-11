@@ -26,7 +26,7 @@ def isBuildError(line):
     return line.startswith("src/") or line.startswith("test/")
 
 def isTestError(line):
-    return line.startswith('### Failure in:') or line.startswith('### Error in:')
+    return "[Failed]" in line
 
 def diff_code(text):
     expected = []
@@ -65,10 +65,10 @@ if code != 0:
     notify(getFirstLine(err, isBuildError), "red")
     sys.exit(1)
 
-(code, out, err) = execute("./dist/build/Test/Test")
+(code, out, err) = execute("./dist/build/Test/Test --plain --hide-successes")
 if code != 0:
-    notify(getFirstLine(err, isTestError), "red")
-    diff_code(err)
+    notify(getFirstLine(out, isTestError), "red")
+    diff_code(out)
     sys.exit(1)
 
 notify("success", "green")
