@@ -1,9 +1,6 @@
-import java.lang.Integer
-
 package ch.ethz.inf.vs.ruab {
   object Types {
-    type Breakpoint = Integer
-    type SourceLine = Integer
+    type SourceLine = Int
 
     abstract class FQI( // fully-qualified identifier
       val name: String
@@ -12,33 +9,11 @@ package ch.ethz.inf.vs.ruab {
     case class ScopedIdentifier(
       override val name: String,
       val function: String,
-      val scope: List[java.lang.Integer]
+      val scope: List[Int]
     ) extends FQI(name)
 
-    class Variable(
-      val tcodeInstance: FQI,
-      val ecodeName: FQI,
-      val critical: Boolean
-    )
 
-    class Function (
-      val name: String, 
-      val tcodeLocation: SourceLine,
-      val ecodeLocation: SourceLine,
-      val critical: Boolean
-    ) { }  
-
-    class Call (
-      val caller: String,
-      val callee: String
-    ) { }
-
-    type CallGraph = List[Call]
-
-    class Thread (
-      val id: Integer,
-      val threadStartFunction: String,
-      val callGraph: CallGraph
-    ) { }
+    class Frame(val function: String, val line: Int)
+    class Backtrace(val frames: List[Frame])
   }
 }
