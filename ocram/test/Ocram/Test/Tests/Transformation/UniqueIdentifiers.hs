@@ -30,6 +30,56 @@ tests = enumTestGroup "UniqueIdentifiers" $ map runTest [ -- {{{1
       block(k_0);
     }
   |]),
+-- trans critical functions -- {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    int k;
+    void crit() {
+      int k;
+      block(k);
+    }
+    __attribute__((tc_run_thread)) void start() {
+      int k;
+      crit(k);
+    }
+  |], [paste|
+    __attribute__((tc_blocking)) void block(int i);
+    int k;
+    void crit() {
+      int k_0;
+      block(k_0);
+    }
+    __attribute__((tc_run_thread)) void start() {
+      int k_0;
+      crit(k_0);
+    }
+  |]),
+-- non-critical functions -- {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    int k;
+    int foo() {
+      int k;
+      return k;
+    }
+    __attribute__((tc_run_thread)) void start() {
+      int k;
+      k = foo();
+      block(k);
+    }
+  |], [paste|
+    __attribute__((tc_blocking)) void block(int i);
+    int k;
+    int foo() {
+      int k;
+      return k;
+    }
+    __attribute__((tc_run_thread)) void start() {
+      int k_0;
+      k_0 = foo();
+      block(k_0);
+    }
+  |]),
 -- for loop -- {{{2
   ([paste|
     __attribute__((tc_blocking)) void block(int i);
@@ -200,7 +250,7 @@ tests = enumTestGroup "UniqueIdentifiers" $ map runTest [ -- {{{1
   |])
   ]
  
-runTest :: (String, String) -> Assertion
+runTest :: (String, String) -> Assertion -- {{{1
 runTest (code, expected) =
   let ast = enrich code in
   case analysis ast of
