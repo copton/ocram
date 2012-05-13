@@ -34,7 +34,8 @@ Executable ocram
     TypeSynonymInstances,
     GeneralizedNewtypeDeriving,
     TemplateHaskell,
-    Rank2Types
+    Rank2Types,
+    QuasiQuotes
   Build-depends:       
     base >= 4 && < 5,
     language-c == 0.4.*,
@@ -43,66 +44,49 @@ Executable ocram
     fgl == 5.4.*,
     syb == 0.3.*,
     process == 1.0.*,
-    template-haskell
-  Other-modules:
-    Ocram.Analysis
-    Ocram.Analysis.CallGraph
-    Ocram.Analysis.Fgl
-    Ocram.Analysis.Filter
-    Ocram.Analysis.Types
-    Ocram.Main
-    Ocram.Names
-    Ocram.Options
-    Ocram.Output
-    Ocram.Parser
-    Ocram.Query
-    Ocram.Symbols
-    Ocram.Transformation.Inline
-    Ocram.Transformation.Inline.CriticalFunctions
-    Ocram.Transformation.Inline.Names
-    Ocram.Transformation.Inline.Normalize
-    Ocram.Transformation.Inline.Pal
-    Ocram.Transformation.Inline.ThreadFunction
-    Ocram.Transformation.Inline.TStack
-    Ocram.Transformation.Inline.Types
-    Ocram.Transformation.Inline.UniqueIdentifiers
-    Ocram.Transformation.Util
-    Ocram.Types
-    Ocram.Util
-
-Executable Test
-  Hs-Source-Dirs: src, test
-  Main-is: Test.hs
-  Default-language: Haskell98
-  Default-extensions: 
-    MultiParamTypeClasses,
-    FlexibleInstances,
-    TypeSynonymInstances,
-    QuasiQuotes,
-    GeneralizedNewtypeDeriving,
-    Rank2Types
-  Build-depends:       
-    base >= 4 && < 5,
-    language-c == 0.4.*,
-    containers == 0.3.*,
-    mtl == 1.1.*,
-    HUnit == 1.2.*,
-    bytestring == 0.9.*,
-    fgl == 5.4.*,
-    syb == 0.3.*,
     template-haskell,
+    bytestring == 0.9.*,
+    HUnit == 1.2.*,
     test-framework == 0.6.*,
     test-framework-hunit == 0.2.*
   Other-modules:
+    Ocram.Main
+    Ocram.Analysis
     Ocram.Test.Lib
-    Ocram.Test.Main
-    Ocram.Test.Tests.Analysis
-    Ocram.Test.Tests.Analysis.TestCases
-    Ocram.Test.Tests.Analysis.TestSuites
-    Ocram.Test.Tests.Analysis.Types
-    Ocram.Test.Tests.Analysis.Utils
-    Ocram.Test.Tests.Symbol
-    Ocram.Test.Tests.Transformation
-    Ocram.Test.Tests.Transformation.Inline
-    Ocram.Test.Tests.Transformation.Normalize
-    Ocram.Test.Tests.Transformation.UniqueIdentifiers
+    Ocram.Query
+    Ocram.Parser
+    Ocram.Symbols
+    Ocram.Output
+    Ocram.Text
+    Ocram.Types
+    Ocram.Names
+    Ocram.Options
+    Ocram.Transformation.Inline.Normalize.Test
+    Ocram.Transformation.Inline.CriticalFunctions
+    Ocram.Transformation.Inline.TStack
+    Ocram.Transformation.Inline.Types
+    Ocram.Transformation.Inline.Names
+    Ocram.Transformation.Inline.UniqueIdentifiers.Test
+    Ocram.Transformation.Inline.Normalize
+    Ocram.Transformation.Inline.Test
+    Ocram.Transformation.Inline.UniqueIdentifiers
+    Ocram.Transformation.Inline.ThreadFunction
+    Ocram.Transformation.Inline.Pal
+    Ocram.Transformation.Util
+    Ocram.Transformation.Test
+    Ocram.Transformation.Inline
+    Ocram.Util
+    Ocram.Analysis.Fgl
+    Ocram.Analysis.Test.Types
+    Ocram.Analysis.Test.Cases
+    Ocram.Analysis.Filter.Test
+    Ocram.Analysis.Types
+    Ocram.Analysis.Fgl.Test
+    Ocram.Analysis.CallGraph.Test
+    Ocram.Analysis.Filter
+    Ocram.Analysis.CallGraph
+    Ocram.Analysis.Test
+    Ocram.Test
+    Ocram.Query.Test
+    Ocram.Symbols.Test
+

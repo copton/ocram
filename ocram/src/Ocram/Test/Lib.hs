@@ -1,4 +1,5 @@
 module Ocram.Test.Lib where
+
 -- imports {{{1
 import Data.ByteString.Char8 (pack)
 import Language.C.Data.Position (position)
@@ -7,12 +8,10 @@ import Language.C.Pretty (pretty)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
-import Ocram.Symbols (symbol, Symbol)
 import Ocram.Types (Ast)
 import Test.HUnit (Assertion)
 import Test.Framework (testGroup, Test)
 import Test.Framework.Providers.HUnit (testCase)
-import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
 
@@ -26,6 +25,7 @@ parse code = case parseC code' pos of
 		pos = position 0 "<<test>>" 0 0
 
 -- paste = QuasiQuoter {{{1
+paste :: QuasiQuoter
 paste = QuasiQuoter { 
 	quoteExp = stringE, 
 	quotePat = undefined,
@@ -35,7 +35,7 @@ paste = QuasiQuoter {
 
 
 enumTestGroup :: String -> [Assertion] -> Test
-enumTestGroup name assertions = testGroup name $ zipWith (testCase . show) [1..] assertions
+enumTestGroup name assertions = testGroup name $ zipWith (testCase . show) [(1 :: Int)..] assertions
 
 -- types {{{1
 class TestData d t where

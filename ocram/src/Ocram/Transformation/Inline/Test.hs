@@ -1,19 +1,21 @@
-module Ocram.Test.Tests.Transformation.Inline 
--- export {{{1
-(
-	tests
-) where
--- import {{{1
-import Ocram.Types
-import Ocram.Test.Lib (paste, enrich, reduce, enumTestGroup)
-import Ocram.Transformation.Inline (transformation)
-import Ocram.Analysis (analysis)
-import Ocram.Text (show_errors)
+module Ocram.Transformation.Inline.Test (tests) where
 
-import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
+import Ocram.Analysis (analysis)
+import Ocram.Test.Lib (paste, enrich, reduce, enumTestGroup)
+import Ocram.Text (show_errors)
+import Ocram.Transformation.Inline (transformation)
+import Ocram.Types
+import Test.Framework (Test, testGroup)
 import Test.HUnit (assertFailure, Assertion, (@=?))
 
-tests = enumTestGroup "Inline" $ map runTest [ -- {{{1
+import qualified Ocram.Transformation.Inline.Normalize.Test as A
+import qualified Ocram.Transformation.Inline.UniqueIdentifiers.Test as B
+
+tests :: Test
+tests = testGroup "Inline" $ [A.tests, B.tests, test_integration]
+
+test_integration :: Test
+test_integration = enumTestGroup "integration" $ map runTest [
 -- setup {{{2
 	([paste|
 		__attribute__((tc_blocking)) void block(int i);

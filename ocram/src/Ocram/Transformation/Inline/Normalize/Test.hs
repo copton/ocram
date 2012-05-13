@@ -1,8 +1,4 @@
-module Ocram.Test.Tests.Transformation.Normalize
--- export {{{1
-(
-  tests
-) where
+module Ocram.Transformation.Inline.Normalize.Test (tests) where
 
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
@@ -12,7 +8,9 @@ import Ocram.Transformation.Inline.Normalize (normalize)
 import Ocram.Analysis (analysis)
 import Ocram.Text (show_errors)
 import Test.HUnit (Assertion, assertFailure, (@=?))
+import Test.Framework (Test)
 
+tests :: Test
 tests = enumTestGroup "Normalize" $ map runTest [ -- {{{1
 -- unlist declarations -- {{{2
     ([paste|

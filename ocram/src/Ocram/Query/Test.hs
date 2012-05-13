@@ -1,4 +1,4 @@
-module Ocram.Test.Tests.Query
+module Ocram.Query.Test
 -- exports {{{1
 (
 	tests
@@ -6,15 +6,16 @@ module Ocram.Test.Tests.Query
 
 -- import {{{1 
 import Ocram.Query
-import Ocram.Test.Lib (enumTestGroup, enrich, reduce)
-import Test.Framework (testGroup)
+import Ocram.Test.Lib (enumTestGroup, enrich)
+import Test.Framework (testGroup, Test)
 import Test.HUnit ((@=?))
 import Data.Maybe (isJust)
 
+tests :: Test
 tests = -- {{{1
   testGroup "Query" [funDefTests, funDeclTests, blockingTests, startTests]
 
-
+funDefTests :: Test
 funDefTests = enumTestGroup "function_definition" $ map runTest [
     ("void foo() { }", "foo", True)
   , ("void bar() { }", "foo", False)
@@ -23,7 +24,7 @@ funDefTests = enumTestGroup "function_definition" $ map runTest [
   where
     runTest (code, name, expected) = expected @=? (isJust $ function_definition (enrich code) (enrich name))
 
-
+funDeclTests :: Test
 funDeclTests = enumTestGroup "function_declaration" $ map runTest [
     ("void foo();", "foo", True)
   , ("void bar() { }", "foo", False)
@@ -32,6 +33,7 @@ funDeclTests = enumTestGroup "function_declaration" $ map runTest [
   where
     runTest (code, name, expected) = expected @=? (isJust $ function_declaration (enrich code) (enrich name))
 
+blockingTests :: Test
 blockingTests = enumTestGroup "is_blocking_function" $ map runTest [
     ("__attribute__((tc_blocking)) void foo();", "foo", True)
   , ("void foo();", "foo", False)
@@ -39,6 +41,7 @@ blockingTests = enumTestGroup "is_blocking_function" $ map runTest [
   where
     runTest (code, name, expected) = expected @=? is_blocking_function (enrich code) (enrich name)
 
+startTests :: Test
 startTests = enumTestGroup "is_start_function" $ map runTest [
     ("__attribute__((tc_run_thread)) void foo() { }", "foo", True)
   , ("void foo() { }", "foo", False)

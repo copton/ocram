@@ -1,8 +1,4 @@
-module Ocram.Test.Tests.Transformation.UniqueIdentifiers 
--- export {{{1
-(
-  tests
-) where
+module Ocram.Transformation.Inline.UniqueIdentifiers.Test (tests) where
 
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
@@ -12,7 +8,9 @@ import Ocram.Transformation.Inline.UniqueIdentifiers (unique_identifiers)
 import Ocram.Analysis (analysis)
 import Ocram.Text (show_errors)
 import Test.HUnit (Assertion, assertFailure, (@=?))
+import Test.Framework (Test)
 
+tests :: Test
 tests = enumTestGroup "UniqueIdentifiers" $ map runTest [ -- {{{1
 -- simple decl -- {{{2
   ([paste|

@@ -5,6 +5,7 @@ import Ocram.Options (options, Options(..))
 import Ocram.Output (pretty_print, write_debug_symbols, dump_pal)
 import Ocram.Parser (parse)
 import Ocram.Text (OcramError, show_errors)
+import Ocram.Test (runTests)
 import qualified Ocram.Transformation.Inline as Inline
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
@@ -13,6 +14,12 @@ import System.IO (stderr, hPutStrLn)
 main :: IO ()
 main = do
   argv <- getArgs 
+  if head argv == "--test"
+    then runTests (tail argv)
+    else runCompiler argv
+    
+runCompiler :: [String] -> IO ()
+runCompiler argv = do
   prg <- getProgName
   opt <- exitOnError "options" $ options prg argv 
   ast <- exitOnError "parser" =<< parse opt (optInput opt)
