@@ -23,7 +23,6 @@ import Ocram.Analysis.Fgl (filter_nodes)
 import Ocram.Analysis.Types
 import Ocram.Query (is_function_declaration, is_blocking_function', is_start_function', function_definition)
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Types (Ast)
 import Ocram.Util (tmap, fromJust_s, lookup_s)
 import Prelude hiding (pred)
 import qualified Data.Graph.Inductive.Basic as G
@@ -40,7 +39,7 @@ type CriticalFunctions = [Symbol]
 
 type Footprint = [[Symbol]]
 
-call_graph :: Ast -> CallGraph -- {{{1
+call_graph :: CTranslUnit -> CallGraph -- {{{1
 call_graph ast =
   let 
     labels = createLabels ast
@@ -136,7 +135,7 @@ pruneGraph (CallGraph gd gi) ns =
 createNodes :: [Label] -> [Node] -- {{{2
 createNodes = zip [0..]
 
-createLabels :: Ast -> [Label] -- {{{2
+createLabels :: CTranslUnit -> [Label] -- {{{2
 createLabels (CTranslUnit ds _) = foldr go [] ds
   where
   go (CDeclExt x) labels
@@ -156,7 +155,7 @@ createLabels (CTranslUnit ds _) = foldr go [] ds
 createGraphIndex :: [Node] -> GraphIndex -- {{{2
 createGraphIndex nodes = Map.fromList $ map (swap . second lblName) nodes
 
-createEdges :: Ast -> GraphIndex -> [Node] -> [Edge] -- {{{2
+createEdges :: CTranslUnit -> GraphIndex -> [Node] -> [Edge] -- {{{2
 createEdges ast gi nodes = foldl go [] nodes
   where
     go es (gcaller, Label caller _) =

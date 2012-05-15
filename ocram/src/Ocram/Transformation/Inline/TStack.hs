@@ -12,7 +12,6 @@ import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
 import Ocram.Symbols (Symbol)
-import Ocram.Types (Ast)
 import Ocram.Util ((?:), fromJust_s, abort)
 import qualified Data.Map as Map
 
@@ -25,11 +24,11 @@ addTStacks cg ast@(CTranslUnit decls ni) = do
 createTStack :: Symbol -> CExtDecl
 createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
 
-createTStackFrames :: CallGraph -> Ast -> WR [CExtDecl]
+createTStackFrames :: CallGraph -> CTranslUnit -> WR [CExtDecl]
 createTStackFrames cg ast =
   mapM (createTStackFrame cg ast) $ dependency_list cg
 
-createTStackFrame :: CallGraph -> Ast -> Symbol -> WR CExtDecl
+createTStackFrame :: CallGraph -> CTranslUnit -> Symbol -> WR CExtDecl
 createTStackFrame cg ast name = do
   nestedFrames <- createNestedFramesUnion cg name
   return $ CDeclExt (CDecl [CStorageSpec (CTypedef un), CTypeSpec (CSUType (CStruct CStructTag Nothing (Just (

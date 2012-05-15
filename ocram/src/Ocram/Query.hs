@@ -20,22 +20,21 @@ import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 import Ocram.Names (blockingAttr, startAttr)
 import Ocram.Symbols (Symbol, symbol)
-import Ocram.Types (Ast)
 import Ocram.Util (abort)
 import qualified Data.List as List
 import qualified Data.Map as Map
 
 type SymbolTable = Map.Map Symbol CDecl -- {{{1
 
-function_declaration :: Ast -> Symbol -> Maybe CDecl -- {{{1
+function_declaration :: CTranslUnit -> Symbol -> Maybe CDecl -- {{{1
 function_declaration (CTranslUnit eds _) name =
   List.find ((==name) . symbol) $ mapMaybe functionDeclaration eds
 
-function_definition :: Ast -> Symbol -> Maybe CFunDef -- {{{1
+function_definition :: CTranslUnit -> Symbol -> Maybe CFunDef -- {{{1
 function_definition (CTranslUnit eds _) name =
   List.find ((==name) . symbol) $ mapMaybe functionDefinition eds
 
-is_blocking_function :: Ast -> Symbol -> Bool -- {{{1
+is_blocking_function :: CTranslUnit -> Symbol -> Bool -- {{{1
 is_blocking_function ast name =
   maybe False is_blocking_function' $ function_declaration ast name
 
@@ -46,11 +45,11 @@ is_blocking_function' _ = False
 is_start_function' :: CFunDef -> Bool -- {{{1
 is_start_function' (CFunDef specs _ _ _ _) = any isStartAttr specs 
 
-is_start_function :: Ast -> Symbol -> Bool -- {{{1
+is_start_function :: CTranslUnit -> Symbol -> Bool -- {{{1
 is_start_function ast name =
   maybe False is_start_function' $ function_definition ast name
 
-function_parameters :: Ast -> Symbol -> Maybe [CDecl] -- {{{1
+function_parameters :: CTranslUnit -> Symbol -> Maybe [CDecl] -- {{{1
 function_parameters = apply function_parameters_fd function_parameters_cd
 
 function_parameters_fd :: CFunDef -> [CDecl] -- {{{1
@@ -61,7 +60,7 @@ function_parameters_cd :: CDecl -> [CDecl] --- {{{1
 function_parameters_cd (CDecl _ [(Just (CDeclr _ (cfd:_) _ _ _), Nothing, Nothing)] _) = functionParameters cfd
 function_parameters_cd _ = $abort $ "unexpected parameters"
 
-return_type :: Ast -> Symbol -> Maybe (CTypeSpec, [CDerivedDeclr]) -- {{{1
+return_type :: CTranslUnit -> Symbol -> Maybe (CTypeSpec, [CDerivedDeclr]) -- {{{1
 return_type = apply return_type_fd return_type_cd
 
 return_type_fd :: CFunDef -> (CTypeSpec, [CDerivedDeclr]) -- {{{1
@@ -72,7 +71,7 @@ return_type_cd :: CDecl -> (CTypeSpec, [CDerivedDeclr]) -- {{{1
 return_type_cd (CDecl tss [(Just (CDeclr _ ((CFunDeclr _ _ _):dds) _ _ _), _, _)] _) = (extractTypeSpec tss, dds)
 return_type_cd _ = $abort "unexpected parameter"
 
-local_variables :: Ast -> Symbol -> Maybe SymbolTable -- {{{1
+local_variables :: CTranslUnit -> Symbol -> Maybe SymbolTable -- {{{1
 local_variables = apply local_variables_fd local_variables_cd
  
 local_variables_fd :: CFunDef -> SymbolTable -- {{{1
@@ -129,7 +128,7 @@ extractTypeSpec [] = $abort "type specifier expected"
 extractTypeSpec (CTypeSpec ts:_) = ts
 extractTypeSpec (_:xs) = extractTypeSpec xs
 
-apply :: (CFunDef -> a) -> (CDecl -> a) -> Ast -> Symbol -> Maybe a
+apply :: (CFunDef -> a) -> (CDecl -> a) -> CTranslUnit -> Symbol -> Maybe a
 apply fdf cdf ast name =
   case function_definition ast name of
     Just fd -> Just $ fdf fd

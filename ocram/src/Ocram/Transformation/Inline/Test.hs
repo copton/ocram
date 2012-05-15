@@ -1,10 +1,10 @@
 module Ocram.Transformation.Inline.Test (tests) where
 
+import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (analysis)
 import Ocram.Test.Lib (paste, enrich, reduce, enumTestGroup)
 import Ocram.Text (show_errors)
 import Ocram.Transformation.Inline (transformation)
-import Ocram.Types
 import Test.Framework (Test, testGroup)
 import Test.HUnit (assertFailure, Assertion, (@=?))
 
@@ -958,9 +958,9 @@ runTest (code, expected) =
   let ast = enrich code in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
-    Right ana ->
+    Right (cg, _) ->
       let
-        result = reduce $ fst $ transformation ana ast
-        expected' = (reduce $ (enrich expected :: Ast) :: String)
+        result = reduce $ (\(a, _, _)->a) $ transformation cg ast
+        expected' = (reduce $ (enrich expected :: CTranslUnit) :: String)
       in
         expected' @=? result

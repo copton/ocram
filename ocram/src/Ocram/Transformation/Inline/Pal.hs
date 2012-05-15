@@ -13,15 +13,14 @@ import Ocram.Analysis (CallGraph, blocking_functions)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names (frameType) 
 import Ocram.Transformation.Util (un)
-import Ocram.Types (Ast)
 import Ocram.Text (new_error, OcramError)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 
-extract_pal :: CallGraph -> Ast -> Ast -- {{{1
+extract_pal :: CallGraph -> CTranslUnit -> CTranslUnit -- {{{1
 extract_pal cg ast = CTranslUnit (map CDeclExt (extractPal cg ast)) un
 
-compare_pal :: CallGraph -> Ast -> Ast -> Either [OcramError] () -- {{{1
+compare_pal :: CallGraph -> CTranslUnit -> CTranslUnit -> Either [OcramError] () -- {{{1
 compare_pal cg source target =
   if null errors
     then Right ()
@@ -37,7 +36,7 @@ compare_pal cg source target =
   target' = flatten target
   flatten ast = foldr (\cd m -> Map.insert (symbol cd) (show (pretty cd)) m) Map.empty (extractPal cg ast)
 
-extractPal :: CallGraph -> Ast -> [CDecl] -- {{{2
+extractPal :: CallGraph -> CTranslUnit -> [CDecl] -- {{{2
 extractPal cg (CTranslUnit ds _) = ds'
   where
   bf = Set.fromList $ blocking_functions cg

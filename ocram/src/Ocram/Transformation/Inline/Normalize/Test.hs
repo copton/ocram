@@ -2,13 +2,13 @@ module Ocram.Transformation.Inline.Normalize.Test (tests) where
 
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
-import Ocram.Types
-import Ocram.Test.Lib (enumTestGroup, enrich, reduce, paste)
-import Ocram.Transformation.Inline.Normalize (normalize)
+import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (analysis)
+import Ocram.Test.Lib (enumTestGroup, enrich, reduce, paste)
 import Ocram.Text (show_errors)
-import Test.HUnit (Assertion, assertFailure, (@=?))
+import Ocram.Transformation.Inline.Normalize (normalize)
 import Test.Framework (Test)
+import Test.HUnit (Assertion, assertFailure, (@=?))
 
 tests :: Test
 tests = enumTestGroup "Normalize" $ map runTest [ -- {{{1
@@ -349,9 +349,9 @@ runTest (code, expected) =
   let ast = enrich code in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
-    Right cg ->
+    Right (cg, _) ->
       let
         result = reduce $ fst $ runWriter (normalize cg ast)
-        expected' = (reduce $ (enrich expected :: Ast) :: String)
+        expected' = (reduce $ (enrich expected :: CTranslUnit) :: String)
       in
         expected' @=? result

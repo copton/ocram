@@ -5,14 +5,14 @@ module Ocram.Parser
 ) where
 
 -- import {{{1
+import Language.C.Syntax.AST (CTranslUnit)
 import Language.C.Data.InputStream (readInputStream)
 import Language.C.Data.Position (initPos)
 import Language.C.Parser (parseC)
 import Ocram.Options (Options)
 import Ocram.Text (OcramError, new_error)
-import Ocram.Types (Ast)
 
-parse :: Options -> String -> IO (Either [OcramError] Ast) -- {{{1
+parse :: Options -> String -> IO (Either [OcramError] CTranslUnit) -- {{{1
 parse _ input = do
   istream <- readInputStream input
   return $ case parseC istream (initPos input) of

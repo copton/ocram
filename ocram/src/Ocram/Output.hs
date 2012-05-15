@@ -1,29 +1,30 @@
 module Ocram.Output 
 -- export {{{1
 (
-  pretty_print, dump_pal,
-  write_debug_symbols
+  dump_ecode, dump_debug_info,
+  generate_pal
 ) where
 
 -- import {{{1
 import Control.Exception (handle, IOException)
 import Data.List (intersperse)
-import Language.C (pretty)
+import Language.C.Pretty (pretty)
+import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (Footprint)
-import Ocram.Options (Options, optOutput, optPalFile, optPalGenerator)
+import Ocram.Debug (format_debug_info, LocMap, VarMap)
+import Ocram.Options (Options, optOutput, optPalFile, optPalGenerator, optDebugFile)
 import Ocram.Text (OcramError, new_error)
-import Ocram.Types (Ast, DebugSymbols)
 import Ocram.Util (fromJust_s)
 import System.Exit (ExitCode(..))
 import System.IO (openFile, IOMode(WriteMode), hClose, hPutStr, hGetContents)
 import System.Process (createProcess, proc, StdStream(CreatePipe), CreateProcess(std_out, std_in, std_err), waitForProcess)
 
-pretty_print :: Options -> Ast -> IO (Either [OcramError] ()) -- {{{1
-pretty_print options ast =
-  write (optOutput options) $ (show . pretty) ast ++ "\n"
+dump_ecode :: Options -> String -> IO (Either [OcramError] ()) -- {{{1
+dump_ecode options ecode =
+  write (optOutput options) $ ecode ++ "\n"
 
-dump_pal :: Options -> Footprint -> Ast -> IO (Either [OcramError] ()) -- {{{1
-dump_pal options fpr header = case optPalGenerator options of
+generate_pal :: Options -> Footprint -> CTranslUnit -> IO (Either [OcramError] ()) -- {{{1
+generate_pal options fpr header = case optPalGenerator options of
   Nothing -> (return . Right) ()
   Just generator ->
     let
@@ -42,8 +43,10 @@ dump_pal options fpr header = case optPalGenerator options of
           es <- hGetContents herr
           (return . Left) [new_error 2 ("calling external generator failed: (" ++ (show code) ++ ")\n:" ++ es) Nothing]
 
-write_debug_symbols :: Options -> DebugSymbols -> IO (Either [OcramError] ()) -- {{{1
-write_debug_symbols _ _ = (return . Right) ()
+dump_debug_info :: Options -> LocMap -> VarMap -> IO (Either [OcramError] ()) -- {{{1
+dump_debug_info opt locMap varMap = case optDebugFile opt of
+  Nothing -> (return . Right) ()
+  Just file -> write file $ format_debug_info locMap varMap
 
 -- utils {{{1
 write :: String -> String -> IO (Either [OcramError] ())

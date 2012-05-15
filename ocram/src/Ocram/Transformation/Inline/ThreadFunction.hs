@@ -17,7 +17,6 @@ import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Util (un, ident)
-import Ocram.Types (Ast)
 import Ocram.Util ((?:), fromJust_s, abort)
 import Prelude hiding (exp, id)
 import qualified Data.Map as Map
@@ -27,7 +26,7 @@ addThreadFunctions cg ast@(CTranslUnit decls ni) = do
   thread_functions <- mapM (liftM CFDefExt . createThreadFunction cg ast) $ zip [0..] (start_functions cg)
   return $ CTranslUnit (decls ++ thread_functions) ni
 
-createThreadFunction :: CallGraph -> Ast -> (Int, Symbol) -> WR CFunDef -- {{{2
+createThreadFunction :: CallGraph -> CTranslUnit -> (Int, Symbol) -> WR CFunDef -- {{{2
 createThreadFunction cg ast (tid, startFunction) =
   return $ CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (threadExecutionFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
   where
@@ -35,7 +34,7 @@ createThreadFunction cg ast (tid, startFunction) =
     onlyDefs name = not (is_blocking cg name) && is_critical cg name
     functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
 
-inlineCriticalFunction :: CallGraph -> Ast -> Symbol -> (Bool, Symbol) -> [CBlockItem] -- {{{2
+inlineCriticalFunction :: CallGraph -> CTranslUnit -> Symbol -> (Bool, Symbol) -> [CBlockItem] -- {{{2
 inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody
   where
     callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
