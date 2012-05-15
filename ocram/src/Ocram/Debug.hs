@@ -11,19 +11,19 @@ import Ocram.Symbols (Symbol)
 import Text.JSON (encodeStrict, toJSObject, JSON(..))
 
 data Location = -- {{{1
-  Location {locRow :: Int, locCol :: Int}
+  Location {locRow :: Int, locCol :: Int, locLen :: Int}
 
 instance Show Location where
-  show (Location r c) = "(" ++ show r ++ ", " ++ show c ++ ")"
+  show (Location r c l) = show (r, c, l)
 
 type LocMap = [(Location, Location)]
 
 instance JSON Location where
   readJSON value = do
-    (r, c) <- readJSON value
-    return $ Location r c
+    (r, c, l) <- readJSON value
+    return $ Location r c l
 
-  showJSON (Location r c) = showJSON (r, c)
+  showJSON (Location r c l) = showJSON (r, c, l)
 
 type Variable = Symbol -- {{{1
 type VarMap = [(Variable, Variable)]

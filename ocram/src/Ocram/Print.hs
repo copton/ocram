@@ -40,28 +40,27 @@ module Ocram.Print
 ) where
 
 -- import {{{1
+import Data.Maybe (fromMaybe)
 import Language.C.Data hiding (Position)
-import Language.C.Data.Node (isUndefNode)
+import Language.C.Data.Node (isUndefNode, lengthOfNode, undefNode)
 import Language.C.Syntax
 import Text.PrettyPrint
 import Ocram.Debug (Location(..), LocMap)
 import Ocram.Util (abort)
 
-import Debug.Trace (trace)
-
 location :: NodeInfo -> Location
-location ni
-  | isUndefNode ni = trace "warning: undefined node" $ Location (-1) (-1)
-  | otherwise = let pos = posOfNode ni in Location (posRow pos) (posColumn pos)
+location ni = let pos = posOfNode ni in Location (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
 
 print_with_log :: CTranslUnit -> (String, LocMap)
 print_with_log tu = renderWithLog (pretty tu)
 
 pos2loc :: Position -> Location
-pos2loc (Position r c) = Location r c
+pos2loc (Position r c) = Location r c (-1)
 
 marker :: NodeInfo -> DocL LocMap -> DocL LocMap
-marker ni = here (\p -> [(location ni, pos2loc p)])
+marker ni doc
+  | isUndefNode ni = doc
+  | otherwise = here (\p -> [(location ni, pos2loc p)]) doc
 
 class PrettyLog a where
   pretty :: a -> DocL LocMap
@@ -126,17 +125,17 @@ instance PrettyLog CStat where
     pretty (CCases expr1 expr2 stat ni) = marker ni $
         text "case" <+> pretty expr1 <+> text "..."
                     <+> pretty expr2 <> text ":" $$ pretty stat
-    pretty (CDefault stat _) = text "default:" $$ pretty stat
-    pretty (CExpr expr _) = ii $ maybeP pretty expr <> semi
-    pretty c@(CCompound _ _ _) = prettyPrec 0 c
-    pretty (CIf expr stat estat _) =
+    pretty (CDefault stat ni) = marker ni $ text "default:" $$ pretty stat
+    pretty (CExpr expr ni) = ii $ marker ni $ maybeP pretty expr <> semi
+    pretty c@(CCompound _ _ ni) = marker ni $ prettyPrec 0 c
+    pretty (CIf expr stat estat ni) = marker ni $
         ii $  text "if" <+> parens (pretty expr)
                 $+$ prettyBody stat
                 $$  maybeP prettyElse estat
       where
-        prettyBody c@(CCompound _ _ _) = prettyPrec (-1) c
-        prettyBody nonCompound         = prettyPrec (-1) (CCompound [] [CBlockStmt nonCompound] undefined)
-        prettyElse (CIf else_if_expr else_if_stat else_stat _) =
+        prettyBody c@(CCompound _ _ ni') = marker ni' $ prettyPrec (-1) c
+        prettyBody nonCompound         = prettyPrec (-1) (CCompound [] [CBlockStmt nonCompound] undefNode)
+        prettyElse (CIf else_if_expr else_if_stat else_stat ni') = marker ni' $
           text "else if" <+> parens (pretty else_if_expr)
             $+$ prettyBody else_if_stat
             $$  maybeP prettyElse else_stat
@@ -144,35 +143,35 @@ instance PrettyLog CStat where
           text "else"
             $+$ prettyBody else_stmt
 
-    pretty (CSwitch expr stat _) =
+    pretty (CSwitch expr stat ni) = marker ni $
         ii $ text "switch" <+> text "(" <> pretty expr <> text ")"
                $+$ prettyPrec (-1) stat
-    pretty (CWhile expr stat False _) =
+    pretty (CWhile expr stat False ni) = marker ni $
         ii $ text "while" <+> text "(" <> pretty expr <> text ")"
                $+$ prettyPrec (-1) stat
-    pretty (CWhile expr stat True _) =
+    pretty (CWhile expr stat True ni) = marker ni $
         ii $ text "do" $+$ prettyPrec (-1) stat
                $$ text "while" <+> text "(" <> pretty expr <> text ");"
-    pretty (CFor for_init cond step stat _) =
+    pretty (CFor for_init cond step stat ni) = marker ni $
         ii $ text "for" <+> text "("
                <> either (maybeP pretty) pretty for_init <> semi
                <+> maybeP pretty cond <> semi
                <+> maybeP pretty step <> text ")" $+$ prettyPrec (-1) stat
-    pretty (CGoto ident _) = ii $ text "goto" <+> identP ident <> semi
-    pretty (CGotoPtr expr _) = ii $ text "goto" <+> text "*" <+> prettyPrec 30 expr <> semi
-    pretty (CCont _) = ii $ text "continue" <> semi
-    pretty (CBreak _) = ii $ text "break" <> semi
-    pretty (CReturn Nothing _) = ii $ text "return" <> semi
-    pretty (CReturn (Just e) _) = ii $ text "return" <+> pretty e <> semi
-    pretty (CAsm asmStmt _) = pretty asmStmt
-    prettyPrec p (CCompound localLabels bis _) =
+    pretty (CGoto ident ni) = marker ni $ ii $ text "goto" <+> identP ident <> semi
+    pretty (CGotoPtr expr ni) = marker ni $ ii $ text "goto" <+> text "*" <+> prettyPrec 30 expr <> semi
+    pretty (CCont ni) = marker ni $ ii $ text "continue" <> semi
+    pretty (CBreak ni) = marker ni $ ii $ text "break" <> semi
+    pretty (CReturn Nothing ni) = marker ni $ ii $ text "return" <> semi
+    pretty (CReturn (Just e) ni) = marker ni $ ii $ text "return" <+> pretty e <> semi
+    pretty (CAsm asmStmt ni) = marker ni $ pretty asmStmt
+    prettyPrec p (CCompound localLabels bis ni) = marker ni $
         let inner = text "{" $+$ mlistP ppLblDecls localLabels $+$ vcat (map pretty bis) $$ text "}"
         in  if p == -1 then inner else ii inner
         where ppLblDecls =  vcat . map (\l -> text "__label__" <+> identP l <+> semi)
     prettyPrec _ p = pretty p
 
 instance PrettyLog CAsmStmt where
-    pretty (CAsmStmt tyQual expr outOps inOps clobbers _) =
+    pretty (CAsmStmt tyQual expr outOps inOps clobbers ni) = marker ni $
         ii $ text "__asm__" <+>
              maybeP pretty tyQual <>
              parens asmStmt <> semi
@@ -186,7 +185,7 @@ instance PrettyLog CAsmStmt where
 
 instance PrettyLog CAsmOperand where
     -- asm_operand :~ [operand-name] "constraint" ( expr )
-    pretty (CAsmOperand mArgName cnstr expr _) =
+    pretty (CAsmOperand mArgName cnstr expr ni) = marker ni $
         maybeP (\argName -> text "[" <> identP argName <> text "]") mArgName <+>
         pretty cnstr <+>
         parens (pretty expr)
@@ -203,7 +202,7 @@ instance PrettyLog CDecl where
     -- as this may change the semantics of the declaration.
     -- The parser fixes this, but to avoid hard-to-track code generator
     -- errors, we enforce this invariant on the AST level.
-    pretty (CDecl specs divs _) =
+    pretty (CDecl specs divs ni) = marker ni $
         hsep (map pretty checked_specs) <+> hsep (punctuate comma (map p divs))
             where
             -- possible hint for AST improvement - (declr, initializer, expr, attrs)
