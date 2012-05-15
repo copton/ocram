@@ -1,6 +1,7 @@
 module Ocram.Main (main) where
 
 import Ocram.Analysis (analysis)
+import Ocram.Debug (format_debug_info)
 import Ocram.Options (options, Options(..))
 import Ocram.Output (generate_pal, dump_ecode, dump_debug_info)
 import Ocram.Print (print_with_log)
@@ -23,13 +24,13 @@ runCompiler :: [String] -> IO ()
 runCompiler argv = do
   prg <- getProgName
   opt <- exitOnError "options" $ options prg argv 
-  ast <- exitOnError "parser" =<< parse opt (optInput opt)
+  (tcode, ast) <- exitOnError "parser" =<< parse opt (optInput opt)
   (cg, fpr) <- exitOnError "analysis" $ analysis ast
   let (ast', pal, varMap) = Inline.transformation cg ast
   let (ecode, locMap) = print_with_log ast'
   exitOnError "output" =<< generate_pal opt fpr pal
   exitOnError "output" =<< dump_ecode opt ecode
-  exitOnError "output" =<< dump_debug_info opt locMap varMap
+  exitOnError "output" =<< (dump_debug_info opt $ format_debug_info tcode ecode locMap varMap)
   return ()
 
 exitOnError :: String -> Either [OcramError] a -> IO a

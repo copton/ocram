@@ -8,7 +8,10 @@ module Ocram.Debug
 
 -- import {{{1
 import Ocram.Symbols (Symbol)
-import Text.JSON (encodeStrict, toJSObject, JSON(..))
+import Text.JSON (encodeStrict, toJSObject, toJSString, JSON(..), JSValue(JSArray, JSString))
+import Data.Digest.OpenSSL.MD5 (md5sum)
+
+import qualified Data.ByteString.Char8 as BS
 
 data Location = -- {{{1
   Location {locRow :: Int, locCol :: Int, locLen :: Int}
@@ -29,5 +32,16 @@ type Variable = Symbol -- {{{1
 type VarMap = [(Variable, Variable)]
 
 
-format_debug_info :: LocMap -> VarMap -> String
-format_debug_info lm vm = encodeStrict $ toJSObject [("varmap", showJSON vm), ("locmap", showJSON lm)]
+format_debug_info :: BS.ByteString -> String -> LocMap -> VarMap -> String
+format_debug_info tcode ecode lm vm =
+  let
+    cs = JSString . toJSString . md5sum
+    tcodeChecksum = cs tcode
+    ecodeChecksum = cs $ BS.pack ecode
+    checksum = JSArray [tcodeChecksum, ecodeChecksum]
+  in
+    encodeStrict $ toJSObject [
+      ("checksum", checksum),
+      ("varmap", showJSON vm),
+      ("locmap", showJSON lm)
+    ]

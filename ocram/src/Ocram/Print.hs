@@ -42,7 +42,7 @@ module Ocram.Print
 -- import {{{1
 import Data.Maybe (fromMaybe)
 import Language.C.Data hiding (Position)
-import Language.C.Data.Node (isUndefNode, lengthOfNode, undefNode)
+import Language.C.Data.Node (isUndefNode, lengthOfNode)
 import Language.C.Syntax
 import Text.PrettyPrint
 import Ocram.Debug (Location(..), LocMap)

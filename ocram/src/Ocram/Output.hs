@@ -43,10 +43,10 @@ generate_pal options fpr header = case optPalGenerator options of
           es <- hGetContents herr
           (return . Left) [new_error 2 ("calling external generator failed: (" ++ (show code) ++ ")\n:" ++ es) Nothing]
 
-dump_debug_info :: Options -> LocMap -> VarMap -> IO (Either [OcramError] ()) -- {{{1
-dump_debug_info opt locMap varMap = case optDebugFile opt of
+dump_debug_info :: Options -> String -> IO (Either [OcramError] ()) -- {{{1
+dump_debug_info opt debugInfo = case optDebugFile opt of
   Nothing -> (return . Right) ()
-  Just file -> write file $ format_debug_info locMap varMap
+  Just file -> write file debugInfo
 
 -- utils {{{1
 write :: String -> String -> IO (Either [OcramError] ())
