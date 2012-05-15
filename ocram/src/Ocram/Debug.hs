@@ -2,7 +2,7 @@ module Ocram.Debug
 -- export {{{1
 (
   VarMap,
-  Location(..), LocMap,
+  TLocation(..), ELocation(..), LocMap,
   format_debug_info
 ) where
 
@@ -13,20 +13,34 @@ import Data.Digest.OpenSSL.MD5 (md5sum)
 
 import qualified Data.ByteString.Char8 as BS
 
-data Location = -- {{{1
-  Location {locRow :: Int, locCol :: Int, locLen :: Int}
+data TLocation = -- {{{1
+  TLocation {tlocRow :: Int, tlocCol :: Int, tlocLen :: Int}
 
-instance Show Location where
-  show (Location r c l) = show (r, c, l)
+instance Show TLocation where
+  show (TLocation r c l) = show (r, c, l)
 
-type LocMap = [(Location, Location)]
-
-instance JSON Location where
+instance JSON TLocation where
   readJSON value = do
     (r, c, l) <- readJSON value
-    return $ Location r c l
+    return $ TLocation r c l
 
-  showJSON (Location r c l) = showJSON (r, c, l)
+  showJSON (TLocation r c l) = showJSON (r, c, l)
+
+data ELocation = -- {{{1
+  ELocation {elocRow :: Int, elocCol :: Int, elocTidd :: Maybe Int}
+
+instance Show ELocation where
+  show (ELocation r c t) = show (r, c, t)
+
+instance JSON ELocation where
+  readJSON value = do
+    (r, c, t) <- readJSON value
+    return $ ELocation r c (if t == -1 then Nothing else Just t)
+
+  showJSON (ELocation r c Nothing)  = showJSON (r, c, (-1)::Int)
+  showJSON (ELocation r c (Just t)) = showJSON (r, c, t)  
+
+type LocMap = [(TLocation, ELocation)] -- {{{1
 
 type Variable = Symbol -- {{{1
 type VarMap = [(Variable, Variable)]
