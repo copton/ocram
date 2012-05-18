@@ -1,6 +1,7 @@
 module Ocram.Transformation.Inline.Test (tests) where
 
 import Language.C.Syntax.AST (CTranslUnit)
+import Language.C.Data.Node (nodeInfo)
 import Ocram.Analysis (analysis)
 import Ocram.Test.Lib (paste, enrich, reduce, enumTestGroup)
 import Ocram.Text (show_errors)
@@ -960,7 +961,7 @@ runTest (code, expected) =
     Left es -> assertFailure $ show_errors "analysis" es
     Right (cg, _) ->
       let
-        result = reduce $ (\(a, _, _)->a) $ transformation cg ast
+        result = reduce $ fmap nodeInfo $ (\(a, _, _)->a) $ transformation cg ast
         expected' = (reduce $ (enrich expected :: CTranslUnit) :: String)
       in
         expected' @=? result

@@ -3,9 +3,11 @@ module Ocram.Transformation.Inline.UniqueIdentifiers.Test (tests) where
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
 import Language.C.Syntax.AST (CTranslUnit)
+import Language.C.Data.Node (nodeInfo)
 import Ocram.Analysis (analysis)
 import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Text (show_errors)
+import Ocram.Transformation.Inline (enodify)
 import Ocram.Transformation.Inline.UniqueIdentifiers (unique_identifiers)
 import Test.Framework (Test)
 import Test.HUnit (Assertion, assertFailure, (@=?))
@@ -255,7 +257,7 @@ runTest (code, expected) =
     Left es -> assertFailure $ show_errors "analysis" es
     Right (cg, _) ->
       let
-        result = reduce $ fst $ runWriter (unique_identifiers cg ast)
+        result = reduce $ fmap nodeInfo $ fst $ runWriter $ unique_identifiers cg $ enodify ast
         expected' = (reduce $ (enrich expected :: CTranslUnit) :: String)
       in
         expected' @=? result

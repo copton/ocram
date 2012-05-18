@@ -7,6 +7,7 @@ module Ocram.Transformation.Inline.TStack
 -- imports {{{1
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, get_callees, dependency_list, CallGraph, is_start)
+import Ocram.Print (ENodeInfo)
 import Ocram.Query (local_variables, return_type)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
@@ -21,14 +22,14 @@ addTStacks cg ast@(CTranslUnit decls ni) = do
   let stacks = map createTStack $ start_functions cg
   return $ CTranslUnit (decls ++ frames ++ stacks) ni
 
-createTStack :: Symbol -> CExtDecl
+createTStack :: Symbol -> CExternalDeclaration ENodeInfo
 createTStack fName = CDeclExt (CDecl [CTypeSpec (CTypeDef (ident (frameType fName)) un)] [(Just (CDeclr (Just (ident (stackVar fName))) [] Nothing [] un), Nothing, Nothing)] un)
 
-createTStackFrames :: CallGraph -> CTranslUnit -> WR [CExtDecl]
+createTStackFrames :: CallGraph -> CTranslationUnit ENodeInfo -> WR [CExternalDeclaration ENodeInfo]
 createTStackFrames cg ast =
   mapM (createTStackFrame cg ast) $ dependency_list cg
 
-createTStackFrame :: CallGraph -> CTranslUnit -> Symbol -> WR CExtDecl
+createTStackFrame :: CallGraph -> CTranslationUnit ENodeInfo -> Symbol -> WR (CExternalDeclaration ENodeInfo)
 createTStackFrame cg ast name = do
   nestedFrames <- createNestedFramesUnion cg name
   return $ CDeclExt (CDecl [CStorageSpec (CTypedef un), CTypeSpec (CSUType (CStruct CStructTag Nothing (Just (
@@ -47,7 +48,7 @@ createTStackFrame cg ast name = do
     removeInit (CDecl x1 [(x2, _, x3)] x4) = CDecl x1 [(x2, Nothing, x3)] x4
     removeInit _ = $abort "unexpected parameters"
 
-createNestedFramesUnion :: CallGraph -> Symbol -> WR (Maybe CDecl)
+createNestedFramesUnion :: CallGraph -> Symbol -> WR (Maybe (CDeclaration ENodeInfo))
 createNestedFramesUnion cg name =
   return $ if null entries then Nothing else Just createDecl
   where  

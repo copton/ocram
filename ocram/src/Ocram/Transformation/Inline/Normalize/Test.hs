@@ -3,9 +3,11 @@ module Ocram.Transformation.Inline.Normalize.Test (tests) where
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
 import Language.C.Syntax.AST (CTranslUnit)
+import Language.C.Data.Node (nodeInfo)
 import Ocram.Analysis (analysis)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, paste)
 import Ocram.Text (show_errors)
+import Ocram.Transformation.Inline (enodify)
 import Ocram.Transformation.Inline.Normalize (normalize)
 import Test.Framework (Test)
 import Test.HUnit (Assertion, assertFailure, (@=?))
@@ -351,7 +353,7 @@ runTest (code, expected) =
     Left es -> assertFailure $ show_errors "analysis" es
     Right (cg, _) ->
       let
-        result = reduce $ fst $ runWriter (normalize cg ast)
+        result = reduce $ fmap nodeInfo $ fst $ runWriter (normalize cg (enodify ast))
         expected' = (reduce $ (enrich expected :: CTranslUnit) :: String)
       in
         expected' @=? result

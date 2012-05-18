@@ -8,10 +8,10 @@ module Ocram.Output
 -- import {{{1
 import Control.Exception (handle, IOException)
 import Data.List (intersperse)
-import Language.C.Pretty (pretty)
-import Language.C.Syntax.AST (CTranslUnit)
+import Language.C.Syntax.AST (CTranslationUnit)
 import Ocram.Analysis (Footprint)
 import Ocram.Options (Options, optOutput, optPalFile, optPalGenerator, optDebugFile)
+import Ocram.Print (pretty, ENodeInfo)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Util (fromJust_s)
 import System.Exit (ExitCode(..))
@@ -22,7 +22,7 @@ dump_ecode :: Options -> String -> IO (Either [OcramError] ()) -- {{{1
 dump_ecode options ecode =
   write (optOutput options) $ ecode ++ "\n"
 
-generate_pal :: Options -> Footprint -> CTranslUnit -> IO (Either [OcramError] ()) -- {{{1
+generate_pal :: Options -> Footprint -> CTranslationUnit ENodeInfo -> IO (Either [OcramError] ()) -- {{{1
 generate_pal options fpr header = case optPalGenerator options of
   Nothing -> (return . Right) ()
   Just generator ->

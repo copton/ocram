@@ -7,18 +7,16 @@ module Ocram.Transformation.Util
 
 -- imports {{{1
 import Language.C.Data.Ident (Ident(Ident))
-import Language.C.Data.Node (undefNode, NodeInfo)
+import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, is_critical)
 import Ocram.Symbols (symbol)
+import Ocram.Print (un)
 
 ident :: String -> Ident -- {{{1
-ident s = Ident s 0 un
+ident s = Ident s 0 undefNode
 
-un :: NodeInfo -- {{{1
-un = undefNode
-
-map_critical_functions :: CallGraph -> CTranslUnit -> (CFunDef -> CFunDef) -> CTranslUnit -- {{{1
+map_critical_functions :: CallGraph -> CTranslationUnit a -> (CFunctionDef a -> CFunctionDef a) -> CTranslationUnit a -- {{{1
 map_critical_functions cg (CTranslUnit ds ni) f = CTranslUnit (map process ds) ni
   where
     process x@(CFDefExt fd)

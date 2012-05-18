@@ -37,7 +37,7 @@
 module Ocram.Print
 -- export {{{1
 (
-  print_with_log
+  print_with_log, un, ENodeInfo(..), pretty
 ) where
 
 -- import {{{1
@@ -59,14 +59,17 @@ data ENodeInfo = ENodeInfo {
 instance CNode ENodeInfo where
   nodeInfo = tnodeInfo
 
+instance Show ENodeInfo where
+  show _ = ""
+
 eNodeInfo :: NodeInfo -> ENodeInfo
 eNodeInfo ni = ENodeInfo ni Nothing
 
 eNodeInfo' :: NodeInfo -> Int -> ENodeInfo
 eNodeInfo' ni tid = ENodeInfo ni (Just tid)
 
-eun :: ENodeInfo
-eun = ENodeInfo undefNode Nothing
+un :: ENodeInfo
+un = ENodeInfo undefNode Nothing
 
 tlocation :: ENodeInfo -> TLocation
 tlocation eni =
@@ -76,12 +79,8 @@ tlocation eni =
   in
     TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
 
--- intermediate step
-print_with_log :: CTranslationUnit NodeInfo -> (String, LocMap)
-print_with_log = print_with_log' . fmap (\ni -> ENodeInfo ni Nothing)
-
-print_with_log' :: CTranslationUnit ENodeInfo -> (String, LocMap)
-print_with_log' tu = renderWithLog (pretty tu)
+print_with_log :: CTranslationUnit ENodeInfo -> (String, LocMap)
+print_with_log tu = renderWithLog (pretty tu)
 
 marker :: ENodeInfo -> DocL LocMap -> DocL LocMap
 marker eni doc

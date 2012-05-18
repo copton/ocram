@@ -8,11 +8,11 @@ module Ocram.Util
 
 -- import {{{1
 import Control.Arrow ((***), Arrow)
-import qualified Data.Map as Map
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax ()
-import Language.C.Data.Node (NodeInfo, undefNode)
+import Language.C.Data.Node (undefNode, NodeInfo)
 import Language.C.Pretty (Pretty, pretty)
+import qualified Data.Map as Map
 
 (?:) :: Maybe a -> [a] -> [a] -- {{{1
 (Just x) ?: xs = x : xs
