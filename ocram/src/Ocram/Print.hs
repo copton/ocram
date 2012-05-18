@@ -33,6 +33,7 @@
 -- OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 -- }}}1
+{-# LANGUAGE DeriveDataTypeable #-}
 module Ocram.Print
 -- export {{{1
 (
@@ -40,15 +41,32 @@ module Ocram.Print
 ) where
 
 -- import {{{1
+import Data.Data (Data)
+import Data.Typeable (Typeable)
 import Data.Maybe (fromMaybe)
 import Language.C.Data hiding (Position)
-import Language.C.Data.Node (lengthOfNode, isUndefNode)
+import Language.C.Data.Node (CNode(..), lengthOfNode, isUndefNode)
 import Language.C.Syntax
 import Text.PrettyPrint
 import Ocram.Debug (TLocation(..), ELocation(..), LocMap)
 import Ocram.Util (abort)
 
-data ENodeInfo = ENodeInfo {tnodeInfo :: NodeInfo, threadId :: Maybe Int}
+data ENodeInfo = ENodeInfo {
+  tnodeInfo :: NodeInfo,
+  threadId :: Maybe Int
+  } deriving (Data, Typeable)
+
+instance CNode ENodeInfo where
+  nodeInfo = tnodeInfo
+
+eNodeInfo :: NodeInfo -> ENodeInfo
+eNodeInfo ni = ENodeInfo ni Nothing
+
+eNodeInfo' :: NodeInfo -> Int -> ENodeInfo
+eNodeInfo' ni tid = ENodeInfo ni (Just tid)
+
+eun :: ENodeInfo
+eun = ENodeInfo undefNode Nothing
 
 tlocation :: ENodeInfo -> TLocation
 tlocation eni =

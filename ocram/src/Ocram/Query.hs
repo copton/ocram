@@ -16,11 +16,12 @@ module Ocram.Query
 -- import {{{1
 import Data.Generics (everything, mkQ, extQ)
 import Data.Maybe (mapMaybe)
+import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Syntax.AST
 import Ocram.Names (blockingAttr, startAttr)
 import Ocram.Symbols (Symbol, symbol)
-import Ocram.Util (abort)
+import Ocram.Util (abort, unexp)
 import qualified Data.List as List
 import qualified Data.Map as Map
 
@@ -54,22 +55,22 @@ function_parameters = apply function_parameters_fd function_parameters_cd
 
 function_parameters_fd :: CFunDef -> [CDecl] -- {{{1
 function_parameters_fd (CFunDef _ (CDeclr _ [cfd] _ _ _) _ _ _) = functionParameters cfd
-function_parameters_fd _ = $abort "unexpected parameters" 
+function_parameters_fd x = $abort $ unexp x
 
 function_parameters_cd :: CDecl -> [CDecl] --- {{{1
 function_parameters_cd (CDecl _ [(Just (CDeclr _ (cfd:_) _ _ _), Nothing, Nothing)] _) = functionParameters cfd
-function_parameters_cd _ = $abort $ "unexpected parameters"
+function_parameters_cd x = $abort $ unexp x
 
 return_type :: CTranslUnit -> Symbol -> Maybe (CTypeSpec, [CDerivedDeclr]) -- {{{1
 return_type = apply return_type_fd return_type_cd
 
 return_type_fd :: CFunDef -> (CTypeSpec, [CDerivedDeclr]) -- {{{1
 return_type_fd (CFunDef tss (CDeclr _ ((CFunDeclr _ _ _):dds)_ _ _) _ _ _) = (extractTypeSpec tss, dds)
-return_type_fd _ = $abort "unexpected parameter"
+return_type_fd x = $abort $ unexp x
 
 return_type_cd :: CDecl -> (CTypeSpec, [CDerivedDeclr]) -- {{{1
 return_type_cd (CDecl tss [(Just (CDeclr _ ((CFunDeclr _ _ _):dds) _ _ _), _, _)] _) = (extractTypeSpec tss, dds)
-return_type_cd _ = $abort "unexpected parameter"
+return_type_cd x = $abort $ unexp x
 
 local_variables :: CTranslUnit -> Symbol -> Maybe SymbolTable -- {{{1
 local_variables = apply local_variables_fd local_variables_cd
@@ -121,7 +122,7 @@ functionDefinition _ = Nothing
 
 functionParameters :: CDerivedDeclr -> [CDecl]
 functionParameters (CFunDeclr (Right (ps, _)) _ _) = ps
-functionParameters _ = $abort "unexpected parameters: "
+functionParameters x = $abort $ unexp $ CDeclr Nothing [fmap (const undefNode) x] Nothing [] undefNode -- there is no instance Pretty CDerivedDeclr
 
 extractTypeSpec :: [CDeclSpec] -> CTypeSpec
 extractTypeSpec [] = $abort "type specifier expected"
