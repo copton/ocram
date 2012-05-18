@@ -1,19 +1,22 @@
-module Ocram.Test.Tests.Transformation.Inline 
--- export {{{1
-(
-	tests
-) where
--- import {{{1
-import Ocram.Types
-import Ocram.Test.Lib (paste, enrich, reduce, enumTestGroup)
-import Ocram.Transformation.Inline (transformation)
-import Ocram.Analysis (analysis)
-import Ocram.Text (show_errors)
+module Ocram.Transformation.Inline.Test (tests) where
 
-import Language.C.Syntax.AST (CTranslationUnit(CTranslUnit))
+import Language.C.Syntax.AST (CTranslUnit)
+import Language.C.Data.Node (nodeInfo)
+import Ocram.Analysis (analysis)
+import Ocram.Test.Lib (paste, enrich, reduce, enumTestGroup)
+import Ocram.Text (show_errors)
+import Ocram.Transformation.Inline (transformation)
+import Test.Framework (Test, testGroup)
 import Test.HUnit (assertFailure, Assertion, (@=?))
 
-tests = enumTestGroup "Inline" $ map runTest [ -- {{{1
+import qualified Ocram.Transformation.Inline.Normalize.Test as A
+import qualified Ocram.Transformation.Inline.UniqueIdentifiers.Test as B
+
+tests :: Test
+tests = testGroup "Inline" $ [A.tests, B.tests, test_integration]
+
+test_integration :: Test
+test_integration = enumTestGroup "integration" $ map runTest [
 -- setup {{{2
 	([paste|
 		__attribute__((tc_blocking)) void block(int i);
@@ -956,9 +959,9 @@ runTest (code, expected) =
   let ast = enrich code in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
-    Right ana ->
+    Right (cg, _) ->
       let
-        result = reduce $ fst $ transformation ana ast
-        expected' = (reduce $ (enrich expected :: Ast) :: String)
+        result = reduce $ fmap nodeInfo $ (\(a, _, _)->a) $ transformation cg ast
+        expected' = (reduce $ (enrich expected :: CTranslUnit) :: String)
       in
         expected' @=? result

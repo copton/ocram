@@ -10,17 +10,16 @@ import Control.Monad ((<=<))
 import Control.Monad.State (runState, evalState, get, put, State)
 import Data.Generics (everything, mkQ, everywhere, mkT, everywhereM, mkM)
 import Data.Monoid (Any(Any, getAny), mappend)
-import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants (cInteger)
 import Ocram.Analysis (is_critical)
+import Ocram.Print (ENodeInfo)
 import Ocram.Query (return_type, return_type_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Names (tempVar)
 import Ocram.Transformation.Inline.Types (Transformation)
 import Ocram.Transformation.Util (ident, un, map_critical_functions)
-import Ocram.Types (Ast)
-import Ocram.Util (abort, fromJust_s)
+import Ocram.Util (abort, fromJust_s, unexp)
 import qualified Data.Traversable as T
 
 normalize :: Transformation -- {{{1
@@ -45,6 +44,7 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
 
     wrapDanglingStatements = everywhere $ mkT dsStat -- {{{2
       where
+        dsStat :: CStatement ENodeInfo -> CStatement ENodeInfo
         dsStat (CWhile x1 s x2 x3) = CWhile x1 (wrapInBlock s) x2 x3
         dsStat (CFor x1 x2 x3 s x4) = CFor x1 x2 x3 (wrapInBlock s) x4
         dsStat (CSwitch x1 s x2) = CSwitch x1 (wrapInBlock s) x2
@@ -52,7 +52,7 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
         dsStat o = o
 
         wrapInBlock o@(CCompound _ _ _) = o
-        wrapInBlock s = CCompound [] [CBlockStmt s] (nodeInfo s)
+        wrapInBlock s = CCompound [] [CBlockStmt s] un
 
     unlistDeclarations = transformCompound trBlockItem -- {{{2
       where
@@ -80,11 +80,11 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
 
     normalizeStatements (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState (trBlock s) 0) x4 -- {{{2
       where
-        trBlock :: CStat -> State Int CStat
+        trBlock :: CStatement ENodeInfo -> State Int (CStatement ENodeInfo)
         trBlock (CCompound y1 items y2) = do
           items' <- mapM trBlockItem items
           return $ CCompound y1 (concat items') y2
-        trBlock _ = $abort "unexpected parameters"
+        trBlock x = $abort $ unexp x
 
         -- critical calls in return expressions -- {{{3
         trBlockItem o@(CBlockStmt (CReturn (Just cexpr) ni))
@@ -171,21 +171,21 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
         trForBlock (CFor y1 y2 y3 body ni) = do
           body' <- trBlock body
           return $ CFor y1 y2 y3 body' ni
-        trForBlock _ = $abort "unexpected parameters"
+        trForBlock x = $abort $ unexp x
 
         trForCondition o@(CFor _ Nothing _ _ _) = return o
         trForCondition o@(CFor y1 (Just condition) y3 body ni) = do
           (condition', extraDecls) <- extractCriticalCalls condition
           let o' = CFor y1 Nothing y3 (body `append` (extraDecls ++ breakIf condition')) ni
           return $ if null extraDecls then o else o'
-        trForCondition _ = $abort "unexpected parameters"
+        trForCondition x = $abort $ unexp x
 
         trForLoopExpr o@(CFor _ _ Nothing _ _) = return o
         trForLoopExpr o@(CFor y1 y2 (Just loopExpr) body ni) = do
           (loopExpr', extraDecls) <- extractCriticalCalls loopExpr
           let o' = CFor y1 y2 Nothing (body `append` (extraDecls ++ exprStmt loopExpr')) ni
           return $ if null extraDecls then o else o'
-        trForLoopExpr _ = $abort "unexpected parameters"
+        trForLoopExpr x = $abort $ unexp x
 
 
         extractCriticalCalls cexp = do -- {{{2
@@ -204,7 +204,7 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
               | otherwise = return o
             trCriticalCall o = return o
 
-            newDecl :: CExpr -> Symbol -> Int -> CDecl
+            newDecl :: CExpression ENodeInfo -> Symbol -> Int -> CDeclaration ENodeInfo
             newDecl call callee tmpVarIdx =
               CDecl [CTypeSpec returnType] [(Just declarator, Just initializer, Nothing)] un
               where
@@ -216,39 +216,39 @@ normalize cg ast = return $ unlistGlobalDeclarations $ map_critical_functions cg
     containsCriticalCall o = -- {{{2
       getAny $ everything mappend (mkQ (Any False) isCriticalCall) o
       where
-        isCriticalCall :: CExpr -> Any
+        isCriticalCall :: CExpression ENodeInfo -> Any
         isCriticalCall (CCall (CVar name _) _ _) = Any $ is_critical cg (symbol name)
         isCriticalCall _ = Any False
 
-unlistGlobalDeclarations :: Ast -> Ast -- {{{2
+unlistGlobalDeclarations :: CTranslationUnit ENodeInfo -> CTranslationUnit ENodeInfo -- {{{2
 unlistGlobalDeclarations (CTranslUnit ds ni) = CTranslUnit (foldr unlist [] ds) ni
   where
   unlist (CDeclExt d@(CDecl _ _ _)) xs = map CDeclExt (unlistDecl d) ++ xs
   unlist x xs = x : xs
 
 -- utils -- {{{1
-isInNormalForm :: CExpr -> Bool
+isInNormalForm :: CExpression ENodeInfo -> Bool
 isInNormalForm (CCall _ _ _) = True
 isInNormalForm (CAssign CAssignOp _ (CCall _ _ _) _) = True
 isInNormalForm _ = False
 
-prepend :: [CBlockItem] -> CStat -> CStat
+prepend :: [CCompoundBlockItem ENodeInfo] -> CStatement ENodeInfo -> CStatement ENodeInfo
 prepend items' (CCompound x1 items x2) = CCompound x1 (items' ++ items) x2
-prepend _ _ = $abort "unexpected parameters"
+prepend _ x = $abort $ unexp x
 
-append :: CStat -> [CBlockItem] -> CStat
+append :: CStatement ENodeInfo -> [CCompoundBlockItem ENodeInfo] -> CStatement ENodeInfo
 append (CCompound x1 items x2) items' = CCompound x1 (items ++ items') x2
-append _ _ = $abort "unexpected parameters"
+append x _ = $abort $ unexp x
 
-breakIf :: CExpr -> [CBlockItem]
+breakIf :: CExpression ENodeInfo -> [CCompoundBlockItem ENodeInfo]
 breakIf condition = [CBlockStmt $ CIf (CUnary CNegOp condition un) (CCompound [] [CBlockStmt (CBreak un)] un) Nothing un]
 
-exprStmt :: CExpr -> [CBlockItem]
+exprStmt :: CExpression ENodeInfo -> [CCompoundBlockItem ENodeInfo]
 exprStmt cexpr = [CBlockStmt $ CExpr (Just cexpr) un]
 
-trueCondition :: CExpr
+trueCondition :: CExpression ENodeInfo
 trueCondition = CConst (CIntConst (cInteger 1) un)
 
-unlistDecl :: CDecl -> [CDecl]
+unlistDecl :: CDeclaration ENodeInfo -> [CDeclaration ENodeInfo]
 unlistDecl (CDecl x [] z) = [CDecl x [] z] -- struct S { int i; };
 unlistDecl (CDecl x ds z) = map (\y -> CDecl x [y] z) ds

@@ -65,7 +65,7 @@ if code != 0:
     notify(getFirstLine(err, isBuildError), "red")
     sys.exit(1)
 
-(code, out, err) = execute("./dist/build/Test/Test --plain --hide-successes")
+(code, out, err) = execute("./cabal-dev/bin/ocram --test --plain --hide-successes -j 3")
 if code != 0:
     notify(getFirstLine(out, isTestError), "red")
     diff_code(out)

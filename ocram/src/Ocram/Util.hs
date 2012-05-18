@@ -1,15 +1,18 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE KindSignatures #-}
 module Ocram.Util
 -- export {{{1
 (
-  (?:), tmap, trd, fromJust_s, head_s, tail_s, lookup_s, abort
+  (?:), tmap, trd, unexp, fromJust_s, head_s, tail_s, lookup_s, abort
 ) where
 
 -- import {{{1
 import Control.Arrow ((***), Arrow)
-import qualified Data.Map as Map
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax ()
+import Language.C.Data.Node (undefNode, NodeInfo)
+import Language.C.Pretty (Pretty, pretty)
+import qualified Data.Map as Map
 
 (?:) :: Maybe a -> [a] -> [a] -- {{{1
 (Just x) ?: xs = x : xs
@@ -21,6 +24,11 @@ tmap f = f *** f
 
 trd :: (a, b, c) -> c -- {{{1
 trd (_, _, x) = x
+
+unexp :: forall (f :: * -> *) a. -- {{{1
+        (Pretty (f NodeInfo), Functor f) =>
+        f a -> String
+unexp x = "unexpected parameter: " ++ (show . pretty . fmap (const undefNode)) x
 
 fromJust_s :: Q Exp -- {{{1
 fromJust_s = withLocatedError [| fromJust' |]

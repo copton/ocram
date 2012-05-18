@@ -1,13 +1,9 @@
-module Ocram.Test.Tests.Analysis.TestCases 
--- export {{{1
-(
-	test_cases
-) where
+module Ocram.Analysis.Test.Cases (test_cases) where
 
 -- import {{{1
 import Ocram.Analysis.Filter (ErrorCode(..))
 import Ocram.Test.Lib (paste)
-import Ocram.Test.Tests.Analysis.Types
+import Ocram.Analysis.Test.Types
 
 -- test_cases :: [TCase] {{{1
 test_cases :: [TCase]

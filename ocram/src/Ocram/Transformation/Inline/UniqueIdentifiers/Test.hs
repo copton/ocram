@@ -1,18 +1,18 @@
-module Ocram.Test.Tests.Transformation.UniqueIdentifiers 
--- export {{{1
-(
-  tests
-) where
+module Ocram.Transformation.Inline.UniqueIdentifiers.Test (tests) where
 
 -- imports {{{1
 import Control.Monad.Writer (runWriter)
-import Ocram.Types
-import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
-import Ocram.Transformation.Inline.UniqueIdentifiers (unique_identifiers)
+import Language.C.Syntax.AST (CTranslUnit)
+import Language.C.Data.Node (nodeInfo)
 import Ocram.Analysis (analysis)
+import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Text (show_errors)
+import Ocram.Transformation.Inline (enodify)
+import Ocram.Transformation.Inline.UniqueIdentifiers (unique_identifiers)
+import Test.Framework (Test)
 import Test.HUnit (Assertion, assertFailure, (@=?))
 
+tests :: Test
 tests = enumTestGroup "UniqueIdentifiers" $ map runTest [ -- {{{1
 -- simple decl -- {{{2
   ([paste|
@@ -255,9 +255,9 @@ runTest (code, expected) =
   let ast = enrich code in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
-    Right cg ->
+    Right (cg, _) ->
       let
-        result = reduce $ fst $ runWriter (unique_identifiers cg ast)
-        expected' = (reduce $ (enrich expected :: Ast) :: String)
+        result = reduce $ fmap nodeInfo $ fst $ runWriter $ unique_identifiers cg $ enodify ast
+        expected' = (reduce $ (enrich expected :: CTranslUnit) :: String)
       in
         expected' @=? result
