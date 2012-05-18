@@ -2,7 +2,7 @@ module Ocram.Debug
 -- export {{{1
 (
   VarMap,
-  TLocation(..), ELocation(..), LocMap,
+  TLocation(..), ELocation(..), Location(..), LocMap,
   format_debug_info
 ) where
 
@@ -19,28 +19,23 @@ data TLocation = -- {{{1
 instance Show TLocation where
   show (TLocation r c l) = show (r, c, l)
 
-instance JSON TLocation where
-  readJSON value = do
-    (r, c, l) <- readJSON value
-    return $ TLocation r c l
-
-  showJSON (TLocation r c l) = showJSON (r, c, l)
-
 data ELocation = -- {{{1
   ELocation {elocRow :: Int, elocCol :: Int, elocTidd :: Maybe Int}
 
 instance Show ELocation where
   show (ELocation r c t) = show (r, c, t)
 
-instance JSON ELocation where
-  readJSON value = do
-    (r, c, t) <- readJSON value
-    return $ ELocation r c (if t == -1 then Nothing else Just t)
+data Location = Location TLocation ELocation
 
-  showJSON (ELocation r c Nothing)  = showJSON (r, c, (-1)::Int)
-  showJSON (ELocation r c (Just t)) = showJSON (r, c, t)  
+instance JSON Location where
+  readJSON _ = undefined
 
-type LocMap = [(TLocation, ELocation)] -- {{{1
+  showJSON (Location (TLocation r c l) (ELocation r' c' t)) =
+    case t of
+      Nothing -> showJSON [r, c, l, r', c']
+      (Just t') -> showJSON [r, c, l, r', c', t']
+  
+type LocMap = [Location]
 
 type Variable = Symbol -- {{{1
 type VarMap = [(Variable, Variable)]

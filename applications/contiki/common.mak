@@ -20,10 +20,10 @@ ifndef XGCC
 $(error please specify your cross compiler command line)
 endif
 
-all: app-ec.c pal.c contiki $(SKYS)
+all: app-ec.c pal.c contiki debug.json $(SKYS)
 
-app-ec.c pal.c: app-tc.pped.c app-tc.o $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
-	$(OCRAM) -p pal.c -g $(PALGEN) -i $< -o app-ec.c || (rm -f app-ec.c pal.c; exit 1)
+app-ec.c pal.c debug.json: app-tc.pped.c app-tc.o $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
+	$(OCRAM) -p pal.c -g $(PALGEN) -i $< -o app-ec.c -d debug.json || (rm -f app-ec.c pal.c; exit 1)
 
 app-tc.pped.c: app-tc.c app-tc.o
 	$(CHROOT) $(XGCC) -I$(ROOT)/applications/contiki -E -DOCRAM_MODE $< -o $@

@@ -48,7 +48,7 @@ import Language.C.Data hiding (Position)
 import Language.C.Data.Node (CNode(..), lengthOfNode, isUndefNode)
 import Language.C.Syntax
 import Text.PrettyPrint
-import Ocram.Debug (TLocation(..), ELocation(..), LocMap)
+import Ocram.Debug (TLocation(..), ELocation(..), Location(..), LocMap)
 import Ocram.Util (abort)
 
 data ENodeInfo = ENodeInfo {
@@ -87,7 +87,7 @@ marker eni doc
   | isUndefNode (tnodeInfo eni) = doc
   | otherwise = here logger doc
   where
-    logger (Position r c) = [(tlocation eni, ELocation r c (threadId eni))]
+    logger (Position r c) = [Location (tlocation eni) (ELocation r c (threadId eni))]
     
 class PrettyLog a where
   pretty :: a -> DocL LocMap

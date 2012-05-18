@@ -8,44 +8,51 @@ import se.sics.cooja.MotePlugin
 import se.sics.cooja.PluginType
 import se.sics.cooja.Simulation
 import se.sics.cooja.VisPlugin
+import org.apache.log4j.Logger;
 
 package ch.ethz.inf.vs.ruab {
 
 @ClassDescription("Ruab Cooja Plugin")
 @PluginType(PluginType.MOTE_PLUGIN)
-class CoojaPlugin(mote: Mote, sim: Simulation, gui: GUI)
+class RuabCoojaPlugin(mote: Mote, sim: Simulation, gui: GUI)
   extends VisPlugin("Ruab plugin", gui, false)
   with MotePlugin
 {
   var frontend: Frontend = null
 
+  val logger = Logger.getLogger(classOf[RuabCoojaPlugin])
+
   override def setConfigXML(config: Collection[Element], visAvailable: Boolean): Boolean = {
-    var sourcefile = ""
+    logger.info("configuring Ruab plugin")
+    var tcodefile = ""
+    var ecodefile = ""
     var debugfile = ""
-    var frontend = ""
     for (element <- config) {
       element.getName match {
-        case "sourcefile" => sourcefile = element.getText
+        case "tcodefile" => tcodefile = element.getText
+        case "ecodefile" => ecodefile = element.getText
         case "debugfile" => debugfile = element.getText
-        case "frontend" => frontend = element.getText
       }
     }
-    for (item <- List(sourcefile, debugfile, frontend)) {
+    for (item <- List(tcodefile, ecodefile, debugfile)) {
       if (item.isEmpty) {
         throw new RuntimeException("no %s config found" format item)
       }
     }
     val ecdbg = new CoojaBackend(mote)
-    val tcdbg = new Ruab(debugfile, ecdbg)
-    this.frontend = frontend match {
-      case "cooja" => new CoojaGui(tcdbg, sourcefile, sim, gui)
-      case x => throw new RuntimeException("unknown frontend %s" format x)
-    }
+    val dbginfo = new OcramDebugInformation(debugfile)
+    val tcdbg = new Ruab(dbginfo, ecdbg)
+    frontend = new CoojaGui(tcdbg, tcodefile, ecodefile, dbginfo, this)
     true
   }
 
-  override def startPlugin(): Unit = 
-    frontend.start()
+  override def startPlugin(): Unit = {
+    logger.info("starting Ruab plugin")
+    if (frontend == null) {
+      throw new RuntimeException("need config XML for this plugin")
+    } else frontend.start()
+  }
+
 
   override def closePlugin(): Unit =
     frontend.stop()
