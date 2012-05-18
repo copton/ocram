@@ -10,10 +10,11 @@ import Control.Monad.State (runState, State, get, put)
 import Data.Generics (gmapM, mkQ, mkM, extM, extQ, GenericQ, GenericM, Data)
 import Data.Maybe (mapMaybe, fromMaybe)
 import Language.C.Syntax.AST
+import Ocram.Print (ENodeInfo)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Types (Transformation)
 import Ocram.Transformation.Util (ident, map_critical_functions)
-import Ocram.Util (abort)
+import Ocram.Util (abort, unexp)
 import qualified Data.Map as Map
 
 unique_identifiers :: Transformation -- {{{1
@@ -30,20 +31,20 @@ unique_identifiers cg ast@(CTranslUnit ds _) =
     transform :: Data a => Identifiers -> a -> (a, Identifiers)
     transform ids x = runState (traverse (mkQ False quitStat `extQ` quitExpr) (mkM trDecl `extM` trStat `extM` trExpr) x) ids
 
-    quitStat :: CStat -> Bool
+    quitStat :: CStatement ENodeInfo -> Bool
     quitStat (CCompound _ _ _) = True
     quitStat _ = False
 
-    quitExpr :: CExpr -> Bool
+    quitExpr :: CExpression ENodeInfo -> Bool
     quitExpr (CCast _ _ _) = True
     quitExpr  (CSizeofType _ _) = True
     quitExpr  (CAlignofType _ _) = True
     quitExpr  _ = False
 
-    trDecl :: CDecl -> State Identifiers CDecl
+    trDecl :: CDeclaration ENodeInfo -> State Identifiers (CDeclaration ENodeInfo)
     trDecl = renameDecl
     
-    trStat :: CStat -> State Identifiers CStat
+    trStat :: CStatement ENodeInfo -> State Identifiers (CStatement ENodeInfo)
     trStat (CCompound x1 items x2) = do
       ids <- get 
       let (items', ids') = transform ids items
@@ -52,7 +53,7 @@ unique_identifiers cg ast@(CTranslUnit ds _) =
     
     trStat o = return o
 
-    trExpr :: CExpr -> State Identifiers CExpr
+    trExpr :: CExpression ENodeInfo -> State Identifiers (CExpression ENodeInfo)
     trExpr (CVar identifier ni) = do
       ids <- get
       let identifier' = getIdentifier ids (symbol identifier)
@@ -73,7 +74,7 @@ emptyIds = Identifiers Map.empty Map.empty
 getIdentifier :: Identifiers -> Symbol -> Symbol
 getIdentifier (Identifiers _ rt) name = fromMaybe name (Map.lookup name rt)
 
-renameDecl :: CDecl -> State Identifiers CDecl
+renameDecl :: CDeclaration ENodeInfo -> State Identifiers (CDeclaration ENodeInfo)
 renameDecl (CDecl x1 ds x2) = do
   ids <- get
   let ids' = foldl newIdentifier ids $ map symbol $ mapMaybe (\(x, _, _) -> x) ds
@@ -81,11 +82,11 @@ renameDecl (CDecl x1 ds x2) = do
   put ids'
   return $ CDecl x1 ds' x2
   
-renameDeclr :: Identifiers -> CDeclr -> CDeclr
+renameDeclr :: Identifiers -> CDeclarator ENodeInfo -> CDeclarator ENodeInfo
 renameDeclr ids (CDeclr (Just oldIdent) x2 x3 x4 x5) =
   let newIdent = ident $ getIdentifier ids (symbol oldIdent) in
   CDeclr (Just newIdent) x2 x3 x4 x5
-renameDeclr _ x = $abort $ "unexpected parameters"
+renameDeclr _ x = $abort $ unexp x
 
 newIdentifier :: Identifiers -> Symbol -> Identifiers
 newIdentifier (Identifiers es rt) identifier = case Map.lookup identifier rt of

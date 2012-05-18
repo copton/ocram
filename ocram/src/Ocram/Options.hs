@@ -15,6 +15,7 @@ data Options = Options {
     optInput :: String
   , optOutput :: String
   , optPalFile :: Maybe FilePath
+  , optDebugFile :: Maybe FilePath
   , optPalGenerator :: Maybe FilePath
   , optHelp :: Bool
 } deriving Show
@@ -52,6 +53,7 @@ available_options = [
   , Option "o" ["output"] (ReqArg (\x opts -> opts {optOutput = x}) "output") "output ec file (required)"
   , Option "g" ["generator"] (ReqArg (\x opts -> opts {optPalGenerator = Just x}) "generator") "External program which generates the PAL implementation. (optional)"
   , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalFile = Just x}) "pal") "target file path for the PAL generator program. Mandatory if generator is specified."
+  , Option "d" ["debug"] (ReqArg (\x opts -> opts {optDebugFile = Just x}) "debug") "target file path for debug information. (optional)"
   , Option "h" ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
   ]
 
@@ -60,6 +62,7 @@ defaultOptions = Options {
     optInput = ""
   , optOutput = ""
   , optPalFile = Nothing
+  , optDebugFile = Nothing
   , optPalGenerator = Nothing
   , optHelp = False
 }

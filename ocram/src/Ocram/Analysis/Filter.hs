@@ -17,7 +17,6 @@ import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
 import Ocram.Query (is_start_function', function_definition, is_blocking_function', function_parameters_cd)
 import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
-import Ocram.Types (Ast)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
 import qualified Data.Graph.Inductive.Graph as G
 import qualified Data.List as List
@@ -61,7 +60,7 @@ errors = [
 errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors
 
-check_sanity :: Ast -> Either [OcramError] () -- {{{1
+check_sanity :: CTranslUnit -> Either [OcramError] () -- {{{1
 check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStats) ast
 
 saneExtDecls :: CExtDecl -> [OcramError]
@@ -92,7 +91,7 @@ noVarName :: CDecl -> Bool
 noVarName (CDecl _ [] _) = True
 noVarName _ = False
 
-check_constraints :: Ast -> CallGraph -> Either [OcramError] () -- {{{1
+check_constraints :: CTranslUnit -> CallGraph -> Either [OcramError] () -- {{{1
 check_constraints ast cg = failOrPass $
      checkFunctionPointer cg ast
   ++ checkRecursion cg
@@ -101,7 +100,7 @@ check_constraints ast cg = failOrPass $
   ++ checkInitList cg ast
   ++ checkEllipses cg ast
 
-checkEllipses :: CallGraph -> Ast -> [OcramError] -- {{{2
+checkEllipses :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkEllipses cg ast = everything (++) (mkQ [] ellipses) ast
   where
   ellipses :: CExtDecl -> [OcramError]
@@ -116,7 +115,7 @@ checkEllipses cg ast = everything (++) (mkQ [] ellipses) ast
   ellipses' x@(CFunDeclr (Right (_, True)) _ _) = [newError Ellipses Nothing (Just (nodeInfo x))]
   ellipses' _ = []
 
-checkInitList :: CallGraph -> Ast -> [OcramError] -- {{{2
+checkInitList :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkInitList cg ast = everything (++) (mkQ [] saneDecls) $ mapMaybe (function_definition ast) $ critical_functions cg
   where
   saneDecls (CDecl _ l ni)
@@ -125,7 +124,7 @@ checkInitList cg ast = everything (++) (mkQ [] saneDecls) $ mapMaybe (function_d
   containsInitList (_, Just (CInitList _ _), _) = True
   containsInitList _ = False
 
-checkFunctionPointer :: CallGraph -> Ast -> [OcramError] -- {{{2
+checkFunctionPointer :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
   where
     check (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni)
@@ -150,7 +149,7 @@ createRecError (CallGraph gd _) call_stack =
     (callee:caller:[]) = take 2 $ List.reverse call_stack 
     location = $head_s $ edge_label gd caller callee
 
-checkStartFunctions :: CallGraph -> Ast -> [OcramError] -- {{{2
+checkStartFunctions :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkStartFunctions cg (CTranslUnit ds _) = foldr go [] ds
   where
   go (CFDefExt f@(CFunDef _ _ _ _ ni)) es

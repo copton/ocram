@@ -1,9 +1,15 @@
-module Ocram.Transformation.Inline.Types where
+module Ocram.Transformation.Inline.Types
+(
+  Transformation, WR
+)
+where
 
 import Control.Monad.Writer
-import Ocram.Types (DebugSymbols, Ast)
+import Language.C.Syntax.AST (CTranslationUnit)
 import Ocram.Analysis (CallGraph)
+import Ocram.Debug (VarMap)
+import Ocram.Print (ENodeInfo)
 
-type WR a = Writer DebugSymbols a
+type WR a = Writer VarMap a
 
-type Transformation = CallGraph -> Ast -> WR Ast
+type Transformation = CallGraph -> CTranslationUnit ENodeInfo -> WR (CTranslationUnit ENodeInfo)

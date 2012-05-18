@@ -46,6 +46,9 @@ Executable ocram
     process == 1.0.*,
     template-haskell,
     bytestring == 0.9.*,
+    pretty == 1.2,
+    json == 0.5.*,
+    nano-md5 == 0.1.*,
     HUnit == 1.2.*,
     test-framework == 0.6.*,
     test-framework-hunit == 0.2.*
@@ -58,7 +61,6 @@ Executable ocram
     Ocram.Symbols
     Ocram.Output
     Ocram.Text
-    Ocram.Types
     Ocram.Names
     Ocram.Options
     Ocram.Transformation.Inline.Normalize.Test
