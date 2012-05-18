@@ -20,7 +20,7 @@ import System.Process (createProcess, proc, StdStream(CreatePipe), CreateProcess
 
 dump_ecode :: Options -> String -> IO (Either [OcramError] ()) -- {{{1
 dump_ecode options ecode =
-  write (optOutput options) $ ecode ++ "\n"
+  write (optOutput options) $ ecode
 
 generate_pal :: Options -> Footprint -> CTranslationUnit ENodeInfo -> IO (Either [OcramError] ()) -- {{{1
 generate_pal options fpr header = case optPalGenerator options of
