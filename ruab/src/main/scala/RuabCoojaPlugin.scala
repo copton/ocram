@@ -54,8 +54,11 @@ class RuabCoojaPlugin(mote: Mote, sim: Simulation, gui: GUI)
   }
 
 
-  override def closePlugin(): Unit =
-    frontend.stop()
+  override def closePlugin(): Unit = {
+    logger.info("stopping Ruab plugin")
+    if (frontend != null)
+      frontend.stop()
+    }
 
   override def getMote(): Mote = mote
 }

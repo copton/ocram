@@ -83,7 +83,7 @@ trait DebugInformation {
     val eloc: ELocation
   )
 
-  type LocMap = Array[Location]
+  type LocMap = List[Location]
 
 /*
   case class Thread (
@@ -94,9 +94,9 @@ trait DebugInformation {
 */
 
   case class Information (
-    val checksum: Array[String],
-    val locations: LocMap
-//    val variables: List[Variable],
+    val checksum: Map[String, String],
+    val locmap: LocMap,
+    val varmap: List[Int] // TODO
 //    val threads: List[Thread]
   )
 
