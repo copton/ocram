@@ -1,6 +1,8 @@
 package ch.ethz.inf.vs.ruab {
 
 import java.security.MessageDigest
+import scala.util.matching.Regex
+import scala.collection.mutable.ListBuffer
 
 object Utils {
   def readFile(filename: String): String = {
@@ -32,8 +34,39 @@ object Utils {
     hex.toString
   }
 
-  final val HEXES = "0123456789abcdef";
+  private final val HEXES = "0123456789abcdef";
 
+  def foldIncludes(code: String): String = {
+    val Pattern = """# (\d+) "([^"]+)".*""".r
+    val Internal = """<[^>]*>""".r
+    var mainFile: String = null
+    var mainScope = false
+ 
+    val result: ListBuffer[String] = new ListBuffer()
+    for (line <- code.split("\n")) {
+      line match {
+        case Pattern(row, includeFile) =>
+          if (mainFile == null) {
+            mainFile = includeFile
+            mainScope = true
+          } else {
+            if (mainScope) {
+              mainScope = false
+              includeFile match {
+                case Internal() => null
+                case _ => result += ("#include \"%s\"" format includeFile)
+              }
+            } else {
+              if (includeFile == mainFile) {
+                mainScope = true
+              }
+            }
+          }
+        case _ => if (mainScope == true) result += line
+      }
+    }
+    result.mkString("", "\n", "") 
+  }
 }
 
 }

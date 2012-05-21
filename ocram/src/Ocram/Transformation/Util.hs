@@ -10,8 +10,8 @@ import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, is_critical)
+import Ocram.Debug (un)
 import Ocram.Symbols (symbol)
-import Ocram.Print (un)
 
 ident :: String -> Ident -- {{{1
 ident s = Ident s 0 undefNode

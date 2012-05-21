@@ -10,7 +10,7 @@ import Control.Monad.State (runState, State, get, put)
 import Data.Generics (gmapM, mkQ, mkM, extM, extQ, GenericQ, GenericM, Data)
 import Data.Maybe (mapMaybe, fromMaybe)
 import Language.C.Syntax.AST
-import Ocram.Print (ENodeInfo)
+import Ocram.Debug (ENodeInfo)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Types (Transformation)
 import Ocram.Transformation.Util (ident, map_critical_functions)

@@ -18,14 +18,14 @@ class CoojaGui(
 {
   def start(): Unit = {
     val debuginfo = dbginfo.load()
-    val params = List((tcodefile, "tcode"), (ecodefile, "ecode"))
+    val params = List((tcodefile, "tcode", Utils.foldIncludes _), (ecodefile, "ecode", (x:String) => x))
 
-    val text = params map {case (name, idx) => Utils.readFileVerify(
+    val text = params map {case (name, idx, filter) => filter(Utils.readFileVerify(
           name,
           debuginfo.checksum(idx)
         ).getOrElse(
          throw new RuntimeException("checksum for %s failed" format name)
-        )
+        ))
       }
 
     val mapper = text map (new TextPositionMapper(_))

@@ -12,7 +12,7 @@ import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Print (ENodeInfo(threadId))
+import Ocram.Debug (setThread, ENodeInfo, eNodeInfo, enableBreakpoint)
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Names
@@ -31,7 +31,7 @@ createThreadFunction :: CallGraph -> CTranslationUnit ENodeInfo -> (Int, Symbol)
 createThreadFunction cg ast (tid, startFunction) =
   let
     fun = CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (threadExecutionFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
-    fun' = fmap (\eni -> eni {threadId = Just tid}) fun
+    fun' = fmap (setThread tid) fun
     intro = CBlockStmt (CIf (CVar (ident contVar) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
     onlyDefs name = not (is_blocking cg name) && is_critical cg name
     functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
@@ -100,25 +100,25 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
           return $ CCompound x (concat items') y
         rewrite o = return o
 
-        transform o@(CBlockStmt (CExpr (Just (CCall (CVar iden _) params _)) _))
-          | is_critical cg calledFunction = callSequence calledFunction params Nothing
+        transform o@(CBlockStmt (CExpr (Just call@(CCall (CVar iden _) params _)) _))
+          | is_critical cg calledFunction = callSequence calledFunction (eNodeInfo call) params Nothing
           | otherwise = return [o]
           where calledFunction = symbol iden
 
-        transform o@(CBlockStmt (CExpr (Just (CAssign CAssignOp lhs (CCall (CVar iden _) params _) _)) _))
-          | is_critical cg calledFunction = callSequence calledFunction params (Just lhs)
+        transform o@(CBlockStmt (CExpr (Just (CAssign CAssignOp lhs call@(CCall (CVar iden _) params _) _)) _))
+          | is_critical cg calledFunction = callSequence calledFunction (eNodeInfo call) params (Just lhs)
           | otherwise = return [o]
           where calledFunction = symbol iden 
 
         transform o = return [o]
 
-        callSequence calledFunction params resultLhs = do
+        callSequence calledFunction ni params resultLhs = do
           lblIdx <- get
           put (lblIdx + 1)  
-          return $ criticalFunctionCallSequence calledFunction lblIdx params resultLhs
+          return $ criticalFunctionCallSequence calledFunction (enableBreakpoint ni) lblIdx params resultLhs
 
-    criticalFunctionCallSequence :: Symbol -> Int -> [CExpression ENodeInfo] -> Maybe (CExpression ENodeInfo)-> [CCompoundBlockItem ENodeInfo] -- {{{3
-    criticalFunctionCallSequence calledFunction lblIdx params resultLhs =
+    criticalFunctionCallSequence :: Symbol -> ENodeInfo -> Int -> [CExpression ENodeInfo] -> Maybe (CExpression ENodeInfo)-> [CCompoundBlockItem ENodeInfo] -- {{{3
+    criticalFunctionCallSequence calledFunction ni lblIdx params resultLhs =
       parameters ++ continuation : callExp : returnExp ?: lbl' : resultExp ?: []
       where
         callChain' = callChain ++ [calledFunction]
@@ -131,8 +131,8 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
         assignResult lhs = createAssign lhs (stackAccess callChain' (Just resVar))
 
         callExp = CBlockStmt $ if blocking
-          then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain' Nothing) un] un)) un
-          else CGoto (ident $ label calledFunction 0) un
+          then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain' Nothing) un] ni)) un
+          else CGoto (ident $ label calledFunction 0) ni
 
         returnExp = if blocking
           then Just (CBlockStmt (CReturn Nothing un))

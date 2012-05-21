@@ -13,7 +13,7 @@ import Data.Monoid (Any(Any, getAny), mappend)
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants (cInteger)
 import Ocram.Analysis (is_critical)
-import Ocram.Print (ENodeInfo)
+import Ocram.Debug (ENodeInfo)
 import Ocram.Query (return_type, return_type_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Inline.Names (tempVar)
