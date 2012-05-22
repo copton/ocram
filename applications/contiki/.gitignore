@@ -11,3 +11,4 @@ pal.c
 app-tc.o
 *.pyc
 *log
+debug.json

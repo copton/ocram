@@ -40,14 +40,17 @@ module Ocram.Print
 ) where
 
 -- import {{{1
+import Control.Arrow (first)
 import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
 import Text.PrettyPrint
 import Ocram.Debug (ENodeInfo(threadId), ELocation(ELocation), Location(Location), LocMap, validBreakpoint, tlocation)
 import Ocram.Util (abort)
 
-print_with_log :: CTranslationUnit ENodeInfo -> (String, LocMap)
-print_with_log tu = renderWithLog (pretty tu)
+import qualified Data.ByteString.Char8 as BS
+
+print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, LocMap)
+print_with_log tu = first BS.pack $ renderWithLog (pretty tu)
 
 marker :: ENodeInfo -> DocL LocMap -> DocL LocMap
 marker eni doc

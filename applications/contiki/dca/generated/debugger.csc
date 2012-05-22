@@ -188,5 +188,18 @@
     <location_y>78</location_y>
     <minimized>true</minimized>
   </plugin>
+  <plugin>
+    ch.ethz.inf.vs.ruab.RuabCoojaPlugin
+    <mote_arg>1</mote_arg>
+    <width>207</width>
+    <z>4</z>
+    <height>80</height>
+    <location_x>42</location_x>
+    <location_y>599</location_y>
+	<plugin_config>
+		<tcodefile>/home/alex/scm/ocram/applications/contiki/dca/generated/app-tc.c</tcodefile>
+		<ecodefile>/home/alex/scm/ocram/applications/contiki/dca/generated/app-ec.c</ecodefile>
+		<debugfile>/home/alex/scm/ocram/applications/contiki/dca/generated/debug.json</debugfile>
+	</plugin_config>
+  </plugin>
 </simconf>
-

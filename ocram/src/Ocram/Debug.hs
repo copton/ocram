@@ -86,15 +86,15 @@ tlocation eni =
   in
     TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
 
-format_debug_info :: BS.ByteString -> String -> LocMap -> VarMap -> String -- {{{1
+format_debug_info :: BS.ByteString -> BS.ByteString -> LocMap -> VarMap -> BS.ByteString -- {{{1
 format_debug_info tcode ecode lm vm =
   let
     cs = JSString . toJSString . md5sum
     tcodeChecksum = cs tcode
-    ecodeChecksum = cs $ BS.pack ecode
+    ecodeChecksum = cs ecode
     checksum = JSArray [tcodeChecksum, ecodeChecksum]
   in
-    encodeStrict $ toJSObject [
+    (BS.pack . encodeStrict . toJSObject) [
       ("checksum", checksum),
       ("varmap", showJSON vm),
       ("locmap", showJSON lm)
