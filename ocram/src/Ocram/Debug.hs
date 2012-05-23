@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ViewPatterns #-} 
 module Ocram.Debug
 -- export {{{1
 (
@@ -18,6 +19,7 @@ import Language.C.Syntax.AST (CExpression(CCall))
 import Language.C.Data.Position (posRow, posColumn)
 import Ocram.Symbols (Symbol)
 import Ocram.Util (abort, unexp)
+import Text.Regex.Posix ((=~))
 import Text.JSON (encodeStrict, toJSObject, toJSString, JSON(..), JSValue(JSArray, JSString))
 
 import qualified Data.ByteString.Char8 as BS
@@ -45,6 +47,10 @@ instance JSON Location where
       (Just t') -> showJSON [r, c, l, r', c', t']
   
 type LocMap = [Location] -- {{{1
+
+type PrepLocation = (Int, Int)
+
+type PrepMap = [PrepLocation] -- {{{1
 
 type Variable = Symbol -- {{{1
 type VarMap = [(Variable, Variable)]
@@ -86,19 +92,39 @@ tlocation eni =
   in
     TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
 
-format_debug_info :: BS.ByteString -> BS.ByteString -> LocMap -> VarMap -> BS.ByteString -- {{{1
-format_debug_info tcode ecode lm vm =
+format_debug_info :: BS.ByteString -> BS.ByteString -> BS.ByteString -> LocMap -> VarMap -> BS.ByteString -- {{{1
+format_debug_info tcode tcode' ecode lm vm =
   let
     cs = JSString . toJSString . md5sum
     tcodeChecksum = cs tcode
     ecodeChecksum = cs ecode
     checksum = JSArray [tcodeChecksum, ecodeChecksum]
+    pm = prepMap tcode'
   in
     (BS.pack . encodeStrict . toJSObject) [
       ("checksum", checksum),
+      ("prepmap", showJSON pm),
+      ("locmap", showJSON lm),
       ("varmap", showJSON vm),
-      ("locmap", showJSON lm)
+      ("preprocessed", showJSON tcode')
     ]
+
+prepMap :: BS.ByteString -> PrepMap
+prepMap code = (reverse . fst . foldl go ([], 2)) rest
+  where
+    (first:rest) = BS.split '\n' code
+    match :: BS.ByteString -> (BS.ByteString, BS.ByteString, BS.ByteString, [BS.ByteString])
+    match txt = txt =~ "^# ([0-9]*) \"([^\"]+)\".*$"
+    mainFile = case match first of
+      (_, (BS.null -> True), _, _) -> $abort $ "unexpected first row in pre-processed file"
+      (_, _, _, (_:file:_)) -> file
+      x -> $abort $ "unexpected parameter: " ++ show x
+    go (tplm, row) line = case match line of
+      (_, (BS.null -> True), _, _ ) -> (tplm, row + 1)
+      (_, _, _, (row':file:_)) -> if file == mainFile
+        then (((read . BS.unpack) row', row) : tplm, row + 1)
+        else (tplm, row + 1)
+      x -> $abort $ "unexpected parameter:" ++ show x
 
 class CENode a where
   eNodeInfo :: a -> ENodeInfo

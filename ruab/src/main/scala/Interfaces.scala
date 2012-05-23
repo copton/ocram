@@ -95,8 +95,10 @@ trait DebugInformation {
 
   case class Information (
     val checksum: Map[String, String],
+    val prepmap: List[(Int, Int)],
     val locmap: LocMap,
-    val varmap: List[Int] // TODO
+    val varmap: List[Int], // TODO
+    val preprocessed: String
 //    val threads: List[Thread]
   )
 

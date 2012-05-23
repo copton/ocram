@@ -129,7 +129,7 @@
   <plugin>
     se.sics.cooja.plugins.SimControl
     <width>318</width>
-    <z>3</z>
+    <z>-1</z>
     <height>186</height>
     <location_x>3</location_x>
     <location_y>2</location_y>
@@ -156,7 +156,7 @@
       <coloring />
     </plugin_config>
     <width>1094</width>
-    <z>2</z>
+    <z>-1</z>
     <height>672</height>
     <location_x>319</location_x>
     <location_y>1</location_y>
@@ -170,7 +170,7 @@
     </plugin_config>
     <mote_arg>1</mote_arg>
     <width>207</width>
-    <z>0</z>
+    <z>-1</z>
     <height>80</height>
     <location_x>42</location_x>
     <location_y>599</location_y>
@@ -191,11 +191,11 @@
   <plugin>
     ch.ethz.inf.vs.ruab.RuabCoojaPlugin
     <mote_arg>1</mote_arg>
-    <width>207</width>
-    <z>4</z>
-    <height>80</height>
-    <location_x>42</location_x>
-    <location_y>599</location_y>
+    <z>0</z>
+    <width>1413</width>
+    <height>888</height>
+    <location_x>0</location_x>
+    <location_y>0</location_y>
 	<plugin_config>
 		<tcodefile>/home/alex/scm/ocram/applications/contiki/dca/generated/app-tc.c</tcodefile>
 		<ecodefile>/home/alex/scm/ocram/applications/contiki/dca/generated/app-ec.c</ecodefile>

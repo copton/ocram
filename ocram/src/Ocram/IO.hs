@@ -25,13 +25,13 @@ import System.Process (createProcess, proc, StdStream(CreatePipe), CreateProcess
 
 import qualified Data.ByteString.Char8 as BS
 
-parse :: Options -> IO (Either [OcramError] (BS.ByteString, CTranslUnit)) -- {{{1
+parse :: Options -> IO (Either [OcramError] (BS.ByteString, BS.ByteString, CTranslUnit)) -- {{{1
 parse opt = do
   tcode <- BS.readFile infile
   runOcramError $ do
     tcode' <- IoOcramError $ exec ((words (optPreprocessor opt)) ++ [infile]) Nothing
     ast <- parseC' tcode'
-    return (tcode, ast)
+    return (tcode, tcode', ast)
   where
     infile = optInput opt
     parseC' code = case parseC code (initPos infile) of

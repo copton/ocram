@@ -12,14 +12,14 @@ object Utils {
     lines
   }
 
-  def readFileVerify(filename: String, sum: String): Option[String]= {
+  def readFileVerify(filename: String, sum: String): String = {
     val source = io.Source.fromFile(filename)
     val lines = source.mkString
     val md = MessageDigest.getInstance("MD5")
     md.update(lines.getBytes)
     val sumIs = getHex(md.digest())
     source.close() 
-    if (sumIs == sum) Some(lines) else None
+    if (sumIs == sum) lines else throw new RuntimeException("checksum of %s failed" format filename)
   }
 
   def getHex(raw: Array[Byte]): String = {

@@ -24,13 +24,13 @@ runCompiler :: [String] -> IO () -- {{{2
 runCompiler argv = do
   prg <- getProgName
   opt <- exitOnError "options" $ options prg argv 
-  (tcode, ast) <- exitOnError "parser" =<< parse opt
+  (tcode, tcode', ast) <- exitOnError "parser" =<< parse opt
   (cg, fpr) <- exitOnError "analysis" $ analysis ast
   let (ast', pal, varMap) = Inline.transformation cg ast
   let (ecode, locMap) = print_with_log ast'
   exitOnError "output" =<< generate_pal opt fpr pal
   exitOnError "output" =<< dump_ecode opt ecode
-  exitOnError "output" =<< (dump_debug_info opt $ format_debug_info tcode ecode locMap varMap)
+  exitOnError "output" =<< (dump_debug_info opt $ format_debug_info tcode tcode' ecode locMap varMap)
   return ()
 
 exitOnError :: String -> Either [OcramError] a -> IO a -- {{{2
