@@ -18,14 +18,14 @@ class CoojaGui(
 {
   def start(): Unit = {
     val debuginfo = dbginfo.load()
-    val params = List((tcodefile, "tcode", Utils.foldIncludes _), (ecodefile, "ecode", (x:String) => x))
+    val params = List((tcodefile, "tcode"), (ecodefile, "ecode"))
 
-    val text = params map {case (name, idx, filter) => filter(Utils.readFileVerify(
+    val text = params map {case (name, idx) => Utils.readFileVerify(
           name,
           debuginfo.checksum(idx)
         ).getOrElse(
          throw new RuntimeException("checksum for %s failed" format name)
-        ))
+        )
       }
 
     val mapper = text map (new TextPositionMapper(_))
@@ -52,21 +52,20 @@ class CoojaGui(
     cooja.add(new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, panes(0), panes(1)))
   }
 
-  class TextPositionMapper(val text: String) {
-    val lineLength = (for (line <- text.split("\n")) yield line.size).toList
-    val lineSum = lineLength.foldLeft((0, List[Int]()))((sum: (Int, List[Int]), elem: Int) =>
-      (sum._1 + elem, (sum._1 + elem) :: sum._2))._2
-
-    def coord2pos(coord : (Int, Int)): Int = lineLength.take(coord._1).sum + coord._2
-
-    def pos2coord(pos: Int): (Int, Int) = {
-      val rows = lineSum.takeWhile(_<pos)
-      (rows.length, pos - rows.last)
-    }
-  }
-
   def stop(): Unit = ()
 }
 
+class TextPositionMapper(val text: String) {
+  val lineLength = (text.split("\n") map (_.length + 1)).toList
+  val lineSum = lineLength.foldLeft((0, List[Int]()))((sum: (Int, List[Int]), elem: Int) =>
+    (sum._1 + elem, sum._1 :: sum._2))._2.reverse
+
+  def coord2pos(coord : (Int, Int)): Int = lineSum(coord._1 - 1) + coord._2 - 1
+
+  def pos2coord(pos: Int): (Int, Int) = {
+    val rows = lineSum.takeWhile(_<pos)
+    (rows.length, pos - rows.last + 1)
+  }
+}
 
 }

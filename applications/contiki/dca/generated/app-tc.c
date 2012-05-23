@@ -69,7 +69,7 @@ TC_RUN_THREAD void task_receive(uint16_t lport, uint16_t rport)
     udp_bind(server_conn, UIP_HTONS(UDP_SERVER_PORT));
 
     while (1) {
-		tc_receive(NULL);
+        tc_receive(NULL);
         uint8_t* appdata = uip_appdata;
         ASSERT((uip_datalen() % sizeof(uint32_t)) == 0);
         size_t numberof_values = uip_datalen() / sizeof(uint32_t);
