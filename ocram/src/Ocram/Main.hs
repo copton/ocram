@@ -4,14 +4,16 @@ module Ocram.Main (main) where
 import Ocram.Analysis (analysis)
 import Ocram.Debug (format_debug_info)
 import Ocram.Options (options)
-import Ocram.IO (parse, generate_pal, dump_ecode, dump_debug_info)
+import Ocram.IO (parse, generate_pal, dump_ptcode, dump_ecode, dump_debug_info)
 import Ocram.Print (print_with_log)
 import Ocram.Text (OcramError, show_errors)
 import Ocram.Test (runTests)
-import qualified Ocram.Transformation.Inline as Inline
+import System.Directory (getCurrentDirectory)
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
+
+import qualified Ocram.Transformation.Inline as Inline
 
 main :: IO () -- {{{1
 main = do
@@ -23,14 +25,17 @@ main = do
 runCompiler :: [String] -> IO () -- {{{2
 runCompiler argv = do
   prg <- getProgName
+  cwd <- getCurrentDirectory
   opt <- exitOnError "options" $ options prg argv 
-  (tcode, tcode', ast) <- exitOnError "parser" =<< parse opt
+  (tcode, ptcode, ast) <- exitOnError "parser" =<< parse opt
   (cg, fpr) <- exitOnError "analysis" $ analysis ast
   let (ast', pal, varMap) = Inline.transformation cg ast
   let (ecode, locMap) = print_with_log ast'
+  let debuginfo = format_debug_info opt cwd tcode ptcode ecode locMap varMap
   exitOnError "output" =<< generate_pal opt fpr pal
+  exitOnError "output" =<< dump_ptcode opt ptcode
   exitOnError "output" =<< dump_ecode opt ecode
-  exitOnError "output" =<< (dump_debug_info opt $ format_debug_info tcode tcode' ecode locMap varMap)
+  exitOnError "output" =<< dump_debug_info opt debuginfo
   return ()
 
 exitOnError :: String -> Either [OcramError] a -> IO a -- {{{2

@@ -12,3 +12,4 @@ app-tc.o
 *.pyc
 *log
 debug.json
+app-ptc.c

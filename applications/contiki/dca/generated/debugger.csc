@@ -197,8 +197,6 @@
     <location_x>0</location_x>
     <location_y>0</location_y>
 	<plugin_config>
-		<tcodefile>/home/alex/scm/ocram/applications/contiki/dca/generated/app-tc.c</tcodefile>
-		<ecodefile>/home/alex/scm/ocram/applications/contiki/dca/generated/app-ec.c</ecodefile>
 		<debugfile>/home/alex/scm/ocram/applications/contiki/dca/generated/debug.json</debugfile>
 	</plugin_config>
   </plugin>

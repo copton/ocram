@@ -22,7 +22,7 @@ object Utils {
     if (sumIs == sum) lines else throw new RuntimeException("checksum of %s failed" format filename)
   }
 
-  def getHex(raw: Array[Byte]): String = {
+  private def getHex(raw: Array[Byte]): String = {
     if ( raw == null ) {
       return null;
     }

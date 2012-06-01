@@ -1,4 +1,4 @@
-import java.util.Collection
+import java.util.{Collection, ArrayList}
 import org.jdom.Element
 import scala.collection.JavaConversions._
 import se.sics.cooja.ClassDescription
@@ -21,29 +21,31 @@ class RuabCoojaPlugin(mote: Mote, sim: Simulation, gui: GUI)
   var frontend: Frontend = null
 
   val logger = Logger.getLogger(classOf[RuabCoojaPlugin])
+  var debugfile = ""
 
   override def setConfigXML(config: Collection[Element], visAvailable: Boolean): Boolean = {
     logger.info("configuring Ruab plugin")
-    var tcodefile = ""
-    var ecodefile = ""
-    var debugfile = ""
     for (element <- config) {
       element.getName match {
-        case "tcodefile" => tcodefile = element.getText
-        case "ecodefile" => ecodefile = element.getText
         case "debugfile" => debugfile = element.getText
       }
     }
-    for (item <- List(tcodefile, ecodefile, debugfile)) {
-      if (item.isEmpty) {
-        throw new RuntimeException("no %s config found" format item)
-      }
+    if (debugfile.isEmpty) {
+      throw new RuntimeException("no %s config found" format debugfile)
     }
     val ecdbg = new CoojaBackend(mote)
     val dbginfo = new OcramDebugInformation(debugfile)
     val tcdbg = new Ruab(dbginfo, ecdbg)
-    frontend = new CoojaGui(tcdbg, tcodefile, ecodefile, dbginfo, this)
+    frontend = new CoojaGui(tcdbg, dbginfo, this)
     true
+  }
+
+  override def getConfigXML(): Collection[Element] = {
+    val config = new ArrayList[Element]
+    val element = new Element("debugfile")
+    element.setText(debugfile)
+    config.add(element)
+    config
   }
 
   override def startPlugin(): Unit = {

@@ -9,8 +9,6 @@ package ch.ethz.inf.vs.ruab {
 
 class CoojaGui(
   val tcdbg: TcodeDebugger,
-  val tcodefile: String,
-  val ecodefile: String,
   val dbginfo: DebugInformation,
   val cooja: VisPlugin
   )
@@ -19,15 +17,10 @@ class CoojaGui(
   import CoojaGui._
 
   var codes: List[Code] = null
-  val debuginfo = dbginfo.load()
   val painter = new DefaultHighlighter.DefaultHighlightPainter(Color.green)
 
   def start(): Unit = {
-    val text = List(
-      Utils.readFileVerify(tcodefile, debuginfo.checksum("tcode")),
-      debuginfo.preprocessed,
-      Utils.readFileVerify(ecodefile, debuginfo.checksum("ecode"))
-    )
+    val text = List(dbginfo.tcode, dbginfo.ptcode, dbginfo.ecode)
 
     val mappers = text map (new TextPositionMapper(_))
 
@@ -43,17 +36,6 @@ class CoojaGui(
     }
 
     for (area <- areas) area.setHighlighter(new DefaultHighlighter())
-
-
-    
-/*
-    for (loc <- debuginfo.locmap) {
-      val coord = (loc.tloc.row, loc.tloc.col)
-      val start = mapper(0).coord2pos(coord)
-      val end = start + loc.tloc.len
-      hl.addHighlight(start, end, painter)
-    }
-*/
 
     val panes = areas map (new JScrollPane(_))
 
@@ -83,8 +65,7 @@ class CoojaGui(
     val area = code.area
     val mapper = code.mapper
     val viewport = SwingUtilities.getAncestorOfClass(classOf[JViewport], area).asInstanceOf[JViewport]
-    val mapping = debuginfo.prepmap.takeWhile(_._1 < row).last
-    val targetRow = mapping._2 + (row - mapping._1) + 1
+    val targetRow = dbginfo.trow2ptrow(row)
     val hl = area.getHighlighter
     val coord = new Coord(1, targetRow)
 

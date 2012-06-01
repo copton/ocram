@@ -6,7 +6,6 @@ class Ruab (
   )
   extends TcodeDebugger
 {
-  val debuginfo = dbginfo.load()
   var breakpoints: List[Breakpoint] = Nil
 
   override def setBreakpoint(line: Int, thread: Thread): Breakpoint = null

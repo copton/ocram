@@ -50,6 +50,8 @@ Executable ocram
     json == 0.5.*,
     regex-posix == 0.95.*,
     nano-md5 == 0.1.*,
+    filepath == 1.2.*,
+    directory == 1.1.*,
     HUnit == 1.2.*,
     test-framework == 0.6.*,
     test-framework-hunit == 0.2.*

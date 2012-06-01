@@ -83,8 +83,6 @@ trait DebugInformation {
     val eloc: ELocation
   )
 
-  type LocMap = List[Location]
-
 /*
   case class Thread (
     val id: Int,
@@ -93,16 +91,13 @@ trait DebugInformation {
   )
 */
 
-  case class Information (
-    val checksum: Map[String, String],
-    val prepmap: List[(Int, Int)],
-    val locmap: LocMap,
-    val varmap: List[Int], // TODO
-    val preprocessed: String
-//    val threads: List[Thread]
-  )
+  def tcode(): String
+  def ptcode(): String
+  def ecode(): String
 
-  def load(): Information
+  def trow2ptrow(row: Int): Int
+
+
 }
 
 }

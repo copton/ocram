@@ -17,12 +17,25 @@ import Data.Typeable (Typeable)
 import Language.C.Data.Node (CNode(..), lengthOfNode, isUndefNode, NodeInfo, undefNode, posOfNode)
 import Language.C.Syntax.AST (CExpression(CCall))
 import Language.C.Data.Position (posRow, posColumn)
+import Ocram.Options
 import Ocram.Symbols (Symbol)
-import Ocram.Util (abort, unexp)
+import Ocram.Util (abort, unexp, fromJust_s)
+import System.FilePath ((</>))
 import Text.Regex.Posix ((=~))
-import Text.JSON (encodeStrict, toJSObject, toJSString, JSON(..), JSValue(JSArray, JSString))
+import Text.JSON (encodeStrict, toJSObject, toJSString, JSON(..), JSValue(JSString, JSObject))
 
 import qualified Data.ByteString.Char8 as BS
+
+data File = -- {{{1
+  File {fileName :: String, fileChecksum :: String}
+
+instance JSON File where
+  readJSON _ = undefined
+  
+  showJSON (File name cs) = JSObject $ toJSObject [
+      ("file", (JSString . toJSString) name),
+      ("checksum", (JSString . toJSString) cs)
+    ]
 
 data TLocation = -- {{{1
   TLocation {tlocRow :: Int, tlocCol :: Int, tlocLen :: Int}
@@ -92,22 +105,16 @@ tlocation eni =
   in
     TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
 
-format_debug_info :: BS.ByteString -> BS.ByteString -> BS.ByteString -> LocMap -> VarMap -> BS.ByteString -- {{{1
-format_debug_info tcode tcode' ecode lm vm =
-  let
-    cs = JSString . toJSString . md5sum
-    tcodeChecksum = cs tcode
-    ecodeChecksum = cs ecode
-    checksum = JSArray [tcodeChecksum, ecodeChecksum]
-    pm = prepMap tcode'
-  in
-    (BS.pack . encodeStrict . toJSObject) [
-      ("checksum", checksum),
-      ("prepmap", showJSON pm),
-      ("locmap", showJSON lm),
-      ("varmap", showJSON vm),
-      ("preprocessed", showJSON tcode')
-    ]
+format_debug_info :: Options -> FilePath -> BS.ByteString -> BS.ByteString -> BS.ByteString -> LocMap -> VarMap -> BS.ByteString -- {{{1
+format_debug_info opt cwd tcode ptcode ecode lm vm =
+  (BS.pack . encodeStrict . toJSObject) [
+    ("tcode", showJSON (File (cwd </> optInput opt) (md5sum tcode))),
+    ("ptcode", showJSON (File (cwd </> $fromJust_s (optPTFile opt)) (md5sum ptcode))),
+    ("ecode", showJSON (File (cwd </> optOutput opt) (md5sum ecode))),
+    ("prepmap", showJSON (prepMap ptcode)),
+    ("locmap", showJSON lm),
+    ("varmap", showJSON vm)
+  ]
 
 prepMap :: BS.ByteString -> PrepMap
 prepMap code = (reverse . fst . foldl go ([], 2)) rest
