@@ -57,6 +57,14 @@ trait EcodeDebugger {
   def query(variable: Variable): String
 }
 
+case class Coord(val col: Int, val row: Int)
+
+abstract class Text(val text: String) {
+  def coord2pos(coord: Coord): Int
+  def eol(row: Int): Int
+  def pos2coord(pos: Int): Coord
+}
+
 trait DebugInformation {
 /*
   case class Variable(
@@ -79,6 +87,8 @@ trait DebugInformation {
   )
 
   case class Location (
+    val start: Int,
+    val end: Int,
     val tloc: TLocation,
     val eloc: ELocation
   )
@@ -90,14 +100,12 @@ trait DebugInformation {
     val callGraph: CallGraph
   )
 */
-
-  def tcode(): String
-  def ptcode(): String
-  def ecode(): String
+  def tcode(): Text
+  def ptcode(): Text
+  def ecode(): Text
 
   def trow2ptrow(row: Int): Int
-
-
+  def getLocation(coord: Coord): Option[Location]
 }
 
 }

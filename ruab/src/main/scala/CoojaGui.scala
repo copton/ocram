@@ -17,17 +17,16 @@ class CoojaGui(
   import CoojaGui._
 
   var codes: List[Code] = null
-  val painter = new DefaultHighlighter.DefaultHighlightPainter(Color.green)
+  val green = new DefaultHighlighter.DefaultHighlightPainter(Color.green)
+  val red = new DefaultHighlighter.DefaultHighlightPainter(Color.red)
 
   def start(): Unit = {
     val text = List(dbginfo.tcode, dbginfo.ptcode, dbginfo.ecode)
 
-    val mappers = text map (new TextPositionMapper(_))
-
     val font = Font.decode("Courier 12")
     val areas = text.zipWithIndex map {
       case (txt, idx) => {
-        val jta = new JTextArea(txt)
+        val jta = new JTextArea(txt.text)
         jta.setFont(font)
         jta.setEditable(false)
         jta.addMouseListener(new MouseListener(idx, this))
@@ -42,85 +41,94 @@ class CoojaGui(
     cooja.setLayout(new GridLayout(1, panes.length))
     for (pane <- panes) cooja.add(pane)
 
-    codes = for ((mapper, area) <- mappers zip areas) yield new Code(mapper, area)
+    codes = for ((text, area) <- text zip areas) yield new Code(text, area)
   }
 
-  def mouseClicked(index: Int, ev: event.MouseEvent): Unit = {
-    val code = codes(index)
-    val fm = code.area.getFontMetrics(code.area.getFont)
-    val col: Int = ev.getX / fm.getMaxAdvance + 1
-    val row: Int = ev.getY / fm.getHeight + 1
+  def jumpToLine(point: Point) {
+    val coord = codes(0).point2coord(point)
+    val code = codes(1)
+    val hl = code.area.getHighlighter
+    val targetRow = dbginfo.trow2ptrow(coord.row)
+    hl.removeAllHighlights()
+    hl.addHighlight(
+      code.text.coord2pos(new Coord(1, targetRow)),
+      code.text.eol(targetRow),
+      green 
+    )
+    code.scroll(targetRow)
+    code.area.repaint()
+  }
 
-    Console.println("idx: " + index + ", row: " + row + ", col: " + col)
+  def setBreakpoint(point: Point) {
+    val coord = codes(1).point2coord(point)
+    Console.println("setBreakpoint: " + coord)
+    dbginfo.getLocation(coord) match {
+      case None => ()
+      case Some(loc) => {
+        val hl1 = codes(1).area.getHighlighter
+        hl1.removeAllHighlights()
+        hl1.addHighlight(loc.start, loc.end, red)
+        codes(1).area.repaint()
 
-    index match {
-      case 0 => jumpToLine(row)
-      case 1 => setBreakpoint(row, col)
-      case _ => ()
+        val hl2 = codes(2).area.getHighlighter
+        hl2.removeAllHighlights()
+        hl2.addHighlight(
+          codes(2).text.coord2pos(new Coord(1, loc.eloc.row)),
+          codes(2).text.eol(loc.eloc.row),
+          red
+        )
+        codes(2).scroll(loc.eloc.row)
+        codes(2).area.repaint()
+      }
     }
   }
 
-  def jumpToLine(row: Int) {
-    val code = codes(1)
-    val area = code.area
-    val mapper = code.mapper
-    val viewport = SwingUtilities.getAncestorOfClass(classOf[JViewport], area).asInstanceOf[JViewport]
-    val targetRow = dbginfo.trow2ptrow(row)
-    val hl = area.getHighlighter
-    val coord = new Coord(1, targetRow)
-
-    hl.removeAllHighlights()
-    hl.addHighlight(mapper.coord2pos(coord), mapper.eol(targetRow), painter)
-
-    val extentHeight = viewport.getExtentSize.height;
-	  val viewHeight = viewport.getViewSize.height;
-    val center = code.coord2point(coord)
-    val y = math.min(math.max(0, center.y - (extentHeight / 2)), viewHeight - extentHeight)
-
-    viewport.setViewPosition(new Point(0, y));
-
-    area.repaint()
-  }
-
-  def setBreakpoint(row: Int, col: Int) { }
 
   def stop(): Unit = ()
 }
 
 object CoojaGui {
   class MouseListener(val index: Int, val gui: CoojaGui) extends event.MouseListener {
-    def mouseClicked(ev: event.MouseEvent): Unit = gui.mouseClicked(index, ev)
+    def mouseClicked(ev: event.MouseEvent): Unit = {
+      val point = ev.getPoint()
+      val action = (index, ev.getButton())
+      action match {
+        case (0, event.MouseEvent.BUTTON1) => gui.jumpToLine(point)
+        case (1, event.MouseEvent.BUTTON1) => gui.setBreakpoint(point)
+        case _ => ()
+      }
+    }
     def mouseEntered(e: event.MouseEvent): Unit = ()
     def mouseExited(e: event.MouseEvent): Unit = ()
     def mousePressed(e: event.MouseEvent): Unit = ()
     def mouseReleased(e: event.MouseEvent): Unit = ()
   }
-  case class Coord(val col: Int, val row: Int)
   class Code (
-    val mapper: TextPositionMapper, 
+    val text: Text,
     val area: JTextArea
   ) {
     private val fm = area.getFontMetrics(area.getFont)
     def point2coord(p: Point): Coord =
       new Coord(p.x / fm.getMaxAdvance + 1, p.y / fm.getHeight + 1)
+
     def coord2point(coord: Coord): Point =
-      new Point((coord.col - 1) * fm.getMaxAdvance, (coord.row - 1) * fm.getHeight)
-  }
+      new Point(coordCol2pointX(coord.col), coordRow2pointY(coord.row))
 
-  class TextPositionMapper(val text: String) {
-    val lineLength = (text.split("\n") map (_.length + 1)).toList
-    val lineSum = lineLength.foldLeft((0, List[Int]()))((sum: (Int, List[Int]), elem: Int) =>
-      (sum._1 + elem, sum._1 :: sum._2))._2.reverse
+    private def coordRow2pointY(row: Int) = (row - 1) * fm.getHeight
 
-    def coord2pos(coord: Coord): Int = lineSum(coord.row - 1) + coord.col - 1
+    private def coordCol2pointX(col: Int) = (col - 1) * fm.getMaxAdvance 
 
-    def eol(row: Int): Int = lineSum(row)
+    def scroll(row: Int): Unit = {
+      val viewport = SwingUtilities.getAncestorOfClass(classOf[JViewport], area).asInstanceOf[JViewport]
+      val extentHeight = viewport.getExtentSize.height
+      val viewHeight = viewport.getViewSize.height
+      val center = coordRow2pointY(row)
+      val y = math.min(math.max(0, center - (extentHeight / 2)), viewHeight - extentHeight)
 
-    def pos2coord(pos: Int): Coord = {
-      val rows = lineSum.takeWhile(_ < pos)
-      new Coord(rows.length, pos - rows.last + 1)
+      viewport.setViewPosition(new Point(0, y));
     }
   }
+
 }
 
 }
