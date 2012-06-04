@@ -7,7 +7,7 @@ module Ocram.Transformation.Inline.TStack
 -- imports {{{1
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, get_callees, dependency_list, CallGraph, is_start)
-import Ocram.Print (ENodeInfo)
+import Ocram.Debug (ENodeInfo)
 import Ocram.Query (local_variables, return_type)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types

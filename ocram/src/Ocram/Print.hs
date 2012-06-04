@@ -33,61 +33,31 @@
 -- OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 -- }}}1
-{-# LANGUAGE DeriveDataTypeable #-}
 module Ocram.Print
 -- export {{{1
 (
-  print_with_log, un, ENodeInfo(..), pretty
+  print_with_log, pretty
 ) where
 
 -- import {{{1
-import Data.Data (Data)
-import Data.Typeable (Typeable)
-import Data.Maybe (fromMaybe)
-import Language.C.Data hiding (Position)
-import Language.C.Data.Node (CNode(..), lengthOfNode, isUndefNode)
+import Control.Arrow (first)
 import Language.C.Syntax
+import Language.C.Data.Ident (Ident, identToString)
 import Text.PrettyPrint
-import Ocram.Debug (TLocation(..), ELocation(..), LocMap)
+import Ocram.Debug (ENodeInfo(threadId), ELocation(ELocation), Location(Location), LocMap, validBreakpoint, tlocation)
 import Ocram.Util (abort)
 
-data ENodeInfo = ENodeInfo {
-  tnodeInfo :: NodeInfo,
-  threadId :: Maybe Int
-  } deriving (Data, Typeable)
+import qualified Data.ByteString.Char8 as BS
 
-instance CNode ENodeInfo where
-  nodeInfo = tnodeInfo
-
-instance Show ENodeInfo where
-  show _ = ""
-
-eNodeInfo :: NodeInfo -> ENodeInfo
-eNodeInfo ni = ENodeInfo ni Nothing
-
-eNodeInfo' :: NodeInfo -> Int -> ENodeInfo
-eNodeInfo' ni tid = ENodeInfo ni (Just tid)
-
-un :: ENodeInfo
-un = ENodeInfo undefNode Nothing
-
-tlocation :: ENodeInfo -> TLocation
-tlocation eni =
-  let
-    ni = tnodeInfo eni
-    pos = posOfNode ni
-  in
-    TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
-
-print_with_log :: CTranslationUnit ENodeInfo -> (String, LocMap)
-print_with_log tu = renderWithLog (pretty tu)
+print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, LocMap)
+print_with_log tu = first BS.pack $ renderWithLog (pretty tu)
 
 marker :: ENodeInfo -> DocL LocMap -> DocL LocMap
 marker eni doc
-  | isUndefNode (tnodeInfo eni) = doc
-  | otherwise = here logger doc
+  | validBreakpoint eni = here logger doc
+  | otherwise = doc
   where
-    logger (Position r c) = [(tlocation eni, ELocation r c (threadId eni))]
+    logger (Position r c) = [Location (tlocation eni) (ELocation r c (threadId eni))]
     
 class PrettyLog a where
   pretty :: a -> DocL LocMap
@@ -440,7 +410,7 @@ instance PrettyLog (CExpression ENodeInfo) where
     prettyPrec p (CIndex expr1 expr2 _) =
         parenPrec p 26 $ prettyPrec 26 expr1
                        <> text "[" <> pretty expr2 <> text "]"
-    prettyPrec p (CCall expr args _) =
+    prettyPrec p (CCall expr args ni) = marker ni $
         parenPrec p 30 $ prettyPrec 30 expr <> text "("
             <> (sep . punctuate comma . map pretty) args <> text ")"
     prettyPrec p (CMember expr ident deref _) =

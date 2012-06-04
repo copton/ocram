@@ -12,10 +12,12 @@ import System.Console.GetOpt
 
 -- types {{{1
 data Options = Options {
-    optInput :: String
-  , optOutput :: String
+    optInput :: FilePath
+  , optOutput :: FilePath
   , optPalFile :: Maybe FilePath
+  , optPTFile :: Maybe FilePath
   , optDebugFile :: Maybe FilePath
+  , optPreprocessor :: FilePath
   , optPalGenerator :: Maybe FilePath
   , optHelp :: Bool
 } deriving Show
@@ -51,9 +53,11 @@ available_options :: [OptDescr (Options -> Options)]
 available_options = [
     Option "i" ["input"] (ReqArg (\x opts -> opts {optInput = x}) "input") "input tc file (required)"
   , Option "o" ["output"] (ReqArg (\x opts -> opts {optOutput = x}) "output") "output ec file (required)"
-  , Option "g" ["generator"] (ReqArg (\x opts -> opts {optPalGenerator = Just x}) "generator") "External program which generates the PAL implementation. (optional)"
-  , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalFile = Just x}) "pal") "target file path for the PAL generator program. Mandatory if generator is specified."
-  , Option "d" ["debug"] (ReqArg (\x opts -> opts {optDebugFile = Just x}) "debug") "target file path for debug information. (optional)"
+  , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalFile = Just x}) "pal") "target file path for the PAL generator program (mandatory if generator is specified)"
+  , Option "d" ["debug"] (ReqArg (\x opts -> opts {optDebugFile = Just x}) "debug") "target file path for debug information (optional)"
+  , Option "t" ["ptfile"] (ReqArg (\x opts -> opts {optPTFile = Just x}) "ptfile") "target file for pre-processed input file (mandatory if debugging is activated"
+  , Option "c" ["preprocessor"] (ReqArg (\x opts -> opts {optPreprocessor = x}) "preprocessor") "external program which performs the pre-processing of the input C file (required)"
+  , Option "g" ["generator"] (ReqArg (\x opts -> opts {optPalGenerator = Just x}) "generator") "external program which generates the PAL implementation (optional)"
   , Option "h" ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
   ]
 
@@ -63,7 +67,9 @@ defaultOptions = Options {
   , optOutput = ""
   , optPalFile = Nothing
   , optDebugFile = Nothing
+  , optPTFile = Nothing
   , optPalGenerator = Nothing
+  , optPreprocessor = ""
   , optHelp = False
 }
 
@@ -72,4 +78,6 @@ checkOptions opts
   | optInput opts == optInput defaultOptions = False
   | optOutput opts == optOutput defaultOptions = False
   | isJust (optPalGenerator opts) && not (isJust (optPalFile opts)) = False
+  | optPreprocessor opts == optPreprocessor defaultOptions = False
+  | isJust (optDebugFile opts) && not (isJust (optPTFile opts)) = False
   | otherwise = True

@@ -48,47 +48,48 @@ Executable ocram
     bytestring == 0.9.*,
     pretty == 1.2,
     json == 0.5.*,
+    regex-posix == 0.95.*,
     nano-md5 == 0.1.*,
+    filepath == 1.2.*,
+    directory == 1.1.*,
     HUnit == 1.2.*,
     test-framework == 0.6.*,
     test-framework-hunit == 0.2.*
   Other-modules:
-    Ocram.Main
     Ocram.Analysis
-    Ocram.Test.Lib
-    Ocram.Query
-    Ocram.Parser
-    Ocram.Symbols
-    Ocram.Output
-    Ocram.Text
+    Ocram.Analysis.CallGraph
+    Ocram.Analysis.CallGraph.Test
+    Ocram.Analysis.Fgl
+    Ocram.Analysis.Fgl.Test
+    Ocram.Analysis.Filter
+    Ocram.Analysis.Filter.Test
+    Ocram.Analysis.Test
+    Ocram.Analysis.Test.Cases
+    Ocram.Analysis.Test.Types
+    Ocram.Analysis.Types
+    Ocram.IO
+    Ocram.Main
     Ocram.Names
     Ocram.Options
-    Ocram.Transformation.Inline.Normalize.Test
+    Ocram.Query
+    Ocram.Query.Test
+    Ocram.Symbols
+    Ocram.Symbols.Test
+    Ocram.Test
+    Ocram.Test.Lib
+    Ocram.Text
+    Ocram.Transformation.Inline
     Ocram.Transformation.Inline.CriticalFunctions
+    Ocram.Transformation.Inline.Names
+    Ocram.Transformation.Inline.Normalize
+    Ocram.Transformation.Inline.Normalize.Test
+    Ocram.Transformation.Inline.Pal
+    Ocram.Transformation.Inline.Test
+    Ocram.Transformation.Inline.ThreadFunction
     Ocram.Transformation.Inline.TStack
     Ocram.Transformation.Inline.Types
-    Ocram.Transformation.Inline.Names
-    Ocram.Transformation.Inline.UniqueIdentifiers.Test
-    Ocram.Transformation.Inline.Normalize
-    Ocram.Transformation.Inline.Test
     Ocram.Transformation.Inline.UniqueIdentifiers
-    Ocram.Transformation.Inline.ThreadFunction
-    Ocram.Transformation.Inline.Pal
-    Ocram.Transformation.Util
+    Ocram.Transformation.Inline.UniqueIdentifiers.Test
     Ocram.Transformation.Test
-    Ocram.Transformation.Inline
+    Ocram.Transformation.Util
     Ocram.Util
-    Ocram.Analysis.Fgl
-    Ocram.Analysis.Test.Types
-    Ocram.Analysis.Test.Cases
-    Ocram.Analysis.Filter.Test
-    Ocram.Analysis.Types
-    Ocram.Analysis.Fgl.Test
-    Ocram.Analysis.CallGraph.Test
-    Ocram.Analysis.Filter
-    Ocram.Analysis.CallGraph
-    Ocram.Analysis.Test
-    Ocram.Test
-    Ocram.Query.Test
-    Ocram.Symbols.Test
-

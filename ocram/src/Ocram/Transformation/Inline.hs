@@ -9,8 +9,7 @@ import Control.Monad.Writer (runWriter)
 import Language.C.Syntax.AST (CTranslationUnit)
 import Language.C.Data.Node (NodeInfo)
 import Ocram.Analysis (CallGraph)
-import Ocram.Debug (VarMap)
-import Ocram.Print (ENodeInfo(ENodeInfo))
+import Ocram.Debug (enrichNodeInfo, ENodeInfo, VarMap)
 import Ocram.Transformation.Inline.CriticalFunctions (addBlockingFunctionDecls, removeCriticalFunctions)
 import Ocram.Transformation.Inline.Normalize (normalize)
 import Ocram.Transformation.Inline.Pal (extract_pal)
@@ -19,8 +18,8 @@ import Ocram.Transformation.Inline.TStack (addTStacks)
 import Ocram.Transformation.Inline.Types
 import Ocram.Transformation.Inline.UniqueIdentifiers (unique_identifiers)
 
-enodify :: CTranslationUnit NodeInfo -> CTranslationUnit ENodeInfo
-enodify = fmap (\ni -> ENodeInfo ni Nothing)
+enodify :: CTranslationUnit NodeInfo -> CTranslationUnit ENodeInfo -- {{{1
+enodify = fmap enrichNodeInfo
 
 transformation :: CallGraph -> CTranslationUnit NodeInfo -> (CTranslationUnit ENodeInfo, CTranslationUnit ENodeInfo, VarMap) -- {{{1
 transformation cg ast =

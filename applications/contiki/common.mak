@@ -6,6 +6,7 @@ ifndef APP
 $(error please specify your app)
 endif
 
+OCRAM_CPP = $(ROOT)/applications/contiki/cpp
 PALGEN = $(ROOT)/applications/contiki/tc/pal.py
 VERIFY = $(ROOT)/applications/contiki/$(APP)/verify.py
 export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/tc/pal.jinja.c
@@ -20,21 +21,19 @@ ifndef XGCC
 $(error please specify your cross compiler command line)
 endif
 
-all: app-ec.c pal.c contiki $(SKYS)
+all: app-ec.c pal.c contiki debug.json $(SKYS)
 
-app-ec.c pal.c: app-tc.pped.c app-tc.o $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
-	$(OCRAM) -p pal.c -g $(PALGEN) -i $< -o app-ec.c || (rm -f app-ec.c pal.c; exit 1)
-
-app-tc.pped.c: app-tc.c app-tc.o
-	$(CHROOT) $(XGCC) -I$(ROOT)/applications/contiki -E -DOCRAM_MODE $< -o $@
+app-ec.c pal.c debug.json: app-tc.c app-tc.o $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
+	$(OCRAM) -p pal.c  -i $< -o app-ec.c -d debug.json \
+		-g $(PALGEN) \
+		-t app-ptc.c \
+		-c "$(CHROOT) $(XGCC) -DOCRAM_MODE -E -o -" \
+		|| (rm -f app-ec.c pal.c; exit 1)
 
 app-tc.o: app-tc.c
-	$(CHROOT) $(XGCC) -I$(ROOT)/applications/contiki -c $<
+	$(CHROOT) $(XGCC) -Wall -c $<
 
 else ifeq ($(TYPE), runtime)
-ifndef XGCC
-$(error please specify your cross compiler command line)
-endif
 
 export THREAD_LIBRARY = $(ROOT)/applications/contiki/tl/pal.c
 

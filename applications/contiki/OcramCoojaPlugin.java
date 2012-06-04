@@ -434,6 +434,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   }
 
   public boolean setConfigXML(Collection<Element> configXML, boolean visAvailable) { //<2
+    logger.info("configuring Ocram Cooja Plugin...");
     for (Monitor monitor: monitors) {
       monitor.configure(configXML);
     }
