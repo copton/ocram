@@ -6,7 +6,7 @@
   <project EXPORT="discard">[CONTIKI_DIR]/tools/cooja/apps/serial_socket</project>
   <project EXPORT="discard">[CONTIKI_DIR]/tools/cooja/apps/collect-view</project>
   <simulation>
-    <title>cnf_native</title>
+    <title>dca_native</title>
     <delaytime>0</delaytime>
     <randomseed>123456</randomseed>
     <motedelay_us>1000000</motedelay_us>
@@ -24,7 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky1</identifier>
       <description>source</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/source.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/source.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -35,7 +35,7 @@
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyButton</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyFlash</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyCoffeeFilesystem</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyByteRadio</moteinterface>
+      <moteinterface>se.sics.cooja.mspmote.interfaces.Msp802154Radio</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspSerial</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyLED</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspDebugOutput</moteinterface>
@@ -45,7 +45,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky2</identifier>
       <description>sink</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/sink.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/sink.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -56,7 +56,7 @@
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyButton</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyFlash</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyCoffeeFilesystem</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyByteRadio</moteinterface>
+      <moteinterface>se.sics.cooja.mspmote.interfaces.Msp802154Radio</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspSerial</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyLED</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspDebugOutput</moteinterface>
@@ -66,7 +66,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>sky3</identifier>
       <description>app</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/pal.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/pal.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -77,7 +77,7 @@
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyButton</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyFlash</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyCoffeeFilesystem</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyByteRadio</moteinterface>
+      <moteinterface>se.sics.cooja.mspmote.interfaces.Msp802154Radio</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspSerial</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyLED</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspDebugOutput</moteinterface>

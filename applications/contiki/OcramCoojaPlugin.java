@@ -29,7 +29,9 @@ import se.sics.cooja.mspmote.MspMoteType;
 import java.security.MessageDigest;
 
 // stack monitor
-import se.sics.mspsim.core.CPUMonitor;
+import se.sics.mspsim.core.RegisterMonitor;
+import se.sics.mspsim.core.Memory;
+import se.sics.mspsim.core.MemoryMonitor;
 import se.sics.mspsim.util.MapTable;
 import java.util.Observable;
 import java.util.Observer;
@@ -74,7 +76,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
       appStacks = new ArrayList<AppStack>();
     }
 
-    private CPUMonitor stackMonitor = null;
+    private RegisterMonitor stackMonitor = null;
     private Observer stackObserver = null;
     private ArrayList<AppStack> appStacks;
     private AppStack currentAppStack;
@@ -84,7 +86,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
       public int size;
       public int upperAddress;
       public int lowerAddress;
-      public CPUMonitor monitor;
+      public MemoryMonitor monitor;
       public int maxStack;
       public int lastSP;
 
@@ -159,37 +161,34 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         log("application stack: " + appstack);
 
         final String appStackVariable = appstack.variable;
-        appstack.monitor = new CPUMonitor() {
+        appstack.monitor = new MemoryMonitor.Adapter() {
           private int count = 0;
-          public void cpuAction(int type, int adr, int data) {
-            if (type == CPUMonitor.MEMORY_WRITE) {
-              // first access is by reset vector
-              if (appStackVariable != "<<main>>" && count == 0) {
-                count++;
-                return;
-              }
-              throw new OcramError("Stack overflow! (stack = " + appStackVariable + ", PC=" + hex(cpu.reg[MSP430.PC]) + ", adr=" + hex(adr) + ", data=" + hex(data) + ")");
+          public void notifyWriteAfter(int adr, int data, Memory.AccessMode mode) {
+            // first access is by reset vector
+            if (appStackVariable != "<<main>>" && count == 0) {
+              count++;
+              return;
             }
+            throw new OcramError("Stack overflow! (stack = " + appStackVariable + ", PC=" + hex(cpu.reg[MSP430.PC]) + ", adr=" + hex(adr) + ", data=" + hex(data) + ")");
           }
         };
         cpu.addWatchPoint(appstack.lowerAddress, appstack.monitor);
       }
 
-      cpu.addRegisterWriteMonitor(MSP430.SP, stackMonitor = new CPUMonitor() {
-        public void cpuAction(int type, int adr, int value) {
-          // XXX nur schreibzugriff?
+      cpu.addRegisterWriteMonitor(MSP430.SP, stackMonitor = new RegisterMonitor.Adapter() {
+        public void notifyWriteAfter(int reg, int data, int mode) {
           /* check for context switch */
           for (AppStack appstack : appStacks) {
-            if (value == appstack.lastSP) {
+            if (data == appstack.lastSP) {
               assert (appstack != currentAppStack);
               currentAppStack = appstack;
               return;
             }
           }
 
-          currentAppStack.lastSP = value;
+          currentAppStack.lastSP = data;
           // XXX negative Stackpointer?
-          int size = ((currentAppStack.upperAddress - value) + 0xffff) % 0xffff;
+          int size = ((currentAppStack.upperAddress - data) + 0xffff) % 0xffff;
           if (currentAppStack.maxStack < size) {
             currentAppStack.maxStack = size;
           }
@@ -233,7 +232,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
   }
 
   private static class CycleMonitor extends Monitor {  //<1
-    private CPUMonitor cycleMonitor;
+    private MemoryMonitor cycleMonitor;
     private ArrayList<String> processVariables;
     private HashMap<Integer, String> processes;
     private class Unit {
@@ -297,29 +296,27 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         processes.put(address, variable);
       }
 
-      cpu.addWatchPoint(process_hook, cycleMonitor = new CPUMonitor() {
+      cpu.addWatchPoint(process_hook, cycleMonitor = new MemoryMonitor.Adapter() {
         boolean first = true;
         int current_process = 0;
         long enterCycles = 0;
-        public void cpuAction(int type, int adr, int data) {
-          if (type == CPUMonitor.MEMORY_WRITE) {
-            if (first) { // reset vector
-              assert (data == 0);
-              first = false;
-              return;
-            }
-            if (data != 0) {
-              addCycles(data);
-              scopes.push(current_process);
-              current_process = data;
-            }
-            if (data == 0) {
-              addCycles(data);
-              current_process = scopes.pop();
-            }
-            if (data == interrupt_pseudo_process) numberofInterrupts++;
-            if (data == printf_pseudo_process) printf_pseudo_process++;
+        public void notifyWriteAfter(int adr, int data, Memory.AccessMode mode) {
+          if (first) { // reset vector
+            assert (data == 0);
+            first = false;
+            return;
           }
+          if (data != 0) {
+            addCycles(data);
+            scopes.push(current_process);
+            current_process = data;
+          }
+          if (data == 0) {
+            addCycles(data);
+            current_process = scopes.pop();
+          }
+          if (data == interrupt_pseudo_process) numberofInterrupts++;
+          if (data == printf_pseudo_process) printf_pseudo_process++;
         }
 
         private void addCycles(int data) {
@@ -371,7 +368,7 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
 
   private static class DebugMonitor extends Monitor { //<1
     private int markAddress;
-    private CPUMonitor markMonitor;
+    private MemoryMonitor markMonitor;
 
     public DebugMonitor(Simulation s, MspMote m) { 
       super(s, m);
@@ -383,24 +380,22 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
         markAddress = memory.getVariableAddress("debug_mark");
         memory.getIntValueOf("debug_file"); // just to check existence
         memory.getIntValueOf("debug_line"); // just to check existence
-        cpu.addWatchPoint(markAddress, markMonitor = new CPUMonitor() {
-          public void cpuAction(int type, int adr, int data) {
-            if (type == CPUMonitor.MEMORY_WRITE) {
-              if (data == 0xffff) {
-                int fileAddress = ((AddressMemory)mote.getMemory()).getIntValueOf("debug_file");
-                byte bytes[] = mote.getMemory().getMemorySegment(fileAddress, 20);
-                int i;
-                for (i=0; bytes[i] != 0 && i<bytes.length; i++);
-                String filename = new String(bytes, 0, i);
-                int line = ((AddressMemory)mote.getMemory()).getIntValueOf("debug_line");
-                String logline = "Assertion error: file=" + filename + ", line=" + line;
-                log(logline);
-                throw new OcramError(logline);
-              } else {
-                long simtime = simulation.getSimulationTimeMillis();
-                long systime = System.currentTimeMillis();
-                log("debug monitor: simulation time=" + simtime + ", system time=" + systime + ": mark: " + data);
-              }
+        cpu.addWatchPoint(markAddress, markMonitor = new MemoryMonitor.Adapter() {
+          public void notifyWriteAfter(int adr, int data, Memory.AccessMode mode) {
+            if (data == 0xffff) {
+              int fileAddress = ((AddressMemory)mote.getMemory()).getIntValueOf("debug_file");
+              byte bytes[] = mote.getMemory().getMemorySegment(fileAddress, 20);
+              int i;
+              for (i=0; bytes[i] != 0 && i<bytes.length; i++);
+              String filename = new String(bytes, 0, i);
+              int line = ((AddressMemory)mote.getMemory()).getIntValueOf("debug_line");
+              String logline = "Assertion error: file=" + filename + ", line=" + line;
+              log(logline);
+              throw new OcramError(logline);
+            } else {
+              long simtime = simulation.getSimulationTimeMillis();
+              long systime = System.currentTimeMillis();
+              log("debug monitor: simulation time=" + simtime + ", system time=" + systime + ": mark: " + data);
             }
           }
         });

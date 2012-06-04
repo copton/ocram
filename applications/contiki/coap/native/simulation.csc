@@ -24,7 +24,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>server</identifier>
       <description>CoAP Server</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/server.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/../setup/server.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -35,7 +35,7 @@
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyButton</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyFlash</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyCoffeeFilesystem</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyByteRadio</moteinterface>
+      <moteinterface>se.sics.cooja.mspmote.interfaces.Msp802154Radio</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspSerial</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyLED</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspDebugOutput</moteinterface>
@@ -45,7 +45,7 @@
       se.sics.cooja.mspmote.SkyMoteType
       <identifier>client</identifier>
       <description>CoAP Client</description>
-      <firmware EXPORT="copy">[CONFIG_DIR]/app.cached.sky</firmware>
+      <firmware EXPORT="copy">[CONFIG_DIR]/app.sky</firmware>
       <moteinterface>se.sics.cooja.interfaces.Position</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.RimeAddress</moteinterface>
       <moteinterface>se.sics.cooja.interfaces.IPAddress</moteinterface>
@@ -56,7 +56,7 @@
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyButton</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyFlash</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyCoffeeFilesystem</moteinterface>
-      <moteinterface>se.sics.cooja.mspmote.interfaces.SkyByteRadio</moteinterface>
+      <moteinterface>se.sics.cooja.mspmote.interfaces.Msp802154Radio</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspSerial</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.SkyLED</moteinterface>
       <moteinterface>se.sics.cooja.mspmote.interfaces.MspDebugOutput</moteinterface>

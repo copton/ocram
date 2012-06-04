@@ -2,7 +2,7 @@
 
 include $(ROOT)/applications/contiki/config.mak
 
-SKYS=client.cached.sky peer.cached.sky
+SKYS=client.sky peer.sky
 
 all: contiki $(SKYS)
 
