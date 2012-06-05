@@ -28,10 +28,10 @@ def gp(f):
 def rp(f):
     return os.path.join("runtime", f)
 
-nat = setup.native_properties(np("app.c"), np("app.cached.sky"))
-tc = setup.tcode_properties(gp("app-tc.c"), gp("app-ec.c"), gp("pal.cached.sky"))
+nat = setup.native_properties(np("app.c"), np("app.sky"))
+tc = setup.tcode_properties(gp("app-tc.c"), gp("app-ec.c"), gp("pal.sky"))
 pal = setup.pal_properties(gp("pal.c"), gp("pal.co"))
-tl = setup.tl_properties(rp("app.c"), rp("pal.cached.sky"))
+tl = setup.tl_properties(rp("app.c"), rp("pal.sky"))
 
 nat2tc = nat.proportion(tc)
 nat2tc_pal = nat.proportion(tc.subtract(pal))

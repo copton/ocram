@@ -119,7 +119,7 @@ PROCESS_THREAD(rest_server, ev, data)
   printf("REST max chunk: %u\n", REST_MAX_CHUNK_SIZE);
 
   /* Initialize the REST framework. */
-  rest_init_framework();
+  rest_init_engine();
 
   rest_activate_resource(&resource_random);
   rest_activate_resource(&resource_salt);

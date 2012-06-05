@@ -1,18 +1,20 @@
 # Dependencies
 
  * Language support
-  * [GHC 7.03](http://www.haskell.org/ghc/download_ghc_7_0_3)
+  * [Haskell Platform 2012.2.0.0](http://hackage.haskell.org/platform/) (GHC 7.4.1)
   * [msp430-gcc 3.2.3](http://mspgcc.sourceforge.net/) 
   * [gcc 4.4.5](http://gcc.gnu.org/)
   * [Python 2.6.6](http://www.python.org/getit/releases/2.6.6/)
   * [JDK 1.6.0_30](http://java.sun.com)
+  * [Scala 2.9.9](http://scala-lang.org)
  * Build tools
   * [cabal-dev 0.9](http://hackage.haskell.org/package/cabal-dev-0.9.1)
   * [GNU Make 3.81](http://www.gnu.org/software/make/)
+  * [sbt 0.11.3](http://github.com/harrah/xsbt)
   * [Ant 1.7.1](http://ant.apache.org/)
  * Operating systems
   * [Contiki 2.5](http://www.contiki-os.org/)
-   * [commit b56198d](http://contiki.git.sourceforge.net/git/gitweb.cgi?p=contiki/contiki;a=commit;h=b56198dc3cc43195d070ee4bb1e1644378e7b975)
+   * [commit 92765b3](http://contiki.git.sourceforge.net/git/gitweb.cgi?p=contiki/contiki;a=commit;h=92765b384ec87de96e97529dd463c48a8d199ec3)
      * patches from applications/contiki/contiki-patches/
      * [TinyOS](http://tinyos-main.googlecode.com/svn/trunk)
  * Tools and Libraries

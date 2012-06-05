@@ -1,7 +1,7 @@
-From b0c40355b4d78cb3722eeed8d6b31cfffae10c78 Mon Sep 17 00:00:00 2001
+From 3e7e4bf8e2ef280952f409c38cf52e9aee70a99a Mon Sep 17 00:00:00 2001
 From: Alexander Bernauer <alex@copton.net>
 Date: Thu, 9 Feb 2012 15:40:06 +0100
-Subject: [PATCH 3/6] OcramCoojaPlugin
+Subject: [PATCH 2/5] OcramCoojaPlugin
 
 ---
  .../se/sics/cooja/mspmote/OcramCoojaPlugin.java    |    1 +
