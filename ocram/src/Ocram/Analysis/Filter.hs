@@ -34,6 +34,8 @@ data ErrorCode =
     NoParameterList
   | NoReturnType
   | AssemblerCode
+  | NestedFunction
+  | CaseRange
   | PointerToCriticalFunction
   | NoThreads
   | ThreadNotBlocking
@@ -48,6 +50,8 @@ errors = [
     (NoParameterList, "function without parameter list")
   , (NoReturnType, "function without explicit return type")
   , (AssemblerCode, "transformation of assembler code is not supported")
+  , (NestedFunction, "nested functions are not part of C99 and are thus not supported")
+  , (CaseRange, "case ranges are not part of C99 and are thus not supported")
   , (PointerToCriticalFunction, "taking pointer from critical function")
   , (NoThreads, "at least one thread must be started")
   , (ThreadNotBlocking, "thread does not call any blocking functions")
@@ -61,7 +65,7 @@ errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors
 
 check_sanity :: CTranslUnit -> Either [OcramError] () -- {{{1
-check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStats) ast
+check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStats `extQ` saneCompound) ast
 
 saneExtDecls :: CExtDecl -> [OcramError]
 
@@ -79,7 +83,12 @@ saneExtDecls (CAsmExt _ ni) = [newError AssemblerCode Nothing (Just ni)]
 
 saneStats :: CStat -> [OcramError]
 saneStats (CAsm _ ni) = [newError AssemblerCode Nothing (Just ni)]
+saneStats (CCases _ _ _ ni) = [newError CaseRange Nothing (Just ni)]
 saneStats _ = []
+
+saneCompound :: CCompoundBlockItem NodeInfo -> [OcramError]
+saneCompound (CNestedFunDef o) = [newError NestedFunction Nothing (Just (nodeInfo o))]
+saneCompound _ = []
 
 hasReturnType :: [CDeclSpec] -> Bool
 hasReturnType = any isTypeSpec

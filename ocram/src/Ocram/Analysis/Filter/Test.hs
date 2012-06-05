@@ -12,7 +12,7 @@ tests = testGroup "Filter" [test_check_sanity, test_check_constraints]
 
 test_check_sanity :: Test -- {{{1
 test_check_sanity = enumTestGroup "check_sanity" $ map runTest [
-    -- function declaration without parameter name
+    -- function declaration without parameter name {{{2
     ([paste|
       __attribute__((tc_blocking)) void block(int);
       __attribute__((tc_run_thread)) void start() {
@@ -25,6 +25,17 @@ test_check_sanity = enumTestGroup "check_sanity" $ map runTest [
     ("__attribute__((foo)) f() { }", [NoReturnType])
   , -- function declaration without return type {{{2
     ("__attribute__((foo)) f();", [NoReturnType])
+  , -- nested functions {{{2
+    ("void foo() {void bar() { } bar();}", [NestedFunction])
+  , -- case ranges {{{2
+    ([paste|
+      int foo(int i) {
+        switch (i) {
+          case 1 ... 10: return 23;
+          default: return 42;
+        }
+      }
+    |], [CaseRange])
   ]
   where
     runTest (code, expected) = expected @=? errs (enrich code)

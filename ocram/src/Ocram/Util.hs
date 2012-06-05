@@ -19,6 +19,7 @@ import qualified Data.Map as Map
 Nothing ?:  xs = xs
 infixr 5 ?:
 
+
 tmap :: Arrow a => a b c -> a (b, b) (c, c) -- {{{1
 tmap f = f *** f
 
