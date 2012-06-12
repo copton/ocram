@@ -10,259 +10,17 @@ import Language.C.Syntax.AST
 import Ocram.Debug (enrichNodeInfo, ENodeInfo)
 import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Transformation.Normalize.Internal
+import Ocram.Transformation.Normalize.ShortCircuiting
 import Test.Framework (Test, testGroup)
 import Test.HUnit ((@=?), Assertion)
 
 tests :: Test -- {{{1
 tests = testGroup "Normalize" [
-    test_desugar_control_structures
---    test_explicit_return
---  , test_wrap_dangling_statements
+    test_explicit_return
+  , test_desugar_control_structures
+  , test_short_circuiting
+  , test_wrap_dangling_statements
 --  , test_unlist_declarations
-  ]
-
-test_desugar_control_structures :: Test -- {{{1
-test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ map (runTest desugar_control_structures) [
-  -- while loop {{{2
-  ([paste|
-      void foo() {
-        a();
-        while(1)
-          g();
-        
-        b();
-      }
-  |], [paste|
-      void foo() {
-        a();
-        {
-          ec_ctrlbl_0: ;
-          if (! 1) { goto ec_ctrlbl_1; }
-          g();
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-        b();
-      }
-  |])
-  , -- do loop {{{2
-  ([paste|
-      void foo() {
-        a();
-        do {
-          g();
-        } while(1);
-        b();
-      }
-  |], [paste|
-      void foo() {
-        a();
-        {
-          ec_ctrlbl_0: ;
-          g();
-          if (1) {goto ec_ctrlbl_0;}
-          ec_ctrlbl_1: ;
-        }
-        b();
-      }
-  |])
-  , -- for loop {{{2
-  ([paste|
-      void foo() {
-        a();
-        int i;
-        for (i = 0; i<23; i++) {
-          g(i);
-        }
-        b();
-      }
-    |], [paste|
-      void foo() {
-        a();
-        int i;
-        {
-          i = 0;
-          ec_ctrlbl_0: ;
-          if (! (i<23)) { goto ec_ctrlbl_1; }
-          g(i);
-          i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-        b();
-      }
-    |])
-  , -- for loop - with declaration {{{2
-  ([paste|
-      void foo() {
-        a();
-        for (int i = 0; i<23; i++) {
-          g(i);
-        }
-        b();
-      }
-    |], [paste|
-      void foo() {
-        a();
-        {
-          int i = 0;
-          ec_ctrlbl_0: ;
-          if (! (i<23)) { goto ec_ctrlbl_1; }
-          g(i);
-          i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-        b();
-      }
-    |])
-  , -- for loop - no init expression {{{2
-  ([paste|
-      void foo() {
-        a();
-        for (; i<23; i++) {
-          g(i);
-        }
-        b();
-      }
-    |], [paste|
-      void foo() {
-        a();
-        {
-          ec_ctrlbl_0: ;
-          if (! (i<23)) { goto ec_ctrlbl_1; }
-          g(i);
-          i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-        b();
-      }
-    |])
-  , -- for loop - no break condition {{{2
-  ([paste|
-      void foo() {
-        a();
-        int i;
-        for (i = 0; ; i++) {
-          g(i);
-        }
-        b();
-      }
-    |], [paste|
-      void foo() {
-        a();
-        int i;
-        {
-          i = 0;
-          ec_ctrlbl_0: ;
-          g(i);
-          i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-        b();
-      }
-    |])
-  , -- for loop - no incr expression{{{2
-  ([paste|
-      void foo() {
-        a();
-        int i;
-        for (i = 0; i<23; ) {
-          g(i);
-        }
-        b();
-      }
-    |], [paste|
-      void foo() {
-        a();
-        int i;
-        {
-          i = 0;
-          ec_ctrlbl_0: ;
-          if (! (i<23)) { goto ec_ctrlbl_1; }
-          g(i);
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-        b();
-      }
-    |])
-  , -- continue and break {{{2
-  ([paste|
-      void foo() {
-        a();
-        do {
-          continue;
-          g();
-          break;
-        } while(1);
-        b();
-      }
-  |], [paste|
-      void foo() {
-        a();
-        {
-          ec_ctrlbl_0: ;
-          goto ec_ctrlbl_0;
-          g();
-          goto ec_ctrlbl_1;
-          if (1) {goto ec_ctrlbl_0;}
-          ec_ctrlbl_1: ;
-        }
-        b();
-      }
-  |])
-  , -- nested {{{2
-  ([paste|
-      void foo() {
-        a();
-        while(1) {
-          b();
-          continue;
-          c();
-          do {
-            d();
-            continue;
-            e();
-            break;
-            f();
-          } while(23);
-          g();
-          break;
-          h();
-        }
-        i();
-      }
-    |], [paste|
-      void foo() {
-        a();
-        {
-          ec_ctrlbl_2: ;
-          if (!1) {goto ec_ctrlbl_3;}
-          b();
-          goto ec_ctrlbl_2;
-          c();
-          {
-            ec_ctrlbl_0: ;
-            d();
-            goto ec_ctrlbl_0;
-            e();
-            goto ec_ctrlbl_1;
-            f();
-            if (23) { goto ec_ctrlbl_0; }
-            ec_ctrlbl_1: ;
-          }
-          g();
-          goto ec_ctrlbl_3;
-          h();
-          goto ec_ctrlbl_2;
-          ec_ctrlbl_3: ; 
-        }
-        i(); 
-      }
-    |])
   ]
 
 test_explicit_return :: Test -- {{{1
@@ -316,18 +74,304 @@ test_explicit_return = enumTestGroup "explicit_return" $ map (runTest explicit_r
       }
     |])
   ]
+test_desugar_control_structures :: Test -- {{{1
+test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ map (runTest desugar_control_structures) [
+  -- while loop {{{2
+  ([paste|
+      void foo() {
+        a();
+        while(1)
+          g();
+        
+        b();
+      }
+  |], [paste|
+      void foo() {
+        a();
+        {
+          ec_ctrlbl_0: ;
+          if (! 1) goto ec_ctrlbl_1;
+          g();
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+        b();
+      }
+  |])
+  , -- do loop {{{2
+  ([paste|
+      void foo() {
+        a();
+        do {
+          g();
+        } while(1);
+        b();
+      }
+  |], [paste|
+      void foo() {
+        a();
+        {
+          ec_ctrlbl_0: ;
+          g();
+          if (1) goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+        b();
+      }
+  |])
+  , -- for loop {{{2
+  ([paste|
+      void foo() {
+        a();
+        int i;
+        for (i = 0; i<23; i++) {
+          g(i);
+        }
+        b();
+      }
+    |], [paste|
+      void foo() {
+        a();
+        int i;
+        {
+          i = 0;
+          ec_ctrlbl_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1;
+          g(i);
+          i++;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+        b();
+      }
+    |])
+  , -- for loop - with declaration {{{2
+  ([paste|
+      void foo() {
+        a();
+        for (int i = 0; i<23; i++) {
+          g(i);
+        }
+        b();
+      }
+    |], [paste|
+      void foo() {
+        a();
+        {
+          int i = 0;
+          ec_ctrlbl_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1;
+          g(i);
+          i++;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+        b();
+      }
+    |])
+  , -- for loop - no init expression {{{2
+  ([paste|
+      void foo() {
+        a();
+        for (; i<23; i++) {
+          g(i);
+        }
+        b();
+      }
+    |], [paste|
+      void foo() {
+        a();
+        {
+          ec_ctrlbl_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1;
+          g(i);
+          i++;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+        b();
+      }
+    |])
+  , -- for loop - no break condition {{{2
+  ([paste|
+      void foo() {
+        a();
+        int i;
+        for (i = 0; ; i++) {
+          g(i);
+        }
+        b();
+      }
+    |], [paste|
+      void foo() {
+        a();
+        int i;
+        {
+          i = 0;
+          ec_ctrlbl_0: ;
+          g(i);
+          i++;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+        b();
+      }
+    |])
+  , -- for loop - no incr expression{{{2
+  ([paste|
+      void foo() {
+        a();
+        int i;
+        for (i = 0; i<23; ) {
+          g(i);
+        }
+        b();
+      }
+    |], [paste|
+      void foo() {
+        a();
+        int i;
+        {
+          i = 0;
+          ec_ctrlbl_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1;
+          g(i);
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+        b();
+      }
+    |])
+  , -- continue and break {{{2
+  ([paste|
+      void foo() {
+        a();
+        do {
+          continue;
+          g();
+          break;
+        } while(1);
+        b();
+      }
+  |], [paste|
+      void foo() {
+        a();
+        {
+          ec_ctrlbl_0: ;
+          goto ec_ctrlbl_0;
+          g();
+          goto ec_ctrlbl_1;
+          if (1) goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+        b();
+      }
+  |])
+  , -- nested {{{2
+  ([paste|
+      void foo() {
+        a();
+        while(1) {
+          b();
+          continue;
+          c();
+          do {
+            d();
+            continue;
+            e();
+            break;
+            f();
+          } while(23);
+          g();
+          break;
+          h();
+        }
+        i();
+      }
+    |], [paste|
+      void foo() {
+        a();
+        {
+          ec_ctrlbl_2: ;
+          if (!1) goto ec_ctrlbl_3;
+          b();
+          goto ec_ctrlbl_2;
+          c();
+          {
+            ec_ctrlbl_0: ;
+            d();
+            goto ec_ctrlbl_0;
+            e();
+            goto ec_ctrlbl_1;
+            f();
+            if (23) goto ec_ctrlbl_0;
+            ec_ctrlbl_1: ;
+          }
+          g();
+          goto ec_ctrlbl_3;
+          h();
+          goto ec_ctrlbl_2;
+          ec_ctrlbl_3: ; 
+        }
+        i(); 
+      }
+    |])
+  ]
+
+test_short_circuiting :: Test -- {{{1
+test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map runTest' [
+    -- no critical function {{{2
+  ([],
+  [paste|
+    void foo() {
+      if(g() || h()) ;
+    }
+  |], [paste|
+    void foo() {
+      if(g() || h()) ;
+    }
+  |])
+  , -- critical function on left hand side {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      if(g() || h()) ;
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_tmp_bool_0;
+        ec_tmp_bool_0 = !!g();
+        if (! ec_tmp_bool_0) {
+          ec_tmp_bool_0 = !!h();
+        }
+        if (ec_tmp_bool_0) ;
+      }
+    }
+  |])
+  ]
+  where
+    runTest' :: ([String], String, String) -> Assertion
+    runTest' (cf, code, expected) =
+      let
+        (CTranslUnit [CFDefExt (fd)] ni) = fmap enrichNodeInfo $ enrich code
+        result = (reduce $ fmap nodeInfo $ CTranslUnit [CFDefExt (short_circuiting cf fd)] ni) :: String
+        expected' = reduce $ (enrich expected :: CTranslUnit)
+      in
+        expected' @=? result
+
 test_wrap_dangling_statements :: Test -- {{{1
 test_wrap_dangling_statements = enumTestGroup "wrap_dangling_statements" $ map (runTest wrap_dangling_statements) [
 -- generic case {{{2
     ([paste|
-      void foo() {
+      void foo(int i) {
         if (1) ;
         else if (2) ;
-        while(1) block();
-        for (;;) block();
+        switch (i)
+          default: ;
       }
   |], [paste|
-      void foo() {
+      void foo(int i) {
         if (1) {
           ;
         } else {
@@ -335,11 +379,8 @@ test_wrap_dangling_statements = enumTestGroup "wrap_dangling_statements" $ map (
             ;
           }
         }
-        while(1) {
-          block();
-        }
-        for(;;) {
-          block();
+        switch (i) {
+          default: ;
         }
       }
   |])
@@ -348,8 +389,9 @@ test_wrap_dangling_statements = enumTestGroup "wrap_dangling_statements" $ map (
         void foo() {
           { if (1) ;
           else if (2) ; }
-          { while(1) block(); }
-          { for (;;) block(); }
+          { switch (i)
+              case 23: ;
+          }
         }
     |], [paste|
         void foo() {
@@ -360,11 +402,8 @@ test_wrap_dangling_statements = enumTestGroup "wrap_dangling_statements" $ map (
               ;
             }
           } }
-          { while(1) {
-            block();
-          } }
-          { for(;;) {
-            block();
+          { switch (i) {
+            case 23: ;
           } }
         }
     |])

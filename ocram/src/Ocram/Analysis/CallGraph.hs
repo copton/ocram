@@ -2,7 +2,7 @@
 module Ocram.Analysis.CallGraph
 -- exports {{{1
 (
-    BlockingFunctions, StartFunctions, Footprint
+    BlockingFunctions, StartFunctions, CriticalFunctions, Footprint
   , call_graph, from_test_graph, to_test_graph
   , blocking_functions, start_functions, critical_functions
   , is_blocking, is_start, is_critical

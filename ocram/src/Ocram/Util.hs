@@ -3,7 +3,7 @@
 module Ocram.Util
 -- export {{{1
 (
-  (?:), tmap, trd, unexp, fromJust_s, head_s, tail_s, lookup_s, abort
+  (?:), tmap, trd, unexp, unexp', fromJust_s, head_s, tail_s, lookup_s, abort
 ) where
 
 -- import {{{1
@@ -30,6 +30,9 @@ unexp :: forall (f :: * -> *) a. -- {{{1
         (Pretty (f NodeInfo), Functor f) =>
         f a -> String
 unexp x = "unexpected parameter: " ++ (show . pretty . fmap (const undefNode)) x
+
+unexp' :: Pretty p => p -> String -- {{{1
+unexp' x = "unexpected parameter: " ++ (show . pretty) x
 
 fromJust_s :: Q Exp -- {{{1
 fromJust_s = withLocatedError [| fromJust' |]

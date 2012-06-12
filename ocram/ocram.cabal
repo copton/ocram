@@ -38,7 +38,7 @@ Executable ocram
     QuasiQuotes
   Build-depends:       
     base >= 4 && < 5,
-    language-c == 0.4.*,
+    language-c == 0.5.*,
     containers == 0.4.*,
     mtl == 1.1.*,
     fgl == 5.4.*,

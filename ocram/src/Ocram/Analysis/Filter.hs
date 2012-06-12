@@ -60,6 +60,8 @@ errors = [
   , (NoVarName, "Function parameters of blocking functions must have names.")
   , (Ellipses, "No ellipses for critical functions")
   ]
+-- TODO: CaseRange and NestedFunctions are only a problem for critical functions
+-- TODO: Filter CStatExpr, GNU C compound statement as expr
 
 errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors
