@@ -25,19 +25,53 @@ short_circuiting cf fd = evalState (everywhereM (mkM go) fd) (cf', 0)
       cond' <- traverse cond
       case subItems cond' of
         [] -> return o
-        items -> return $ CCompound [] (items ++ [CBlockStmt (CIf (subExpr cond') then_ else_ ni)]) ni
-    go o = return o
+        items -> return $ block ni items $ CIf (subExpr cond') then_ else_ ni
+    go o@(CExpr (Just expr) ni) = do
+      expr' <- traverse expr
+      case subItems expr' of
+        [] -> return o
+        items -> return $ block ni items $ CExpr (Just (subExpr expr')) ni
+    go o@(CSwitch expr body ni) = do
+      expr' <- traverse expr
+      case subItems expr' of
+        [] -> return o
+        items -> return $ block ni items $ CSwitch (subExpr expr') body ni
+    go o@(CReturn (Just expr) ni) = do
+      expr' <- traverse expr
+      case subItems expr' of
+        [] -> return o
+        items -> return $ block ni items $ CReturn (Just (subExpr expr')) ni
+    go o = return o 
+
+    block ni items stat = CCompound [] (items ++ [CBlockStmt stat]) ni
 
 type Context = (Set.Set Symbol, Int)
 
-data Substitution =  -- {{{2
+data Substitution a =  -- {{{2
   Substitution {
-      subExpr :: CExpr'
+      subExpr :: a
     , subItems :: [CBlockItem']
     , subCritical :: Bool
   }
 
-traverse :: CExpr' -> State Context Substitution -- {{{2
+traverse :: CExpr' -> State Context (Substitution CExpr') -- {{{2
+traverse (CComma exprs ni) = do
+  ss <- mapM traverse exprs
+  let expr = CComma (map subExpr ss) ni
+  let items = concatMap subItems ss
+  let crit = or $ map subCritical ss
+  return $ Substitution expr items crit
+
+traverse (CAssign op lhs rhs ni) = do
+  lhs' <- traverse lhs
+  rhs' <- traverse rhs
+  let expr = CAssign op (subExpr lhs') (subExpr rhs') ni
+  let items = subItems lhs' ++ subItems rhs'
+  let crit = subCritical lhs' || subCritical rhs'
+  return $ Substitution expr items crit
+
+-- traverse CCond TODO
+
 traverse (CBinary op lhs rhs ni)
   | isLogicalOp op = do
       lhs' <- traverse lhs
@@ -61,6 +95,40 @@ traverse (CBinary op lhs rhs ni)
       let crit = subCritical lhs' || subCritical rhs'
       return $ Substitution expr items crit
 
+traverse (CCast decl expr ni) = do
+  expr' <- traverse expr
+  return $ Substitution (CCast decl (subExpr expr') ni) (subItems expr') (subCritical expr')
+
+traverse (CUnary op expr ni) = do
+  expr' <- traverse expr
+  return $ Substitution (CUnary op (subExpr expr') ni) (subItems expr') (subCritical expr')
+
+traverse (CSizeofExpr expr ni) = do
+  expr' <- traverse expr
+  return $ Substitution (CSizeofExpr (subExpr expr') ni) (subItems expr') (subCritical expr')
+  
+traverse o@(CSizeofType _ _) = return $ Substitution o [] False
+
+traverse (CAlignofExpr expr ni) = do
+  expr' <- traverse expr
+  return $ Substitution (CAlignofExpr (subExpr expr') ni) (subItems expr') (subCritical expr')
+
+traverse (CComplexReal expr ni) = do
+  expr' <- traverse expr
+  return $ Substitution (CComplexReal (subExpr expr') ni) (subItems expr') (subCritical expr')
+
+traverse (CComplexImag expr ni) = do
+  expr' <- traverse expr
+  return $ Substitution (CComplexImag (subExpr expr') ni) (subItems expr') (subCritical expr')
+
+traverse (CIndex expr1 expr2 ni) = do
+  expr1' <- traverse expr1
+  expr2' <- traverse expr2
+  let expr = CIndex (subExpr expr1') (subExpr expr2') ni
+  let items = subItems expr1' ++ subItems expr2'
+  let crit = subCritical expr1' || subCritical expr2'
+  return $ Substitution expr items crit
+  
 traverse (CCall v@(CVar iden _) params ni) = do -- {{{2
   ss <- mapM traverse params
   cf <- gets fst
@@ -77,17 +145,49 @@ traverse (CCall fun params ni) = do
   let crit = (subCritical subFun) || or (map subCritical subPar)
   return $ Substitution expr items crit
 
-traverse (CComma exprs ni) = do
-  ss <- mapM traverse exprs
-  let expr = CComma (map subExpr ss) ni
-  let items = concatMap subItems ss
-  let crit = or $ map subCritical ss
+traverse (CMember expr iden flag ni) = do
+  expr' <- traverse expr
+  return $ Substitution (CMember (subExpr expr') iden flag ni) (subItems expr') (subCritical expr')
+  
+traverse o@(CVar _ _) = return $ Substitution o [] False
+
+traverse o@(CConst _ ) = return $ Substitution o [] False
+
+traverse o@(CCompoundLit decl initlst ni) = do
+  initlst' <- mapM go initlst
+  let expr = CCompoundLit decl (map subExpr initlst') ni
+  let crit = or (map subCritical initlst')
+  let items = concatMap subItems initlst'
   return $ Substitution expr items crit
+  where
+    go :: ([CDesignator'], CInit') -> State Context (Substitution ([CDesignator'], CInit'))
+    go (partdes, initializer) = do
+      partdes' <- mapM go' partdes
+      initializer' <- go'' initializer
+      let expr = (map subExpr partdes', subExpr initializer')
+      let items = concatMap subItems partdes' ++ subItems initializer'
+      let crit = subCritical initializer' || or (map subCritical partdes')
+      return $ Substitution expr items crit
 
-traverse o = $abort $ unexp o
+    go' :: CDesignator' -> State Context (Substitution CDesignator')
+    go' (CArrDesig expr ni) = do
+      expr' <- traverse expr
+      return $ Substitution (CArrDesig (subExpr expr') ni) (subItems expr') (subCritical expr')
+    go' o@(CMemberDesig _ _) = return $ Substitution o [] False
+    go' o = $abort $ unexp o
 
-
-substitute :: Int -> CBinaryOp -> Substitution -> Substitution -> Substitution -- {{{2
+    go'' :: CInit' -> State Context (Substitution CInit')
+    go'' (CInitExpr expr ni) = do
+      expr' <- traverse expr
+      return $ Substitution (CInitExpr (subExpr expr') ni) (subItems expr') (subCritical expr')
+    go'' (CInitList initlst ni) = do
+      initlst' <- mapM go initlst
+      let expr = CInitList (map subExpr initlst') ni
+      let items = concatMap subItems initlst'
+      let crit = or (map subCritical initlst')
+      return $ Substitution expr items crit
+ 
+substitute :: Int -> CBinaryOp -> Substitution CExpr' -> Substitution CExpr' -> Substitution CExpr' -- {{{2
 substitute idx op lhs rhs =
   let
     iden = ident (tempBool idx)
@@ -101,10 +201,10 @@ substitute idx op lhs rhs =
     if_ = CBlockStmt $ CIf cond (CCompound [] (subItems rhs ++ [rhs_assign]) un) Nothing un
     items = subItems lhs ++ [decl, lhs_assign, if_]
   in
-    Substitution var items False
+    Substitution var items True
 
 neg :: CExpr' -> CExpr' -- {{{2
-neg exp = CUnary CNegOp exp (annotation exp)
+neg expr = CUnary CNegOp expr (annotation expr)
 
 isLogicalOp :: CBinaryOp -> Bool -- {{{2
 isLogicalOp CLorOp = True

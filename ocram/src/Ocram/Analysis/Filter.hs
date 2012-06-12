@@ -62,6 +62,9 @@ errors = [
   ]
 -- TODO: CaseRange and NestedFunctions are only a problem for critical functions
 -- TODO: Filter CStatExpr, GNU C compound statement as expr
+-- TODO: Filter CGotoPtr, computed goto
+-- TODO: Filter CBuiltinExpr, GNU Builtins, which cannot be typed in C99
+-- TODO: Filter CRangeDesig, GNU array range designator
 
 errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors

@@ -331,7 +331,7 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map runTest' [
       if(g() || h()) ;
     }
   |])
-  , -- critical function on left hand side {{{2
+  , -- critical function on left hand side, or expression {{{2
   (["g"],
   [paste|
     void foo() {
@@ -348,6 +348,185 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map runTest' [
         if (ec_tmp_bool_0) ;
       }
     }
+  |])
+  , -- critical function on right hand side, and expression {{{2
+  (["h"],
+  [paste|
+    void foo() {
+      if(g() && h()) ;
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_tmp_bool_0;
+        ec_tmp_bool_0 = !!g();
+        if (ec_tmp_bool_0) {
+          ec_tmp_bool_0 = !!h();
+        }
+        if (ec_tmp_bool_0) ;
+      }
+    }
+  |])
+  , -- expression statement {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      g() || h();
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_tmp_bool_0;
+        ec_tmp_bool_0 = !!g();
+        if (! ec_tmp_bool_0) {
+          ec_tmp_bool_0 = !!h();
+        }
+        ec_tmp_bool_0;
+      }
+    }
+  |])
+  , -- switch statement {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      switch(g() || h()) ;
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_tmp_bool_0;
+        ec_tmp_bool_0 = !!g();
+        if (! ec_tmp_bool_0) {
+          ec_tmp_bool_0 = !!h();
+        }
+        switch(ec_tmp_bool_0) ;
+      }
+    }
+  |])
+  , -- return statement {{{2
+  (["g"],
+  [paste|
+    int foo() {
+      return (g() || h()) ;
+    }
+  |], [paste|
+    int foo() {
+      {
+        int ec_tmp_bool_0;
+        ec_tmp_bool_0 = !!g();
+        if (! ec_tmp_bool_0) {
+          ec_tmp_bool_0 = !!h();
+        }
+        return ec_tmp_bool_0;
+      }
+    }
+  |])
+  , -- function call {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      h(k() || g());
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_tmp_bool_0;
+        ec_tmp_bool_0 = !!k();
+        if (! ec_tmp_bool_0) {
+          ec_tmp_bool_0 = !!g();
+        }
+        h(ec_tmp_bool_0);
+      }
+    }
+  |])
+  , -- within algebraic expression {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      if ((g() || 1) + 3);
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_tmp_bool_0;
+        ec_tmp_bool_0 = !!g();
+        if (! ec_tmp_bool_0) {
+          ec_tmp_bool_0 = !!1;
+        }
+        if (ec_tmp_bool_0 + 3);
+      }
+    }
+  |])
+  , -- containing algebraic expression {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      if ((1+g()) || h());
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_tmp_bool_0;
+        ec_tmp_bool_0 = !!(1 + g());
+        if (! ec_tmp_bool_0) {
+          ec_tmp_bool_0 = !!h();
+        }
+        if (ec_tmp_bool_0);
+      }
+    }
+  |])
+  , -- nested {{{2
+  (["g1", "g2"],
+  [paste|
+    void foo() {
+      if ((g1() || h1()) && (h2() || g2()));
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_tmp_bool_0;
+        ec_tmp_bool_0 = !!g1();
+        if (! ec_tmp_bool_0) {
+          ec_tmp_bool_0 = !!h1();
+        }
+        int ec_tmp_bool_2;
+        ec_tmp_bool_2 = !!ec_tmp_bool_0;
+        if (ec_tmp_bool_2) {
+          int ec_tmp_bool_1;
+          ec_tmp_bool_1 = !!h2();
+          if (!ec_tmp_bool_1) {
+            ec_tmp_bool_1 = !!g2();
+          }
+          ec_tmp_bool_2 = !!ec_tmp_bool_1;
+        }
+        if (ec_tmp_bool_2);
+      }
+    }
+  |])
+  , -- generic case {{{2
+  (["g", "h"],
+  [paste|
+      void foo() {
+        int i;
+        if ((g() || (i = x(), 1)) && h());
+      }
+  |], [paste|
+      void foo() {
+        int i;
+        {
+          int ec_tmp_bool_0;
+          ec_tmp_bool_0 = !!g();
+          if (! ec_tmp_bool_0) {
+            ec_tmp_bool_0 = !! (i = x(), 1);
+          }
+          int ec_tmp_bool_1;
+          ec_tmp_bool_1 = !!ec_tmp_bool_0;
+          if (ec_tmp_bool_1) {
+            ec_tmp_bool_1 = !!h();
+          }
+          if (ec_tmp_bool_1);
+        }
+      }
   |])
   ]
   where

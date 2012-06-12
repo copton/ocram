@@ -30,3 +30,5 @@ type CExpr' = CExpression ENodeInfo
 type CBlockItem' = CCompoundBlockItem ENodeInfo
 type CStat' = CStatement ENodeInfo
 type CFunDef' = CFunctionDef ENodeInfo
+type CDesignator' = CPartDesignator ENodeInfo
+type CInit' = CInitializer ENodeInfo
