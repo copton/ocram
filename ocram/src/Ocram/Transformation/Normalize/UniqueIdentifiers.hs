@@ -1,5 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
-module Ocram.Transformation.Inline.UniqueIdentifiers
+module Ocram.Transformation.Normalize.UniqueIdentifiers
 -- export {{{1
 (
   unique_identifiers
@@ -10,18 +9,18 @@ import Control.Monad.State (runState, State, get, put)
 import Data.Generics (gmapM, mkQ, mkM, extM, extQ, GenericQ, GenericM, Data)
 import Data.Maybe (mapMaybe, fromMaybe)
 import Language.C.Syntax.AST
-import Ocram.Debug (ENodeInfo)
+import Ocram.Debug
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Transformation.Inline.Types (Transformation)
-import Ocram.Transformation.Util (ident, map_critical_functions)
+import Ocram.Transformation.Util (ident)
+import Ocram.Transformation.Names (varShadow)
 import Ocram.Util (abort, unexp)
 import qualified Data.Map as Map
 
-unique_identifiers :: Transformation -- {{{1
-unique_identifiers cg ast@(CTranslUnit ds _) =
-  return $ map_critical_functions cg ast (fst . transform globalIds)
+unique_identifiers :: CFunDef' -> CFunDef'
+unique_identifiers = fst . transform noIds
   where
-    globalIds = Identifiers Map.empty (foldl (\m x -> Map.insert x x m) Map.empty $ map symbol ds)
+--    globalIds = Identifiers Map.empty (foldl (\m x -> Map.insert x x m) Map.empty $ map symbol ds)
+    noIds = Identifiers Map.empty Map.empty
 
     traverse :: Monad m => GenericQ Bool -> GenericM m -> GenericM m
     traverse q f x
@@ -97,9 +96,5 @@ newIdentifier (Identifiers es rt) identifier = case Map.lookup identifier rt of
 
 newExtraSymbol :: ExtraSymbols -> Symbol -> (ExtraSymbols, Symbol)
 newExtraSymbol es name = case Map.lookup name es of
-  Nothing -> (Map.insert name 0 es, mangle name 0)
-  Just x -> (Map.adjust (+1) name es, mangle name (x+1))
-
-mangle :: String -> Int -> String
-mangle name index = symbol $ name ++ "_" ++ show index
-    -- TODO avoid collisions with existing names, i.e. forbid this scheme in input code
+  Nothing -> (Map.insert name 0 es, varShadow name 0)
+  Just x -> (Map.adjust (+1) name es, varShadow name (x+1))

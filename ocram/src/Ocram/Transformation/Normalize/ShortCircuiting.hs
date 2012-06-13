@@ -7,7 +7,6 @@ module Ocram.Transformation.Normalize.ShortCircuiting
 import Control.Monad.State (State, evalState, get, gets, put)
 import Data.Generics (everywhereM, mkM)
 import Language.C.Syntax.AST
-import Ocram.Analysis (CriticalFunctions)
 import Ocram.Debug
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Util (ident)
@@ -16,10 +15,9 @@ import Ocram.Util (abort, unexp, unexp')
 
 import qualified Data.Set as Set
 
-short_circuiting :: CriticalFunctions -> CFunDef' -> CFunDef' -- {{{1
-short_circuiting cf fd = evalState (everywhereM (mkM go) fd) (cf', 0)
+short_circuiting :: Set.Set Symbol -> CFunDef' -> CFunDef' -- {{{1
+short_circuiting cf fd = evalState (everywhereM (mkM go) fd) (cf, 0)
   where
-    cf' = Set.fromList cf
     go :: CStat' -> State Context CStat'
     go o@(CIf cond then_ else_ ni) = do
       cond' <- traverse cond

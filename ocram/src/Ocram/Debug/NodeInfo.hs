@@ -26,9 +26,11 @@ enrichNodeInfo :: NodeInfo -> ENodeInfo -- {{{1
 enrichNodeInfo ni = ENodeInfo ni Nothing False
 
 -- {{{1 Types
+type CTranslUnit' = CTranslationUnit ENodeInfo
 type CExpr' = CExpression ENodeInfo
 type CBlockItem' = CCompoundBlockItem ENodeInfo
 type CStat' = CStatement ENodeInfo
 type CFunDef' = CFunctionDef ENodeInfo
 type CDesignator' = CPartDesignator ENodeInfo
 type CInit' = CInitializer ENodeInfo
+type CDecl' = CDeclaration ENodeInfo

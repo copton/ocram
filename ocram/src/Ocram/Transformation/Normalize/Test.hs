@@ -7,12 +7,16 @@ module Ocram.Transformation.Normalize.Test
 -- imports {{{1
 import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Debug (enrichNodeInfo, ENodeInfo)
+import Ocram.Debug
+import Ocram.Symbols (Symbol, symbol)
 import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Transformation.Normalize.Internal
 import Ocram.Transformation.Normalize.ShortCircuiting
+import Ocram.Transformation.Normalize.UniqueIdentifiers
 import Test.Framework (Test, testGroup)
 import Test.HUnit ((@=?), Assertion)
+
+import qualified Data.Set as Set
 
 tests :: Test -- {{{1
 tests = testGroup "Normalize" [
@@ -20,7 +24,10 @@ tests = testGroup "Normalize" [
   , test_desugar_control_structures
   , test_short_circuiting
   , test_wrap_dangling_statements
---  , test_unlist_declarations
+  , test_unlist_declarations
+  , test_unique_identifiers
+  , test_defer_criticial_initialization
+  , test_critical_statemtents
   ]
 
 test_explicit_return :: Test -- {{{1
@@ -319,7 +326,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
   ]
 
 test_short_circuiting :: Test -- {{{1
-test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map runTest' [
+test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' short_circuiting) [
     -- no critical function {{{2
   ([],
   [paste|
@@ -529,16 +536,6 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map runTest' [
       }
   |])
   ]
-  where
-    runTest' :: ([String], String, String) -> Assertion
-    runTest' (cf, code, expected) =
-      let
-        (CTranslUnit [CFDefExt (fd)] ni) = fmap enrichNodeInfo $ enrich code
-        result = (reduce $ fmap nodeInfo $ CTranslUnit [CFDefExt (short_circuiting cf fd)] ni) :: String
-        expected' = reduce $ (enrich expected :: CTranslUnit)
-      in
-        expected' @=? result
-
 test_wrap_dangling_statements :: Test -- {{{1
 test_wrap_dangling_statements = enumTestGroup "wrap_dangling_statements" $ map (runTest wrap_dangling_statements) [
 -- generic case {{{2
@@ -591,41 +588,147 @@ test_wrap_dangling_statements = enumTestGroup "wrap_dangling_statements" $ map (
 
 test_unlist_declarations :: Test -- {{{1
 test_unlist_declarations = enumTestGroup "unlist_declarations" $ map (runTest unlist_declarations) [
--- unlist declarations -- {{{2
-    ([paste|
-        void foo() {
-          int i, j;
-        }
-    |], [paste|
-        void foo() {
-          int i;
-          int j;
-        }
-    |])
--- unlist declarations - nested scope-- {{{2
-  , ([paste|
+    -- two ints {{{2
+  ([paste|
       void foo() {
-        {
-          int i, j;
-        }
+        int i, j;
       }
-    |], [paste|
+  |], [paste|
       void foo() {
-        {
-          int i;
-          int j;
-        }
+        int i;
+        int j;
       }
-    |])
+  |])
+  , -- nested scope-- {{{2
+  ([paste|
+    void foo() {
+      {
+        int i, j;
+      }
+    }
+  |], [paste|
+    void foo() {
+      {
+        int i;
+        int j;
+      }
+    }
+  |])
+  ]
+
+test_unique_identifiers :: Test -- {{{1
+test_unique_identifiers = enumTestGroup "unique_identifiers" $ map (runTest unique_identifiers) [
+    -- nested scope {{{2
+  ([paste|
+    void foo() {
+      int i;
+      {
+        int i;
+        i++;
+      }
+      ++i;
+    }
+  |], [paste|
+    void foo() {
+      int i;
+      {
+        int ec_shadow_i_0;
+        ec_shadow_i_0++;
+      }
+      ++i;
+    }
+  |])
+  ]
+
+test_critical_statemtents :: Test -- {{{1
+test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' [
+    -- return statement {{{2
+  ([paste|
+    int foo() { return 23; }
+    int bar() { return foo(); }
+  |], [paste|
+    int foo() { return 23; }
+    int bar() {
+      int ec_tmp_0 = foo();
+      return ec_tmp_0;
+    }
+  |])
+  , -- nested expression {{{2
+  ([paste|
+    int foo() { return 23; }
+    void bar() {
+      int i;
+      i = foo() + 42;
+    }
+  |], [paste|
+    int foo() { return 23; }
+    void bar() {
+      int i;
+      int ec_tmp_0 = foo();
+      i = ec_tmp_0 + 42;
+    }
+  |])
+  , -- if statement {{{2
+  ([paste|
+    int foo() { return 23; }
+    void bar() {
+      if (foo() == 23)  { }
+    }
+   |], [paste|
+    int foo() { return 23; }
+    void bar() {
+      int ec_tmp_0 = foo();
+      if (ec_tmp_0 == 23) { }
+    }
+  |])
+  ]
+  where
+  runTest'' :: (String, String) -> Assertion
+  runTest'' (code, expected) =
+    let
+      ast = enrich code
+      ast'@(CTranslUnit fds ni) = fmap enrichNodeInfo ast
+      fds' = map (CFDefExt . critical_statements cf ast' . (\(CFDefExt fd) -> fd)) fds
+      cf = Set.fromList $ map symbol fds
+      result = (reduce $ fmap nodeInfo $ CTranslUnit fds' ni) :: String
+      expected' = reduce $ (enrich expected :: CTranslUnit)
+    in
+      expected' @=? result
+
+test_defer_criticial_initialization :: Test -- {{{1
+test_defer_criticial_initialization = enumTestGroup "defer_critical_initialization" $ map (runTest' defer_critical_initialization) [
+    -- critical initialization {{{2
+  (["g"],
+   [paste|
+    void foo() {
+      int i = g(); 
+    }
+  |], [paste|
+    void foo() {
+      int i;
+      i = g();
+    } 
+  |])
   ]
 
 
-runTest :: (CFunctionDef ENodeInfo -> CFunctionDef ENodeInfo) -> (String, String) -> Assertion -- {{{1
+runTest :: (CFunDef' -> CFunDef') -> (String, String) -> Assertion -- {{{1
 runTest f (code, expected) =
   let
-    (CTranslUnit [CFDefExt (fd)] ni) = fmap enrichNodeInfo $ enrich code
+    (CTranslUnit [CFDefExt fd] ni) = fmap enrichNodeInfo $ enrich code
     result = (reduce $ fmap nodeInfo $ CTranslUnit [CFDefExt (f fd)] ni) :: String
     expected' = reduce $ (enrich expected :: CTranslUnit)
   in
     expected' @=? result
+
+runTest' :: (Set.Set Symbol -> CFunDef' -> CFunDef') -> ([String], String, String) -> Assertion -- {{{1
+runTest' f (cf, code, expected) =
+  let
+    cf' = Set.fromList cf
+    (CTranslUnit [CFDefExt fd] ni) = fmap enrichNodeInfo $ enrich code
+    result = (reduce $ fmap nodeInfo $ CTranslUnit [CFDefExt (f cf' fd)] ni) :: String
+    expected' = reduce $ (enrich expected :: CTranslUnit)
+  in
+    expected' @=? result
+
 

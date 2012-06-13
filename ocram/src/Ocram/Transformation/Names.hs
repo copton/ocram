@@ -42,3 +42,6 @@ tempVar count = "ec_tmp_" ++ show count
 
 tempBool :: Int -> String
 tempBool count = "ec_tmp_bool_" ++ show count
+
+varShadow :: String -> Int -> String
+varShadow name count = "ec_shadow_" ++ name ++ "_" ++ show count

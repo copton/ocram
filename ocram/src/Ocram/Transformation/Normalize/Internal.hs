@@ -1,25 +1,27 @@
 module Ocram.Transformation.Normalize.Internal
 -- export {{{1
 (
-  desugar_control_structures, explicit_return, wrap_dangling_statements, unlist_declarations
+  desugar_control_structures, explicit_return, wrap_dangling_statements, unlist_declarations, defer_critical_initialization, critical_statements
 ) where
 
 -- import {{{1
-import Control.Monad.State (evalState, State, get, modify)
+import Control.Monad.State (runState, put, evalState, State, get, modify)
+import Data.Data (Data)
 import Data.Generics (everything, mkQ, everywhere, everywhereBut, mkT, everywhereM, mkM)
 import Data.Monoid (Any(Any, getAny), mappend)
 import Language.C.Syntax.AST
-import Ocram.Debug (ENodeInfo)
-import Ocram.Query (return_type_fd)
+import Ocram.Debug
+import Ocram.Query (return_type_fd, return_type)
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Transformation.Names (ctrlbl)
-import Ocram.Transformation.Util (un, ident)
-import Ocram.Util (abort, unexp, tmap, (?:))
+import Ocram.Transformation.Names (ctrlbl, tempVar)
+import Ocram.Transformation.Util (ident)
+import Ocram.Util (abort, unexp, tmap, (?:), fromJust_s)
 import Prelude hiding (init)
 
 import qualified Data.Set as Set
+import qualified Data.Traversable as T
 
-explicit_return :: CFunctionDef ENodeInfo -> CFunctionDef ENodeInfo -- {{{1
+explicit_return :: CFunDef' -> CFunDef' -- {{{1
 explicit_return o@(CFunDef x1 x2 x3 (CCompound x4 body x6) x7)
   | isVoid (return_type_fd o) && needExplicitReturn body
     = CFunDef x1 x2 x3 (CCompound x4 body' x6) x7
@@ -34,7 +36,7 @@ explicit_return o@(CFunDef x1 x2 x3 (CCompound x4 body x6) x7)
 
 explicit_return o = o
 
-desugar_control_structures :: CFunctionDef ENodeInfo -> CFunctionDef ENodeInfo -- {{{1
+desugar_control_structures :: CFunDef' -> CFunDef' -- {{{1
 desugar_control_structures (CFunDef x1 x2 x3 (CCompound y1 items y2) x4) =
   CFunDef x1 x2 x3 (CCompound y1 items' y2) x4
   where
@@ -82,7 +84,7 @@ desugar_control_structures (CFunDef x1 x2 x3 (CCompound y1 items y2) x4) =
     desugarFor _ o = $abort $ unexp o
 
     -- utils {{{2
-    go :: CStatement ENodeInfo -> State Int (CStatement ENodeInfo)
+    go :: CStat' -> State Int (CStat')
     go o@(CWhile _ _ _ _) = do
       ids <- nextIds
       return $ desugarWhile ids o
@@ -109,14 +111,27 @@ desugar_control_structures (CFunDef x1 x2 x3 (CCompound y1 items y2) x4) =
       modify (+2)
       return $ (idx, idx+1)
 
+    replaceGotoContinue :: CStat' -> CStat' -> [CBlockItem'] -> [CBlockItem'] -- {{{2
+    replaceGotoContinue lblStart lblEnd = everywhereBut (mkQ False blocks) (mkT trans)
+      where
+        blocks :: CStat' -> Bool
+        blocks (CSwitch _ _ _) = True
+        blocks (CWhile _ _ _ _) = True
+        blocks (CFor _ _ _ _ _) = True
+        blocks _ = False
+        trans :: CStat' -> CStat'
+        trans (CBreak ni) = CGoto (lblIdent lblEnd) ni
+        trans (CCont ni) = CGoto (lblIdent lblStart) ni
+        trans o = o
+        lblIdent (CLabel i _ _ _) = i
+        lblIdent o = $abort $ unexp o
+
 desugar_control_structures o = $abort $ unexp o
 
-      
-
-wrap_dangling_statements :: CFunctionDef ENodeInfo -> CFunctionDef ENodeInfo -- {{{1
+wrap_dangling_statements :: CFunDef' -> CFunDef' -- {{{1
 wrap_dangling_statements = everywhere $ mkT dsStat
   where
-    dsStat :: CStatement ENodeInfo -> CStatement ENodeInfo
+    dsStat :: CStat' -> CStat'
     dsStat (CSwitch x1 s x2) = CSwitch x1 (wrapInBlock s) x2
     dsStat (CIf x1 s1 s2 x2) = CIf x1 (wrapInBlock s1) (fmap wrapInBlock s2) x2
     dsStat o@(CWhile _ _ _ _) = $abort $ unexp o
@@ -125,44 +140,107 @@ wrap_dangling_statements = everywhere $ mkT dsStat
     wrapInBlock o@(CCompound _ _ _) = o
     wrapInBlock s = CCompound [] [CBlockStmt s] un
 
-unlist_declarations :: CFunctionDef ENodeInfo -> CFunctionDef ENodeInfo -- {{{1
-unlist_declarations = undefined
--- unlist_declarations = everywhere (mkT trCompound)
---   where
---   trBlockItem (CBlockDecl decl) = map CBlockDecl (unlistDecl decl)
---   trBlockItem o@(CBlockStmt (CFor (Right decl) y1 y2 y3 y4))
---     | containsCriticalCall decl = map CBlockDecl (unlistDecl decl) ++ [CBlockStmt (CFor (Left Nothing) y1 y2 y3 y4)]
---     | otherwise = [o]
---   trBlockItem o = [o]
+unlist_declarations :: CFunDef' -> CFunDef' -- {{{1
+unlist_declarations = transformCompound tr
+  where
+  tr (CBlockDecl decl) = map CBlockDecl (unlistDecl decl)
+  tr o = [o]
 
---   trCompound (CCompound x1 items x2) = CCompound x1 (concatMap trBlockItem items) x2
---   trCompound x = x
+  unlistDecl (CDecl x [] z) = [CDecl x [] z] -- struct S { int i; };
+  unlistDecl (CDecl x ds z) = map (\y -> CDecl x [y] z) ds
+
+defer_critical_initialization :: Set.Set Symbol -> CFunDef' -> CFunDef' -- {{{1
+defer_critical_initialization cf = transformCompound tr
+  where
+  tr o@(CBlockDecl (CDecl y1 [(Just declr, Just (CInitExpr cexpr _), y2)] y3))
+    | containsCriticalCall cf cexpr = [declare, initialize]
+    | otherwise = [o]
+    where
+      declare = CBlockDecl (CDecl y1 [(Just declr, Nothing, y2)] y3)
+      initialize = CBlockStmt (CExpr (Just (CAssign CAssignOp (CVar (ident (symbol declr)) un) cexpr un)) un)
+  tr o = [o]
+
+critical_statements :: Set.Set Symbol -> CTranslUnit' -> CFunDef' -> CFunDef' -- {{{1
+critical_statements cf ast (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState (trBlock s) 0) x4 -- {{{2
+  where
+    trBlock :: CStatement ENodeInfo -> State Int (CStatement ENodeInfo)
+    trBlock (CCompound y1 items y2) = do
+      items' <- mapM trBlockItem items
+      return $ CCompound y1 (concat items') y2
+    trBlock x = $abort $ unexp x
+
+    -- critical calls in return statement -- {{{3
+    trBlockItem o@(CBlockStmt (CReturn (Just cexpr) ni))
+      | containsCriticalCall cf cexpr = do
+          (cexpr', extraDecls) <- extractCriticalCalls cexpr
+          let o' = CBlockStmt $ CReturn (Just cexpr') ni
+          return $ extraDecls ++ [o']
+      | otherwise = return [o]
+
+    -- critical calls in nested expressions -- {{{3
+    trBlockItem o@(CBlockStmt (CExpr (Just cexpr) ni))
+      | isInNormalForm cexpr = return [o]
+      | otherwise = do
+          (cexpr', extraDecls) <- extractCriticalCalls cexpr
+          let o' = CBlockStmt $ CExpr (Just cexpr') ni
+          return $ extraDecls ++ [o']
+
+    -- critical calls in conditions of if statements -- {{{3
+    trBlockItem (CBlockStmt (CIf condition thenBlock elseBlock ni)) = do
+      thenBlock' <- trBlock thenBlock
+      elseBlock' <- T.mapM trBlock elseBlock
+      if containsCriticalCall cf condition
+        then do
+          (condition', extraDecls) <- extractCriticalCalls condition
+          return $ extraDecls ++ [CBlockStmt (CIf condition' thenBlock' elseBlock' ni)]
+        else
+          return [CBlockStmt (CIf condition thenBlock' elseBlock' ni)]
+
+    -- default case -- {{{3
+    trBlockItem (CBlockStmt o@(CCompound _ _ _)) = trBlock o >>= return . (:[]) . CBlockStmt
+    trBlockItem o = return [o]
+
+    extractCriticalCalls cexp = do -- {{{2
+      idx <- get
+      let (cexp', (idx', decls)) = runState (everywhereM (mkM trCriticalCall) cexp) (idx, [])
+      put idx'
+      return (cexp', map CBlockDecl decls)
+
+      where
+        trCriticalCall o@(CCall (CVar name _) _ _)
+          | Set.member (symbol name) cf = do
+              (idx, decls) <- get
+              let decl = newDecl o (symbol name) idx
+              put (idx + 1, decl : decls)
+              return $ CVar (ident (symbol decl)) un
+          | otherwise = return o
+        trCriticalCall o = return o
+
+        newDecl :: CExpression ENodeInfo -> Symbol -> Int -> CDeclaration ENodeInfo
+        newDecl call callee tmpVarIdx =
+          CDecl [CTypeSpec returnType] [(Just declarator, Just initializer, Nothing)] un
+          where
+            (returnType, dds) = $fromJust_s $ return_type ast callee
+            declarator = CDeclr (Just tmpVar) dds Nothing [] un
+            initializer = CInitExpr call un
+            tmpVar = ident (tempVar tmpVarIdx)
+
+    isInNormalForm :: CExpression ENodeInfo -> Bool
+    isInNormalForm (CCall _ _ _) = True
+    isInNormalForm (CAssign CAssignOp _ (CCall _ _ _) _) = True
+    isInNormalForm _ = False
 
 -- utils {{{1
-
-replaceGotoContinue :: CStatement ENodeInfo -> CStatement ENodeInfo -> [CCompoundBlockItem ENodeInfo] -> [CCompoundBlockItem ENodeInfo]
-replaceGotoContinue lblStart lblEnd items = everywhereBut (mkQ False blocks) (mkT go) items
-  where
-    blocks :: CStatement ENodeInfo -> Bool
-    blocks (CSwitch _ _ _) = True
-    blocks (CWhile _ _ _ _) = True
-    blocks (CFor _ _ _ _ _) = True
-    blocks _ = False
-    go :: CStatement ENodeInfo -> CStatement ENodeInfo
-    go (CBreak ni) = CGoto (lblIdent lblEnd) ni
-    go (CCont ni) = CGoto (lblIdent lblStart) ni
-    go o = o
-    lblIdent (CLabel i _ _ _) = i
-    lblIdent o = $abort $ unexp o
-
-unlistDecl :: CDeclaration ENodeInfo -> [CDeclaration ENodeInfo]
-unlistDecl (CDecl x [] z) = [CDecl x [] z] -- struct S { int i; };
-unlistDecl (CDecl x ds z) = map (\y -> CDecl x [y] z) ds
-
-containsCriticalCall :: Set.Set Symbol -> CExpression ENodeInfo -> Bool
+containsCriticalCall :: Data a => Set.Set Symbol -> a -> Bool
 containsCriticalCall cf o = -- {{{2
   getAny $ everything mappend (mkQ (Any False) isCriticalCall) o
   where
-    isCriticalCall :: CExpression ENodeInfo -> Any
+    isCriticalCall :: CExpr' -> Any
     isCriticalCall (CCall (CVar name _) _ _) = Any $ Set.member (symbol name) cf
     isCriticalCall _ = Any False
+
+transformCompound :: (CBlockItem' -> [CBlockItem']) -> CFunDef' -> CFunDef'
+transformCompound f = everywhere (mkT trans)
+  where
+  trans (CCompound x1 items x2) = CCompound x1 (concatMap f items) x2
+  trans x = x
