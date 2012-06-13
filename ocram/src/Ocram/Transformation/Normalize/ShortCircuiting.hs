@@ -70,7 +70,22 @@ traverse (CAssign op lhs rhs ni) = do
   let crit = subCritical lhs' || subCritical rhs'
   return $ Substitution expr items crit
 
--- traverse CCond TODO
+traverse (CCond cond Nothing else_ ni) = do
+  cond' <- traverse cond
+  else_' <- traverse else_
+  let expr = CCond (subExpr cond') Nothing (subExpr else_') ni
+  let items = subItems cond' ++ subItems else_'
+  let crit = subCritical cond' || subCritical else_'
+  return $ Substitution expr items crit
+
+traverse (CCond cond (Just then_) else_ ni) = do
+  cond' <- traverse cond
+  then_' <- traverse then_
+  else_' <- traverse else_ 
+  let expr = CCond (subExpr cond') (Just (subExpr then_')) (subExpr else_') ni
+  let items = subItems cond' ++ subItems then_' ++ subItems else_'
+  let crit = subCritical cond' || subCritical then_' || subCritical else_'
+  return $ Substitution expr items crit
 
 traverse (CBinary op lhs rhs ni)
   | isLogicalOp op = do
@@ -153,7 +168,7 @@ traverse o@(CVar _ _) = return $ Substitution o [] False
 
 traverse o@(CConst _ ) = return $ Substitution o [] False
 
-traverse o@(CCompoundLit decl initlst ni) = do
+traverse (CCompoundLit decl initlst ni) = do
   initlst' <- mapM go initlst
   let expr = CCompoundLit decl (map subExpr initlst') ni
   let crit = or (map subCritical initlst')
@@ -170,22 +185,24 @@ traverse o@(CCompoundLit decl initlst ni) = do
       return $ Substitution expr items crit
 
     go' :: CDesignator' -> State Context (Substitution CDesignator')
-    go' (CArrDesig expr ni) = do
+    go' (CArrDesig expr ni') = do
       expr' <- traverse expr
-      return $ Substitution (CArrDesig (subExpr expr') ni) (subItems expr') (subCritical expr')
+      return $ Substitution (CArrDesig (subExpr expr') ni') (subItems expr') (subCritical expr')
     go' o@(CMemberDesig _ _) = return $ Substitution o [] False
     go' o = $abort $ unexp o
 
     go'' :: CInit' -> State Context (Substitution CInit')
-    go'' (CInitExpr expr ni) = do
+    go'' (CInitExpr expr ni') = do
       expr' <- traverse expr
-      return $ Substitution (CInitExpr (subExpr expr') ni) (subItems expr') (subCritical expr')
-    go'' (CInitList initlst ni) = do
-      initlst' <- mapM go initlst
-      let expr = CInitList (map subExpr initlst') ni
-      let items = concatMap subItems initlst'
-      let crit = or (map subCritical initlst')
+      return $ Substitution (CInitExpr (subExpr expr') ni') (subItems expr') (subCritical expr')
+    go'' (CInitList is ni') = do
+      is' <- mapM go is
+      let expr = CInitList (map subExpr is') ni'
+      let items = concatMap subItems is'
+      let crit = or (map subCritical is')
       return $ Substitution expr items crit
+
+traverse o = $abort $ unexp o
  
 substitute :: Int -> CBinaryOp -> Substitution CExpr' -> Substitution CExpr' -> Substitution CExpr' -- {{{2
 substitute idx op lhs rhs =
