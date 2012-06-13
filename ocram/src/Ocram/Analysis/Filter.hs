@@ -6,15 +6,16 @@ module Ocram.Analysis.Filter
 ) where
 
 -- imports {{{1
+import Data.Data (Data)
 import Data.Generics (mkQ, everything, extQ)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo, nodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Analysis.CallGraph (start_functions, is_start, is_critical, critical_functions)
+import Ocram.Analysis.CallGraph (start_functions, is_start, is_critical)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
-import Ocram.Query (is_start_function', function_definition, is_blocking_function', function_parameters_cd)
+import Ocram.Query (is_start_function', is_blocking_function', function_parameters_cd)
 import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
@@ -43,6 +44,10 @@ data ErrorCode =
   | InitializerList 
   | NoVarName
   | Ellipses
+  | StatExpression
+  | GotoPtr
+  | BuiltinExpr
+  | RangeDesignator
   deriving (Eq, Enum, Show)
 
 errors :: [(ErrorCode, String)]
@@ -59,51 +64,37 @@ errors = [
   , (InitializerList, "Sorry, initializer list in critical functions is not supported yet.")
   , (NoVarName, "Function parameters of blocking functions must have names.")
   , (Ellipses, "No ellipses for critical functions")
+  , (StatExpression, "GNU C compound statement as expressions are not supported")
+  , (GotoPtr, "Computed gotos are not part of C99 and are thus not supported")
+  , (BuiltinExpr, "GNU C builtin expressions are not supported")
+  , (RangeDesignator, "GNU C array range designators are not supported")
   ]
--- TODO: CaseRange and NestedFunctions are only a problem for critical functions
--- TODO: Filter CStatExpr, GNU C compound statement as expr
--- TODO: Filter CGotoPtr, computed goto
--- TODO: Filter CBuiltinExpr, GNU Builtins, which cannot be typed in C99
--- TODO: Filter CRangeDesig, GNU array range designator
 
 errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors
 
 check_sanity :: CTranslUnit -> Either [OcramError] () -- {{{1
-check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStats `extQ` saneCompound) ast
-
-saneExtDecls :: CExtDecl -> [OcramError]
-
-saneExtDecls (CDeclExt cd@(CDecl ts _ ni))
-  | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
-  | is_blocking_function' cd = map (\p -> newError NoVarName Nothing (Just (nodeInfo p))) $ filter noVarName $ function_parameters_cd cd
-  | otherwise = []
-
-saneExtDecls (CFDefExt (CFunDef ts (CDeclr _ ps _ _ _) _ _ ni))
-  | null ps = [newError NoParameterList Nothing (Just ni)]
-  | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
-  | otherwise = []
-
-saneExtDecls (CAsmExt _ ni) = [newError AssemblerCode Nothing (Just ni)]
-
-saneStats :: CStat -> [OcramError]
-saneStats (CAsm _ ni) = [newError AssemblerCode Nothing (Just ni)]
-saneStats (CCases _ _ _ ni) = [newError CaseRange Nothing (Just ni)]
-saneStats _ = []
-
-saneCompound :: CCompoundBlockItem NodeInfo -> [OcramError]
-saneCompound (CNestedFunDef o) = [newError NestedFunction Nothing (Just (nodeInfo o))]
-saneCompound _ = []
-
-hasReturnType :: [CDeclSpec] -> Bool
-hasReturnType = any isTypeSpec
+check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls) ast
   where
-    isTypeSpec (CTypeSpec _) = True
-    isTypeSpec _ = False
+    saneExtDecls (CDeclExt cd@(CDecl ts _ ni))
+      | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
+      | is_blocking_function' cd = map (\p -> newError NoVarName Nothing (Just (nodeInfo p))) $ filter noVarName $ function_parameters_cd cd
+      | otherwise = []
 
-noVarName :: CDecl -> Bool
-noVarName (CDecl _ [] _) = True
-noVarName _ = False
+    saneExtDecls (CFDefExt (CFunDef ts (CDeclr _ ps _ _ _) _ _ ni))
+      | null ps = [newError NoParameterList Nothing (Just ni)]
+      | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
+      | otherwise = []
+
+    saneExtDecls _ = []
+
+    hasReturnType = any isTypeSpec
+      where
+        isTypeSpec (CTypeSpec _) = True
+        isTypeSpec _ = False
+
+    noVarName (CDecl _ [] _) = True
+    noVarName _ = False
 
 check_constraints :: CTranslUnit -> CallGraph -> Either [OcramError] () -- {{{1
 check_constraints ast cg = failOrPass $
@@ -111,32 +102,7 @@ check_constraints ast cg = failOrPass $
   ++ checkRecursion cg
   ++ checkStartFunctions cg ast
   ++ checkThreads cg
-  ++ checkInitList cg ast
-  ++ checkEllipses cg ast
-
-checkEllipses :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
-checkEllipses cg ast = everything (++) (mkQ [] ellipses) ast
-  where
-  ellipses :: CExtDecl -> [OcramError]
-  ellipses (CDeclExt cd)
-    | is_blocking_function' cd = everything (++) (mkQ [] ellipses') cd
-    | otherwise = []
-  ellipses (CFDefExt fd)
-    | is_critical cg (symbol fd) = everything (++) (mkQ [] ellipses') fd
-    | otherwise = []
-  ellipses _ = []
-  ellipses' :: CDerivedDeclr -> [OcramError]
-  ellipses' x@(CFunDeclr (Right (_, True)) _ _) = [newError Ellipses Nothing (Just (nodeInfo x))]
-  ellipses' _ = []
-
-checkInitList :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
-checkInitList cg ast = everything (++) (mkQ [] saneDecls) $ mapMaybe (function_definition ast) $ critical_functions cg
-  where
-  saneDecls (CDecl _ l ni)
-    | any containsInitList l = [newError InitializerList Nothing (Just ni)]
-    | otherwise = []
-  containsInitList (_, Just (CInitList _ _), _) = True
-  containsInitList _ = False
+  ++ checkFeatures cg ast
 
 checkFunctionPointer :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
@@ -145,11 +111,6 @@ checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
       | is_critical cg name = [newError PointerToCriticalFunction Nothing (Just ni)]
       | otherwise = []
     check _ = []
-
-checkThreads :: CallGraph -> [OcramError] -- {{{2
-checkThreads cg
-  | null (start_functions cg) = [newError NoThreads Nothing Nothing]
-  | otherwise = []
 
 checkRecursion :: CallGraph -> [OcramError] -- {{{2
 checkRecursion cg@(CallGraph gd gi) = mapMaybe (fmap (createRecError cg) . find_loop gd . $lookup_s gi) $ start_functions cg
@@ -172,6 +133,60 @@ checkStartFunctions cg (CTranslUnit ds _) = foldr go [] ds
     | otherwise = es
   go _ es = es
 
+checkThreads :: CallGraph -> [OcramError] -- {{{2
+checkThreads cg
+  | null (start_functions cg) = [newError NoThreads Nothing Nothing]
+  | otherwise = []
+
+checkFeatures :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
+checkFeatures cg (CTranslUnit ds _) = concatMap filt ds
+  where
+    filt (CDeclExt cd)
+      | is_blocking_function' cd = scan cd
+      | otherwise = []
+    filt (CFDefExt fd)
+      | is_critical cg (symbol fd) = scan fd
+      | otherwise = []
+    filt _ = []
+
+    scan :: Data a => a -> [OcramError]
+    scan = everything (++) (mkQ [] scanDerivedDeclr `extQ` scanDecl `extQ` scanStat `extQ` scanBlockItem `extQ` scanExpr `extQ` scanPartDesig)
+
+    scanDerivedDeclr :: CDerivedDeclr -> [OcramError]
+    scanDerivedDeclr x@(CFunDeclr (Right (_, True)) _ _) =
+      [newError Ellipses Nothing (Just (nodeInfo x))]
+    scanDerivedDeclr _ = []
+
+    scanDecl (CDecl _ l ni)
+      | any containsInitList l = [newError InitializerList Nothing (Just ni)]
+      | otherwise = []
+      where
+        containsInitList (_, Just (CInitList _ _), _) = True
+        containsInitList _ = False
+
+    scanStat (CAsm _ ni) =
+      [newError AssemblerCode Nothing (Just ni)]
+    scanStat (CCases _ _ _ ni) =
+      [newError CaseRange Nothing (Just ni)]
+    scanStat (CGotoPtr _ ni) =
+      [newError GotoPtr Nothing (Just ni)]
+    scanStat _ = []
+
+    scanBlockItem :: CBlockItem -> [OcramError]
+    scanBlockItem (CNestedFunDef o) =
+      [newError NestedFunction Nothing (Just (nodeInfo o))]
+    scanBlockItem _ = []
+
+    scanExpr (CStatExpr _ ni) =
+      [newError StatExpression Nothing (Just ni)]
+    scanExpr o@(CBuiltinExpr _) =
+      [newError BuiltinExpr Nothing (Just (nodeInfo o))]
+    scanExpr _ = []
+
+    scanPartDesig (CRangeDesig _ _ ni) =
+      [newError RangeDesignator Nothing (Just ni)]
+    scanPartDesig _ = []
+    
 -- util {{{1
 failOrPass :: [a] -> Either [a] ()
 failOrPass [] = Right ()
