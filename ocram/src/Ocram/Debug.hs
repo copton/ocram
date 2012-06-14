@@ -1,22 +1,21 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ViewPatterns #-} 
 module Ocram.Debug
 -- export {{{1
 (
   VarMap,
   TLocation(..), ELocation(..), Location(..), LocMap,
-  ENodeInfo(..), enrichNodeInfo, un, enableBreakpoint, setThread, validBreakpoint, tlocation, eNodeInfo,
-  format_debug_info
+  ENodeInfo(..), enableBreakpoint, setThread, validBreakpoint, tlocation, eNodeInfo,
+  format_debug_info,
+  module Ocram.Debug.NodeInfo
 ) where
 
 -- import {{{1
-import Data.Data (Data)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Maybe (fromMaybe)
-import Data.Typeable (Typeable)
-import Language.C.Data.Node (CNode(..), lengthOfNode, isUndefNode, NodeInfo, undefNode, posOfNode)
-import Language.C.Syntax.AST (CExpression(CCall))
+import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode)
+import Language.C.Syntax.AST
 import Language.C.Data.Position (posRow, posColumn)
+import Ocram.Debug.NodeInfo
 import Ocram.Options
 import Ocram.Symbols (Symbol)
 import Ocram.Util (abort, unexp, fromJust_s)
@@ -68,23 +67,8 @@ type PrepMap = [PrepLocation] -- {{{1
 type Variable = Symbol -- {{{1
 type VarMap = [(Variable, Variable)]
 
-data ENodeInfo = ENodeInfo { -- {{{1
-  tnodeInfo :: NodeInfo,
-  threadId :: Maybe Int,
-  isBreakpoint :: Bool
-  } deriving (Data, Typeable)
 
-instance CNode ENodeInfo where
-  nodeInfo = tnodeInfo
 
-instance Show ENodeInfo where
-  show _ = ""
-
-enrichNodeInfo :: NodeInfo -> ENodeInfo -- {{{1
-enrichNodeInfo ni = ENodeInfo ni Nothing False
-
-un :: ENodeInfo -- {{{1
-un = enrichNodeInfo undefNode
 
 enableBreakpoint :: ENodeInfo -> ENodeInfo -- {{{1
 enableBreakpoint eni

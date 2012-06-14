@@ -1,7 +1,7 @@
 module Ocram.Transformation.Util 
 -- exports {{{1
 (
-  ident, un,
+  ident,
   map_critical_functions
 ) where
 
@@ -10,7 +10,6 @@ import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, is_critical)
-import Ocram.Debug (un)
 import Ocram.Symbols (symbol)
 
 ident :: String -> Ident -- {{{1

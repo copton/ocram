@@ -7,11 +7,11 @@ module Ocram.Transformation.Inline.TStack
 -- imports {{{1
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, get_callees, dependency_list, CallGraph, is_start)
-import Ocram.Debug (ENodeInfo)
+import Ocram.Debug (ENodeInfo, un)
 import Ocram.Query (local_variables, return_type)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
-import Ocram.Transformation.Util (un, ident)
+import Ocram.Transformation.Util (ident)
 import Ocram.Symbols (Symbol)
 import Ocram.Util ((?:), fromJust_s, abort)
 import qualified Data.Map as Map

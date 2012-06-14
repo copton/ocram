@@ -8,12 +8,12 @@ import Ocram.IO (parse, generate_pal, dump_ptcode, dump_ecode, dump_debug_info)
 import Ocram.Print (print_with_log)
 import Ocram.Text (OcramError, show_errors)
 import Ocram.Test (runTests)
+import Ocram.Transformation (transformation)
 import System.Directory (getCurrentDirectory)
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
 
-import qualified Ocram.Transformation.Inline as Inline
 
 main :: IO () -- {{{1
 main = do
@@ -29,7 +29,7 @@ runCompiler argv = do
   opt <- exitOnError "options" $ options prg argv 
   (tcode, ptcode, ast) <- exitOnError "parser" =<< parse opt
   (cg, fpr) <- exitOnError "analysis" $ analysis ast
-  let (ast', pal, varMap) = Inline.transformation cg ast
+  let (ast', pal, varMap) = transformation cg ast
   let (ecode, locMap) = print_with_log ast'
   let debuginfo = format_debug_info opt cwd tcode ptcode ecode locMap varMap
   exitOnError "output" =<< generate_pal opt fpr pal

@@ -12,7 +12,7 @@ tests = testGroup "Filter" [test_check_sanity, test_check_constraints]
 
 test_check_sanity :: Test -- {{{1
 test_check_sanity = enumTestGroup "check_sanity" $ map runTest [
-    -- function declaration without parameter name
+    -- function declaration without parameter name {{{2
     ([paste|
       __attribute__((tc_blocking)) void block(int);
       __attribute__((tc_run_thread)) void start() {
@@ -84,20 +84,60 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
         block();
       }
     |], [InitializerList, InitializerList])
-  , -- but initializer lists outside of critical functions are okay {{{2
+  , -- inline assembler not supported {{{2
     ([paste|
-      struct Foo { int i; };
-      const char text[] = "it's okay";
       __attribute__((tc_blocking)) void block();
-      void foo() {
-        struct Foo foo = {23};
-        int i[] = {4,2};
+      __attribute__((tc_run_thread)) void start() {
+        asm("movl %ebx, %eax");
+        block();
+      }
+    |], [AssemblerCode])
+  , -- nested functions not supported {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        void foo() { }
+        block();
+      }
+    |], [NestedFunction])
+  , -- case ranges not supported {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        int i;
+        switch (i) {
+          case 1 ... 2: block();
+        }
+      }
+    |], [CaseRange])
+  , -- statement expressions not supported {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+          int a, b;
+          int i = ( {int _a = (a), _b = (b); _a > _b ? _a : _b; } );
+          block();
+      }
+    |], [StatExpression])
+  , -- computed gotos not supported {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      void crit(void* x) {
+        goto *x;
+        block();
       }
       __attribute__((tc_run_thread)) void start() {
-        block();
-        foo();
+        crit((void*)23);
       }
-    |], [])
+    |], [GotoPtr])
+  , -- array range designators not supported {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        int widths[] = { [0 ... 9] = 1, [10] = 3 };
+        block();
+      }
+    |], [InitializerList, RangeDesignator])
   ]
   where
     runTest (code, expected) = expected @=? errs (enrich code)
