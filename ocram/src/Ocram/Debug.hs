@@ -1,4 +1,5 @@
 {-# LANGUAGE ViewPatterns #-} 
+{-# LANGUAGE DeriveDataTypeable #-}
 module Ocram.Debug
 -- export {{{1
 (
@@ -6,7 +7,6 @@ module Ocram.Debug
   TLocation(..), ELocation(..), Location(..), LocMap,
   ENodeInfo(..), enableBreakpoint, setThread, validBreakpoint, tlocation, eNodeInfo,
   format_debug_info,
-  module Ocram.Debug.NodeInfo
 ) where
 
 -- import {{{1
@@ -15,7 +15,6 @@ import Data.Maybe (fromMaybe)
 import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode)
 import Language.C.Syntax.AST
 import Language.C.Data.Position (posRow, posColumn)
-import Ocram.Debug.NodeInfo
 import Ocram.Options
 import Ocram.Symbols (Symbol)
 import Ocram.Util (abort, unexp, fromJust_s)

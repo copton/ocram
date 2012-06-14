@@ -64,7 +64,6 @@ Executable ocram
     Ocram.Symbols,
     Ocram.IO,
     Ocram.Text,
-    Ocram.Debug.NodeInfo,
     Ocram.Names,
     Ocram.Options,
     Ocram.Print,
