@@ -16,12 +16,12 @@ import qualified Data.Set as Set
 normalize :: CallGraph -> CTranslUnit' -> CTranslUnit'
 normalize cg ast@(CTranslUnit ds ni) = CTranslUnit ds' ni
   where
-  ds' = map go ds
+  ds' = (reverse . snd . foldl go (0, [])) ds
   cf = Set.fromList $ critical_functions cg
 
-  go o@(CFDefExt fd)
-    | Set.member (symbol fd) cf = (CFDefExt . proc) fd
-    | otherwise = o   
-  go o = o
+  go (tid, os) o@(CFDefExt fd)
+    | Set.member (symbol fd) cf = (tid + 1, (CFDefExt . proc tid) fd : os)
+    | otherwise = (tid, o : os)
+  go (tid, os) o = (tid, o : os)
 
-  proc = critical_statements cf ast . short_circuiting cf . defer_critical_initialization cf . wrap_dangling_statements . desugar_control_structures . explicit_return . unique_identifiers . unlist_declarations
+  proc tid = critical_statements tid cf ast . short_circuiting tid cf . defer_critical_initialization cf . wrap_dangling_statements . desugar_control_structures tid . explicit_return . unique_identifiers . unlist_declarations

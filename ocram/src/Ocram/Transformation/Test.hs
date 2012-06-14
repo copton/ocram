@@ -289,9 +289,9 @@ test_integration = enumTestGroup "integration" $ map runTest [
 
 				ec_stack_start.i = 0;
         {
-          ec_ctrlbl_0: ;
+          ec_ctrlbl_0_0: ;
           if (!(ec_stack_start.i < 10)) {
-            goto ec_ctrlbl_1;
+            goto ec_ctrlbl_0_1;
           }
 					ec_stack_start.i++;
 					ec_stack_start.ec_frames.block.j = ec_stack_start.i;
@@ -300,8 +300,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
 					return;
 		ec_label_start_1: ;
 					ec_stack_start.i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          goto ec_ctrlbl_0_0;
+          ec_ctrlbl_0_1: ;
 				}
 				ec_stack_start.i = 0;
 				return;	
@@ -401,7 +401,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				ec_frame_block_t block;
 			} ec_frames;
 			int c;	
-      int ec_crit_0;
+      int ec_crit_0_0;
 		} ec_frame_critical_t;
 
 		typedef struct {
@@ -431,9 +431,9 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
-        ec_stack_start.ec_frames.critical.ec_crit_0 = ec_stack_start.ec_frames.critical.ec_frames.block.ec_result;
+        ec_stack_start.ec_frames.critical.ec_crit_0_0 = ec_stack_start.ec_frames.critical.ec_frames.block.ec_result;
         {
-        ec_stack_start.ec_frames.critical.ec_result = ec_stack_start.ec_frames.critical.ec_crit_0;
+        ec_stack_start.ec_frames.critical.ec_result = ec_stack_start.ec_frames.critical.ec_crit_0_0;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
         }
 		}
@@ -486,17 +486,17 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				goto *ec_cont;
 
       {
-        ec_ctrlbl_0: ;
+        ec_ctrlbl_0_0: ;
         if (!1) {
-          goto ec_ctrlbl_1;
+          goto ec_ctrlbl_0_1;
         }
         ec_stack_start.ec_frames.block.b = ec_stack_start.s;
         ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
         block(&ec_stack_start.ec_frames.block);
         return;
     ec_label_start_1: ;
-        goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
+        goto ec_ctrlbl_0_0;
+        ec_ctrlbl_0_1: ;
       }
       return;	
 		}
@@ -507,17 +507,17 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				goto *ec_cont;
 
       {
-				ec_ctrlbl_0: ;
+				ec_ctrlbl_1_0: ;
         if (!1) {
-          goto ec_ctrlbl_1;
+          goto ec_ctrlbl_1_1;
         }
 				ec_stack_run.ec_frames.block.b = ec_stack_run.r;
 				ec_stack_run.ec_frames.block.ec_cont = &&ec_label_run_1;
 				block(&ec_stack_run.ec_frames.block);
 				return;
 			ec_label_run_1: ;
-        goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
+        goto ec_ctrlbl_1_0;
+        ec_ctrlbl_1_1: ;
 				}
 				return;	
 		}
@@ -791,7 +791,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       union {
         ec_frame_block_t block;
       } ec_frames;
-      int ec_crit_0;
+      int ec_crit_0_0;
       int i;
       int j;
       int k;
@@ -810,8 +810,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
         block(&ec_stack_start.ec_frames.block);
         return;
       ec_label_start_1: ;
-        ec_stack_start.ec_crit_0 = ec_stack_start.ec_frames.block.ec_result;
-        ec_stack_start.j = ec_stack_start.ec_crit_0 + 3;
+        ec_stack_start.ec_crit_0_0 = ec_stack_start.ec_frames.block.ec_result;
+        ec_stack_start.j = ec_stack_start.ec_crit_0_0 + 3;
         ec_stack_start.k = 23;
         return;
     }

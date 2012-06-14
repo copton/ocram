@@ -82,7 +82,7 @@ test_explicit_return = enumTestGroup "explicit_return" $ map (runTest explicit_r
     |])
   ]
 test_desugar_control_structures :: Test -- {{{1
-test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ map (runTest desugar_control_structures) [
+test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ map (runTest (desugar_control_structures 1)) [
   -- while loop {{{2
   ([paste|
       void foo() {
@@ -96,11 +96,11 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       void foo() {
         a();
         {
-          ec_ctrlbl_0: ;
-          if (! 1) goto ec_ctrlbl_1;
+          ec_ctrlbl_1_0: ;
+          if (! 1) goto ec_ctrlbl_1_1;
           g();
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          goto ec_ctrlbl_1_0;
+          ec_ctrlbl_1_1: ;
         }
         b();
       }
@@ -118,10 +118,10 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       void foo() {
         a();
         {
-          ec_ctrlbl_0: ;
+          ec_ctrlbl_1_0: ;
           g();
-          if (1) goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          if (1) goto ec_ctrlbl_1_0;
+          ec_ctrlbl_1_1: ;
         }
         b();
       }
@@ -142,12 +142,12 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         int i;
         {
           i = 0;
-          ec_ctrlbl_0: ;
-          if (! (i<23)) goto ec_ctrlbl_1;
+          ec_ctrlbl_1_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1_1;
           g(i);
           i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          goto ec_ctrlbl_1_0;
+          ec_ctrlbl_1_1: ;
         }
         b();
       }
@@ -166,12 +166,12 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         a();
         {
           int i = 0;
-          ec_ctrlbl_0: ;
-          if (! (i<23)) goto ec_ctrlbl_1;
+          ec_ctrlbl_1_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1_1;
           g(i);
           i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          goto ec_ctrlbl_1_0;
+          ec_ctrlbl_1_1: ;
         }
         b();
       }
@@ -189,12 +189,12 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       void foo() {
         a();
         {
-          ec_ctrlbl_0: ;
-          if (! (i<23)) goto ec_ctrlbl_1;
+          ec_ctrlbl_1_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1_1;
           g(i);
           i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          goto ec_ctrlbl_1_0;
+          ec_ctrlbl_1_1: ;
         }
         b();
       }
@@ -215,11 +215,11 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         int i;
         {
           i = 0;
-          ec_ctrlbl_0: ;
+          ec_ctrlbl_1_0: ;
           g(i);
           i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          goto ec_ctrlbl_1_0;
+          ec_ctrlbl_1_1: ;
         }
         b();
       }
@@ -240,11 +240,11 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         int i;
         {
           i = 0;
-          ec_ctrlbl_0: ;
-          if (! (i<23)) goto ec_ctrlbl_1;
+          ec_ctrlbl_1_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1_1;
           g(i);
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          goto ec_ctrlbl_1_0;
+          ec_ctrlbl_1_1: ;
         }
         b();
       }
@@ -264,12 +264,12 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       void foo() {
         a();
         {
-          ec_ctrlbl_0: ;
-          goto ec_ctrlbl_0;
+          ec_ctrlbl_1_0: ;
+          goto ec_ctrlbl_1_0;
           g();
-          goto ec_ctrlbl_1;
-          if (1) goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          goto ec_ctrlbl_1_1;
+          if (1) goto ec_ctrlbl_1_0;
+          ec_ctrlbl_1_1: ;
         }
         b();
       }
@@ -299,26 +299,26 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       void foo() {
         a();
         {
-          ec_ctrlbl_2: ;
-          if (!1) goto ec_ctrlbl_3;
+          ec_ctrlbl_1_2: ;
+          if (!1) goto ec_ctrlbl_1_3;
           b();
-          goto ec_ctrlbl_2;
+          goto ec_ctrlbl_1_2;
           c();
           {
-            ec_ctrlbl_0: ;
+            ec_ctrlbl_1_0: ;
             d();
-            goto ec_ctrlbl_0;
+            goto ec_ctrlbl_1_0;
             e();
-            goto ec_ctrlbl_1;
+            goto ec_ctrlbl_1_1;
             f();
-            if (23) goto ec_ctrlbl_0;
-            ec_ctrlbl_1: ;
+            if (23) goto ec_ctrlbl_1_0;
+            ec_ctrlbl_1_1: ;
           }
           g();
-          goto ec_ctrlbl_3;
+          goto ec_ctrlbl_1_3;
           h();
-          goto ec_ctrlbl_2;
-          ec_ctrlbl_3: ; 
+          goto ec_ctrlbl_1_2;
+          ec_ctrlbl_1_3: ; 
         }
         i(); 
       }
@@ -326,7 +326,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
   ]
 
 test_short_circuiting :: Test -- {{{1
-test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' short_circuiting) [
+test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' (short_circuiting 1)) [
     -- no critical function {{{2
   ([],
   [paste|
@@ -347,12 +347,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
+        int ec_bool_1_0;
+        ec_bool_1_0 = !!g();
+        if (! ec_bool_1_0) {
+          ec_bool_1_0 = !!h();
         }
-        if (ec_bool_0) ;
+        if (ec_bool_1_0) ;
       }
     }
   |])
@@ -365,12 +365,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
-        ec_bool_0 = !!g();
-        if (ec_bool_0) {
-          ec_bool_0 = !!h();
+        int ec_bool_1_0;
+        ec_bool_1_0 = !!g();
+        if (ec_bool_1_0) {
+          ec_bool_1_0 = !!h();
         }
-        if (ec_bool_0) ;
+        if (ec_bool_1_0) ;
       }
     }
   |])
@@ -383,12 +383,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
+        int ec_bool_1_0;
+        ec_bool_1_0 = !!g();
+        if (! ec_bool_1_0) {
+          ec_bool_1_0 = !!h();
         }
-        ec_bool_0;
+        ec_bool_1_0;
       }
     }
   |])
@@ -401,12 +401,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
+        int ec_bool_1_0;
+        ec_bool_1_0 = !!g();
+        if (! ec_bool_1_0) {
+          ec_bool_1_0 = !!h();
         }
-        switch(ec_bool_0) ;
+        switch(ec_bool_1_0) ;
       }
     }
   |])
@@ -419,12 +419,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     int foo() {
       {
-        int ec_bool_0;
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
+        int ec_bool_1_0;
+        ec_bool_1_0 = !!g();
+        if (! ec_bool_1_0) {
+          ec_bool_1_0 = !!h();
         }
-        return ec_bool_0;
+        return ec_bool_1_0;
       }
     }
   |])
@@ -437,12 +437,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
-        ec_bool_0 = !!k();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!g();
+        int ec_bool_1_0;
+        ec_bool_1_0 = !!k();
+        if (! ec_bool_1_0) {
+          ec_bool_1_0 = !!g();
         }
-        h(ec_bool_0);
+        h(ec_bool_1_0);
       }
     }
   |])
@@ -455,12 +455,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!1;
+        int ec_bool_1_0;
+        ec_bool_1_0 = !!g();
+        if (! ec_bool_1_0) {
+          ec_bool_1_0 = !!1;
         }
-        if (ec_bool_0 + 3);
+        if (ec_bool_1_0 + 3);
       }
     }
   |])
@@ -473,12 +473,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
-        ec_bool_0 = !!(1 + g());
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
+        int ec_bool_1_0;
+        ec_bool_1_0 = !!(1 + g());
+        if (! ec_bool_1_0) {
+          ec_bool_1_0 = !!h();
         }
-        if (ec_bool_0);
+        if (ec_bool_1_0);
       }
     }
   |])
@@ -491,22 +491,22 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
-        ec_bool_0 = !!g1();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h1();
+        int ec_bool_1_0;
+        ec_bool_1_0 = !!g1();
+        if (! ec_bool_1_0) {
+          ec_bool_1_0 = !!h1();
         }
-        int ec_bool_2;
-        ec_bool_2 = !!ec_bool_0;
-        if (ec_bool_2) {
-          int ec_bool_1;
-          ec_bool_1 = !!h2();
-          if (!ec_bool_1) {
-            ec_bool_1 = !!g2();
+        int ec_bool_1_2;
+        ec_bool_1_2 = !!ec_bool_1_0;
+        if (ec_bool_1_2) {
+          int ec_bool_1_1;
+          ec_bool_1_1 = !!h2();
+          if (!ec_bool_1_1) {
+            ec_bool_1_1 = !!g2();
           }
-          ec_bool_2 = !!ec_bool_1;
+          ec_bool_1_2 = !!ec_bool_1_1;
         }
-        if (ec_bool_2);
+        if (ec_bool_1_2);
       }
     }
   |])
@@ -521,17 +521,17 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
       void foo() {
         int i;
         {
-          int ec_bool_0;
-          ec_bool_0 = !!g();
-          if (! ec_bool_0) {
-            ec_bool_0 = !! (i = x(), 1);
+          int ec_bool_1_0;
+          ec_bool_1_0 = !!g();
+          if (! ec_bool_1_0) {
+            ec_bool_1_0 = !! (i = x(), 1);
           }
-          int ec_bool_1;
-          ec_bool_1 = !!ec_bool_0;
-          if (ec_bool_1) {
-            ec_bool_1 = !!h();
+          int ec_bool_1_1;
+          ec_bool_1_1 = !!ec_bool_1_0;
+          if (ec_bool_1_1) {
+            ec_bool_1_1 = !!h();
           }
-          if (ec_bool_1);
+          if (ec_bool_1_1);
         }
       }
   |])
@@ -649,8 +649,8 @@ test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' 
   |], [paste|
     int foo() { return 23; }
     int bar() {
-      int ec_crit_0 = foo();
-      return ec_crit_0;
+      int ec_crit_1_0 = foo();
+      return ec_crit_1_0;
     }
   |])
   , -- nested expression {{{2
@@ -664,8 +664,8 @@ test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' 
     int foo() { return 23; }
     void bar() {
       int i;
-      int ec_crit_0 = foo();
-      i = ec_crit_0 + 42;
+      int ec_crit_1_0 = foo();
+      i = ec_crit_1_0 + 42;
     }
   |])
   , -- if statement {{{2
@@ -677,8 +677,8 @@ test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' 
    |], [paste|
     int foo() { return 23; }
     void bar() {
-      int ec_crit_0 = foo();
-      if (ec_crit_0 == 23) { }
+      int ec_crit_1_0 = foo();
+      if (ec_crit_1_0 == 23) { }
     }
   |])
   ]
@@ -688,7 +688,7 @@ test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' 
     let
       ast = enrich code
       ast'@(CTranslUnit fds ni) = fmap enrichNodeInfo ast
-      fds' = map (CFDefExt . critical_statements cf ast' . (\(CFDefExt fd) -> fd)) fds
+      fds' = map (CFDefExt . critical_statements 1 cf ast' . (\(CFDefExt fd) -> fd)) fds
       cf = Set.fromList $ map symbol fds
       result = (reduce $ fmap nodeInfo $ CTranslUnit fds' ni) :: String
       expected' = reduce $ (enrich expected :: CTranslUnit)

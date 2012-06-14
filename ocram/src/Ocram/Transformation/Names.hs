@@ -13,8 +13,8 @@ label :: String -> Int -> String
 label fName count = "ec_label_" ++ fName ++ "_" ++ show count
 
 -- the name of the labels from desugaration of control structures
-ctrlbl :: Int -> String
-ctrlbl count = "ec_ctrlbl_" ++ show count
+ctrlbl :: Int -> Int -> String
+ctrlbl tid count = "ec_ctrlbl_" ++ show tid ++ "_" ++ show count
 
 -- the name of the thread function that conatins all critical function code
 threadExecutionFunction :: Int -> String
@@ -36,13 +36,13 @@ frameUnion = "ec_frames"
 stackVar :: String -> String
 stackVar fName = "ec_stack_" ++ fName
 
--- name of a temporary variable for cri
-varCrit :: Int -> String
-varCrit count = "ec_crit_" ++ show count
+-- name of a temporary variable for critical calls
+varCrit :: Int -> Int -> String
+varCrit tid count = "ec_crit_" ++ show tid ++ "_" ++ show count
 
 -- name of temporary variables for boolean short-circuiting
-varBool :: Int -> String
-varBool count = "ec_bool_" ++ show count
+varBool :: Int -> Int -> String
+varBool tid count = "ec_bool_" ++ show tid ++ "_" ++ show count
 
 -- name of temporary variables that avoid shadowing
 varShadow :: String -> Int -> String

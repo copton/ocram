@@ -36,8 +36,8 @@ explicit_return o@(CFunDef x1 x2 x3 (CCompound x4 body x6) x7)
 
 explicit_return o = o
 
-desugar_control_structures :: CFunDef' -> CFunDef' -- {{{1
-desugar_control_structures (CFunDef x1 x2 x3 (CCompound y1 items y2) x4) =
+desugar_control_structures :: Int -> CFunDef' -> CFunDef' -- {{{1
+desugar_control_structures tid (CFunDef x1 x2 x3 (CCompound y1 items y2) x4) =
   CFunDef x1 x2 x3 (CCompound y1 items' y2) x4
   where
     items' = evalState (everywhereM (mkM go) items) 0
@@ -97,7 +97,7 @@ desugar_control_structures (CFunDef x1 x2 x3 (CCompound y1 items y2) x4) =
 
     createLabels ids ni =
       let
-        identifiers = tmap (ident . ctrlbl) ids
+        identifiers = tmap (ident . ctrlbl tid) ids
         labels = tmap (\i -> CLabel i (CExpr Nothing ni) [] ni) identifiers
         gotos = tmap (\i -> CGoto i ni) identifiers
       in 
@@ -126,7 +126,7 @@ desugar_control_structures (CFunDef x1 x2 x3 (CCompound y1 items y2) x4) =
         lblIdent (CLabel i _ _ _) = i
         lblIdent o = $abort $ unexp o
 
-desugar_control_structures o = $abort $ unexp o
+desugar_control_structures _ o = $abort $ unexp o
 
 wrap_dangling_statements :: CFunDef' -> CFunDef' -- {{{1
 wrap_dangling_statements = everywhere $ mkT dsStat
@@ -160,8 +160,8 @@ defer_critical_initialization cf = transformCompound tr
       initialize = CBlockStmt (CExpr (Just (CAssign CAssignOp (CVar (ident (symbol declr)) un) cexpr un)) un)
   tr o = [o]
 
-critical_statements :: Set.Set Symbol -> CTranslUnit' -> CFunDef' -> CFunDef' -- {{{1
-critical_statements cf ast (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState (trBlock s) 0) x4 -- {{{2
+critical_statements :: Int -> Set.Set Symbol -> CTranslUnit' -> CFunDef' -> CFunDef' -- {{{1
+critical_statements tid cf ast (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState (trBlock s) 0) x4
   where
     trBlock :: CStatement ENodeInfo -> State Int (CStatement ENodeInfo)
     trBlock (CCompound y1 items y2) = do
@@ -223,7 +223,7 @@ critical_statements cf ast (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState
             (returnType, dds) = $fromJust_s $ return_type ast callee
             declarator = CDeclr (Just tmpVar) dds Nothing [] un
             initializer = CInitExpr call un
-            tmpVar = ident (varCrit tmpVarIdx)
+            tmpVar = ident (varCrit tid tmpVarIdx)
 
     isInNormalForm :: CExpression ENodeInfo -> Bool
     isInNormalForm (CCall _ _ _) = True
