@@ -347,12 +347,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_tmp_bool_0;
-        ec_tmp_bool_0 = !!g();
-        if (! ec_tmp_bool_0) {
-          ec_tmp_bool_0 = !!h();
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
         }
-        if (ec_tmp_bool_0) ;
+        if (ec_bool_0) ;
       }
     }
   |])
@@ -365,12 +365,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_tmp_bool_0;
-        ec_tmp_bool_0 = !!g();
-        if (ec_tmp_bool_0) {
-          ec_tmp_bool_0 = !!h();
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (ec_bool_0) {
+          ec_bool_0 = !!h();
         }
-        if (ec_tmp_bool_0) ;
+        if (ec_bool_0) ;
       }
     }
   |])
@@ -383,12 +383,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_tmp_bool_0;
-        ec_tmp_bool_0 = !!g();
-        if (! ec_tmp_bool_0) {
-          ec_tmp_bool_0 = !!h();
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
         }
-        ec_tmp_bool_0;
+        ec_bool_0;
       }
     }
   |])
@@ -401,12 +401,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_tmp_bool_0;
-        ec_tmp_bool_0 = !!g();
-        if (! ec_tmp_bool_0) {
-          ec_tmp_bool_0 = !!h();
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
         }
-        switch(ec_tmp_bool_0) ;
+        switch(ec_bool_0) ;
       }
     }
   |])
@@ -419,12 +419,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     int foo() {
       {
-        int ec_tmp_bool_0;
-        ec_tmp_bool_0 = !!g();
-        if (! ec_tmp_bool_0) {
-          ec_tmp_bool_0 = !!h();
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
         }
-        return ec_tmp_bool_0;
+        return ec_bool_0;
       }
     }
   |])
@@ -437,12 +437,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_tmp_bool_0;
-        ec_tmp_bool_0 = !!k();
-        if (! ec_tmp_bool_0) {
-          ec_tmp_bool_0 = !!g();
+        int ec_bool_0;
+        ec_bool_0 = !!k();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!g();
         }
-        h(ec_tmp_bool_0);
+        h(ec_bool_0);
       }
     }
   |])
@@ -455,12 +455,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_tmp_bool_0;
-        ec_tmp_bool_0 = !!g();
-        if (! ec_tmp_bool_0) {
-          ec_tmp_bool_0 = !!1;
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!1;
         }
-        if (ec_tmp_bool_0 + 3);
+        if (ec_bool_0 + 3);
       }
     }
   |])
@@ -473,12 +473,12 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_tmp_bool_0;
-        ec_tmp_bool_0 = !!(1 + g());
-        if (! ec_tmp_bool_0) {
-          ec_tmp_bool_0 = !!h();
+        int ec_bool_0;
+        ec_bool_0 = !!(1 + g());
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
         }
-        if (ec_tmp_bool_0);
+        if (ec_bool_0);
       }
     }
   |])
@@ -491,22 +491,22 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
   |], [paste|
     void foo() {
       {
-        int ec_tmp_bool_0;
-        ec_tmp_bool_0 = !!g1();
-        if (! ec_tmp_bool_0) {
-          ec_tmp_bool_0 = !!h1();
+        int ec_bool_0;
+        ec_bool_0 = !!g1();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h1();
         }
-        int ec_tmp_bool_2;
-        ec_tmp_bool_2 = !!ec_tmp_bool_0;
-        if (ec_tmp_bool_2) {
-          int ec_tmp_bool_1;
-          ec_tmp_bool_1 = !!h2();
-          if (!ec_tmp_bool_1) {
-            ec_tmp_bool_1 = !!g2();
+        int ec_bool_2;
+        ec_bool_2 = !!ec_bool_0;
+        if (ec_bool_2) {
+          int ec_bool_1;
+          ec_bool_1 = !!h2();
+          if (!ec_bool_1) {
+            ec_bool_1 = !!g2();
           }
-          ec_tmp_bool_2 = !!ec_tmp_bool_1;
+          ec_bool_2 = !!ec_bool_1;
         }
-        if (ec_tmp_bool_2);
+        if (ec_bool_2);
       }
     }
   |])
@@ -521,17 +521,17 @@ test_short_circuiting = enumTestGroup "boolean_shortcutting" $ map (runTest' sho
       void foo() {
         int i;
         {
-          int ec_tmp_bool_0;
-          ec_tmp_bool_0 = !!g();
-          if (! ec_tmp_bool_0) {
-            ec_tmp_bool_0 = !! (i = x(), 1);
+          int ec_bool_0;
+          ec_bool_0 = !!g();
+          if (! ec_bool_0) {
+            ec_bool_0 = !! (i = x(), 1);
           }
-          int ec_tmp_bool_1;
-          ec_tmp_bool_1 = !!ec_tmp_bool_0;
-          if (ec_tmp_bool_1) {
-            ec_tmp_bool_1 = !!h();
+          int ec_bool_1;
+          ec_bool_1 = !!ec_bool_0;
+          if (ec_bool_1) {
+            ec_bool_1 = !!h();
           }
-          if (ec_tmp_bool_1);
+          if (ec_bool_1);
         }
       }
   |])
@@ -649,8 +649,8 @@ test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' 
   |], [paste|
     int foo() { return 23; }
     int bar() {
-      int ec_tmp_0 = foo();
-      return ec_tmp_0;
+      int ec_crit_0 = foo();
+      return ec_crit_0;
     }
   |])
   , -- nested expression {{{2
@@ -664,8 +664,8 @@ test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' 
     int foo() { return 23; }
     void bar() {
       int i;
-      int ec_tmp_0 = foo();
-      i = ec_tmp_0 + 42;
+      int ec_crit_0 = foo();
+      i = ec_crit_0 + 42;
     }
   |])
   , -- if statement {{{2
@@ -677,8 +677,8 @@ test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' 
    |], [paste|
     int foo() { return 23; }
     void bar() {
-      int ec_tmp_0 = foo();
-      if (ec_tmp_0 == 23) { }
+      int ec_crit_0 = foo();
+      if (ec_crit_0 == 23) { }
     }
   |])
   ]

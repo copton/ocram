@@ -401,7 +401,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				ec_frame_block_t block;
 			} ec_frames;
 			int c;	
-      int ec_tmp_0;
+      int ec_crit_0;
 		} ec_frame_critical_t;
 
 		typedef struct {
@@ -431,9 +431,9 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				block(&ec_stack_start.ec_frames.critical.ec_frames.block);
 				return;
 			ec_label_critical_1: ;
-        ec_stack_start.ec_frames.critical.ec_tmp_0 = ec_stack_start.ec_frames.critical.ec_frames.block.ec_result;
+        ec_stack_start.ec_frames.critical.ec_crit_0 = ec_stack_start.ec_frames.critical.ec_frames.block.ec_result;
         {
-        ec_stack_start.ec_frames.critical.ec_result = ec_stack_start.ec_frames.critical.ec_tmp_0;
+        ec_stack_start.ec_frames.critical.ec_result = ec_stack_start.ec_frames.critical.ec_crit_0;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
         }
 		}
@@ -791,7 +791,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       union {
         ec_frame_block_t block;
       } ec_frames;
-      int ec_tmp_0;
+      int ec_crit_0;
       int i;
       int j;
       int k;
@@ -810,8 +810,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
         block(&ec_stack_start.ec_frames.block);
         return;
       ec_label_start_1: ;
-        ec_stack_start.ec_tmp_0 = ec_stack_start.ec_frames.block.ec_result;
-        ec_stack_start.j = ec_stack_start.ec_tmp_0 + 3;
+        ec_stack_start.ec_crit_0 = ec_stack_start.ec_frames.block.ec_result;
+        ec_stack_start.j = ec_stack_start.ec_crit_0 + 3;
         ec_stack_start.k = 23;
         return;
     }

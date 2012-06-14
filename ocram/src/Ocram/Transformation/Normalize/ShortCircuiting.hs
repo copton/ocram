@@ -10,7 +10,7 @@ import Language.C.Syntax.AST
 import Ocram.Debug
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Util (ident)
-import Ocram.Transformation.Names (tempBool)
+import Ocram.Transformation.Names (varBool)
 import Ocram.Util (abort, unexp, unexp')
 
 import qualified Data.Set as Set
@@ -205,7 +205,7 @@ traverse o = $abort $ unexp o
 substitute :: Int -> CBinaryOp -> Substitution CExpr' -> Substitution CExpr' -> Substitution CExpr' -- {{{2
 substitute idx op lhs rhs =
   let
-    iden = ident (tempBool idx)
+    iden = ident (varBool idx)
     decl = CBlockDecl $ CDecl [CTypeSpec (CIntType un)] [(Just (CDeclr (Just iden) [] Nothing [] un) , Nothing, Nothing)] un
     var = CVar iden un
     [lhs_assign, rhs_assign] = map (CBlockStmt . (\x -> CExpr (Just x) un) . (\x -> CAssign CAssignOp var ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]

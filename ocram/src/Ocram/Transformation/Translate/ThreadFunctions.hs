@@ -7,7 +7,7 @@ import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Debug (setThread, ENodeInfo, eNodeInfo, enableBreakpoint, CTranslUnit', un)
+import Ocram.Debug
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names
@@ -31,7 +31,7 @@ add_thread_functions cg ast@(CTranslUnit decls ni) =
       in
         fmap (setThread tid) fun
 
-inlineCriticalFunction :: CallGraph -> CTranslationUnit ENodeInfo -> Symbol -> (Bool, Symbol) -> [CCompoundBlockItem ENodeInfo] -- {{{2
+inlineCriticalFunction :: CallGraph -> CTranslUnit' -> Symbol -> (Bool, Symbol) -> [CBlockItem'] -- {{{2
 inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody
   where
     callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
@@ -47,19 +47,19 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
     extractBody (CFunDef _ _ _ (CCompound _ body _) _) = body
     extractBody _ = $abort "unexpected parameters"
 
-    rewriteReturns :: CFunctionDef ENodeInfo -> CFunctionDef ENodeInfo -- {{{3
+    rewriteReturns :: CFunDef' -> CFunDef' -- {{{3
     rewriteReturns fdef
       | startFunction == inlinedFunction = fdef
       | otherwise = everywhere (mkT rewrite) fdef
       where
-        rewrite :: CStatement ENodeInfo -> CStatement ENodeInfo
+        rewrite :: CStat' -> CStat'
         rewrite (CReturn Nothing _) = goto
         rewrite (CReturn (Just cexpr) _) = CCompound [] (map CBlockStmt [assign cexpr, goto]) un
         rewrite o = o
         assign e = CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just resVar)) e un)) un
         goto = CGotoPtr (stackAccess callChain (Just contVar)) un
 
-    rewriteLocalVariableAccess :: CFunctionDef ENodeInfo -> CFunctionDef ENodeInfo -- {{{3
+    rewriteLocalVariableAccess :: CFunDef' -> CFunDef' -- {{{3
     rewriteLocalVariableAccess = everywhere (mkT rewrite)
       where
         rewrite o@(CVar iden _)
@@ -68,7 +68,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
           where name = symbol iden
         rewrite o = o
 
-    rewriteLocalVariableDecls :: CFunctionDef ENodeInfo -> CFunctionDef ENodeInfo -- {{{3
+    rewriteLocalVariableDecls :: CFunDef' -> CFunDef' -- {{{3
     rewriteLocalVariableDecls = everywhere (mkT rewrite)
       where
         rewrite (CCompound x items y) = CCompound x (concatMap transform items) y
@@ -85,7 +85,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
 
         var cd = stackAccess callChain (Just (symbol cd))
 
-    rewriteCriticalFunctionCalls :: CFunctionDef ENodeInfo -> CFunctionDef ENodeInfo -- {{{3
+    rewriteCriticalFunctionCalls :: CFunDef' -> CFunDef' -- {{{3
     rewriteCriticalFunctionCalls fd' = fst $ runState (everywhereM (mkM rewrite) fd') 1
       where
         rewrite (CCompound x items y) = do
@@ -110,7 +110,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
           put (lblIdx + 1)  
           return $ criticalFunctionCallSequence calledFunction (enableBreakpoint ni) lblIdx params resultLhs
 
-    criticalFunctionCallSequence :: Symbol -> ENodeInfo -> Int -> [CExpression ENodeInfo] -> Maybe (CExpression ENodeInfo)-> [CCompoundBlockItem ENodeInfo] -- {{{3
+    criticalFunctionCallSequence :: Symbol -> ENodeInfo -> Int -> [CExpr'] -> Maybe (CExpr')-> [CBlockItem'] -- {{{3
     criticalFunctionCallSequence calledFunction ni lblIdx params resultLhs =
       parameters ++ continuation : callExp : returnExp ?: lbl' : resultExp ?: []
       where
@@ -135,7 +135,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
 
         createAssign lhs rhs = CBlockStmt (CExpr (Just (CAssign CAssignOp lhs rhs un)) un)
 
-stackAccess :: [Symbol] -> Maybe Symbol -> CExpression ENodeInfo -- {{{2
+stackAccess :: [Symbol] -> Maybe Symbol -> CExpr' -- {{{2
 stackAccess (sf:chain) variable = foldl create base members
   where
     variables = maybeToList variable
@@ -144,7 +144,7 @@ stackAccess (sf:chain) variable = foldl create base members
     create inner member = CMember inner (ident member) False un 
 stackAccess [] _ = $abort "called stackAccess with empty call chain"
 
-createLabel :: Symbol -> Int -> CCompoundBlockItem ENodeInfo -- {{{2
+createLabel :: Symbol -> Int -> CBlockItem' -- {{{2
 createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un
 
 

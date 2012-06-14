@@ -13,7 +13,7 @@ import Language.C.Syntax.AST
 import Ocram.Debug
 import Ocram.Query (return_type_fd, return_type)
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Transformation.Names (ctrlbl, tempVar)
+import Ocram.Transformation.Names (ctrlbl, varCrit)
 import Ocram.Transformation.Util (ident)
 import Ocram.Util (abort, unexp, tmap, (?:), fromJust_s)
 import Prelude hiding (init)
@@ -223,7 +223,7 @@ critical_statements cf ast (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalState
             (returnType, dds) = $fromJust_s $ return_type ast callee
             declarator = CDeclr (Just tmpVar) dds Nothing [] un
             initializer = CInitExpr call un
-            tmpVar = ident (tempVar tmpVarIdx)
+            tmpVar = ident (varCrit tmpVarIdx)
 
     isInNormalForm :: CExpression ENodeInfo -> Bool
     isInNormalForm (CCall _ _ _) = True

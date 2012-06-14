@@ -36,12 +36,14 @@ frameUnion = "ec_frames"
 stackVar :: String -> String
 stackVar fName = "ec_stack_" ++ fName
 
--- name of a temporary variable
-tempVar :: Int -> String
-tempVar count = "ec_tmp_" ++ show count
+-- name of a temporary variable for cri
+varCrit :: Int -> String
+varCrit count = "ec_crit_" ++ show count
 
-tempBool :: Int -> String
-tempBool count = "ec_tmp_bool_" ++ show count
+-- name of temporary variables for boolean short-circuiting
+varBool :: Int -> String
+varBool count = "ec_bool_" ++ show count
 
+-- name of temporary variables that avoid shadowing
 varShadow :: String -> Int -> String
 varShadow name count = "ec_shadow_" ++ name ++ "_" ++ show count
