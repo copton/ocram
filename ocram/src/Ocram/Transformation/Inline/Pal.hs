@@ -9,11 +9,10 @@ import Data.Generics (everything, mkQ)
 import Data.Maybe (mapMaybe)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, blocking_functions)
-import Ocram.Debug (ENodeInfo)
+import Ocram.Debug (ENodeInfo, un)
 import Ocram.Print (pretty)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names (frameType) 
-import Ocram.Transformation.Util (un)
 import Ocram.Text (new_error, OcramError)
 import qualified Data.Map as Map
 import qualified Data.Set as Set

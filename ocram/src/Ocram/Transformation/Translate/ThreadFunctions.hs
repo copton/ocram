@@ -1,42 +1,35 @@
-{-# LANGUAGE TemplateHaskell #-}
-module Ocram.Transformation.Inline.ThreadFunction
--- exports {{{1
-(
-  addThreadFunctions
-) where
+module Ocram.Transformation.Translate.ThreadFunctions
+where
 
 -- imports {{{1
-import Control.Monad (liftM)
-import Control.Monad.State (get, put, State, runState)
+import Control.Monad.State (runState, get, put)
 import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Debug (setThread, ENodeInfo, eNodeInfo, enableBreakpoint, un)
+import Ocram.Debug (setThread, ENodeInfo, eNodeInfo, enableBreakpoint, CTranslUnit', un)
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Transformation.Inline.Names
-import Ocram.Transformation.Inline.Types
+import Ocram.Transformation.Names
 import Ocram.Transformation.Util (ident)
 import Ocram.Util ((?:), fromJust_s, abort)
 import Prelude hiding (exp, id)
 import qualified Data.Map as Map
 
-addThreadFunctions :: Transformation -- {{{1
-addThreadFunctions cg ast@(CTranslUnit decls ni) = do
-  thread_functions <- mapM (liftM CFDefExt . createThreadFunction cg ast) $ zip [0..] (start_functions cg)
-  return $ CTranslUnit (decls ++ thread_functions) ni
+add_thread_functions :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
+add_thread_functions cg ast@(CTranslUnit decls ni) =
+  CTranslUnit (decls ++ thread_functions) ni
+  where
+    thread_functions = map (CFDefExt . create) $ zip [0..] (start_functions cg)
 
-createThreadFunction :: CallGraph -> CTranslationUnit ENodeInfo -> (Int, Symbol) -> WR (CFunctionDef ENodeInfo) -- {{{2
-createThreadFunction cg ast (tid, startFunction) =
-  let
-    fun = CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (threadExecutionFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
-    fun' = fmap (setThread tid) fun
-    intro = CBlockStmt (CIf (CVar (ident contVar) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
-    onlyDefs name = not (is_blocking cg name) && is_critical cg name
-    functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
-  in
-    return fun'
+    create (tid, startFunction) =
+      let
+        fun = CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (threadExecutionFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
+        intro = CBlockStmt (CIf (CVar (ident contVar) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
+        onlyDefs name = not (is_blocking cg name) && is_critical cg name
+        functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
+      in
+        fmap (setThread tid) fun
 
 inlineCriticalFunction :: CallGraph -> CTranslationUnit ENodeInfo -> Symbol -> (Bool, Symbol) -> [CCompoundBlockItem ENodeInfo] -- {{{2
 inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody
@@ -153,4 +146,5 @@ stackAccess [] _ = $abort "called stackAccess with empty call chain"
 
 createLabel :: Symbol -> Int -> CCompoundBlockItem ENodeInfo -- {{{2
 createLabel name id = CBlockStmt $ CLabel (ident (label name id)) (CExpr Nothing un) [] un
+
 

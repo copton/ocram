@@ -8,11 +8,12 @@ module Ocram.Transformation.Inline.CriticalFunctions
 -- imports {{{1
 import Language.C.Syntax.AST
 import Ocram.Analysis (is_blocking, is_critical)
+import Ocram.Debug (un)
 import Ocram.Query (is_blocking_function')
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Inline.Names
 import Ocram.Transformation.Inline.Types
-import Ocram.Transformation.Util (un, ident)
+import Ocram.Transformation.Util (ident)
 
 addBlockingFunctionDecls :: Transformation -- {{{1
 addBlockingFunctionDecls cg (CTranslUnit ds ni) = return $ CTranslUnit (ds ++ extraDs) ni
