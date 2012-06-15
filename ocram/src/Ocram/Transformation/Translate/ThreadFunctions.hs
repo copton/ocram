@@ -94,12 +94,12 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
         rewrite o = return o
 
         transform o@(CBlockStmt (CExpr (Just call@(CCall (CVar iden _) params _)) _))
-          | is_critical cg calledFunction = callSequence calledFunction (eNodeInfo call) params Nothing
+          | is_critical cg calledFunction = callSequence calledFunction (annotation call) params Nothing
           | otherwise = return [o]
           where calledFunction = symbol iden
 
         transform o@(CBlockStmt (CExpr (Just (CAssign CAssignOp lhs call@(CCall (CVar iden _) params _) _)) _))
-          | is_critical cg calledFunction = callSequence calledFunction (eNodeInfo call) params (Just lhs)
+          | is_critical cg calledFunction = callSequence calledFunction (annotation call) params (Just lhs)
           | otherwise = return [o]
           where calledFunction = symbol iden 
 

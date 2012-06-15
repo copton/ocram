@@ -1,26 +1,21 @@
 {-# LANGUAGE ViewPatterns #-} 
 {-# LANGUAGE DeriveDataTypeable #-}
-module Ocram.Debug
--- export {{{1
-(
-  VarMap,
-  TLocation(..), ELocation(..), Location(..), LocMap,
-  ENodeInfo(..), enableBreakpoint, setThread, validBreakpoint, tlocation, eNodeInfo,
-  format_debug_info,
-) where
+module Ocram.Debug where
 
 -- import {{{1
+import Data.Data (Data)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Maybe (fromMaybe)
-import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode)
-import Language.C.Syntax.AST
+import Data.Typeable (Typeable)
+import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
 import Language.C.Data.Position (posRow, posColumn)
+import Language.C.Syntax.AST
 import Ocram.Options
 import Ocram.Symbols (Symbol)
-import Ocram.Util (abort, unexp, fromJust_s)
+import Ocram.Util (abort, fromJust_s)
 import System.FilePath ((</>))
-import Text.Regex.Posix ((=~))
 import Text.JSON (encodeStrict, toJSObject, toJSString, JSON(..), JSValue(JSString, JSObject))
+import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString.Char8 as BS
 
@@ -66,8 +61,23 @@ type PrepMap = [PrepLocation] -- {{{1
 type Variable = Symbol -- {{{1
 type VarMap = [(Variable, Variable)]
 
+data ENodeInfo = ENodeInfo { -- {{{1
+  tnodeInfo :: NodeInfo,
+  threadId :: Maybe Int,
+  isBreakpoint :: Bool
+  } deriving (Data, Typeable)
 
+instance CNode ENodeInfo where
+  nodeInfo = tnodeInfo
 
+instance Show ENodeInfo where
+  show _ = ""
+
+un :: ENodeInfo -- {{{1
+un = enrichNodeInfo undefNode
+
+enrichNodeInfo :: NodeInfo -> ENodeInfo -- {{{1
+enrichNodeInfo ni = ENodeInfo ni Nothing False
 
 enableBreakpoint :: ENodeInfo -> ENodeInfo -- {{{1
 enableBreakpoint eni
@@ -98,27 +108,30 @@ format_debug_info opt cwd tcode ptcode ecode lm vm =
     ("locmap", showJSON lm),
     ("varmap", showJSON vm)
   ]
-
-prepMap :: BS.ByteString -> PrepMap
-prepMap code = (reverse . fst . foldl go ([], 2)) rest
   where
-    (first:rest) = BS.split '\n' code
-    match :: BS.ByteString -> (BS.ByteString, BS.ByteString, BS.ByteString, [BS.ByteString])
-    match txt = txt =~ "^# ([0-9]*) \"([^\"]+)\".*$"
-    mainFile = case match first of
-      (_, (BS.null -> True), _, _) -> $abort $ "unexpected first row in pre-processed file"
-      (_, _, _, (_:file:_)) -> file
-      x -> $abort $ "unexpected parameter: " ++ show x
-    go (tplm, row) line = case match line of
-      (_, (BS.null -> True), _, _ ) -> (tplm, row + 1)
-      (_, _, _, (row':file:_)) -> if file == mainFile
-        then (((read . BS.unpack) row', row) : tplm, row + 1)
-        else (tplm, row + 1)
-      x -> $abort $ "unexpected parameter:" ++ show x
+  prepMap :: BS.ByteString -> PrepMap
+  prepMap code = (reverse . fst . foldl go ([], 2)) rest
+    where
+      (first:rest) = BS.split '\n' code
+      match :: BS.ByteString -> (BS.ByteString, BS.ByteString, BS.ByteString, [BS.ByteString])
+      match txt = txt =~ "^# ([0-9]*) \"([^\"]+)\".*$"
+      mainFile = case match first of
+        (_, (BS.null -> True), _, _) -> $abort $ "unexpected first row in pre-processed file"
+        (_, _, _, (_:file:_)) -> file
+        x -> $abort $ "unexpected parameter: " ++ show x
+      go (tplm, row) line = case match line of
+        (_, (BS.null -> True), _, _ ) -> (tplm, row + 1)
+        (_, _, _, (row':file:_)) -> if file == mainFile
+          then (((read . BS.unpack) row', row) : tplm, row + 1)
+          else (tplm, row + 1)
+        x -> $abort $ "unexpected parameter:" ++ show x
 
-class CENode a where
-  eNodeInfo :: a -> ENodeInfo
-
-instance CENode (CExpression ENodeInfo) where
-  eNodeInfo (CCall _ _ x) = x
-  eNodeInfo x = $abort $ unexp x 
+-- {{{1 Types
+type CTranslUnit' = CTranslationUnit ENodeInfo
+type CExpr' = CExpression ENodeInfo
+type CBlockItem' = CCompoundBlockItem ENodeInfo
+type CStat' = CStatement ENodeInfo
+type CFunDef' = CFunctionDef ENodeInfo
+type CDesignator' = CPartDesignator ENodeInfo
+type CInit' = CInitializer ENodeInfo
+type CDecl' = CDeclaration ENodeInfo
