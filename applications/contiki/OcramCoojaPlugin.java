@@ -15,12 +15,10 @@ import se.sics.cooja.Simulation;
 import se.sics.cooja.VisPlugin;
 import se.sics.cooja.mspmote.MspMote;
 import se.sics.mspsim.core.MSP430;
-import se.sics.mspsim.util.Utils;
 import java.io.IOException;
 
 // logging
 import org.apache.log4j.Logger;
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
@@ -33,7 +31,6 @@ import se.sics.mspsim.core.RegisterMonitor;
 import se.sics.mspsim.core.Memory;
 import se.sics.mspsim.core.MemoryMonitor;
 import se.sics.mspsim.util.MapTable;
-import java.util.Observable;
 import java.util.Observer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,6 +52,8 @@ import java.util.Map;
 @ClassDescription("Ocram Cooja Plugin")
 @PluginType(PluginType.MOTE_PLUGIN)
 public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
+  private static final long serialVersionUID = 2242189198259102024L;
+  
   private static abstract class Monitor { //<1
     protected MspMote mote;
     protected MSP430 cpu;
@@ -243,7 +242,6 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
     private HashMap<Integer, Unit> cycles;
     private Stack<Integer> scopes;
     private int numberofInterrupts = 0;
-    private int numberofPrintfs = 0;
     private int process_hook;
     private int interrupt_pseudo_process;
     private int printf_pseudo_process;
@@ -510,7 +508,9 @@ public class OcramCoojaPlugin extends VisPlugin implements MotePlugin {
 
   //<2 OcramError
   public static class OcramError extends RuntimeException {
-    public OcramError(String what) {
+	private static final long serialVersionUID = 4936131358908722676L;
+
+	public OcramError(String what) {
       this(what, null);
     }
 
