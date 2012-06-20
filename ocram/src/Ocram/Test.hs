@@ -6,6 +6,7 @@ import qualified Ocram.Symbols.Test as A
 import qualified Ocram.Query.Test as B
 import qualified Ocram.Analysis.Test as C
 import qualified Ocram.Transformation.Test as D
+import qualified Ocram.Ruab.Test as E
 
 runTests :: [String] -> IO ()
-runTests = defaultMainWithArgs [A.tests, B.tests, C.tests, D.tests]
+runTests = defaultMainWithArgs [A.tests, B.tests, C.tests, D.tests, E.tests]
