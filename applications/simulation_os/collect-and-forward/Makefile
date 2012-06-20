@@ -2,6 +2,7 @@ include ../config.mk
 -include depend.mak
 
 BENCH=$(ROOT)/applications/simulation_os/bench.py
+PALGEN=$(ROOT)/applications/pal.py
 
 export OCRAM_PAL_TEMPLATE = $(OS_ROOT)/os/pal.jinja.c
 
@@ -43,4 +44,4 @@ tc.pped.c: tc.c
 	$(CC) $(CFLAGS) -DOCRAM_MODE -E $< -o $@
 
 ec.c pal.c: tc.pped.c $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
-	$(OCRAM) -i $< -o ec.c -g $(PALGEN) -p pal.c || (rm -f ec.c pal.c; exit 1)
+	$(OCRAM) --compile -p pal.c -i $< -o $@ -g $(PALGEN) -c "$(CC) $(CFLAGS) -DOCRAM_MODE -E -o -" || (rm -f ec.c pal.c; exit 1)

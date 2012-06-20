@@ -1,9 +1,9 @@
 module Ocram.IO
 -- export {{{1
 (
-  parse,
-  dump_ptcode, dump_ecode, dump_debug_info,
-  generate_pal
+    parse
+  , dump_ecode
+  , generate_pal
 ) where
 
 -- import {{{1
@@ -38,10 +38,6 @@ parse opt = do
       Left e -> (IoOcramError . return . Left) [new_error 1 ("parsing failed\n" ++ show e) Nothing]
       Right x -> return x
 
-dump_ptcode :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
-dump_ptcode options ptcode = case optPTFile options of
-  Nothing -> (return . Right) ()
-  Just file -> write file ptcode
 
 dump_ecode :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
 dump_ecode options ecode =
@@ -60,10 +56,6 @@ generate_pal options fpr header = case optPalGenerator options of
         pal <- IoOcramError $ exec (generator:args) (Just input)
         IoOcramError $ write target pal
       
-dump_debug_info :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
-dump_debug_info opt debugInfo = case optDebugFile opt of
-  Nothing -> (return . Right) ()
-  Just file -> write file debugInfo
 
 -- utils {{{1
 write :: String -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{2

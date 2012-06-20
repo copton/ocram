@@ -7,7 +7,7 @@ $(error please specify your app)
 endif
 
 OCRAM_CPP = $(ROOT)/applications/contiki/cpp
-PALGEN = $(ROOT)/applications/contiki/tc/pal.py
+PALGEN = $(ROOT)/applications/pal.py
 VERIFY = $(ROOT)/applications/contiki/$(APP)/verify.py
 export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/tc/pal.jinja.c
 CSC = simulation.csc
@@ -24,9 +24,9 @@ endif
 all: app-ec.c pal.c contiki debug.json $(SKYS)
 
 app-ec.c pal.c debug.json: app-tc.c app-tc.o $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
-	$(OCRAM) -p pal.c  -i $< -o app-ec.c -d debug.json \
+	$(OCRAM) --compile \
+		-p pal.c  -i $< -o $@ \
 		-g $(PALGEN) \
-		-t app-ptc.c \
 		-c "$(CHROOT) $(XGCC) -DOCRAM_MODE -E -o -" \
 		|| (rm -f app-ec.c pal.c; exit 1)
 

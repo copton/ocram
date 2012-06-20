@@ -1,34 +1,19 @@
-{-# LANGUAGE ViewPatterns #-} 
 {-# LANGUAGE DeriveDataTypeable #-}
 module Ocram.Debug where
 
 -- import {{{1
 import Data.Data (Data)
-import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Maybe (fromMaybe)
 import Data.Typeable (Typeable)
 import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
 import Language.C.Data.Position (posRow, posColumn)
 import Language.C.Syntax.AST
-import Ocram.Options
 import Ocram.Symbols (Symbol)
-import Ocram.Util (abort, fromJust_s)
-import System.FilePath ((</>))
-import Text.JSON (encodeStrict, toJSObject, toJSString, JSON(..), JSValue(JSString, JSObject))
-import Text.Regex.Posix ((=~))
-
-import qualified Data.ByteString.Char8 as BS
+import Ocram.Util (abort)
 
 data File = -- {{{1
   File {fileName :: String, fileChecksum :: String}
 
-instance JSON File where
-  readJSON _ = undefined
-  
-  showJSON (File name cs) = JSObject $ toJSObject [
-      ("file", (JSString . toJSString) name),
-      ("checksum", (JSString . toJSString) cs)
-    ]
 
 data TLocation = -- {{{1
   TLocation {tlocRow :: Int, tlocCol :: Int, tlocLen :: Int}
@@ -44,19 +29,7 @@ instance Show ELocation where
 
 data Location = Location TLocation ELocation -- {{{1
 
-instance JSON Location where
-  readJSON _ = undefined
-
-  showJSON (Location (TLocation r c l) (ELocation r' c' t)) =
-    case t of
-      Nothing -> showJSON [r, c, l, r', c']
-      (Just t') -> showJSON [r, c, l, r', c', t']
-  
 type LocMap = [Location] -- {{{1
-
-type PrepLocation = (Int, Int)
-
-type PrepMap = [PrepLocation] -- {{{1
 
 type Variable = Symbol -- {{{1
 type VarMap = [(Variable, Variable)]
@@ -98,33 +71,6 @@ tlocation eni =
   in
     TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
 
-format_debug_info :: Options -> FilePath -> BS.ByteString -> BS.ByteString -> BS.ByteString -> LocMap -> VarMap -> BS.ByteString -- {{{1
-format_debug_info opt cwd tcode ptcode ecode lm vm =
-  (BS.pack . encodeStrict . toJSObject) [
-    ("tcode", showJSON (File (cwd </> optInput opt) (md5sum tcode))),
-    ("ptcode", showJSON (File (cwd </> $fromJust_s (optPTFile opt)) (md5sum ptcode))),
-    ("ecode", showJSON (File (cwd </> optOutput opt) (md5sum ecode))),
-    ("prepmap", showJSON (prepMap ptcode)),
-    ("locmap", showJSON lm),
-    ("varmap", showJSON vm)
-  ]
-  where
-  prepMap :: BS.ByteString -> PrepMap
-  prepMap code = (reverse . fst . foldl go ([], 2)) rest
-    where
-      (first:rest) = BS.split '\n' code
-      match :: BS.ByteString -> (BS.ByteString, BS.ByteString, BS.ByteString, [BS.ByteString])
-      match txt = txt =~ "^# ([0-9]*) \"([^\"]+)\".*$"
-      mainFile = case match first of
-        (_, (BS.null -> True), _, _) -> $abort $ "unexpected first row in pre-processed file"
-        (_, _, _, (_:file:_)) -> file
-        x -> $abort $ "unexpected parameter: " ++ show x
-      go (tplm, row) line = case match line of
-        (_, (BS.null -> True), _, _ ) -> (tplm, row + 1)
-        (_, _, _, (row':file:_)) -> if file == mainFile
-          then (((read . BS.unpack) row', row) : tplm, row + 1)
-          else (tplm, row + 1)
-        x -> $abort $ "unexpected parameter:" ++ show x
 
 -- {{{1 Types
 type CTranslUnit' = CTranslationUnit ENodeInfo

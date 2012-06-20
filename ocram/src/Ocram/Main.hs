@@ -2,14 +2,13 @@ module Ocram.Main (main) where
 
 -- imports {{{1
 import Ocram.Analysis (analysis)
-import Ocram.Debug (format_debug_info)
 import Ocram.Options (options)
-import Ocram.IO (parse, generate_pal, dump_ptcode, dump_ecode, dump_debug_info)
+import Ocram.IO (parse, generate_pal, dump_ecode)
 import Ocram.Print (print_with_log)
+import Ocram.Ruab (ruab_ui)
 import Ocram.Text (OcramError, show_errors)
 import Ocram.Test (runTests)
 import Ocram.Transformation (transformation)
-import System.Directory (getCurrentDirectory)
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
@@ -17,26 +16,34 @@ import System.IO (stderr, hPutStrLn)
 
 main :: IO () -- {{{1
 main = do
-  argv <- getArgs 
-  if head argv == "--test"
-    then runTests (tail argv)
-    else runCompiler argv
-    
+  (mode:argv) <- getArgs 
+  case mode of
+    "--test" -> runTests argv
+    "--compile" -> runCompiler argv
+    "--debug" -> runDebugger argv
+    _ -> hPutStrLn stderr ("unknown mode '" ++ mode ++ "'") >> exitWith (ExitFailure 1)
+
 runCompiler :: [String] -> IO () -- {{{2
 runCompiler argv = do
   prg <- getProgName
-  cwd <- getCurrentDirectory
   opt <- exitOnError "options" $ options prg argv 
-  (tcode, ptcode, ast) <- exitOnError "parser" =<< parse opt
+  (_, _, ast) <- exitOnError "parser" =<< parse opt
   (cg, fpr) <- exitOnError "analysis" $ analysis ast
-  let (ast', pal, varMap) = transformation cg ast
-  let (ecode, locMap) = print_with_log ast'
-  let debuginfo = format_debug_info opt cwd tcode ptcode ecode locMap varMap
+  let (ast', pal, _) = transformation cg ast
+  let (ecode, _) = print_with_log ast'
   exitOnError "output" =<< generate_pal opt fpr pal
-  exitOnError "output" =<< dump_ptcode opt ptcode
   exitOnError "output" =<< dump_ecode opt ecode
-  exitOnError "output" =<< dump_debug_info opt debuginfo
   return ()
+
+runDebugger :: [String] -> IO () -- {{{2
+runDebugger argv = do
+  prg <- getProgName
+  opt <- exitOnError "options" $ options prg argv
+  (tcode, ptcode, ast) <- exitOnError "parser" =<< parse opt
+  (cg, _) <- exitOnError "analysis" $ analysis ast
+  let (ast', _, varmap) = transformation cg ast
+  let (_, locmap) = print_with_log ast'
+  ruab_ui opt tcode ptcode varmap locmap
 
 exitOnError :: String -> Either [OcramError] a -> IO a -- {{{2
 exitOnError module_ (Left es) = hPutStrLn stderr (show_errors module_ es) >> exitWith (ExitFailure 1)
