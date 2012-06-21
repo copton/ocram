@@ -1,15 +1,14 @@
-module Ocram.Ruab.Frontend
+module Ruab.Frontend
 -- exports {{{1
 (
   ruab_ui
 ) where
 
 -- imports {{{1
-import Paths_Ocram (getDataFileName)
+import Paths_Ruab (getDataFileName)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
-import Ocram.Options (Options)
-import Ocram.Debug (LocMap, VarMap)
+import OcramRuab (LocMap, VarMap)
 
 import qualified Data.ByteString.Char8 as BS
 import Debug.Trace (trace)

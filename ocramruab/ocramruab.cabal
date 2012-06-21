@@ -1,0 +1,25 @@
+-- vim: set expandtab:
+Name:                ocramruab
+Version:             0.1
+Synopsis:            Threads-to-Events compiler (debug information)
+Homepage:            https://github.com/copton/ocram
+License:             GPL-2
+License-file:        LICENSE
+Author:              Alexander Bernauer <bernauer@inf.ethz.ch>
+Maintainer:          Alexander Bernauer <bernauer@inf.ethz.ch>
+Category:            Development
+Tested-with:         GHC==7.0.3
+Build-type:          Simple
+Stability:           Experimental
+Description: Translating cooperative threads into a semantically equivalent reactive code, thus combining the comfort of sequential programing with the efficiency of event-based systems.
+
+Cabal-version:       >=1.10
+
+Library
+  Hs-Source-Dirs: src
+  Ghc-Options: -Wall
+  Default-Language: Haskell98
+  Exposed-Modules:
+    OcramRuab
+  Build-Depends:
+    base >= 4 && < 5

@@ -1,4 +1,4 @@
-module Ocram.Ruab.Backend
+module Ruab.Backend
 -- exports {{{1
 (
 

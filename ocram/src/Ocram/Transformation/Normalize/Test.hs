@@ -8,12 +8,13 @@ module Ocram.Transformation.Normalize.Test
 -- imports {{{1
 import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Debug
+import Ocram.Debug (enrichNodeInfo)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Transformation.Normalize.Internal
 import Ocram.Transformation.Normalize.ShortCircuiting
 import Ocram.Transformation.Normalize.UniqueIdentifiers
+import Ocram.Transformation.Types
 import Test.Framework (Test, testGroup)
 import Test.HUnit ((@=?), Assertion)
 

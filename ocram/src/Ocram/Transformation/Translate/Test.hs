@@ -9,11 +9,12 @@ module Ocram.Transformation.Translate.Test
 import Language.C.Syntax.AST
 import Language.C.Data.Node (nodeInfo)
 import Ocram.Analysis (analysis, CallGraph)
-import Ocram.Debug (enrichNodeInfo, CTranslUnit')
+import Ocram.Debug (enrichNodeInfo)
 import Ocram.Text (show_errors)
 import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Transformation.Translate.Internal
 import Ocram.Transformation.Translate.ThreadFunctions
+import Ocram.Transformation.Types
 import Test.Framework (Test, testGroup)
 import Test.HUnit ((@=?), Assertion)
 

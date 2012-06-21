@@ -8,8 +8,9 @@ module Ocram.Transformation.Normalize.ShortCircuiting
 import Control.Monad.State (State, evalState, get, gets, put)
 import Data.Generics (everywhereM, mkM)
 import Language.C.Syntax.AST
-import Ocram.Debug
+import Ocram.Debug (un)
 import Ocram.Symbols (symbol, Symbol)
+import Ocram.Transformation.Types
 import Ocram.Transformation.Util (ident)
 import Ocram.Transformation.Names (varBool)
 import Ocram.Util (abort, unexp, unexp')

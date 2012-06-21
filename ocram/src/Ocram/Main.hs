@@ -5,7 +5,6 @@ import Ocram.Analysis (analysis)
 import Ocram.Options (options)
 import Ocram.IO (parse, generate_pal, dump_ecode)
 import Ocram.Print (print_with_log)
-import Ocram.Ruab (ruab_ui)
 import Ocram.Text (OcramError, show_errors)
 import Ocram.Test (runTests)
 import Ocram.Transformation (transformation)
@@ -16,12 +15,10 @@ import System.IO (stderr, hPutStrLn)
 
 main :: IO () -- {{{1
 main = do
-  (mode:argv) <- getArgs 
-  case mode of
-    "--test" -> runTests argv
-    "--compile" -> runCompiler argv
-    "--debug" -> runDebugger argv
-    _ -> hPutStrLn stderr ("unknown mode '" ++ mode ++ "'") >> exitWith (ExitFailure 1)
+  argv <- getArgs 
+  case head argv of
+    "--test" -> runTests (tail argv)
+    _ -> runCompiler argv
 
 runCompiler :: [String] -> IO () -- {{{2
 runCompiler argv = do
@@ -34,17 +31,6 @@ runCompiler argv = do
   exitOnError "output" =<< generate_pal opt fpr pal
   exitOnError "output" =<< dump_ecode opt ecode
   return ()
-
-runDebugger :: [String] -> IO () -- {{{2
-runDebugger _ = ruab_ui
--- runDebugger argv = do
---   prg <- getProgName
---   opt <- exitOnError "options" $ options prg argv
---   (tcode, ptcode, ast) <- exitOnError "parser" =<< parse opt
---   (cg, _) <- exitOnError "analysis" $ analysis ast
---   let (ast', _, varmap) = transformation cg ast
---   let (ecode, locmap) = print_with_log ast'
---   ruab_ui opt tcode ptcode ecode varmap locmap
 
 exitOnError :: String -> Either [OcramError] a -> IO a -- {{{2
 exitOnError module_ (Left es) = hPutStrLn stderr (show_errors module_ es) >> exitWith (ExitFailure 1)

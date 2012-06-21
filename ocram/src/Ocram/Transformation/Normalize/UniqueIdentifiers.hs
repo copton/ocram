@@ -10,10 +10,11 @@ import Control.Monad.State (runState, State, get, put)
 import Data.Generics (gmapM, mkQ, mkM, extM, extQ, GenericQ, GenericM, Data)
 import Data.Maybe (mapMaybe, fromMaybe)
 import Language.C.Syntax.AST
-import Ocram.Debug
+import Ocram.Debug (ENodeInfo)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Util (ident)
 import Ocram.Transformation.Names (varShadow)
+import Ocram.Transformation.Types
 import Ocram.Util (abort, unexp)
 import qualified Data.Map as Map
 

@@ -1,20 +1,23 @@
 {-# LANGUAGE QuasiQuotes #-}
-module Ocram.Ruab.Test (tests) where
+module Ruab.Test (runTests) where
 
 -- imports {{{1
 import Control.Monad (forM_)
-import Ocram.Ruab.Mapping (preproc_map, map_preprocessed_row)
-import Ocram.Test.Lib (enumTestGroup, paste)
+import Ruab.Mapping (preproc_map, map_preprocessed_row)
+import Ruab.Test.Lib (enumTestGroup, paste)
 import System.Exit (ExitCode(ExitSuccess))
 import System.IO (hPutStr, hClose, hGetContents)
 import System.Process (createProcess, StdStream(CreatePipe), waitForProcess, proc, std_out, std_in)
-import Test.Framework (Test, testGroup)
+import Test.Framework (Test, testGroup, defaultMainWithArgs)
 import Test.HUnit (assertEqual, Assertion, assertBool)
 import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString.Char8 as BS
 
-tests :: Test -- {{{1
+runTests :: [String] -> IO () -- {{{1
+runTests = defaultMainWithArgs [tests]
+
+tests :: Test -- {{{2
 tests = testGroup "Ruab" [test_map_preprocessed_row]
 
 test_map_preprocessed_row :: Test -- {{{1

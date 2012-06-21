@@ -7,13 +7,11 @@ import Data.Maybe (fromMaybe)
 import Data.Typeable (Typeable)
 import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
 import Language.C.Data.Position (posRow, posColumn)
-import Language.C.Syntax.AST
 import Ocram.Symbols (Symbol)
 import Ocram.Util (abort)
 
 data File = -- {{{1
   File {fileName :: String, fileChecksum :: String}
-
 
 data TLocation = -- {{{1
   TLocation {tlocRow :: Int, tlocCol :: Int, tlocLen :: Int}
@@ -72,12 +70,3 @@ tlocation eni =
     TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
 
 
--- {{{1 Types
-type CTranslUnit' = CTranslationUnit ENodeInfo
-type CExpr' = CExpression ENodeInfo
-type CBlockItem' = CCompoundBlockItem ENodeInfo
-type CStat' = CStatement ENodeInfo
-type CFunDef' = CFunctionDef ENodeInfo
-type CDesignator' = CPartDesignator ENodeInfo
-type CInit' = CInitializer ENodeInfo
-type CDecl' = CDeclaration ENodeInfo

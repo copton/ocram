@@ -1,6 +1,6 @@
 {-# LANGUAGE ViewPatterns, TemplateHaskell #-} 
 
-module Ocram.Ruab.Mapping
+module Ruab.Mapping
 -- exports {{{1
 (
     TextPosition(..)
@@ -11,7 +11,7 @@ module Ocram.Ruab.Mapping
 ) where
 
 -- imports {{{1
-import Ocram.Util (abort)
+import Ruab.Util (abort)
 import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString.Char8 as BS

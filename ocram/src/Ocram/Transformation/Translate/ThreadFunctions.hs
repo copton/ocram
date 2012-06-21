@@ -8,11 +8,12 @@ import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Debug
+import Ocram.Debug (un, setThread, enableBreakpoint, ENodeInfo)
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names
 import Ocram.Transformation.Util (ident)
+import Ocram.Transformation.Types
 import Ocram.Util ((?:), fromJust_s, abort)
 import Prelude hiding (exp, id)
 import qualified Data.Map as Map
