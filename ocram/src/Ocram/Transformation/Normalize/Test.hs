@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 module Ocram.Transformation.Normalize.Test
 -- exports {{{1
 (

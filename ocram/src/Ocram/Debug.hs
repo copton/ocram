@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
 module Ocram.Debug where
 
 -- import {{{1

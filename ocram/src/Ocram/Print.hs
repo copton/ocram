@@ -33,6 +33,7 @@
 -- OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 -- SUCH DAMAGE.
 -- }}}1
+{-# LANGUAGE FlexibleInstances, TemplateHaskell #-}
 module Ocram.Print
 -- export {{{1
 (

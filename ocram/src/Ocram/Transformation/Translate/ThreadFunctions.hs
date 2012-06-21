@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Transformation.Translate.ThreadFunctions
 where
 

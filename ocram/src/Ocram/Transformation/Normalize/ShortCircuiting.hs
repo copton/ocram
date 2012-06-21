@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Transformation.Normalize.ShortCircuiting
 (
   short_circuiting 

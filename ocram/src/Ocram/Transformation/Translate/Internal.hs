@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Transformation.Translate.Internal
 where
 -- imports {{{1

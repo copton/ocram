@@ -1,5 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TemplateHaskell, Rank2Types, KindSignatures #-}
 module Ocram.Util
 -- export {{{1
 (

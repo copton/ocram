@@ -20,7 +20,7 @@ data Options = Options {
   , optPreprocessor :: FilePath
   , optPalGenerator :: Maybe FilePath
   , optHelp :: Bool
-} deriving Show
+} deriving (Show, Read)
 
 
 -- options :: String -> [String] -> Either String Options {{{1

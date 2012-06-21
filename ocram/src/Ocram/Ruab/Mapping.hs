@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns #-} 
+{-# LANGUAGE ViewPatterns, TemplateHaskell #-} 
 
 module Ocram.Ruab.Mapping
 -- exports {{{1

@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.IO
 -- export {{{1
 (

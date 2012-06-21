@@ -28,13 +28,6 @@ Executable ocram
   Main-is: Main.hs
   Default-language: Haskell98
   Default-extensions: 
-    MultiParamTypeClasses,
-    FlexibleInstances,
-    TypeSynonymInstances,
-    GeneralizedNewtypeDeriving,
-    TemplateHaskell,
-    Rank2Types,
-    QuasiQuotes
   Build-depends:       
     base >= 4 && < 5,
     language-c == 0.5.*,
@@ -52,6 +45,7 @@ Executable ocram
     HUnit == 1.2.*,
     test-framework == 0.6.*,
     test-framework-hunit == 0.2.*,
+    nano-md5 == 0.1.*,
     gtk == 0.12.*,
     glade == 0.12.*
   Other-modules:

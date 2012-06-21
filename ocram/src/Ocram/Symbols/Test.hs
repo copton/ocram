@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Symbols.Test 
 -- exports {{{1
 (

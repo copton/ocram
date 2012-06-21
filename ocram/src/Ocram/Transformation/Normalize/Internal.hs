@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Transformation.Normalize.Internal
 -- export {{{1
 (

@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types, TemplateHaskell #-}
 module Ocram.Transformation.Normalize.UniqueIdentifiers
 -- export {{{1
 (

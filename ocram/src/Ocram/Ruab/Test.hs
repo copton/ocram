@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 module Ocram.Ruab.Test (tests) where
 
 -- imports {{{1
