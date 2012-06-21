@@ -14,8 +14,8 @@ import System.Environment (getArgs)
 main :: IO () -- {{{1
 main = do
   argv <- getArgs
-  case head argv of
-    "--test" -> runTests (tail argv)
+  case argv of
+    ("--test":rest) -> runTests rest
     _ -> runDebugger argv
 
 runDebugger :: [String] -> IO ()
