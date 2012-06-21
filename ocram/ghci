@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec ghci -isrc -idist/build/autogen/ -no-user-package-conf -package-conf cabal-dev/packages-7.4.1.conf -XRank2Types -XMultiParamTypeClasses -XFlexibleInstances -XTypeSynonymInstances -XGeneralizedNewtypeDeriving -XTemplateHaskell -XQuasiQuotes Ocram.Main
