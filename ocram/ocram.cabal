@@ -16,8 +16,7 @@ Description: Translating cooperative threads into a semantically equivalent reac
 Cabal-version:       >=1.10
 
 Data-files:
-  README.mkd,
-  LICENSE
+  ruab.glade
 
 Extra-source-files:  
   util/pretty_ast/DumpAst.hs
@@ -52,7 +51,9 @@ Executable ocram
     directory == 1.1.*,
     HUnit == 1.2.*,
     test-framework == 0.6.*,
-    test-framework-hunit == 0.2.*
+    test-framework-hunit == 0.2.*,
+    gtk == 0.12.*,
+    glade == 0.12.*
   Other-modules:
     Main,
     Ocram.Main,

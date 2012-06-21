@@ -36,14 +36,15 @@ runCompiler argv = do
   return ()
 
 runDebugger :: [String] -> IO () -- {{{2
-runDebugger argv = do
-  prg <- getProgName
-  opt <- exitOnError "options" $ options prg argv
-  (tcode, ptcode, ast) <- exitOnError "parser" =<< parse opt
-  (cg, _) <- exitOnError "analysis" $ analysis ast
-  let (ast', _, varmap) = transformation cg ast
-  let (_, locmap) = print_with_log ast'
-  ruab_ui opt tcode ptcode varmap locmap
+runDebugger _ = ruab_ui
+-- runDebugger argv = do
+--   prg <- getProgName
+--   opt <- exitOnError "options" $ options prg argv
+--   (tcode, ptcode, ast) <- exitOnError "parser" =<< parse opt
+--   (cg, _) <- exitOnError "analysis" $ analysis ast
+--   let (ast', _, varmap) = transformation cg ast
+--   let (ecode, locmap) = print_with_log ast'
+--   ruab_ui opt tcode ptcode ecode varmap locmap
 
 exitOnError :: String -> Either [OcramError] a -> IO a -- {{{2
 exitOnError module_ (Left es) = hPutStrLn stderr (show_errors module_ es) >> exitWith (ExitFailure 1)

@@ -11,8 +11,8 @@ module Ocram.Ruab.Mapping
 ) where
 
 -- imports {{{1
-import Text.Regex.Posix ((=~))
 import Ocram.Util (abort)
+import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString.Char8 as BS
 
