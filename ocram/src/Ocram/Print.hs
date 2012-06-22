@@ -51,7 +51,7 @@ import Ocram.Util (abort)
 
 import qualified Data.ByteString.Char8 as BS
 
-print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, LocMap)
+print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, LocMap) -- {{{1
 print_with_log tu = first BS.pack $ renderWithLog (pretty tu)
 
 marker :: ENodeInfo -> DocL LocMap -> DocL LocMap

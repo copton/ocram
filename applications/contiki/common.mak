@@ -24,10 +24,10 @@ endif
 all: app-ec.c pal.c contiki debug.json $(SKYS)
 
 app-ec.c pal.c debug.json: app-tc.c app-tc.o $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
-	$(OCRAM) --compile \
-		-p pal.c  -i $< -o $@ \
-		-g $(PALGEN) \
+	$(OCRAM) -i $< -o $@ \
 		-c "$(CHROOT) $(XGCC) -DOCRAM_MODE -E -o -" \
+		-p pal.c  -g $(PALGEN) \
+		-d debug.json \
 		|| (rm -f app-ec.c pal.c; exit 1)
 
 app-tc.o: app-tc.c

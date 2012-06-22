@@ -35,6 +35,8 @@ Executable ruab
     test-framework == 0.6.*,
     test-framework-hunit == 0.2.*,
     process == 1.1.*,
+    nano-md5 == 0.1.*,
+    json == 0.5.*,
     ocramruab == 0.1.*
   Other-Modules:
     Main,

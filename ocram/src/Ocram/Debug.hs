@@ -3,12 +3,16 @@ module Ocram.Debug where
 
 -- import {{{1
 import Data.Data (Data)
+import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Maybe (fromMaybe)
 import Data.Typeable (Typeable)
 import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
 import Language.C.Data.Position (posRow, posColumn)
-import Ocram.Util (abort)
+import Ocram.Options (Options(optInput, optOutput))
 import Ocram.Ruab
+import Ocram.Util (abort)
+
+import qualified Data.ByteString.Char8 as BS
 
 data ENodeInfo = ENodeInfo { -- {{{1
   tnodeInfo :: NodeInfo,
@@ -47,4 +51,10 @@ tlocation eni =
   in
     TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
 
-
+create_debug_info :: Options -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> LocMap -> DebugInfo
+create_debug_info opt tcode pcode ecode vm lm =
+  let
+    tfile = File (optInput opt) (md5sum tcode)
+    efile = File (optOutput opt) (md5sum ecode)
+  in
+    DebugInfo tfile pcode efile lm vm

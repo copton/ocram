@@ -9,6 +9,7 @@ import Paths_Ruab (getDataFileName)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import OcramRuab (LocMap, VarMap)
+import Prelude hiding (log)
 
 import qualified Data.ByteString.Char8 as BS
 import Debug.Trace (trace)
