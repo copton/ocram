@@ -4,8 +4,8 @@ module Ruab.Main
 ) where
 
 -- imports {{{1
-import Ruab.Debug (load_debug_info)
 import Ruab.Frontend (ruab_ui)
+import Ruab.Mapping (load_context)
 import Ruab.Options (options)
 import Ruab.Test (runTests)
 import System.Environment (getArgs, getProgName)
@@ -23,8 +23,8 @@ runDebugger :: [String] -> IO ()
 runDebugger argv = do
   prg <- getProgName 
   opt <- exitOnError $ options prg argv
-  di <- exitOnError =<< load_debug_info opt
-  ruab_ui opt di
+  ctx <- exitOnError =<< load_context opt
+  ruab_ui opt ctx
 
 exitOnError :: Either (ExitCode, String) a -> IO a -- {{{2
 exitOnError (Left (ec, why)) = hPutStrLn stderr why >> exitWith ec
