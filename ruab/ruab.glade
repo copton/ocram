@@ -2,29 +2,186 @@
 <glade-interface>
   <!-- interface-requires gtk+ 2.16 -->
   <!-- interface-naming-policy project-wide -->
-  <widget class="GtkWindow" id="winMain">
-    <property name="visible">True</property>
-    <property name="title" translatable="yes">Ruab</property>
+  <widget class="GtkWindow" id="window">
     <child>
-      <widget class="GtkVBox" id="vbox">
+      <widget class="GtkVBox" id="vbox1">
         <property name="visible">True</property>
         <child>
-          <widget class="GtkHBox" id="hbox">
+          <widget class="GtkVBox" id="vbox2">
             <property name="visible">True</property>
-            <property name="spacing">4</property>
+            <property name="spacing">5</property>
             <child>
-              <widget class="GtkScrolledWindow" id="scrollTcode">
+              <widget class="GtkHBox" id="hbox1">
+                <property name="height_request">500</property>
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="hscrollbar_policy">automatic</property>
-                <property name="vscrollbar_policy">automatic</property>
+                <property name="spacing">3</property>
                 <child>
-                  <widget class="GtkTextView" id="txtTcode">
+                  <widget class="GtkScrolledWindow" id="scrolledwindow3">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="editable">False</property>
-                    <property name="cursor_visible">False</property>
+                    <property name="hscrollbar_policy">automatic</property>
+                    <property name="vscrollbar_policy">automatic</property>
+                    <child>
+                      <widget class="GtkViewport" id="viewport1">
+                        <property name="visible">True</property>
+                        <property name="resize_mode">queue</property>
+                        <child>
+                          <widget class="GtkHBox" id="hbox2">
+                            <property name="visible">True</property>
+                            <child>
+                              <widget class="GtkTextView" id="tinfo">
+                                <property name="width_request">50</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="editable">False</property>
+                                <property name="right_margin">1</property>
+                                <property name="cursor_visible">False</property>
+                              </widget>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="position">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <widget class="GtkVSeparator" id="vseparator1">
+                                <property name="visible">True</property>
+                              </widget>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="position">1</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <widget class="GtkTextView" id="tcode">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="editable">False</property>
+                                <property name="cursor_visible">False</property>
+                              </widget>
+                              <packing>
+                                <property name="position">2</property>
+                              </packing>
+                            </child>
+                          </widget>
+                        </child>
+                      </widget>
+                    </child>
                   </widget>
+                  <packing>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <widget class="GtkScrolledWindow" id="scrolledwindow4">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="hscrollbar_policy">automatic</property>
+                    <property name="vscrollbar_policy">automatic</property>
+                    <child>
+                      <widget class="GtkViewport" id="viewport2">
+                        <property name="visible">True</property>
+                        <property name="resize_mode">queue</property>
+                        <child>
+                          <widget class="GtkHBox" id="hbox3">
+                            <property name="visible">True</property>
+                            <child>
+                              <widget class="GtkTextView" id="ptinfo">
+                                <property name="width_request">50</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="editable">False</property>
+                                <property name="right_margin">1</property>
+                                <property name="cursor_visible">False</property>
+                              </widget>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="position">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <widget class="GtkVSeparator" id="vseparator2">
+                                <property name="visible">True</property>
+                              </widget>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="position">1</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <widget class="GtkTextView" id="ptcode">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="editable">False</property>
+                                <property name="cursor_visible">False</property>
+                              </widget>
+                              <packing>
+                                <property name="position">2</property>
+                              </packing>
+                            </child>
+                          </widget>
+                        </child>
+                      </widget>
+                    </child>
+                  </widget>
+                  <packing>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <widget class="GtkScrolledWindow" id="scrolledwindow5">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="hscrollbar_policy">automatic</property>
+                    <property name="vscrollbar_policy">automatic</property>
+                    <child>
+                      <widget class="GtkViewport" id="viewport3">
+                        <property name="visible">True</property>
+                        <property name="resize_mode">queue</property>
+                        <child>
+                          <widget class="GtkHBox" id="hbox4">
+                            <property name="visible">True</property>
+                            <child>
+                              <widget class="GtkTextView" id="einfo">
+                                <property name="width_request">50</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="editable">False</property>
+                                <property name="right_margin">1</property>
+                                <property name="cursor_visible">False</property>
+                              </widget>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="position">0</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <widget class="GtkVSeparator" id="vseparator3">
+                                <property name="visible">True</property>
+                              </widget>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="position">1</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <widget class="GtkTextView" id="ecode">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="editable">False</property>
+                                <property name="cursor_visible">False</property>
+                              </widget>
+                              <packing>
+                                <property name="position">2</property>
+                              </packing>
+                            </child>
+                          </widget>
+                        </child>
+                      </widget>
+                    </child>
+                  </widget>
+                  <packing>
+                    <property name="position">2</property>
+                  </packing>
                 </child>
               </widget>
               <packing>
@@ -32,65 +189,55 @@
               </packing>
             </child>
             <child>
-              <widget class="GtkScrolledWindow" id="scrollTPcode">
+              <widget class="GtkHBox" id="hbox5">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="hscrollbar_policy">automatic</property>
-                <property name="vscrollbar_policy">automatic</property>
+                <property name="spacing">5</property>
                 <child>
-                  <widget class="GtkTextView" id="txtPTcode">
+                  <widget class="GtkScrolledWindow" id="scrolledwindow1">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="editable">False</property>
-                    <property name="cursor_visible">False</property>
+                    <property name="hscrollbar_policy">automatic</property>
+                    <property name="vscrollbar_policy">automatic</property>
+                    <child>
+                      <widget class="GtkTextView" id="log">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="editable">False</property>
+                        <property name="cursor_visible">False</property>
+                      </widget>
+                    </child>
                   </widget>
+                  <packing>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <widget class="GtkScrolledWindow" id="scrolledwindow2">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="hscrollbar_policy">automatic</property>
+                    <property name="vscrollbar_policy">automatic</property>
+                    <child>
+                      <widget class="GtkTextView" id="view">
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="editable">False</property>
+                        <property name="cursor_visible">False</property>
+                      </widget>
+                    </child>
+                  </widget>
+                  <packing>
+                    <property name="position">1</property>
+                  </packing>
                 </child>
               </widget>
               <packing>
                 <property name="position">1</property>
               </packing>
             </child>
-            <child>
-              <widget class="GtkScrolledWindow" id="scrollEcode">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="hscrollbar_policy">automatic</property>
-                <property name="vscrollbar_policy">automatic</property>
-                <child>
-                  <widget class="GtkTextView" id="txtEcode">
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="editable">False</property>
-                    <property name="cursor_visible">False</property>
-                  </widget>
-                </child>
-              </widget>
-              <packing>
-                <property name="position">2</property>
-              </packing>
-            </child>
           </widget>
           <packing>
             <property name="position">0</property>
-          </packing>
-        </child>
-        <child>
-          <widget class="GtkScrolledWindow" id="scrollOutput">
-            <property name="visible">True</property>
-            <property name="can_focus">True</property>
-            <property name="hscrollbar_policy">automatic</property>
-            <property name="vscrollbar_policy">automatic</property>
-            <child>
-              <widget class="GtkTextView" id="txtOutput">
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="editable">False</property>
-                <property name="cursor_visible">False</property>
-              </widget>
-            </child>
-          </widget>
-          <packing>
-            <property name="position">1</property>
           </packing>
         </child>
         <child>
@@ -101,7 +248,7 @@
           </widget>
           <packing>
             <property name="expand">False</property>
-            <property name="position">2</property>
+            <property name="position">1</property>
           </packing>
         </child>
         <child>
@@ -111,7 +258,7 @@
           </widget>
           <packing>
             <property name="expand">False</property>
-            <property name="position">3</property>
+            <property name="position">2</property>
           </packing>
         </child>
       </widget>

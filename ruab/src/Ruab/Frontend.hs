@@ -18,7 +18,11 @@ data GUI = GUI { -- {{{1
   , guiTcode :: TextView
   , guiPtcode :: TextView
   , guiEcode :: TextView
-  , guiOutput :: TextView
+  , guiTinfo :: TextView
+  , guiPtinfo :: TextView
+  , guiEinfo :: TextView
+  , guiLog :: TextView
+  , guiView :: TextView
   , guiInput :: Entry
   , guiStatus :: Statusbar
   }
@@ -30,11 +34,12 @@ loadGui = do
   _ <- initGUI
   trace (gladefn) (return ())
   Just xml <- xmlNew gladefn
-  win' <- xmlGetWidget xml castToWindow "winMain"
-  [tcode', ptcode', ecode', output'] <- mapM (xmlGetWidget xml castToTextView) ["txtTcode", "txtPTcode", "txtEcode", "txtOutput"]
-  input' <- xmlGetWidget xml castToEntry "input"
-  status' <- xmlGetWidget xml castToStatusbar "status"
-  return $ GUI win' tcode' ptcode' ecode' output' input' status'
+  window <- xmlGetWidget xml castToWindow "window"
+  [tcode, ptcode, ecode, tinfo, ptinfo, einfo, log, view] <- mapM (xmlGetWidget xml castToTextView)
+    ["tcode", "ptcode", "ecode", "tinfo", "ptinfo", "einfo", "log", "view"]
+  input <- xmlGetWidget xml castToEntry "input"
+  status <- xmlGetWidget xml castToStatusbar "status"
+  return $ GUI window tcode ptcode ecode tinfo ptinfo einfo log view input status
 
 -- ruab_ui :: Options -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> LocMap -> IO ()
 -- ruab_ui opt tcode ptcode ecode varmap locmap = do
