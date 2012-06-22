@@ -45,6 +45,9 @@ data GUI = GUI { -- {{{2
   , guiTlabel :: Label
   , guiPlabel :: Label
   , guiElabel :: Label
+  , guiTview :: Viewport
+  , guiPview :: Viewport
+  , guiEview :: Viewport
   , guiLog :: TextView
   , guiView :: TextView
   , guiInput :: Entry
@@ -75,10 +78,11 @@ loadGui = do
   [tcode, pcode, ecode, tinfo, pinfo, einfo, tlines, plines, elines, log', view] <- mapM (xmlGetWidget xml castToTextView)
     ["tcode", "pcode", "ecode", "tinfo", "pinfo", "einfo", "tlines", "plines", "elines", "log", "view"]
   [tlabel, plabel, elabel] <- mapM (xmlGetWidget xml castToLabel) ["tlabel", "plabel", "elabel"]
+  [tview, pview, eview] <- mapM (xmlGetWidget xml castToViewport) ["tview", "pview", "eview"]
   input <- xmlGetWidget xml castToEntry "input"
   status <- xmlGetWidget xml castToStatusbar "status"
   state <- newIORef emptyState
-  return $ GUI window tcode pcode ecode tinfo pinfo einfo tlines plines elines tlabel plabel elabel log' view input status state
+  return $ GUI window tcode pcode ecode tinfo pinfo einfo tlines plines elines tlabel plabel elabel tview pview eview log' view input status state
 
 handleInput :: Context -> GUI -> Event -> IO Bool -- {{{2
 handleInput ctx gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
@@ -117,8 +121,8 @@ handleCommand ctx gui ["pmap", param@(parseInt -> Just _)] =
     Nothing -> log gui ["invalid row number"]
     Just row' -> do
       log gui ["-> " ++ show row']
-      scrollToRow (guiTcode gui) row
-      scrollToRow (guiPcode gui) row'
+      scrollToRow (guiTview gui) (guiTcode gui) row
+      scrollToRow (guiPview gui) (guiPcode gui) row'
 
       state <- readIORef (guiState gui)
       let state' = state {
@@ -179,13 +183,18 @@ setupGui ctx gui = do
       _ <- textBufferCreateMark buffer (Just "append") end False 
       return ()
 
-scrollToRow :: TextView -> Int -> IO () -- {{{2
-scrollToRow tv row = do
-    buffer <- textViewGetBuffer tv
-    iter <- textBufferGetIterAtLine buffer (row-1)
-    mark <- textBufferCreateMark buffer Nothing iter True
-    textViewScrollToMark tv mark 0 (Just (0, 0))
-    return ()
+scrollToRow :: Viewport -> TextView -> Int -> IO () -- {{{2
+scrollToRow vp tv row = do
+  buffer <- textViewGetBuffer tv
+  maxRow <- textBufferGetLineCount buffer
+  adj <- viewportGetVAdjustment vp
+  upper <- adjustmentGetUpper adj
+  lower <- adjustmentGetLower adj
+  pageSize <- adjustmentGetPageSize adj
+  let ratio = fromIntegral (row - 1) / fromIntegral (maxRow - 1)
+  let range = (upper - pageSize) - lower
+  adjustmentSetValue adj $ ratio * range + lower
+  viewportSetVAdjustment vp adj
 
 displayText :: TextView -> BS.ByteString -> IO () -- {{{2
 displayText tv txt = do
