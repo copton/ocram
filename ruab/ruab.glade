@@ -36,7 +36,7 @@
                         <property name="hscrollbar_policy">automatic</property>
                         <property name="vscrollbar_policy">automatic</property>
                         <child>
-                          <widget class="GtkViewport" id="viewport1">
+                          <widget class="GtkViewport" id="tview">
                             <property name="visible">True</property>
                             <property name="resize_mode">queue</property>
                             <child>
@@ -46,10 +46,10 @@
                                   <widget class="GtkTextView" id="tinfo">
                                     <property name="width_request">50</property>
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="sensitive">False</property>
                                     <property name="editable">False</property>
-                                    <property name="justification">right</property>
                                     <property name="cursor_visible">False</property>
+                                    <property name="accepts_tab">False</property>
                                   </widget>
                                   <packing>
                                     <property name="expand">False</property>
@@ -60,11 +60,12 @@
                                   <widget class="GtkTextView" id="tlines">
                                     <property name="width_request">40</property>
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="sensitive">False</property>
                                     <property name="editable">False</property>
                                     <property name="justification">right</property>
                                     <property name="right_margin">1</property>
                                     <property name="cursor_visible">False</property>
+                                    <property name="accepts_tab">False</property>
                                   </widget>
                                   <packing>
                                     <property name="expand">False</property>
@@ -83,9 +84,10 @@
                                 <child>
                                   <widget class="GtkTextView" id="tcode">
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="sensitive">False</property>
                                     <property name="editable">False</property>
                                     <property name="cursor_visible">False</property>
+                                    <property name="accepts_tab">False</property>
                                   </widget>
                                   <packing>
                                     <property name="position">3</property>
@@ -126,7 +128,7 @@
                         <property name="hscrollbar_policy">automatic</property>
                         <property name="vscrollbar_policy">automatic</property>
                         <child>
-                          <widget class="GtkViewport" id="viewport2">
+                          <widget class="GtkViewport" id="pview">
                             <property name="visible">True</property>
                             <property name="resize_mode">queue</property>
                             <child>
@@ -136,10 +138,10 @@
                                   <widget class="GtkTextView" id="pinfo">
                                     <property name="width_request">50</property>
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="sensitive">False</property>
                                     <property name="editable">False</property>
-                                    <property name="justification">right</property>
                                     <property name="cursor_visible">False</property>
+                                    <property name="accepts_tab">False</property>
                                   </widget>
                                   <packing>
                                     <property name="expand">False</property>
@@ -150,11 +152,12 @@
                                   <widget class="GtkTextView" id="plines">
                                     <property name="width_request">40</property>
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="sensitive">False</property>
                                     <property name="editable">False</property>
                                     <property name="justification">right</property>
                                     <property name="right_margin">1</property>
                                     <property name="cursor_visible">False</property>
+                                    <property name="accepts_tab">False</property>
                                   </widget>
                                   <packing>
                                     <property name="expand">False</property>
@@ -173,9 +176,10 @@
                                 <child>
                                   <widget class="GtkTextView" id="pcode">
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="sensitive">False</property>
                                     <property name="editable">False</property>
                                     <property name="cursor_visible">False</property>
+                                    <property name="accepts_tab">False</property>
                                   </widget>
                                   <packing>
                                     <property name="position">3</property>
@@ -216,7 +220,7 @@
                         <property name="hscrollbar_policy">automatic</property>
                         <property name="vscrollbar_policy">automatic</property>
                         <child>
-                          <widget class="GtkViewport" id="viewport3">
+                          <widget class="GtkViewport" id="eview">
                             <property name="visible">True</property>
                             <property name="resize_mode">queue</property>
                             <child>
@@ -226,10 +230,11 @@
                                   <widget class="GtkTextView" id="einfo">
                                     <property name="width_request">50</property>
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="sensitive">False</property>
                                     <property name="editable">False</property>
                                     <property name="right_margin">1</property>
                                     <property name="cursor_visible">False</property>
+                                    <property name="accepts_tab">False</property>
                                   </widget>
                                   <packing>
                                     <property name="expand">False</property>
@@ -240,11 +245,12 @@
                                   <widget class="GtkTextView" id="elines">
                                     <property name="width_request">40</property>
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="sensitive">False</property>
                                     <property name="editable">False</property>
                                     <property name="justification">right</property>
                                     <property name="right_margin">1</property>
                                     <property name="cursor_visible">False</property>
+                                    <property name="accepts_tab">False</property>
                                   </widget>
                                   <packing>
                                     <property name="expand">False</property>
@@ -263,9 +269,10 @@
                                 <child>
                                   <widget class="GtkTextView" id="ecode">
                                     <property name="visible">True</property>
-                                    <property name="can_focus">True</property>
+                                    <property name="sensitive">False</property>
                                     <property name="editable">False</property>
                                     <property name="cursor_visible">False</property>
+                                    <property name="accepts_tab">False</property>
                                   </widget>
                                   <packing>
                                     <property name="position">3</property>
@@ -299,13 +306,13 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="hscrollbar_policy">automatic</property>
-                    <property name="vscrollbar_policy">automatic</property>
                     <child>
                       <widget class="GtkTextView" id="log">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
+                        <property name="sensitive">False</property>
                         <property name="editable">False</property>
                         <property name="cursor_visible">False</property>
+                        <property name="accepts_tab">False</property>
                       </widget>
                     </child>
                   </widget>
@@ -318,13 +325,14 @@
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="hscrollbar_policy">automatic</property>
-                    <property name="vscrollbar_policy">automatic</property>
                     <child>
                       <widget class="GtkTextView" id="view">
                         <property name="visible">True</property>
+                        <property name="sensitive">False</property>
                         <property name="can_focus">True</property>
                         <property name="editable">False</property>
                         <property name="cursor_visible">False</property>
+                        <property name="accepts_tab">False</property>
                       </widget>
                     </child>
                   </widget>
@@ -346,6 +354,7 @@
           <widget class="GtkEntry" id="input">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
+            <property name="is_focus">True</property>
             <property name="invisible_char">●</property>
           </widget>
           <packing>
@@ -356,6 +365,7 @@
         <child>
           <widget class="GtkStatusbar" id="status">
             <property name="visible">True</property>
+            <property name="sensitive">False</property>
             <property name="spacing">2</property>
           </widget>
           <packing>

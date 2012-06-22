@@ -6,6 +6,7 @@ module Ruab.Frontend
 ) where
 
 -- imports {{{1
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (fromJust)
 import Data.List (intersperse)
 import Graphics.UI.Gtk
@@ -13,21 +14,24 @@ import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Graphics.UI.Gtk.Gdk.Events (Event(Key))
 import Ocram.Ruab (DebugInfo(diPcode, diTcode, diEcode), File(fileName))
 import Paths_Ruab (getDataFileName)
-import Prelude hiding (log)
+import Prelude hiding (log, lines)
+import Ruab.Frontend.Internal
 import Ruab.Mapping (Context(..), map_preprocessed_row)
 import Ruab.Options (Options)
 import Ruab.Util (abort, fromJust_s)
 
 import qualified Data.ByteString.Char8 as BS
 
-ruab_ui :: Options -> Context -> IO ()
+import Debug.Trace (trace)
+
+ruab_ui :: Options -> Context -> IO () -- {{{1
 ruab_ui _ ctx = do
   gui <- loadGui
   setupGui ctx gui
   mainGUI
   return ()
 
-data GUI = GUI { -- {{{1
+data GUI = GUI { -- {{{2
     guiWin :: Window
   , guiTcode :: TextView
   , guiPcode :: TextView
@@ -45,7 +49,22 @@ data GUI = GUI { -- {{{1
   , guiView :: TextView
   , guiInput :: Entry
   , guiStatus :: Statusbar
+  , guiState :: IORef State
   }
+
+data State = State { -- {{{2
+    stateTinfo :: [InfoInstance]
+  , statePinfo :: [InfoInstance]
+  , stateEinfo :: [InfoInstance]
+  }
+
+emptyState :: State
+emptyState = State [] [] []
+
+updateInfo :: TextView -> [InfoInstance] -> IO () -- {{{2
+updateInfo tv infos = do
+  buffer <- textViewGetBuffer tv
+  textBufferSetText buffer $ render_info infos
 
 loadGui :: IO GUI -- {{{2
 loadGui = do
@@ -58,7 +77,8 @@ loadGui = do
   [tlabel, plabel, elabel] <- mapM (xmlGetWidget xml castToLabel) ["tlabel", "plabel", "elabel"]
   input <- xmlGetWidget xml castToEntry "input"
   status <- xmlGetWidget xml castToStatusbar "status"
-  return $ GUI window tcode pcode ecode tinfo pinfo einfo tlines plines elines tlabel plabel elabel log' view input status
+  state <- newIORef emptyState
+  return $ GUI window tcode pcode ecode tinfo pinfo einfo tlines plines elines tlabel plabel elabel log' view input status state
 
 handleInput :: Context -> GUI -> Event -> IO Bool -- {{{2
 handleInput ctx gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
@@ -71,13 +91,12 @@ handleInput ctx gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
 handleInput _ _ _ = return False
 
 log :: GUI -> [String] -> IO () -- {{{2
-log gui what = do
+log gui lines = do
   buffer <- textViewGetBuffer (guiLog gui)
   end <- textBufferGetEndIter buffer
-  textBufferInsert buffer end $ (concat $ intersperse "\n" what) ++ "\n"
+  textBufferInsert buffer end $ (concat $ intersperse "\n" lines) ++ "\n"
   mark <- textBufferGetMark buffer "append"
-  let mark' = $fromJust_s mark
-  textViewScrollToMark (guiLog gui) mark' 0 Nothing 
+  textViewScrollToMark (guiLog gui) ($fromJust_s mark) 0 Nothing 
 
 displayHelp :: GUI -> String -> IO () -- {{{2
 displayHelp gui "" = log gui $ "available commands:" : commands ++ ["type 'help command' to see more information for a command"]
@@ -87,17 +106,30 @@ displayHelp gui unknown = log gui $ ["unknown command '" ++ unknown ++ "'", "typ
 
 
 handleCommand :: Context -> GUI -> [String] -> IO () -- {{{2
+-- help {{{3
 handleCommand _ gui ["help"] = displayHelp gui ""
 handleCommand _ gui ("help":what:_) = displayHelp gui what
 
+-- pmap {{{3
 handleCommand ctx gui ["pmap", param@(parseInt -> Just _)] =
   let row = (fromJust . parseInt) param in
   case map_preprocessed_row (ctxPreprocMap ctx) row of
     Nothing -> log gui ["invalid row number"]
     Just row' -> do
       log gui ["-> " ++ show row']
-      return ()
+      scrollToRow (guiTcode gui) row
+      scrollToRow (guiPcode gui) row'
 
+      state <- readIORef (guiState gui)
+      let state' = state {
+          stateTinfo = setHighlight row (stateTinfo state)
+        , statePinfo = setHighlight row' (statePinfo state)
+        }
+      updateInfo (guiTinfo gui) (stateTinfo state')
+      updateInfo (guiPinfo gui) (statePinfo state')
+      writeIORef (guiState gui) state'
+
+-- catch all {{{3
 handleCommand _ gui (cmd:_) = displayHelp gui cmd
 handleCommand _ _ x = $abort $ "unexpected parameter: " ++ show x
 
@@ -110,7 +142,7 @@ parseInt txt =
 
 setupGui :: Context -> GUI -> IO () -- {{{2
 setupGui ctx gui = do
-  -- text views {{{2
+  -- text views {{{3
   displayText (guiTcode gui) (ctxTcode ctx)
   displayText (guiEcode gui) (ctxEcode ctx)
   displayText (guiPcode gui) ((diPcode . ctxDebugInfo) ctx)
@@ -120,40 +152,48 @@ setupGui ctx gui = do
   displayText (guiLog gui) (BS.pack "")
   displayText (guiView gui) (BS.pack "")
 
-  -- log {{{2
+  -- log {{{3
   addAppendMarker (guiLog gui)
 
-  -- line numbering {{{2
+  -- line numbering {{{3
   displayLines (guiTlines gui) (ctxTcode ctx)
   displayLines (guiPlines gui) ((diPcode . ctxDebugInfo) ctx)
   displayLines (guiElines gui) (ctxEcode ctx)
 
-  -- captions {{{2
+  -- captions {{{3
   labelSetText (guiTlabel gui) $ "(T-code) " ++ ((fileName . diTcode . ctxDebugInfo) ctx)
   labelSetText (guiPlabel gui) "(pre-processed)"
   labelSetText (guiElabel gui) $ "(E-code) " ++ ((fileName . diEcode . ctxDebugInfo) ctx)
 
-
-  -- events {{{2
+  -- events {{{3
   _ <- onKeyPress (guiInput gui) (handleInput ctx gui)
   _ <- onDestroy (guiWin gui) mainQuit
 
-  -- main window {{{2
+  -- main window {{{3
+  widgetGrabFocus (guiInput gui)
   widgetShowAll (guiWin gui)
   where
-    addAppendMarker tv = do
+    addAppendMarker tv = do -- {{{3
       buffer <- textViewGetBuffer tv
       end <- textBufferGetEndIter buffer
       _ <- textBufferCreateMark buffer (Just "append") end False 
       return ()
 
-displayText :: TextView -> BS.ByteString -> IO () -- {{{3
+scrollToRow :: TextView -> Int -> IO () -- {{{2
+scrollToRow tv row = do
+    buffer <- textViewGetBuffer tv
+    iter <- textBufferGetIterAtLine buffer (row-1)
+    mark <- textBufferCreateMark buffer Nothing iter True
+    textViewScrollToMark tv mark 0 (Just (0, 0))
+    return ()
+
+displayText :: TextView -> BS.ByteString -> IO () -- {{{2
 displayText tv txt = do
   buffer <- textBufferNew Nothing
   textBufferInsertByteStringAtCursor buffer txt
   textViewSetBuffer tv buffer
 
-displayLines :: TextView -> BS.ByteString -> IO ()  -- {{{3
+displayLines :: TextView -> BS.ByteString -> IO ()  -- {{{2
 displayLines tv txt =
   let
     rows = BS.lines txt
