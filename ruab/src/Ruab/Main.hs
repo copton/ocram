@@ -10,6 +10,7 @@ import Ruab.Backend
 import Ruab.Options
 import Ruab.Test (runTests)
 import System.Environment (getArgs)
+import Ocram.Ruab
 
 main :: IO () -- {{{1
 main = do

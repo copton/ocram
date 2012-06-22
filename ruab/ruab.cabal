@@ -38,6 +38,7 @@ Executable ruab
     ocramruab == 0.1.*
   Other-Modules:
     Main,
+    Ocram.Ruab,
     Ruab.Main,
     Ruab.Frontend,
     Ruab.Mapping,

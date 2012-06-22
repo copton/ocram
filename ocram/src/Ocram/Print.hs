@@ -45,7 +45,8 @@ import Control.Arrow (first)
 import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
 import Text.PrettyPrint
-import Ocram.Debug (ENodeInfo(threadId), ELocation(ELocation), Location(Location), LocMap, validBreakpoint, tlocation)
+import Ocram.Debug (ENodeInfo(threadId),  validBreakpoint, tlocation)
+import Ocram.Ruab (ELocation(ELocation), Location(Location), LocMap)
 import Ocram.Util (abort)
 
 import qualified Data.ByteString.Char8 as BS

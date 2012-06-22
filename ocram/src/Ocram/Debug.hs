@@ -7,30 +7,8 @@ import Data.Maybe (fromMaybe)
 import Data.Typeable (Typeable)
 import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
 import Language.C.Data.Position (posRow, posColumn)
-import Ocram.Symbols (Symbol)
 import Ocram.Util (abort)
-
-data File = -- {{{1
-  File {fileName :: String, fileChecksum :: String}
-
-data TLocation = -- {{{1
-  TLocation {tlocRow :: Int, tlocCol :: Int, tlocLen :: Int}
-
-instance Show TLocation where
-  show (TLocation r c l) = show (r, c, l)
-
-data ELocation = -- {{{1
-  ELocation {elocRow :: Int, elocCol :: Int, elocTidd :: Maybe Int}
-
-instance Show ELocation where
-  show (ELocation r c t) = show (r, c, t)
-
-data Location = Location TLocation ELocation -- {{{1
-
-type LocMap = [Location] -- {{{1
-
-type Variable = Symbol -- {{{1
-type VarMap = [(Variable, Variable)]
+import Ocram.Ruab
 
 data ENodeInfo = ENodeInfo { -- {{{1
   tnodeInfo :: NodeInfo,

@@ -8,7 +8,8 @@ module Ocram.Transformation
 import Data.Generics (everything, mkQ)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, blocking_functions)
-import Ocram.Debug (enrichNodeInfo, VarMap, un)
+import Ocram.Debug (enrichNodeInfo, un)
+import Ocram.Ruab (VarMap)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Normalize (normalize)
 import Ocram.Transformation.Translate (translate)
