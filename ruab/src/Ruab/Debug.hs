@@ -1,6 +1,6 @@
 module Ruab.Debug
 (
-  load_debug_info
+  load_debug_info, Context(..)
 ) where
 
 import Data.List (intercalate)
@@ -15,7 +15,13 @@ import System.Exit (ExitCode(ExitFailure))
 
 import qualified Data.ByteString.Char8 as BS
 
-load_debug_info :: Options -> IO (Either (ExitCode, String) DebugInfo)
+data Context = Context {
+    ctxDebugInfo :: DebugInfo
+  , ctxTcode :: BS.ByteString
+  , ctxEcode :: BS.ByteString
+  }
+
+load_debug_info :: Options -> IO (Either (ExitCode, String) Context)
 load_debug_info opt = do
   hDi <- openFile (optDebugFile opt) ReadMode
   contents <- BS.hGetContents hDi
@@ -24,9 +30,9 @@ load_debug_info opt = do
     Left why -> (return . Left) (ExitFailure 6, why)
     Right di -> do
       let files = [diTcode di, diEcode di]
-      code <- mapM (BS.readFile . fileName) files
+      code@[tcode, ecode] <- mapM (BS.readFile . fileName) files
       case catMaybes (zipWith verify code files) of
-        [] -> (return . Right) di
+        [] -> (return . Right) $ Context di tcode ecode
         err -> (return . Left) (ExitFailure 5, intercalate "\n" err)
   `catch` (\e -> (return . Left) (ExitFailure 4, show (e :: IOException)))
   where
