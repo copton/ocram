@@ -22,8 +22,6 @@ import Ruab.Util (abort, fromJust_s)
 
 import qualified Data.ByteString.Char8 as BS
 
-import Debug.Trace (trace)
-
 ruab_ui :: Options -> Context -> IO () -- {{{1
 ruab_ui _ ctx = do
   gui <- loadGui
@@ -104,10 +102,10 @@ log gui lines = do
 
 displayHelp :: GUI -> String -> IO () -- {{{2
 displayHelp gui "" = log gui $ "available commands:" : commands ++ ["type 'help command' to see more information for a command"]
-  where commands = ["pmap"]
+  where commands = ["pmap", "quit"]
 displayHelp gui "pmap" = log gui $ ["pmap row", "map a T-code row number to the corresponding row number of the pre-processed T-code"]
+displayHelp gui "quit" = log gui $ ["quit", "quit the debugger"]
 displayHelp gui unknown = log gui $ ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
-
 
 handleCommand :: Context -> GUI -> [String] -> IO () -- {{{2
 -- help {{{3
@@ -132,6 +130,9 @@ handleCommand ctx gui ["pmap", param@(parseInt -> Just _)] =
       updateInfo (guiTinfo gui) (stateTinfo state')
       updateInfo (guiPinfo gui) (statePinfo state')
       writeIORef (guiState gui) state'
+
+-- quit {{{3
+handleCommand _ _ ["quit"] = mainQuit
 
 -- catch all {{{3
 handleCommand _ gui (cmd:_) = displayHelp gui cmd
