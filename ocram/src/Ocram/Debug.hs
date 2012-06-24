@@ -6,19 +6,20 @@ import Data.Data (Data)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Maybe (fromMaybe)
 import Data.Typeable (Typeable)
-import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
+import Language.C.Data.Node (lengthOfNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
 import Language.C.Data.Position (posRow, posColumn)
 import Ocram.Analysis (CallGraph, start_functions, blocking_functions, call_order)
 import Ocram.Options (Options(optInput, optOutput))
+import Ocram.Debug.Internal
 import Ocram.Ruab
-import Ocram.Util (abort, fromJust_s)
+import Ocram.Util (fromJust_s)
 
 import qualified Data.ByteString.Char8 as BS
 
 data ENodeInfo = ENodeInfo { -- {{{1
-  enTnodeInfo :: NodeInfo,
-  enThreadId :: Maybe Int,
-  enIsBreakpoint :: Bool
+    enTnodeInfo :: NodeInfo
+  , enThreadId :: Maybe Int
+  , enTraceLocation :: Bool
   } deriving (Data, Typeable)
 
 instance CNode ENodeInfo where
@@ -28,18 +29,10 @@ instance Show ENodeInfo where
   show _ = ""
 
 un :: ENodeInfo -- {{{1
-un = enrichNodeInfo undefNode
+un = enrich_node_info undefNode
 
-enrichNodeInfo :: NodeInfo -> ENodeInfo -- {{{1
-enrichNodeInfo ni = ENodeInfo ni Nothing False
-
-enableBreakpoint :: ENodeInfo -> ENodeInfo -- {{{1
-enableBreakpoint eni
-  | isUndefNode (enTnodeInfo eni) = $abort "enabling breakpoint for undefined node"
-  | otherwise = eni {enIsBreakpoint = True}
-
-validBreakpoint :: ENodeInfo -> Bool -- {{{1
-validBreakpoint (ENodeInfo tni _ bp) = bp && not (isUndefNode tni)
+enrich_node_info :: NodeInfo -> ENodeInfo -- {{{1
+enrich_node_info ni = ENodeInfo ni Nothing False
 
 setThread :: Int -> ENodeInfo -> ENodeInfo -- {{{1
 setThread tid eni = eni {enThreadId = Just tid}
@@ -52,14 +45,19 @@ tlocation eni =
   in
     TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
 
-create_debug_info :: Options -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> LocMap -> DebugInfo
+create_debug_info :: Options -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> LocMap -> DebugInfo -- {{{1
 create_debug_info opt cg tcode pcode ecode vm lm =
   let
     tfile = File (optInput opt) (md5sum tcode)
     efile = File (optOutput opt) (md5sum ecode)
     ts = zipWith createThreadInfo [0..] (start_functions cg)
+    ppm = preproc_map pcode
     oa = blocking_functions cg
+    lm' = map (\(tl, el) -> (adjustTloc ppm tl, el)) lm
   in
-    DebugInfo tfile pcode efile lm vm ts oa
+    DebugInfo tfile pcode efile ppm lm' vm ts oa
   where
     createThreadInfo tid sf = Thread tid sf ($fromJust_s $ call_order cg sf)
+    adjustTloc ppm tl = tl {tlocRow = $fromJust_s (map_preprocessed_row ppm (tlocRow tl))}
+
+

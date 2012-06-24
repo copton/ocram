@@ -8,7 +8,7 @@ import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Debug (un, setThread, enableBreakpoint, ENodeInfo)
+import Ocram.Debug (un, setThread, ENodeInfo)
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names
@@ -110,7 +110,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
         callSequence calledFunction ni params resultLhs = do
           lblIdx <- get
           put (lblIdx + 1)  
-          return $ criticalFunctionCallSequence calledFunction (enableBreakpoint ni) lblIdx params resultLhs
+          return $ criticalFunctionCallSequence calledFunction ni lblIdx params resultLhs
 
     criticalFunctionCallSequence :: Symbol -> ENodeInfo -> Int -> [CExpr'] -> Maybe (CExpr')-> [CBlockItem'] -- {{{3
     criticalFunctionCallSequence calledFunction ni lblIdx params resultLhs =

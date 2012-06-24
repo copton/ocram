@@ -16,7 +16,7 @@ import Ocram.Ruab (DebugInfo(..), File(fileName), Thread(..))
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
 import Ruab.Frontend.Internal
-import Ruab.Mapping (Context(..), map_preprocessed_row)
+import Ruab.Mapping (Context(..), preprocessed_row, ecode_row)
 import Ruab.Options (Options)
 import Ruab.Util (abort, fromJust_s)
 
@@ -108,6 +108,7 @@ appendToLog gui lines = do
 
 displayHelp :: GUI -> Bool -> String -> IO () -- {{{2
 displayHelp gui _ ""       = log gui True        (("available commands: " ++ (concat $ intersperse ", " commands)) : ["type 'help command' to see more information for a command"])
+displayHelp gui f "emap"   = log gui (True && f) ["emap row: map a pre-processed T-code row number to the corresponding row number of the E-code"] 
 displayHelp gui f "osapi"  = log gui (True && f) ["osapi: list all blocking functions"]
 displayHelp gui f "pmap"   = log gui (True && f) ["pmap row: map a T-code row number to the corresponding row number of the pre-processed T-code"]
 displayHelp gui f "thread" = log gui (True && f) ["thread [id]: list information of either all threads or the thread with the given id"]
@@ -115,30 +116,49 @@ displayHelp gui f "quit"   = log gui (True && f) ["quit: quit the debugger"]
 displayHelp gui _ unknown  = log gui False       ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
 
 commands :: [String]
-commands = ["osapi", "pmap", "threads", "quit"]
+commands = ["emap", "osapi", "pmap", "threads", "quit"]
 
 handleCommand :: Context -> GUI -> [String] -> IO () -- {{{2
 -- help {{{3
 handleCommand _ gui ["help"] = displayHelp gui True ""
 handleCommand _ gui ("help":what:_) = displayHelp gui True what
 
+-- emap {{{3
+handleCommand ctx gui ["emap", row@(parseInt -> Just _)] =
+  let row' = (fromJust . parseInt) row in
+  case ecode_row ctx row' of
+    Nothing -> log gui False ["no row mapping found"]
+    Just row'' -> do
+      log gui True [show row'']
+      scrollToRow (guiPview gui) (guiPcode gui) row'
+      scrollToRow (guiEview gui) (guiEcode gui) row''
+
+      state <- readIORef (guiState gui)
+      let state' = state {
+          statePinfo = setHighlight row' (statePinfo state)
+        , stateEinfo = setHighlight row'' (stateEinfo state)
+        }
+      updateInfo (guiPinfo gui) (statePinfo state')
+      updateInfo (guiEinfo gui) (stateEinfo state')
+      writeIORef (guiState gui) state'
+    
 -- osapi {{{3
 handleCommand ctx gui ["osapi"] = log gui True ["OS API: " ++ (concat $ intersperse ", " ((diOsApi . ctxDebugInfo) ctx))]
 
 -- pmap {{{3
-handleCommand ctx gui ["pmap", param@(parseInt -> Just _)] =
-  let row = (fromJust . parseInt) param in
-  case map_preprocessed_row (ctxPreprocMap ctx) row of
+handleCommand ctx gui ["pmap", row@(parseInt -> Just _)] =
+  let row' = (fromJust . parseInt) row in
+  case preprocessed_row ctx row' of
     Nothing -> log gui False ["invalid row number"]
-    Just row' -> do
-      log gui True [show row']
-      scrollToRow (guiTview gui) (guiTcode gui) row
-      scrollToRow (guiPview gui) (guiPcode gui) row'
+    Just row'' -> do
+      log gui True [show row'']
+      scrollToRow (guiTview gui) (guiTcode gui) row'
+      scrollToRow (guiPview gui) (guiPcode gui) row''
 
       state <- readIORef (guiState gui)
       let state' = state {
-          stateTinfo = setHighlight row (stateTinfo state)
-        , statePinfo = setHighlight row' (statePinfo state)
+          stateTinfo = setHighlight row' (stateTinfo state)
+        , statePinfo = setHighlight row'' (statePinfo state)
         }
       updateInfo (guiTinfo gui) (stateTinfo state')
       updateInfo (guiPinfo gui) (statePinfo state')

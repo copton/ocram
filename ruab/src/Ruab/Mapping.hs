@@ -6,7 +6,8 @@ module Ruab.Mapping
   , Context(..)
 -- preprocessor
   , PreprocMap
-  , map_preprocessed_row
+  , preprocessed_row
+  , ecode_row
 ) where
 
 -- imports {{{1
@@ -17,7 +18,7 @@ import Data.Maybe (catMaybes)
 import Ocram.Ruab
 import Prelude hiding (catch)
 import Ruab.Options (Options(optDebugFile))
-import Ruab.Mapping.Internal (preproc_map, PreprocMap(PreprocMap))
+import Ruab.Mapping.Internal
 import System.Exit (ExitCode(ExitFailure))
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
@@ -27,7 +28,6 @@ data Context = Context { -- {{{1
     ctxDebugInfo :: DebugInfo
   , ctxTcode :: BS.ByteString
   , ctxEcode :: BS.ByteString
-  , ctxPreprocMap :: PreprocMap
   }
 
 load_context :: Options -> IO (Either (ExitCode, String) Context) -- {{{1
@@ -41,9 +41,7 @@ load_context opt = do
       let files = [diTcode di, diEcode di]
       code@[tcode, ecode] <- mapM (BS.readFile . fileName) files
       case catMaybes (zipWith verify code files) of
-        [] ->
-          let ctx = Context di tcode ecode (preproc_map (diPcode di)) in
-          (return . Right) ctx
+        [] -> (return . Right) (Context di tcode ecode)
         err -> (return . Left) (ExitFailure 5, intercalate "\n" err)
   `catch` (\e -> (return . Left) (ExitFailure 4, show (e :: IOException)))
   where
@@ -52,15 +50,8 @@ load_context opt = do
       | otherwise = Just $ failed $ fileName file
     failed file = "checksum for '" ++ file ++ "' differs"
 
--- preprocessor {{{1
-map_preprocessed_row :: PreprocMap -> Int -> Maybe Int -- {{{2
-map_preprocessed_row (PreprocMap rows locs) row
-  | row <= 0 = Nothing
-  | otherwise =
-    let
-      (src, dst) = (last . takeWhile ((<=row) . fst)) locs
-      res = dst + (row - src) + 1
-    in
-      if res > rows
-        then Nothing
-        else Just res
+preprocessed_row :: Context -> Int -> Maybe Int -- {{{1
+preprocessed_row = map_preprocessed_row . diPpm . ctxDebugInfo
+
+ecode_row :: Context -> Int -> Maybe Int -- {{{1
+ecode_row ctx = map_ecode_row ((diLocMap . ctxDebugInfo) ctx)
