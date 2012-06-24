@@ -23,8 +23,7 @@ import System.IO (openFile, IOMode(ReadMode), hClose)
 
 import qualified Data.ByteString.Char8 as BS
 
--- context {{{1
-data Context = Context {
+data Context = Context { -- {{{1
     ctxDebugInfo :: DebugInfo
   , ctxTcode :: BS.ByteString
   , ctxEcode :: BS.ByteString

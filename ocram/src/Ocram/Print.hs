@@ -45,7 +45,7 @@ import Control.Arrow (first)
 import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
 import Text.PrettyPrint
-import Ocram.Debug (ENodeInfo(threadId),  validBreakpoint, tlocation)
+import Ocram.Debug (ENodeInfo(enThreadId),  validBreakpoint, tlocation)
 import Ocram.Ruab (ELocation(ELocation), Location(Location), LocMap)
 import Ocram.Util (abort)
 
@@ -59,7 +59,7 @@ marker eni doc
   | validBreakpoint eni = here logger doc
   | otherwise = doc
   where
-    logger (Position r c) = [Location (tlocation eni) (ELocation r c (threadId eni))]
+    logger (Position r c) = [Location (tlocation eni) (ELocation r c (enThreadId eni))]
     
 class PrettyLog a where
   pretty :: a -> DocL LocMap

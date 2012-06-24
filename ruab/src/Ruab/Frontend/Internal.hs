@@ -6,30 +6,30 @@ import Data.List (groupBy, sortBy)
 import Ruab.Util (abort)
 
 data Info -- {{{1
-  = Thread Int
-  | Breakpoint Int
-  | Highlight
+  = InfThread Int
+  | InfBreakpoint Int
+  | InfHighlight
 
 orderInfo :: Info -> Int
-orderInfo (Thread _) = 0
-orderInfo (Breakpoint _) = 1
-orderInfo Highlight = 2
+orderInfo (InfThread _) = 0
+orderInfo (InfBreakpoint _) = 1
+orderInfo InfHighlight = 2
 
 instance Show Info where
-  show (Thread tid) = show tid
-  show (Breakpoint bid) = show bid
-  show Highlight = "#"
+  show (InfThread tid) = show tid
+  show (InfBreakpoint bid) = show bid
+  show InfHighlight = "#"
 
 infoIsThread :: Int -> Info -> Bool
-infoIsThread tid (Thread tid') = tid == tid'
+infoIsThread tid (InfThread tid') = tid == tid'
 infoIsThread _ _ = False
 
 infoIsBreakpoint :: Int -> Info -> Bool
-infoIsBreakpoint bid (Breakpoint bid') = bid == bid'
+infoIsBreakpoint bid (InfBreakpoint bid') = bid == bid'
 infoIsBreakpoint _ _ = False
 
 infoIsHighlight :: Info -> Bool
-infoIsHighlight (Highlight) = True
+infoIsHighlight InfHighlight = True
 infoIsHighlight _ = False
 
 type InfoInstance = (Int, Info)
@@ -44,13 +44,13 @@ clearBreakpoint :: Int -> [InfoInstance] -> [InfoInstance]
 clearBreakpoint bid = filter (not . infoIsBreakpoint bid . snd)
 
 setHighlight :: Int -> [InfoInstance] -> [InfoInstance]
-setHighlight row infos = (row, Highlight) : clearHighlight infos
+setHighlight row infos = (row, InfHighlight) : clearHighlight infos
 
 setThread :: Int -> Int -> [InfoInstance] -> [InfoInstance]
-setThread row tid infos = (row, Thread tid) : clearThread tid infos
+setThread row tid infos = (row, InfThread tid) : clearThread tid infos
 
 setBreakpoint :: Int -> Int -> [InfoInstance] -> [InfoInstance]
-setBreakpoint row bid infos = (row, Breakpoint bid) : clearBreakpoint bid infos
+setBreakpoint row bid infos = (row, InfBreakpoint bid) : clearBreakpoint bid infos
 
 render_info :: [InfoInstance] -> String
 render_info = renderAll . map renderRow . groupBy groupf . sortBy sortf

@@ -8,11 +8,11 @@ module Ruab.Frontend
 -- imports {{{1
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (fromJust)
-import Data.List (intersperse)
+import Data.List (intersperse, find)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Graphics.UI.Gtk.Gdk.Events (Event(Key))
-import Ocram.Ruab (DebugInfo(diPcode, diTcode, diEcode), File(fileName))
+import Ocram.Ruab (DebugInfo(..), File(fileName), Thread(..))
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
 import Ruab.Frontend.Internal
@@ -86,39 +86,52 @@ handleInput :: Context -> GUI -> Event -> IO Bool -- {{{2
 handleInput ctx gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
   command <- entryGetText (guiInput gui)
   entrySetText (guiInput gui) ""
-  log gui ["$ " ++ command]
+  appendToLog gui ["$ " ++ command]
   handleCommand ctx gui (words command)
   return True
 
 handleInput _ _ _ = return False
 
-log :: GUI -> [String] -> IO () -- {{{2
-log gui lines = do
+
+log :: GUI -> Bool -> [String] -> IO () -- {{{2
+log gui f lines = do
+  let prefix = if f then "-> " else "!! "
+  appendToLog gui (map (prefix++) lines)
+
+appendToLog :: GUI -> [String] -> IO ()  -- {{{3
+appendToLog gui lines = do
   buffer <- textViewGetBuffer (guiLog gui)
   end <- textBufferGetEndIter buffer
   textBufferInsert buffer end $ (concat $ intersperse "\n" lines) ++ "\n"
   mark <- textBufferGetMark buffer "append"
   textViewScrollToMark (guiLog gui) ($fromJust_s mark) 0 Nothing 
 
-displayHelp :: GUI -> String -> IO () -- {{{2
-displayHelp gui "" = log gui $ "available commands:" : commands ++ ["type 'help command' to see more information for a command"]
-  where commands = ["pmap", "quit"]
-displayHelp gui "pmap" = log gui $ ["pmap row", "map a T-code row number to the corresponding row number of the pre-processed T-code"]
-displayHelp gui "quit" = log gui $ ["quit", "quit the debugger"]
-displayHelp gui unknown = log gui $ ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
+displayHelp :: GUI -> Bool -> String -> IO () -- {{{2
+displayHelp gui _ ""       = log gui True        (("available commands: " ++ (concat $ intersperse ", " commands)) : ["type 'help command' to see more information for a command"])
+displayHelp gui f "osapi"  = log gui (True && f) ["osapi: list all blocking functions"]
+displayHelp gui f "pmap"   = log gui (True && f) ["pmap row: map a T-code row number to the corresponding row number of the pre-processed T-code"]
+displayHelp gui f "thread" = log gui (True && f) ["thread [id]: list information of either all threads or the thread with the given id"]
+displayHelp gui f "quit"   = log gui (True && f) ["quit: quit the debugger"]
+displayHelp gui _ unknown  = log gui False       ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
+
+commands :: [String]
+commands = ["osapi", "pmap", "threads", "quit"]
 
 handleCommand :: Context -> GUI -> [String] -> IO () -- {{{2
 -- help {{{3
-handleCommand _ gui ["help"] = displayHelp gui ""
-handleCommand _ gui ("help":what:_) = displayHelp gui what
+handleCommand _ gui ["help"] = displayHelp gui True ""
+handleCommand _ gui ("help":what:_) = displayHelp gui True what
+
+-- osapi {{{3
+handleCommand ctx gui ["osapi"] = log gui True ["OS API: " ++ (concat $ intersperse ", " ((diOsApi . ctxDebugInfo) ctx))]
 
 -- pmap {{{3
 handleCommand ctx gui ["pmap", param@(parseInt -> Just _)] =
   let row = (fromJust . parseInt) param in
   case map_preprocessed_row (ctxPreprocMap ctx) row of
-    Nothing -> log gui ["invalid row number"]
+    Nothing -> log gui False ["invalid row number"]
     Just row' -> do
-      log gui ["-> " ++ show row']
+      log gui True [show row']
       scrollToRow (guiTview gui) (guiTcode gui) row
       scrollToRow (guiPview gui) (guiPcode gui) row'
 
@@ -131,19 +144,32 @@ handleCommand ctx gui ["pmap", param@(parseInt -> Just _)] =
       updateInfo (guiPinfo gui) (statePinfo state')
       writeIORef (guiState gui) state'
 
+-- thread {{{3
+handleCommand ctx gui ["thread"] =
+  log gui True $ concatMap printThread ((diThreads . ctxDebugInfo) ctx)
+
+handleCommand ctx gui ["thread", tid@(parseInt -> Just _)] =
+  let (Just tid') = parseInt tid in
+  case find (\(Thread tid'' _ _) -> tid'' == tid') ((diThreads . ctxDebugInfo) ctx) of
+    Nothing -> log gui False ["unknown thread id '" ++ tid ++ "'"]
+    Just thread -> log gui True (printThread thread)
+
 -- quit {{{3
 handleCommand _ _ ["quit"] = mainQuit
 
 -- catch all {{{3
-handleCommand _ gui (cmd:_) = displayHelp gui cmd
+handleCommand _ gui (cmd:_) = displayHelp gui False cmd
 handleCommand _ _ x = $abort $ "unexpected parameter: " ++ show x
-
-parseInt :: String -> Maybe Int -- {{{3
+-- utils {{{4
+parseInt :: String -> Maybe Int -- {{{4
 parseInt txt =
   let readings = reads txt in
   if length readings /= 1 || (snd . head) readings /= ""
     then Nothing
     else Just $ (fst . head) readings
+
+printThread :: Thread -> [String] -- {{{4
+printThread (Thread tid ts tc) = [show tid ++ ": " ++ ts ++ ": " ++ (concat $ intersperse ", " tc)]
 
 setupGui :: Context -> GUI -> IO () -- {{{2
 setupGui ctx gui = do
