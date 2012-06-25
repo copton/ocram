@@ -29,59 +29,148 @@ ruab_ui _ ctx = do
   mainGUI
   return ()
 
+-- types {{{1
+data Component = Component {
+    compCode  :: TextView
+  , compInfo  :: TextView
+  , compLines :: TextView
+  , compLabel :: Label
+  , compView  :: Viewport
+  , compInfos :: IORef [InfoInstance]
+  }
+
 data GUI = GUI { -- {{{2
-    guiWin :: Window
-  , guiTcode :: TextView
-  , guiPcode :: TextView
-  , guiEcode :: TextView
-  , guiTinfo :: TextView
-  , guiPinfo :: TextView
-  , guiEinfo :: TextView
-  , guiTlines :: TextView
-  , guiPlines :: TextView
-  , guiElines :: TextView
-  , guiTlabel :: Label
-  , guiPlabel :: Label
-  , guiElabel :: Label
-  , guiTview :: Viewport
-  , guiPview :: Viewport
-  , guiEview :: Viewport
-  , guiLog :: TextView
-  , guiView :: TextView
-  , guiInput :: Entry
+    guiWin    :: Window
+  , guiTcomp  :: Component
+  , guiPcomp  :: Component
+  , guiEcomp  :: Component
+  , guiLog    :: TextView
+  , guiView   :: TextView
+  , guiInput  :: Entry
   , guiStatus :: Statusbar
-  , guiState :: IORef State
   }
 
-data State = State { -- {{{2
-    stateTinfo :: [InfoInstance]
-  , statePinfo :: [InfoInstance]
-  , stateEinfo :: [InfoInstance]
-  }
-
-emptyState :: State
-emptyState = State [] [] []
-
-updateInfo :: TextView -> [InfoInstance] -> IO () -- {{{2
-updateInfo tv infos = do
-  buffer <- textViewGetBuffer tv
-  textBufferSetText buffer $ render_info infos
-
+-- GUI {{{1
 loadGui :: IO GUI -- {{{2
 loadGui = do
   gladefn <- getDataFileName "ruab.glade"
   _ <- initGUI
   Just xml <- xmlNew gladefn
   window <- xmlGetWidget xml castToWindow "window"
-  [tcode, pcode, ecode, tinfo, pinfo, einfo, tlines, plines, elines, log', view] <- mapM (xmlGetWidget xml castToTextView)
-    ["tcode", "pcode", "ecode", "tinfo", "pinfo", "einfo", "tlines", "plines", "elines", "log", "view"]
-  [tlabel, plabel, elabel] <- mapM (xmlGetWidget xml castToLabel) ["tlabel", "plabel", "elabel"]
-  [tview, pview, eview] <- mapM (xmlGetWidget xml castToViewport) ["tview", "pview", "eview"]
+  [ct, cp, ce] <- mapM (loadComponent xml) ["t", "p", "e"]
+  [log', view] <- mapM (xmlGetWidget xml castToTextView) ["log", "view"]
   input <- xmlGetWidget xml castToEntry "input"
   status <- xmlGetWidget xml castToStatusbar "status"
-  state <- newIORef emptyState
-  return $ GUI window tcode pcode ecode tinfo pinfo einfo tlines plines elines tlabel plabel elabel tview pview eview log' view input status state
+  return $ GUI window ct cp ce log' view input status
+  where
+    loadComponent xml comp = do
+      [code, info, lines] <- mapM (xmlGetWidget xml castToTextView) $ map (comp++) ["code", "info", "lines"]
+      label <- xmlGetWidget xml castToLabel (comp++"label")
+      view <- xmlGetWidget xml castToViewport (comp++"view")
+      infos <- newIORef []
+      return $ Component code info lines label view infos
 
+setupGui :: Context -> GUI -> IO () -- {{{2
+setupGui ctx gui = do
+  -- text views {{{3
+  setupComponent (guiTcomp gui)
+    (ctxTcode ctx)
+    ("(T-code) " ++ ((fileName . diTcode . ctxDebugInfo) ctx))
+
+  setupComponent (guiPcomp gui)
+    ((diPcode . ctxDebugInfo) ctx)
+    "(pre-processed)"
+
+  setupComponent (guiEcomp gui)
+    (ctxEcode ctx)
+    ("(E-code) " ++ ((fileName . diEcode . ctxDebugInfo) ctx))
+
+  setupText (guiLog gui) (BS.pack "")
+  setupText (guiView gui) (BS.pack "")
+
+  -- log {{{3
+  addAppendMarker (guiLog gui)
+
+  -- infos {{{3
+  setuptBreakpoints
+
+  -- events {{{3
+  _ <- onKeyPress (guiInput gui) (handleInput ctx gui)
+  _ <- onDestroy (guiWin gui) mainQuit
+
+  -- main window {{{3
+  widgetGrabFocus (guiInput gui)
+  widgetShowAll (guiWin gui)
+
+  where
+    addAppendMarker tv = do -- {{{3
+      buffer <- textViewGetBuffer tv
+      end <- textBufferGetEndIter buffer
+      _ <- textBufferCreateMark buffer (Just "append") end False 
+      return ()
+
+    setupComponent comp code caption = do -- {{{3
+      setupText (compCode comp) code
+      setupText (compInfo comp) (BS.pack "")
+      let rows = BS.lines code
+      let range = [1..(length rows)]
+      let text = BS.intercalate (BS.singleton '\n') $ map (BS.pack . show) range
+      setupText (compLines comp) text
+      labelSetText (compLabel comp) caption
+
+    setupText tv txt = do -- {{{3
+      buffer <- textBufferNew Nothing
+      textBufferInsertByteStringAtCursor buffer txt
+      textViewSetBuffer tv buffer
+
+    setuptBreakpoints = do
+      infos <- modifyReadIORef ((compInfos . guiPcomp) gui) modify
+      setText ((compInfo . guiPcomp) gui) (render_info infos)
+      where
+        modify infos = foldl go infos ((diLocMap . ctxDebugInfo) ctx)
+        go infos (tl, _) = setBreakpoint (tlocRow tl) 0 infos
+
+
+appendToLog :: GUI -> [String] -> IO ()  -- {{{2
+appendToLog gui lines = do
+  buffer <- textViewGetBuffer (guiLog gui)
+  end <- textBufferGetEndIter buffer
+  textBufferInsert buffer end $ (concat $ intersperse "\n" lines) ++ "\n"
+  mark <- textBufferGetMark buffer "append"
+  textViewScrollToMark (guiLog gui) ($fromJust_s mark) 0 Nothing 
+
+scrollToRow :: Component -> Int -> IO () -- {{{2
+scrollToRow comp row = do
+  buffer <- textViewGetBuffer (compCode comp)
+  maxRow <- textBufferGetLineCount buffer
+  adj <- viewportGetVAdjustment (compView comp)
+  upper <- adjustmentGetUpper adj
+  lower <- adjustmentGetLower adj
+  pageSize <- adjustmentGetPageSize adj
+  let ratio = fromIntegral (row - 1) / fromIntegral (maxRow - 1)
+  let range = (upper - pageSize) - lower
+  adjustmentSetValue adj $ ratio * range + lower
+  viewportSetVAdjustment (compView comp) adj
+
+setText :: TextView -> String -> IO () -- {{{2
+setText tv txt = do
+  buffer <- textViewGetBuffer tv
+  textBufferSetText buffer txt
+
+highlight :: Component -> Int -> IO () -- {{{2
+highlight comp row = do
+  scrollToRow comp row
+  infos <- modifyReadIORef (compInfos comp) (setHighlight row)
+  setText (compInfo comp) $ render_info infos
+
+modifyReadIORef :: IORef a -> (a -> a) -> IO a -- {{{2
+modifyReadIORef ref f = do
+  obj <- readIORef ref
+  let obj' = f obj
+  writeIORef ref obj'
+  return obj'
+
+-- user interaction {{{1
 handleInput :: Context -> GUI -> Event -> IO Bool -- {{{2
 handleInput ctx gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
   command <- entryGetText (guiInput gui)
@@ -98,13 +187,6 @@ log gui f lines = do
   let prefix = if f then "-> " else "!! "
   appendToLog gui (map (prefix++) lines)
 
-appendToLog :: GUI -> [String] -> IO ()  -- {{{3
-appendToLog gui lines = do
-  buffer <- textViewGetBuffer (guiLog gui)
-  end <- textBufferGetEndIter buffer
-  textBufferInsert buffer end $ (concat $ intersperse "\n" lines) ++ "\n"
-  mark <- textBufferGetMark buffer "append"
-  textViewScrollToMark (guiLog gui) ($fromJust_s mark) 0 Nothing 
 
 displayHelp :: GUI -> Bool -> String -> IO () -- {{{2
 displayHelp gui _ ""       = log gui True        (("available commands: " ++ (concat $ intersperse ", " commands)) : ["type 'help command' to see more information for a command"])
@@ -130,17 +212,8 @@ handleCommand ctx gui ["emap", row@(parseInt -> Just _)] =
     Nothing -> log gui False ["no row mapping found"]
     Just row'' -> do
       log gui True [show row'']
-      scrollToRow (guiPview gui) (guiPcode gui) row'
-      scrollToRow (guiEview gui) (guiEcode gui) row''
-
-      state <- readIORef (guiState gui)
-      let state' = state {
-          statePinfo = setHighlight row' (statePinfo state)
-        , stateEinfo = setHighlight row'' (stateEinfo state)
-        }
-      updateInfo (guiPinfo gui) (statePinfo state')
-      updateInfo (guiEinfo gui) (stateEinfo state')
-      writeIORef (guiState gui) state'
+      highlight (guiPcomp gui) row'
+      highlight (guiEcomp gui) row''
     
 -- osapi {{{3
 handleCommand ctx gui ["osapi"] = log gui True ["OS API: " ++ (concat $ intersperse ", " ((diOsApi . ctxDebugInfo) ctx))]
@@ -152,17 +225,8 @@ handleCommand ctx gui ["pmap", row@(parseInt -> Just _)] =
     Nothing -> log gui False ["invalid row number"]
     Just row'' -> do
       log gui True [show row'']
-      scrollToRow (guiTview gui) (guiTcode gui) row'
-      scrollToRow (guiPview gui) (guiPcode gui) row''
-
-      state <- readIORef (guiState gui)
-      let state' = state {
-          stateTinfo = setHighlight row' (stateTinfo state)
-        , statePinfo = setHighlight row'' (statePinfo state)
-        }
-      updateInfo (guiTinfo gui) (stateTinfo state')
-      updateInfo (guiPinfo gui) (statePinfo state')
-      writeIORef (guiState gui) state'
+      highlight (guiTcomp gui) row'
+      highlight (guiPcomp gui) row''
 
 -- thread {{{3
 handleCommand ctx gui ["thread"] =
@@ -191,82 +255,4 @@ parseInt txt =
 printThread :: Thread -> [String] -- {{{4
 printThread (Thread tid ts tc) = [show tid ++ ": " ++ ts ++ ": " ++ (concat $ intersperse ", " tc)]
 
-setupGui :: Context -> GUI -> IO () -- {{{2
-setupGui ctx gui = do
-  -- text views {{{3
-  displayText (guiTcode gui) (ctxTcode ctx)
-  displayText (guiEcode gui) (ctxEcode ctx)
-  displayText (guiPcode gui) ((diPcode . ctxDebugInfo) ctx)
-  displayText (guiTinfo gui) (BS.pack "")
-  displayText (guiPinfo gui) (BS.pack "")
-  displayText (guiEinfo gui) (BS.pack "")
-  displayText (guiLog gui) (BS.pack "")
-  displayText (guiView gui) (BS.pack "")
 
-  -- log {{{3
-  addAppendMarker (guiLog gui)
-
-  -- line numbering {{{3
-  displayLines (guiTlines gui) (ctxTcode ctx)
-  displayLines (guiPlines gui) ((diPcode . ctxDebugInfo) ctx)
-  displayLines (guiElines gui) (ctxEcode ctx)
-
-  -- captions {{{3
-  labelSetText (guiTlabel gui) $ "(T-code) " ++ ((fileName . diTcode . ctxDebugInfo) ctx)
-  labelSetText (guiPlabel gui) "(pre-processed)"
-  labelSetText (guiElabel gui) $ "(E-code) " ++ ((fileName . diEcode . ctxDebugInfo) ctx)
-
-  -- infos {{{3
-  showBreakpoints ctx gui
-
-  -- events {{{3
-  _ <- onKeyPress (guiInput gui) (handleInput ctx gui)
-  _ <- onDestroy (guiWin gui) mainQuit
-
-  -- main window {{{3
-  widgetGrabFocus (guiInput gui)
-  widgetShowAll (guiWin gui)
-  where
-    addAppendMarker tv = do -- {{{3
-      buffer <- textViewGetBuffer tv
-      end <- textBufferGetEndIter buffer
-      _ <- textBufferCreateMark buffer (Just "append") end False 
-      return ()
-
-showBreakpoints :: Context -> GUI -> IO ()
-showBreakpoints ctx gui = do
-  state <- readIORef (guiState gui)
-  let pinfos = clearBreakpoint 0 (statePinfo state) 
-  let pinfos' = foldl go pinfos ((diLocMap . ctxDebugInfo) ctx)
-  writeIORef (guiState gui) (state {statePinfo = pinfos'})
-  updateInfo (guiPinfo gui) pinfos'
-  where
-    go infos (tl, _) = setBreakpoint (tlocRow tl) 0 infos
-scrollToRow :: Viewport -> TextView -> Int -> IO () -- {{{2
-scrollToRow vp tv row = do
-  buffer <- textViewGetBuffer tv
-  maxRow <- textBufferGetLineCount buffer
-  adj <- viewportGetVAdjustment vp
-  upper <- adjustmentGetUpper adj
-  lower <- adjustmentGetLower adj
-  pageSize <- adjustmentGetPageSize adj
-  let ratio = fromIntegral (row - 1) / fromIntegral (maxRow - 1)
-  let range = (upper - pageSize) - lower
-  adjustmentSetValue adj $ ratio * range + lower
-  viewportSetVAdjustment vp adj
-
-displayText :: TextView -> BS.ByteString -> IO () -- {{{2
-displayText tv txt = do
-  buffer <- textBufferNew Nothing
-  textBufferInsertByteStringAtCursor buffer txt
-  textViewSetBuffer tv buffer
-
-displayLines :: TextView -> BS.ByteString -> IO ()  -- {{{2
-displayLines tv txt =
-  let
-    rows = BS.lines txt
-    text = concat $ intersperse "\n" $ map show [1..(length rows)]
-  in do
-    buffer <- textBufferNew Nothing
-    textBufferInsertAtCursor buffer text
-    textViewSetBuffer tv buffer
