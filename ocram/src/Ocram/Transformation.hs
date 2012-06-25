@@ -18,8 +18,6 @@ import Ocram.Transformation.Names (frameType)
 
 import qualified Data.Set as Set
 
-import Language.C.Data.Node (nodeInfo)
-
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
   let
@@ -29,16 +27,16 @@ transformation cg ast =
   in
     (ast', pal, ds)
 
-nonCriticalDebugInfo :: CallGraph -> CTranslUnit' -> CTranslUnit'
+nonCriticalDebugInfo :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
 nonCriticalDebugInfo cg (CTranslUnit ds ni) = CTranslUnit (map go ds) ni
   where
     go o@(CFDefExt fd)
       | is_critical cg (symbol fd) = o
-      | otherwise = CFDefExt $ fmap enableTrace $ everywhere (mkT trans) fd
+      | otherwise = CFDefExt $ amap enableTrace $ everywhere (mkT trans) fd
     go x = x
 
     trans :: CStat' -> CStat'
-    trans = fmap enableTrace
+    trans = amap enableTrace
 
     enableTrace x = x {enTraceLocation = True}
 

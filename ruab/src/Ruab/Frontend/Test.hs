@@ -18,6 +18,7 @@ test_render_info = enumTestGroup "render_info" $ map runTest [
   , ([(1, InfHighlight), (1, InfThread 2), (1, InfBreakpoint 3)], "23#\n")
   , ([(2, InfThread 1)], "\n1\n")
   , ([(1, InfHighlight), (2, InfThread 2), (3, InfBreakpoint 3)], "  #\n2\n 3\n")
+  , ([(1, InfThread 1), (1, InfThread 2)], "1\n")
   ]
   where
   runTest :: ([InfoInstance], String) -> Assertion

@@ -50,6 +50,7 @@ setThread :: Int -> Int -> [InfoInstance] -> [InfoInstance]
 setThread row tid infos = (row, InfThread tid) : clearThread tid infos
 
 setBreakpoint :: Int -> Int -> [InfoInstance] -> [InfoInstance]
+setBreakpoint row 0 infos = (row, InfBreakpoint 0) : infos
 setBreakpoint row bid infos = (row, InfBreakpoint bid) : clearBreakpoint bid infos
 
 render_info :: [InfoInstance] -> String
@@ -66,8 +67,11 @@ render_info = renderAll . map renderRow . groupBy groupf . sortBy sortf
     renderRow infos@((row, _):_) = (row, snd (foldl go (0, "") infos))
       where
         go (col, txt) (row', info) = if row /= row' then $abort "assertion failed" else
-          let spacing = replicate (orderInfo info - col) ' ' in
-          (orderInfo info + 1, txt ++ spacing ++ show info)
+          if orderInfo info < col
+            then (col, txt)
+            else 
+              let spacing = replicate (orderInfo info - col) ' ' in
+              (orderInfo info + 1, txt ++ spacing ++ show info)
     renderRow x = $abort $ "unexpected parameter: " ++ show x
 
     renderAll :: [(Int, String)] -> String

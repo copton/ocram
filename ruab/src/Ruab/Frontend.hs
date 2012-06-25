@@ -12,7 +12,7 @@ import Data.List (intersperse, find)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Graphics.UI.Gtk.Gdk.Events (Event(Key))
-import Ocram.Ruab (DebugInfo(..), File(fileName), Thread(..))
+import Ocram.Ruab (DebugInfo(..), File(fileName), Thread(..), TLocation(..))
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
 import Ruab.Frontend.Internal
@@ -216,6 +216,9 @@ setupGui ctx gui = do
   labelSetText (guiPlabel gui) "(pre-processed)"
   labelSetText (guiElabel gui) $ "(E-code) " ++ ((fileName . diEcode . ctxDebugInfo) ctx)
 
+  -- infos {{{3
+  showBreakpoints ctx gui
+
   -- events {{{3
   _ <- onKeyPress (guiInput gui) (handleInput ctx gui)
   _ <- onDestroy (guiWin gui) mainQuit
@@ -230,6 +233,15 @@ setupGui ctx gui = do
       _ <- textBufferCreateMark buffer (Just "append") end False 
       return ()
 
+showBreakpoints :: Context -> GUI -> IO ()
+showBreakpoints ctx gui = do
+  state <- readIORef (guiState gui)
+  let pinfos = clearBreakpoint 0 (statePinfo state) 
+  let pinfos' = foldl go pinfos ((diLocMap . ctxDebugInfo) ctx)
+  writeIORef (guiState gui) (state {statePinfo = pinfos'})
+  updateInfo (guiPinfo gui) pinfos'
+  where
+    go infos (tl, _) = setBreakpoint (tlocRow tl) 0 infos
 scrollToRow :: Viewport -> TextView -> Int -> IO () -- {{{2
 scrollToRow vp tv row = do
   buffer <- textViewGetBuffer tv

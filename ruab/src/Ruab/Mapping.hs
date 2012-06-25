@@ -13,12 +13,11 @@ module Ruab.Mapping
 -- imports {{{1
 import Control.Exception (catch, IOException)
 import Data.Digest.OpenSSL.MD5 (md5sum)
-import Data.List (intercalate)
+import Data.List (intercalate, find)
 import Data.Maybe (catMaybes)
 import Ocram.Ruab
 import Prelude hiding (catch)
 import Ruab.Options (Options(optDebugFile))
-import Ruab.Mapping.Internal
 import System.Exit (ExitCode(ExitFailure))
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
@@ -54,4 +53,4 @@ preprocessed_row :: Context -> Int -> Maybe Int -- {{{1
 preprocessed_row = map_preprocessed_row . diPpm . ctxDebugInfo
 
 ecode_row :: Context -> Int -> Maybe Int -- {{{1
-ecode_row ctx = map_ecode_row ((diLocMap . ctxDebugInfo) ctx)
+ecode_row ctx row = fmap (elocRow . snd) $ find ((row==) . tlocRow . fst) $ (diLocMap . ctxDebugInfo) ctx
