@@ -16,7 +16,7 @@ test_render_command = enumTestGroup "render_command" $ map runTest [
       MICommand Nothing "break-info" [] []
     , "-break-info\n"
     ), (
-      MICommand (Just 23) "exec-arguments" [Option "v" (Just "word")] []
+      MICommand (Just 23) "exec-arguments" [Option "-v" (Just "word")] []
     , "23-exec-arguments -v word\n"
     )
   ]
@@ -36,7 +36,7 @@ test_parse_output = enumTestGroup "parse_output" $ map runTest [
 ~"<http://www.gnu.org/software/gdb/bugs/>...\n"
 ~"Reading symbols from /home/alex/scm/ocram/applications/simulation_os/collect-and-forward/tc.elf..."
 ~"done.\n"
-(gdb)
+(gdb) 
 |], Output ([
         OOBAsyncRecord $ ARNotifyAsyncOutput $ NotifyAsyncOutput Nothing $ AsyncOutput ACThreadGroupAdded [Result "id" (VConst "i1")]
     ] ++ map (OOBStreamRecord . SRConsoleStreamOutput . ConsoleStreamOutput) [
@@ -52,7 +52,7 @@ test_parse_output = enumTestGroup "parse_output" $ map runTest [
   , -- command result -break-info {{{3
     ([paste|
 ^done,BreakpointTable={nr_rows="0",nr_cols="6",hdr=[{width="7",alignment="-1",col_name="number",colhdr="Num"},{width="14",alignment="-1",col_name="type",colhdr="Type"},{width="4",alignment="-1",col_name="disp",colhdr="Disp"},{width="3",alignment="-1",col_name="enabled",colhdr="Enb"},{width="10",alignment="-1",col_name="addr",colhdr="Address"},{width="40",alignment="2",col_name="what",colhdr="What"}],body=[]}
-(gdb)
+(gdb) 
 |], Output [] $ Just $ ResultRecord Nothing RCDone [
         Result "BreakpointTable" $ VTuple $ Tuple [
             Result "nr_rows" $ VConst "0"
@@ -99,8 +99,28 @@ test_parse_output = enumTestGroup "parse_output" $ map runTest [
           ]
       ]
     )
+  , -- command-result break-insert {{{3
+  ([paste|
+^done,bkpt={number="1",type="breakpoint",disp="keep",enabled="y",addr="0x000000000040154e",func="cond_wait",file="tc.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/tc.c",line="23",times="0",original-location="tc.c:23"}
+(gdb) 
+|], Output [] $ Just $ ResultRecord Nothing RCDone [
+        Result "bkpt" $ VTuple $ Tuple [
+            Result "number" $ VConst "1"
+          , Result "type" $ VConst "breakpoint"
+          , Result "disp" $ VConst "keep"
+          , Result "enabled" $ VConst "y"
+          , Result "addr" $ VConst "0x000000000040154e"
+          , Result "func" $ VConst "cond_wait"
+          , Result "file" $ VConst "tc.c"
+          , Result "fullname" $ VConst "/home/alex/scm/ocram/applications/simulation_os/os/tc.c"
+          , Result "line" $ VConst "23"
+          , Result "times" $ VConst "0"
+          , Result "original-location" $ VConst "tc.c:23"
+          ]
+      ]
+    )
   ]
   where
-    runTest :: (String, Output) -> Assertion
+    runTest :: (String, Output) -> Assertion -- {{{3
     runTest (str, output) =
       show output @=? show (parse_output (tail str))

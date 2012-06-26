@@ -46,8 +46,10 @@ r_operation :: Operation -> ShowS -- {{{3
 r_operation op = (op++)
 
 r_option :: Option -> ShowS -- {{{3
+ -- the documentation specifies a "-" befor each option but some operations
+ -- such as file-exec-and-symbols are not happy with this :-/
 r_option (Option p p') =
-    showString "-" . r_parameter p
+    r_parameter p
   . maybe id (\x -> showString " " . r_parameter x) p'
 
 r_parameter :: Parameter -> ShowS -- {{{3
@@ -152,7 +154,7 @@ type CString = String -- {{{3
 
 -- parsing {{{2
 p_output :: Parser Output -- {{{3
-p_output = Output <$> many p_outOfBandRecord <*> optionMaybe p_resultRecord <* string "(gdb)" <* newline <* eof
+p_output = Output <$> many p_outOfBandRecord <*> optionMaybe p_resultRecord <* string "(gdb) " <* newline <* eof
 
 p_resultRecord :: Parser ResultRecord -- {{{3
 p_resultRecord =
@@ -203,7 +205,7 @@ p_result =
   Result <$> p_variable <* char '=' <*> p_value
 
 p_variable :: Parser Variable -- {{{3
-p_variable = many1 (letter <|> digit <|> oneOf "_")
+p_variable = many1 (letter <|> digit <|> oneOf "_-")
 
 p_value :: Parser Value -- {{{3
 p_value =
@@ -246,7 +248,7 @@ p_list = try p_emptyList <|> try p_valueList <|> p_resultList
 p_streamRecord :: Parser StreamRecord -- {{{3
 p_streamRecord = do
   sr <- anyStreamRecord
-  _ <- newline
+  _ <- newline -- the documentation does not specifiy this newline, but this is what GDB is doing
   return sr
   where
     anyStreamRecord =

@@ -13,8 +13,6 @@ import System.IO (Handle, hSetBuffering, BufferMode(LineBuffering), hReady, hPut
 import System.Process (ProcessHandle, runProcess, terminateProcess, waitForProcess)
 import Ruab.Backend.GDB.Representation
 
-import Debug.Trace (trace)
-
 data GDB = GDB {
     gdbHandle   :: ProcessHandle
   , gdbCommand  :: Handle
