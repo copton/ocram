@@ -38,6 +38,7 @@ Executable ruab
     nano-md5 == 0.1.*,
     json == 0.5.*,
     parsec == 3.1.*,
+    unix == 2.5.*,
     ocramruab == 0.1.*
   Other-Modules:
     Main,

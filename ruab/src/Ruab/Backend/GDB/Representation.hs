@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Ruab.Backend.Representation where
+module Ruab.Backend.GDB.Representation where
 
 -- [The GDB/MI Interface](http://sourceware.org/gdb/current/onlinedocs/gdb/GDB_002fMI.html#GDB_002fMI)
 -- GDB version 7.4
@@ -8,13 +8,12 @@ module Ruab.Backend.Representation where
 -- it is suggested to just always pass the `--thread' and `--frame' options
 --
 
+-- imports {{{1
 import Control.Applicative ((<$>), (<*>), (<*))
 import Data.Char (isAscii)
-import Data.Maybe (isNothing)
 import Data.List (find)
+import Data.Maybe (isNothing)
 import Ruab.Util (abort)
-
-import Debug.Trace (trace)
 import Text.ParserCombinators.Parsec
 
 -- input {{{1
@@ -33,14 +32,15 @@ type Parameter = String -- {{{3
 
 -- rendering {{{2
 r_command :: Command -> ShowS -- {{{3
-r_command (CLICommand tok str) = maybe id r_token tok . showString str
+r_command (CLICommand tok str) = maybe id r_token tok . showString str . showString "\n"
 r_command (MICommand tok operation options parameters) =
     maybe id shows tok
   . showString "-" . r_operation operation
   . foldl (\f o -> f . showString " " . r_option o) id options
-  . if null parameters
+  . (if null parameters
     then id
-    else showString " --" . foldl (\f p -> f . showString " " . r_parameter p) id parameters
+    else showString " --" . foldl (\f p -> f . showString " " . r_parameter p) id parameters)
+  . showString "\n"
 
 r_operation :: Operation -> ShowS -- {{{3
 r_operation op = (op++)
@@ -278,11 +278,11 @@ p_cString = between (char '"') (char '"') (many p_cchar)
         _ -> fail $ "unknown backslash escape: " ++ show c
 
 p_token :: Parser Token -- {{{3
-p_token = many1 digit >>= (\x -> trace (show x) ((return . read) x))
+p_token = many1 digit >>= return . read
 
 -- utils {{{1
-render_input :: Command -> String
-render_input cmd = r_command cmd ""
+render_command :: Command -> String
+render_command cmd = r_command cmd ""
 
 parse_output :: String -> Output
 parse_output str = case parse p_output "gdb" str of
