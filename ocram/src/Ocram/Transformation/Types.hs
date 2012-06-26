@@ -12,3 +12,4 @@ type CFunDef' = CFunctionDef ENodeInfo
 type CDesignator' = CPartDesignator ENodeInfo
 type CInit' = CInitializer ENodeInfo
 type CDecl' = CDeclaration ENodeInfo
+type CExtDecl' = CExternalDeclaration ENodeInfo

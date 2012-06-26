@@ -37,6 +37,7 @@ Executable ruab
     process == 1.1.*,
     nano-md5 == 0.1.*,
     json == 0.5.*,
+    parsec == 3.1.*,
     ocramruab == 0.1.*
   Other-Modules:
     Main,

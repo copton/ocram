@@ -5,7 +5,7 @@ module Ocram.Transformation
 ) where
 
 -- imports {{{1
-import Data.Generics (everything, everywhere, mkT, mkQ)
+import Data.Generics (everything, everywhere, mkT, mkQ, extT)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, blocking_functions, is_critical)
 import Ocram.Debug (enrich_node_info, ENodeInfo(..), un)
@@ -21,22 +21,25 @@ import qualified Data.Set as Set
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
   let
-    ast' = (translate cg . normalize cg . nonCriticalDebugInfo cg . fmap enrich_node_info) ast
+    ast' = (translate cg . normalize cg . enableLocationTracing cg . fmap enrich_node_info) ast
     pal = extractPal cg ast'
     ds = extractVarMap ast'
   in
     (ast', pal, ds)
 
-nonCriticalDebugInfo :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
-nonCriticalDebugInfo cg (CTranslUnit ds ni) = CTranslUnit (map go ds) ni
+enableLocationTracing :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
+enableLocationTracing cg = everywhere (mkT tExtDecl `extT` tStat `extT` tExpr)
   where
-    go o@(CFDefExt fd)
-      | is_critical cg (symbol fd) = o
-      | otherwise = CFDefExt $ amap enableTrace $ everywhere (mkT trans) fd
-    go x = x
+    tExtDecl :: CExtDecl' -> CExtDecl' 
+    tExtDecl (CFDefExt fd) = CFDefExt (amap enableTrace fd)
+    tExtDecl x = x
 
-    trans :: CStat' -> CStat'
-    trans = amap enableTrace
+    tStat :: CStat' -> CStat'
+    tStat = amap enableTrace
+
+    tExpr :: CExpr' -> CExpr'
+    tExpr o@(CCall _ _ _) = amap enableTrace o
+    tExpr o = o
 
     enableTrace x = x {enTraceLocation = True}
 

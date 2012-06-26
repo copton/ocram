@@ -12,6 +12,8 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode)
 import System.IO (stderr, hPutStrLn)
 
+import Ruab.Backend
+
 main :: IO () -- {{{1
 main = do
   argv <- getArgs
