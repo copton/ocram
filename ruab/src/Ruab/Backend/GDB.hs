@@ -9,6 +9,7 @@ module Ruab.Backend.GDB
 
 import Data.List (intercalate)
 import Prelude hiding (interact)
+import Ruab.Backend.GDB.Commands
 import Ruab.Backend.GDB.Representation
 import Ruab.Backend.GDB.IO
 import Ruab.Util (abort)
@@ -29,6 +30,8 @@ set_breakpoint :: GDB -> FilePath -> Int -> IO (Either String ())
 set_breakpoint gdb file row = do
   output <- interact gdb $ MICommand Nothing "break-insert" [Option (file ++ ":" ++ show row) Nothing] []
   return $ failOrSucceed (checkOutput output) ()
+
+
 
 checkOutput :: Output -> Maybe String
 checkOutput (Output _ (Just (ResultRecord _ RCDone _))) = Nothing

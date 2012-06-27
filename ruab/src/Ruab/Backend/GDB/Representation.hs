@@ -53,7 +53,7 @@ r_option (Option p p') =
   . maybe id (\x -> showString " " . r_parameter x) p'
 
 r_parameter :: Parameter -> ShowS -- {{{3
-r_parameter = showString
+r_parameter = shows
 
 r_token :: Token -> ShowS -- {{{3
 r_token = shows
@@ -291,8 +291,8 @@ parse_output str = case parse p_output "gdb" str of
   Left pe -> $abort $ "parse failed: " ++ show pe
   Right o -> o
 
-parameterValid :: Parameter -> Bool
-parameterValid param
+parameter_valid :: Parameter -> Bool
+parameter_valid param
   | null param = False
   | isCString param = isNothing $ find (not . isAscii) param
   | otherwise = isNothing $ find isSpecial param

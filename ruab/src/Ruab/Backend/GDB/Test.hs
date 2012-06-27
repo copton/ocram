@@ -17,7 +17,10 @@ test_render_command = enumTestGroup "render_command" $ map runTest [
     , "-break-info\n"
     ), (
       MICommand (Just 23) "exec-arguments" [Option "-v" (Just "word")] []
-    , "23-exec-arguments -v word\n"
+    , "23-exec-arguments \"-v\" \"word\"\n"
+    ), (
+      MICommand (Just 42) "break-commands" [Option "1" Nothing, Option "print v" Nothing] []
+      , "42-break-commands \"1\" \"print v\"\n"
     )
   ]
   where
