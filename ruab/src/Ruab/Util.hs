@@ -2,13 +2,27 @@
 module Ruab.Util
 -- export {{{1
 (
-  fromJust_s, head_s, tail_s, lookup_s, abort
+     fromJust_s, head_s, tail_s, lookup_s, abort
+  , replace
 ) where
 
 -- import {{{1
+import Data.List (intersperse)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax ()
 import qualified Data.Map as Map
+
+-- taken from MissingH 1.0
+replace :: Char -> String -> String -> String -- {{{1
+replace old new = join new . split old
+  where
+    join delim l = concat (intersperse delim l)
+    split _ [] = []
+    split c str =
+      let (str', rest) = break (==c) str in
+      if null rest
+        then [str']
+        else str' : split c (tail rest)
 
 fromJust_s :: Q Exp -- {{{1
 fromJust_s = withLocatedError [| fromJust' |]
