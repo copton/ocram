@@ -3,8 +3,8 @@ module Ruab.Backend.GDB
 (
     backend_start
   , backend_quit
-  , set_breakpoint
-  , GDB
+--  , set_breakpoint
+  , GDBAsync
 ) where
 
 import Data.List (intercalate)
@@ -14,24 +14,22 @@ import Ruab.Backend.GDB.Representation
 import Ruab.Backend.GDB.IO
 import Ruab.Util (abort)
 
-backend_start :: FilePath -> IO (Either String GDB)
-backend_start binary = do
-  res <- start Nothing
-  case res of
-    Left e -> (return . Left) e 
-    Right (gdb, _) -> do
-      output <- interact gdb $ MICommand Nothing "file-exec-and-symbols" [Option binary Nothing] []
-      return $ failOrSucceed (checkOutput output) gdb
+backend_start :: FilePath -> Callback -> IO (Either String GDBAsync)
+backend_start = undefined
+--   res <- async_start Nothing callback
+--   case res of
+--     Left e -> (return . Left) e 
+--     Right (gdb, _) -> do
+--       output <- send_command interact gdb $ MICommand Nothing "file-exec-and-symbols" [Option binary Nothing] []
+--       return $ failOrSucceed (checkOutput output) gdb
 
-backend_quit :: GDB -> IO ()
-backend_quit = quit
+backend_quit :: GDBAsync -> IO ()
+backend_quit = async_quit
 
-set_breakpoint :: GDB -> FilePath -> Int -> IO (Either String ())
-set_breakpoint gdb file row = do
-  output <- interact gdb $ MICommand Nothing "break-insert" [Option (file ++ ":" ++ show row) Nothing] []
-  return $ failOrSucceed (checkOutput output) ()
-
-
+-- set_breakpoint :: GDB -> FilePath -> Int -> IO (Either String ())
+-- set_breakpoint gdb file row = do
+--   output <- interact gdb $ MICommand Nothing "break-insert" [Option (file ++ ":" ++ show row) Nothing] []
+--   return $ failOrSucceed (checkOutput output) ()
 
 checkOutput :: Output -> Maybe String
 checkOutput (Output _ (Just (ResultRecord _ RCDone _))) = Nothing
