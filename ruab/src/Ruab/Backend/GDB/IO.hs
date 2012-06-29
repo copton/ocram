@@ -1,4 +1,3 @@
-{-# LANGUAGE DoRec #-}
 module Ruab.Backend.GDB.IO
 (
   -- synchronous
@@ -11,6 +10,7 @@ module Ruab.Backend.GDB.IO
 ) where
 
 -- imports {{{1
+import Control.Monad.Fix (mfix)
 import Control.Concurrent (forkIO, killThread, ThreadId)
 import Control.Exception (IOException, catch)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
@@ -77,17 +77,16 @@ async_start workdir callback = do
   startResult <- sync_start workdir
   case startResult of
     Left e -> (return . Left) e
-    Right syncGdb -> do
-      rec asyncGdb <- tie syncGdb callback asyncGdb
-      (return . Right) asyncGdb
+    Right syncGdb ->
+      let mkGdb = GDBAsync syncGdb callback in
+      mfix (\tid -> forkIO (handleOutput (mkGdb tid))) >>= return . Right . mkGdb
+--      tie (\tid -> handleOutput (mkGdb tid)) >>= return . Right . mkGdb
   `catch` (\e -> (return . Left) (show (e :: IOException))) 
   where
   asHandles (f1, f2) = do
     h1 <- fdToHandle f1; h2 <- fdToHandle f2; return (h1, h2)
-  tie :: GDBSync -> Callback -> GDBAsync -> IO (GDBAsync)
-  tie syncGdb callback asyncGdb = do
-    tid <- forkIO (handleOutput asyncGdb)
-    return $ GDBAsync syncGdb callback tid
+  tie :: (ThreadId -> IO()) -> IO (ThreadId)
+  tie io = mfix (\tid -> forkIO (io tid))
 
 
 async_quit :: GDBAsync -> IO () -- {{{2

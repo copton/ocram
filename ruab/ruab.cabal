@@ -20,7 +20,7 @@ Data-files:
 
 Executable ruab
   Hs-Source-Dirs: src
-  Ghc-Options: -Wall
+  Ghc-Options: -Wall -threaded
   Main-is: Main.hs
   Default-Language: Haskell98
   Build-Depends:
