@@ -102,7 +102,7 @@ test_parse_output = enumTestGroup "parse_output" $ map runTest [
           ]
       ]
     )
-  , -- command-result break-insert {{{3
+  , -- command result break-insert {{{3
   ([paste|
 ^done,bkpt={number="1",type="breakpoint",disp="keep",enabled="y",addr="0x000000000040154e",func="cond_wait",file="tc.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/tc.c",line="23",times="0",original-location="tc.c:23"}
 (gdb) 
@@ -122,6 +122,13 @@ test_parse_output = enumTestGroup "parse_output" $ map runTest [
           ]
       ]
     )
+  , -- command result gdb-version
+  ([paste|
+~"GNU gdb (GDB) 7.2-ubuntu\n"
+0^done
+(gdb) 
+|], Output [OOBStreamRecord $ SRConsoleStreamOutput $ ConsoleStreamOutput "GNU gdb (GDB) 7.2-ubuntu\n"] (Just $ ResultRecord (Just 0) RCDone [])
+  )
   ]
   where
     runTest :: (String, Output) -> Assertion -- {{{3

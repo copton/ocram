@@ -162,8 +162,8 @@ p_resultRecord =
 
 p_outOfBandRecord :: Parser OutOfBandRecord -- {{{3
 p_outOfBandRecord =
-      (p_asyncRecord  >>= return . OOBAsyncRecord)
-  <|> (p_streamRecord >>= return . OOBStreamRecord)
+       try (p_asyncRecord  >>= return . OOBAsyncRecord)
+  <|>      (p_streamRecord >>= return . OOBStreamRecord)
 
 p_asyncRecord :: Parser AsyncRecord -- {{{3
 p_asyncRecord =
