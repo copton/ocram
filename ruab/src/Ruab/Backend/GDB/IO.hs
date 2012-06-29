@@ -1,4 +1,5 @@
 module Ruab.Backend.GDB.IO
+-- exports {{{1
 (
   -- synchronous
     GDBSync
@@ -11,8 +12,8 @@ module Ruab.Backend.GDB.IO
 
 -- imports {{{1
 import Control.Monad.Fix (mfix)
-import Control.Concurrent (forkIO, killThread, ThreadId)
-import Control.Exception (IOException, catch)
+import Control.Concurrent (forkIO, killThread, ThreadId, MVar, newMVar, tryTakeMVar, putMVar, takeMVar)
+import Control.Exception (IOException, catch, finally)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Prelude hiding (catch, interact)
 import Ruab.Backend.GDB.Commands (add_token, gdb_exit)
@@ -67,6 +68,7 @@ poll gdb = do
 data GDBAsync = GDBAsync { -- {{{2
     gdbSync     :: GDBSync
   , gdbCallback :: Callback
+  , gdbFinished :: MVar ()
   , gdbThread   :: ThreadId
 }
 
@@ -77,31 +79,34 @@ async_start workdir callback = do
   startResult <- sync_start workdir
   case startResult of
     Left e -> (return . Left) e
-    Right syncGdb ->
-      let mkGdb = GDBAsync syncGdb callback in
-      mfix (\tid -> forkIO (handleOutput (mkGdb tid))) >>= return . Right . mkGdb
---      tie (\tid -> handleOutput (mkGdb tid)) >>= return . Right . mkGdb
+    Right syncGdb -> do
+      finished <- newMVar ()
+      gdb <- mfix (\gdb -> do
+          tid <- forkIO (handleOutput gdb)
+          return $ GDBAsync syncGdb callback finished tid
+        )
+      (return . Right) gdb
   `catch` (\e -> (return . Left) (show (e :: IOException))) 
   where
   asHandles (f1, f2) = do
     h1 <- fdToHandle f1; h2 <- fdToHandle f2; return (h1, h2)
-  tie :: (ThreadId -> IO()) -> IO (ThreadId)
-  tie io = mfix (\tid -> forkIO (io tid))
-
 
 async_quit :: GDBAsync -> IO () -- {{{2
 async_quit gdb = do
-  sync_quit (gdbSync gdb)
   killThread (gdbThread gdb)
+  _ <- takeMVar (gdbFinished gdb)
+  sync_quit (gdbSync gdb)
 
-handleOutput :: GDBAsync -> IO ()
-handleOutput gdb = readOutput (gdbSync gdb) >>= gdbCallback gdb >> handleOutput gdb
-
-send_command :: GDBAsync -> Command -> IO Token
+send_command :: GDBAsync -> Command -> IO Token -- {{{2
 send_command gdb command = do
   token <- nextToken (gdbSync gdb)
   writeCommand (gdbSync gdb) command token
   return token
+
+handleOutput :: GDBAsync -> IO () -- {{{2
+handleOutput gdb =
+  readOutput (gdbSync gdb) >>= gdbCallback gdb >> handleOutput gdb
+  `finally` putMVar (gdbFinished gdb) ()
 
 -- utils {{{1
 nextToken :: GDBSync -> IO Token -- {{{2
