@@ -20,6 +20,8 @@ import System.IO (Handle, hSetBuffering, BufferMode(LineBuffering), hReady, hPut
 import System.Posix.IO (fdToHandle, createPipe)
 import System.Process (ProcessHandle, runProcess, terminateProcess, waitForProcess)
 
+import Debug.Trace (trace)
+
 data AsyncGDB = AsyncGDB { -- {{{1
     gdbHandle   :: ProcessHandle
   , gdbCommand  :: Handle
@@ -123,19 +125,28 @@ sync_start workdir callback = do
 callbackWrapper :: SyncGDB -> Callback
 callbackWrapper sync = \output -> do
   flag <- tryTakeMVar (syncFlag sync)
-  case flag >> get_token output of
+  case flag of
     Nothing -> (syncCallback sync) output
-    Just expected -> do
-      existent <- takeMVar (syncToken sync)
-      if expected == existent
-        then putMVar (syncOutput sync) output
-        else (syncCallback sync) output 
-      let (Output oobs _) = output
-      case filter (flt expected) oobs of
-        [] -> return ()
-        oobs' -> (syncCallback sync) (Output oobs' Nothing)
+    Just () -> do
+      case get_token output of
+        Nothing -> do
+          putMVar (syncFlag sync) ()
+          (syncCallback sync) output
+        Just existent -> do
+          expected <- takeMVar (syncToken sync)
+          if existent == expected
+            then do
+              let (Output oobs _) = output
+              case filter (differentToken expected) oobs of
+                [] -> return ()
+                oobs' -> (syncCallback sync) (Output oobs' Nothing)
+              putMVar (syncOutput sync) output
+            else do
+              putMVar (syncFlag sync) ()
+              putMVar (syncToken sync) expected
+              (syncCallback sync) output
   where
-    flt expected oob =
+    differentToken expected oob =
       let existent = get_token oob in
       isNothing existent || fromJust existent /= expected
 

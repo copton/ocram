@@ -12,13 +12,18 @@ import Prelude hiding (interact)
 import Ruab.Backend.GDB.Commands
 import Ruab.Backend.GDB.Representation
 import Ruab.Backend.GDB.IO
-import Ruab.Util (abort)
+import Ruab.Util (abort, save)
 
 type Backend = SyncGDB
 
-backend_start :: FilePath -> Callback -> IO Backend
-backend_start binary callback = do
-  sync_start Nothing callback
+backend_start :: FilePath -> Callback -> IO (Either String Backend)
+backend_start binary callback = save $ do
+  sgdb <- sync_start Nothing callback
+  output <- sync_send_command sgdb (file_exec_and_symbols (Just binary))
+  if is_error output
+    then callback output
+    else return ()
+  return sgdb
 
 backend_quit :: Backend -> IO ()
 backend_quit = quit . async_gdb
