@@ -1,20 +1,18 @@
 module Ruab.Backend.GDB.IO
 -- exports {{{1
 (
-  -- synchronous
-    GDBSync
-  , sync_start, sync_quit, interact, poll
-  -- asynchronous
-  , GDBAsync, Callback
-  , async_start, async_quit, send_command
+    AsyncGDB, Callback
+  , start, quit, send_command
+  , SyncGDB(async_gdb), sync_start, sync_send_command
   , module Ruab.Backend.GDB.Representation
 ) where
 
 -- imports {{{1
+import Control.Concurrent (forkIO, killThread, ThreadId, MVar, newEmptyMVar, newMVar, tryTakeMVar, putMVar, takeMVar)
+import Control.Exception (finally)
 import Control.Monad.Fix (mfix)
-import Control.Concurrent (forkIO, killThread, ThreadId, MVar, newMVar, tryTakeMVar, putMVar, takeMVar)
-import Control.Exception (IOException, catch, finally)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.Maybe (fromJust, isNothing)
 import Prelude hiding (catch, interact)
 import Ruab.Backend.GDB.Commands (add_token, gdb_exit)
 import Ruab.Backend.GDB.Representation
@@ -22,16 +20,20 @@ import System.IO (Handle, hSetBuffering, BufferMode(LineBuffering), hReady, hPut
 import System.Posix.IO (fdToHandle, createPipe)
 import System.Process (ProcessHandle, runProcess, terminateProcess, waitForProcess)
 
--- sync {{{1
-data GDBSync = GDBSync { -- {{{2
-    gdbHandle    :: ProcessHandle
-  , gdbCommand   :: Handle
-  , gdbResponse  :: Handle
-  , gdbToken     :: IORef Token
-  }
+data AsyncGDB = AsyncGDB { -- {{{1
+    gdbHandle   :: ProcessHandle
+  , gdbCommand  :: Handle
+  , gdbResponse :: Handle
+  , gdbToken    :: IORef Token
+  , gdbCallback :: Callback
+  , gdbFinished :: MVar ()
+  , gdbThread   :: ThreadId
+}
 
-sync_start :: Maybe FilePath -> IO (Either String GDBSync) -- {{{2
-sync_start workdir = do
+type Callback = Output -> IO () -- {{{1
+
+start :: Maybe FilePath -> Callback -> IO AsyncGDB -- {{{1
+start workdir callback = do
   (commandR,  commandW)  <- createPipe >>= asHandles
   (responseR, responseW) <- createPipe >>= asHandles
   phandle <- runProcess "gdb" ["--interpreter", "mi"]
@@ -40,89 +42,51 @@ sync_start workdir = do
                  (Just responseW)
                  Nothing
   mapM_ (`hSetBuffering` LineBuffering) [commandW, responseR]
-  tokenRef <- newIORef 0
-  return . Right $ GDBSync phandle commandW responseR tokenRef
-  `catch` (\e -> (return . Left) (show (e :: IOException))) 
+  tokenRef <- newIORef 1
+  finished <- newMVar ()
+  gdb <- mfix (\gdb -> do
+      tid <- forkIO (handleOutput gdb)
+      return $ AsyncGDB phandle commandW responseR tokenRef callback finished tid
+    )
+  return gdb
   where
   asHandles (f1, f2) = do
     h1 <- fdToHandle f1; h2 <- fdToHandle f2; return (h1, h2)
 
-sync_quit :: GDBSync -> IO () -- {{{2
-sync_quit gdb = do
-  token <- nextToken gdb
-  writeCommand gdb gdb_exit token
+quit :: AsyncGDB -> IO () -- {{{1
+quit gdb = do
+  killThread (gdbThread gdb)
+  _ <- takeMVar (gdbFinished gdb)
+  writeCommand gdb gdb_exit 0
   _ <- waitForProcess (gdbHandle gdb)
   return ()
 
-interact :: GDBSync -> Command -> IO Output -- {{{2
-interact gdb cmd = nextToken gdb >>= writeCommand gdb cmd >> readOutput gdb
-
-poll :: GDBSync -> IO (Maybe Output) -- {{{2
-poll gdb = do
-  ready <- hReady (gdbResponse gdb)
-  if ready
-    then fmap Just (readOutput gdb)
-    else return Nothing
-
--- async {{{1
-data GDBAsync = GDBAsync { -- {{{2
-    gdbSync     :: GDBSync
-  , gdbCallback :: Callback
-  , gdbFinished :: MVar ()
-  , gdbThread   :: ThreadId
-}
-
-type Callback = Output -> IO () -- {{{2
-
-async_start :: Maybe FilePath -> Callback -> IO (Either String GDBAsync) -- {{{2
-async_start workdir callback = do
-  startResult <- sync_start workdir
-  case startResult of
-    Left e -> (return . Left) e
-    Right syncGdb -> do
-      finished <- newMVar ()
-      gdb <- mfix (\gdb -> do
-          tid <- forkIO (handleOutput gdb)
-          return $ GDBAsync syncGdb callback finished tid
-        )
-      (return . Right) gdb
-  `catch` (\e -> (return . Left) (show (e :: IOException))) 
-  where
-  asHandles (f1, f2) = do
-    h1 <- fdToHandle f1; h2 <- fdToHandle f2; return (h1, h2)
-
-async_quit :: GDBAsync -> IO () -- {{{2
-async_quit gdb = do
-  killThread (gdbThread gdb)
-  _ <- takeMVar (gdbFinished gdb)
-  sync_quit (gdbSync gdb)
-
-send_command :: GDBAsync -> Command -> IO Token -- {{{2
+send_command :: AsyncGDB -> Command -> IO Token -- {{{1
 send_command gdb command = do
-  token <- nextToken (gdbSync gdb)
-  writeCommand (gdbSync gdb) command token
+  token <- nextToken gdb
+  writeCommand gdb command token
   return token
 
-handleOutput :: GDBAsync -> IO () -- {{{2
+-- implementation {{{1
+handleOutput :: AsyncGDB -> IO () -- {{{2
 handleOutput gdb =
-  readOutput (gdbSync gdb) >>= gdbCallback gdb >> handleOutput gdb
+  readOutput gdb >>= gdbCallback gdb >> handleOutput gdb
   `finally` putMVar (gdbFinished gdb) ()
 
--- utils {{{1
-nextToken :: GDBSync -> IO Token -- {{{2
+nextToken :: AsyncGDB -> IO Token -- {{{2
 nextToken gdb = do
   token <- readIORef  (gdbToken gdb)
   writeIORef (gdbToken gdb) (token + 1)
   return token
 
-writeCommand :: GDBSync -> Command -> Token -> IO () -- {{{2
+writeCommand :: AsyncGDB -> Command -> Token -> IO () -- {{{2
 writeCommand gdb cmd token = 
   let cmdstr = (render_command . add_token token) cmd in
   do
     hPutStr stdout cmdstr
     hPutStr (gdbCommand gdb) cmdstr
 
-readOutput :: GDBSync -> IO Output -- {{{2
+readOutput :: AsyncGDB -> IO Output -- {{{2
 readOutput gdb = do
   _ <- hWaitForInput (gdbResponse gdb) (-1)
   str <- outputString (gdbResponse gdb)
@@ -135,3 +99,49 @@ readOutput gdb = do
       if line == "(gdb) "
         then return [line]
         else outputLines handle >>= return . (line:)
+
+-- synchronous {{{1
+data SyncGDB = SyncGDB {
+    async_gdb    :: AsyncGDB
+  , syncFlag     :: MVar ()
+  , syncToken    :: MVar Token
+  , syncOutput   :: MVar Output
+  , syncCallback :: Callback
+  }
+
+sync_start :: Maybe FilePath -> Callback -> IO SyncGDB
+sync_start workdir callback = do
+  flag <- newEmptyMVar
+  token <- newEmptyMVar
+  output <- newEmptyMVar
+  mfix (\sgdb -> do
+      let callback' = callbackWrapper sgdb
+      agdb <- start workdir callback'
+      return $ SyncGDB agdb flag token output callback
+    )
+   
+callbackWrapper :: SyncGDB -> Callback
+callbackWrapper sync = \output -> do
+  flag <- tryTakeMVar (syncFlag sync)
+  case flag >> get_token output of
+    Nothing -> (syncCallback sync) output
+    Just expected -> do
+      existent <- takeMVar (syncToken sync)
+      if expected == existent
+        then putMVar (syncOutput sync) output
+        else (syncCallback sync) output 
+      let (Output oobs _) = output
+      case filter (flt expected) oobs of
+        [] -> return ()
+        oobs' -> (syncCallback sync) (Output oobs' Nothing)
+  where
+    flt expected oob =
+      let existent = get_token oob in
+      isNothing existent || fromJust existent /= expected
+
+sync_send_command :: SyncGDB -> Command -> IO Output
+sync_send_command sgdb command = do
+  putMVar (syncFlag sgdb) ()
+  token <- send_command (async_gdb sgdb) command
+  putMVar (syncToken sgdb) token
+  takeMVar (syncOutput sgdb)

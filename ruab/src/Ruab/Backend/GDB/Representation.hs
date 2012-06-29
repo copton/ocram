@@ -18,8 +18,6 @@ import Text.ParserCombinators.Parsec
 
 -- input {{{1
 -- types {{{2
-type Token = Integer -- {{{3
-
 data Command -- {{{3
   = CLICommand (Maybe Token) String
   | MICommand (Maybe Token) Operation [Option] [Parameter]
@@ -281,6 +279,41 @@ p_cString = between (char '"') (char '"') (many p_cchar)
 
 p_token :: Parser Token -- {{{3
 p_token = many1 digit >>= return . read
+
+-- token {{{1
+type Token = Integer
+
+class GetToken a where
+  get_token :: a -> Maybe Token
+
+instance GetToken ResultRecord where
+  get_token (ResultRecord token _ _) = token
+
+instance GetToken Command where
+  get_token (CLICommand token _) = token
+  get_token (MICommand token _ _ _) = token
+
+instance GetToken Output where
+  get_token (Output _ (Just r)) = get_token r
+  get_token _ = Nothing
+
+instance GetToken OutOfBandRecord where
+  get_token (OOBAsyncRecord r) = get_token r
+  get_token (OOBStreamRecord _) = Nothing
+
+instance GetToken AsyncRecord where
+  get_token (ARExecAsyncOutput x) = get_token x
+  get_token (ARStatusAsyncOutput x) = get_token x
+  get_token (ARNotifyAsyncOutput x) = get_token x
+
+instance GetToken ExecAsyncOutput where
+  get_token (ExecAsyncOutput token _) = token
+
+instance GetToken StatusAsyncOutput where
+  get_token (StatusAsyncOutput token _) = token
+
+instance GetToken NotifyAsyncOutput where
+  get_token (NotifyAsyncOutput token _) = token
 
 -- utils {{{1
 render_command :: Command -> String

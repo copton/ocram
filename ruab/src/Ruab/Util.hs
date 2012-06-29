@@ -2,14 +2,16 @@
 module Ruab.Util
 -- export {{{1
 (
-     fromJust_s, head_s, tail_s, lookup_s, abort
-  , replace
+    replace, save
+  , fromJust_s, head_s, tail_s, lookup_s, abort
 ) where
 
 -- import {{{1
+import Control.Exception (IOException, catch)
 import Data.List (intersperse)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax ()
+import Prelude hiding (catch)
 import qualified Data.Map as Map
 
 -- taken from MissingH 1.0
@@ -23,6 +25,12 @@ replace old new = join new . split old
       if null rest
         then [str']
         else str' : split c (tail rest)
+
+save :: IO a -> IO (Either String a)
+save io =
+  (io >>= return . Right)
+  `catch`
+  (\e -> (return . Left) (show (e :: IOException))) 
 
 fromJust_s :: Q Exp -- {{{1
 fromJust_s = withLocatedError [| fromJust' |]

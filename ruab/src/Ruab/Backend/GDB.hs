@@ -4,7 +4,7 @@ module Ruab.Backend.GDB
     backend_start
   , backend_quit
 --  , set_breakpoint
-  , GDBAsync
+  , Backend
 ) where
 
 import Data.List (intercalate)
@@ -14,17 +14,14 @@ import Ruab.Backend.GDB.Representation
 import Ruab.Backend.GDB.IO
 import Ruab.Util (abort)
 
-backend_start :: FilePath -> Callback -> IO (Either String GDBAsync)
-backend_start = undefined
---   res <- async_start Nothing callback
---   case res of
---     Left e -> (return . Left) e 
---     Right (gdb, _) -> do
---       output <- send_command interact gdb $ MICommand Nothing "file-exec-and-symbols" [Option binary Nothing] []
---       return $ failOrSucceed (checkOutput output) gdb
+type Backend = SyncGDB
 
-backend_quit :: GDBAsync -> IO ()
-backend_quit = async_quit
+backend_start :: FilePath -> Callback -> IO Backend
+backend_start binary callback = do
+  sync_start Nothing callback
+
+backend_quit :: Backend -> IO ()
+backend_quit = quit . async_gdb
 
 -- set_breakpoint :: GDB -> FilePath -> Int -> IO (Either String ())
 -- set_breakpoint gdb file row = do
