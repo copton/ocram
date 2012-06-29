@@ -7,16 +7,28 @@ import Ruab.Backend.GDB.Representation
 import Ruab.Util (replace)
 
 -- types {{{1
+class GdbShow a where -- {{{2
+  gdbShow :: a -> String
+
+instance GdbShow Char where
+  gdbShow = (:[])
+
+instance GdbShow a => GdbShow [a] where
+  gdbShow = concatMap gdbShow
+
+instance GdbShow Int where
+  gdbShow = show
+
 type Location = String -- {{{2
 
 positive_offset_location :: Int -> Location -- {{{3
-positive_offset_location offset = "+" ++ show offset
+positive_offset_location offset = "+" ++ gdbShow offset
 
 negative_offset_location :: Int -> Location -- {{{3
-negative_offset_location offset = "-" ++ show offset
+negative_offset_location offset = "-" ++ gdbShow offset
 
 file_line_location :: String -> Int -> Location -- {{{3
-file_line_location filename linenum = filename ++ ":" ++ show linenum
+file_line_location filename linenum = filename ++ ":" ++ gdbShow linenum
 
 function_location :: String -> Location -- {{{3
 function_location = id
@@ -47,10 +59,10 @@ data PrintValues -- {{{2
   | AllValues
   | SimpleValues
 
-instance Show PrintValues where
-  show NoValues     = "--no-values"
-  show AllValues    = "--all-values"
-  show SimpleValues = "--simple-values"
+instance GdbShow PrintValues where
+  gdbShow NoValues     = "--no-values"
+  gdbShow AllValues    = "--all-values"
+  gdbShow SimpleValues = "--simple-values"
 
 mapPrintValues :: (PrintValues -> a) -> Int -> a
 mapPrintValues f 0 = f NoValues
@@ -63,10 +75,10 @@ data FrameSelect -- {{{2
   | CurrentFrame
   | Floating
 
-instance Show FrameSelect where
-  show (FrameAddr addr) = addr
-  show CurrentFrame = "*"
-  show Floating = "@"
+instance GdbShow FrameSelect where
+  gdbShow (FrameAddr addr) = addr
+  gdbShow CurrentFrame = "*"
+  gdbShow Floating = "@"
 
 data FormatSpec -- {{{2
   = Binary
@@ -75,29 +87,29 @@ data FormatSpec -- {{{2
   | Octal
   | Natural
 
-instance Show FormatSpec where
-  show Binary = "binary"
-  show Decimal = "decimal"
-  show Hexadecimal = "hexadecimal"
-  show Octal = "octal"
-  show Natural = "natural"
+instance GdbShow FormatSpec where
+  gdbShow Binary = "binary"
+  gdbShow Decimal = "decimal"
+  gdbShow Hexadecimal = "hexadecimal"
+  gdbShow Octal = "octal"
+  gdbShow Natural = "natural"
 
 data FrozenFlag -- {{{2
   = Frozen
   | Unfrozen
 
-instance Show FrozenFlag where
-  show Frozen = "1"
-  show Unfrozen = "0"
+instance GdbShow FrozenFlag where
+  gdbShow Frozen = "1"
+  gdbShow Unfrozen = "0"
 
 data DisassemblyMode -- {{{2
   = DisassemblyMode Bool Bool -- mixed source and disassembly, raw opcodes
 
-instance Show DisassemblyMode where
-  show (DisassemblyMode False False) = "0"
-  show (DisassemblyMode True False) = "1"
-  show (DisassemblyMode False True) = "2"
-  show (DisassemblyMode True True) = "3"
+instance GdbShow DisassemblyMode where
+  gdbShow (DisassemblyMode False False) = "0"
+  gdbShow (DisassemblyMode True False) = "1"
+  gdbShow (DisassemblyMode False True) = "2"
+  gdbShow (DisassemblyMode True True) = "3"
 
 data DataFormat -- {{{2
   = DHexadecimal
@@ -107,13 +119,13 @@ data DataFormat -- {{{2
   | DRaw
   | DNatural
 
-instance Show DataFormat where
-  show DHexadecimal = "x"
-  show DOctal = "o"
-  show DBinary = "t"
-  show DDecimal = "d"
-  show DRaw = "r"
-  show DNatural = "N"
+instance GdbShow DataFormat where
+  gdbShow DHexadecimal = "x"
+  gdbShow DOctal = "o"
+  gdbShow DBinary = "t"
+  gdbShow DDecimal = "d"
+  gdbShow DRaw = "r"
+  gdbShow DNatural = "N"
 
 data OutputFormat -- {{{2
   = HexadecimalInteger
@@ -127,17 +139,17 @@ data OutputFormat -- {{{2
   | OString
   | Raw
 
-instance Show OutputFormat where
-  show HexadecimalInteger = "x"
-  show SignedDecimalInteger = "d"
-  show UnsignedDecimalInteger = "u"
-  show OctalInteger = "o"
-  show BinaryInteger = "t"
-  show Address = "a"
-  show CharacterConstantInteger = "c"
-  show FloatingPointNumber = "f"
-  show OString = "s"
-  show Raw = "r"
+instance GdbShow OutputFormat where
+  gdbShow HexadecimalInteger = "x"
+  gdbShow SignedDecimalInteger = "d"
+  gdbShow UnsignedDecimalInteger = "u"
+  gdbShow OctalInteger = "o"
+  gdbShow BinaryInteger = "t"
+  gdbShow Address = "a"
+  gdbShow CharacterConstantInteger = "c"
+  gdbShow FloatingPointNumber = "f"
+  gdbShow OString = "s"
+  gdbShow Raw = "r"
 
 data TraceMode -- {{{2
   = None
@@ -148,14 +160,14 @@ data TraceMode -- {{{2
   | PCOutsideRange String String
   | Line Location
 
-instance Show TraceMode where
-  show None = "none"
-  show (FrameNumber _) = "frame-number"
-  show (TracepointNumber _) = "tracepoint-number"
-  show (PC _) = "pc"
-  show (PCInsideRange _ _) = "pc-inside-range"
-  show (PCOutsideRange _ _) = "pc-outside-range"
-  show (Line _) = "line"
+instance GdbShow TraceMode where
+  gdbShow None = "none"
+  gdbShow (FrameNumber _) = "frame-number"
+  gdbShow (TracepointNumber _) = "tracepoint-number"
+  gdbShow (PC _) = "pc"
+  gdbShow (PCInsideRange _ _) = "pc-inside-range"
+  gdbShow (PCOutsideRange _ _) = "pc-outside-range"
+  gdbShow (Line _) = "line"
 
 traceModeOptions :: TraceMode -> [Option]
 traceModeOptions None = []
@@ -173,12 +185,12 @@ data Target -- {{{2
   | Sim [String]
   | Nrom
 
-instance Show Target where
-  show (Exec _) = "exec" 
-  show (Core _) = "core"
-  show (Remote _) = "remote" 
-  show (Sim _) = "sim"
-  show Nrom = "nrom"
+instance GdbShow Target where
+  gdbShow (Exec _) = "exec" 
+  gdbShow (Core _) = "core"
+  gdbShow (Remote _) = "remote" 
+  gdbShow (Sim _) = "sim"
+  gdbShow Nrom = "nrom"
 
 targetOptions :: Target -> [Option]
 targetOptions (Exec x) = [opt x] 
@@ -193,11 +205,11 @@ data Medium -- {{{2
   | UdpHost String Int
   | Pipe String
 
-instance Show Medium where
-  show (SerialDevice device) = device
-  show (TcpHost host port) = "tcp:" ++ host ++ ":" ++ show port
-  show (UdpHost host port) = "udp:" ++ host ++ ":" ++ show port
-  show (Pipe command) = "| " ++ command
+instance GdbShow Medium where
+  gdbShow (SerialDevice device) = device
+  gdbShow (TcpHost host port) = "tcp:" ++ host ++ ":" ++ gdbShow port
+  gdbShow (UdpHost host port) = "udp:" ++ host ++ ":" ++ gdbShow port
+  gdbShow (Pipe command) = "| " ++ command
 
 data Interpreter -- {{{2
   = Console
@@ -205,11 +217,11 @@ data Interpreter -- {{{2
   | MI2
   | MI1
 
-instance Show Interpreter where
-  show Console = "console"
-  show MI = "mi"
-  show MI2 = "mi2"
-  show MI1 = "mi1"
+instance GdbShow Interpreter where
+  gdbShow Console = "console"
+  gdbShow MI = "mi"
+  gdbShow MI2 = "mi2"
+  gdbShow MI1 = "mi1"
    
 -- helper {{{1
 add_token :: Token -> Command -> Command -- {{{2
@@ -386,8 +398,8 @@ var_delete children name = cmd "var-delete" $ flagOpt "-c" children ?: opt name 
 var_set_format :: String -> FormatSpec -> Command -- {{{3
 var_set_format name formatSpec = cmd "var-set-format" [opt name, opt formatSpec]
 
-var_show_format :: String -> Command -- {{{3
-var_show_format name = cmd "var-show-format" [opt name]
+var_gdbShow_format :: String -> Command -- {{{3
+var_gdbShow_format name = cmd "var-gdbShow-format" [opt name]
 
 var_info_num_children :: String -> Command -- {{{3
 var_info_num_children name = cmd "var-info-num-children" [opt name]
@@ -408,8 +420,8 @@ var_info_expression name = cmd "var-info-expression" [opt name]
 var_info_path_expressoin :: String -> Command -- {{{3
 var_info_path_expressoin name = cmd "var-info-path-expression" [opt name]
 
-var_show_attributes :: String -> Command -- {{{3
-var_show_attributes name = cmd "var-show-attributes" [opt name]
+var_gdbShow_attributes :: String -> Command -- {{{3
+var_gdbShow_attributes name = cmd "var-gdbShow-attributes" [opt name]
 
 var_evaluate_expression :: Maybe FormatSpec -> String -> Command -- {{{3
 var_evaluate_expression formatSpec name = cmd "var-evaluate-expression" $ valueOpt "-f" formatSpec ?: opt name : []
@@ -419,7 +431,7 @@ var_assign name expression = cmd "var-assign" [opt name, opt expression]
 
 var_update :: Maybe PrintValues -> Maybe String -> Command -- {{{3
 var_update Nothing name = var_update (Just NoValues) name
-var_update (Just printValues) name = cmd "var-update" [opt printValues, opt name]
+var_update (Just printValues) name = cmd "var-update" $ opt printValues : fmap opt name ?: []
 
 var_set_frozen :: String -> FrozenFlag -> Command -- {{{3
 var_set_frozen name flag = cmd "var-set-frozen" [opt name, opt flag]
@@ -432,7 +444,7 @@ var_set_visualizer name visualizer = cmd "ver-set-visualizer" [opt name, opt vis
 
 -- data manipulation {{{2
 data_disassemble :: Either (String, String) (String, Int, Maybe Int) -> DisassemblyMode -> Command -- {{{3
-data_disassemble x mode = MICommand Nothing "data-disassemble" options [show mode]
+data_disassemble x mode = MICommand Nothing "data-disassemble" options [gdbShow mode]
   where
     options = case x of
       Left (start, end) -> opt' "-s" start : opt' "-e" end : []
@@ -540,8 +552,8 @@ gdb_exit = cmd "gdb-exit" []
 gdb_set :: String -> Command -- {{{3
 gdb_set expr = cmd "gdb-set" $ opt expr : []
 
-gdb_show :: String -> Command -- {{{3
-gdb_show name = cmd "gdb-show" $ opt name : []
+gdb_gdbShow :: String -> Command -- {{{3
+gdb_gdbShow name = cmd "gdb-gdbShow" $ opt name : []
 
 gdb_version :: Command -- {{{3
 gdb_version = cmd "gdb-version" []
@@ -567,8 +579,8 @@ interpreter_exec interpreter command = cmd "interpreter-exec" $ opt interpreter 
 inferior_tty_set :: String -> Command -- {{{3
 inferior_tty_set tty = cmd "inferior-tty-set" $ opt tty : []
 
-inferior_tty_show :: Command -- {{{3
-inferior_tty_show = cmd "inferior-tty-show" []
+inferior_tty_gdbShow :: Command -- {{{3
+inferior_tty_gdbShow = cmd "inferior-tty-gdbShow" []
 
 enable_timings :: Bool -> Command -- {{{3
 enable_timings flag = cmd "enable-timings" $ opt (if flag then "yes" else "no") : []
@@ -577,21 +589,21 @@ enable_timings flag = cmd "enable-timings" $ opt (if flag then "yes" else "no") 
 cmd :: String -> [Option] -> Command -- {{{2
 cmd operation options = MICommand Nothing operation options []
 
-opt :: Show a => a -> Option -- {{{2
-opt parameter = Option (show parameter) Nothing
+opt :: GdbShow a => a -> Option -- {{{2
+opt parameter = Option (gdbShow parameter) Nothing
 
-opt' :: (Show a, Show b) => a -> b -> Option -- {{{2
-opt' name value = Option (show name) (Just (show value))
+opt' :: (GdbShow a, GdbShow b) => a -> b -> Option -- {{{2
+opt' name value = Option (gdbShow name) (Just (gdbShow value))
 
 flagOpt :: String -> Bool -> Maybe Option -- {{{2
 flagOpt _ False = Nothing
 flagOpt flag True = Just (opt flag)
 
-valueOpt :: Show a => String -> Maybe a -> Maybe Option -- {{{2
+valueOpt :: GdbShow a => String -> Maybe a -> Maybe Option -- {{{2
 valueOpt _ Nothing = Nothing
-valueOpt flag param = Just (Option flag (fmap show param))
+valueOpt flag param = Just (Option flag (fmap gdbShow param))
 
-maybTupleOpt :: Show a => Maybe (a, a) -> [Option] -- {{{2
+maybTupleOpt :: GdbShow a => Maybe (a, a) -> [Option] -- {{{2
 maybTupleOpt Nothing = []
 maybTupleOpt (Just (lowFrame, highFrame)) = map opt [lowFrame, highFrame]
 
