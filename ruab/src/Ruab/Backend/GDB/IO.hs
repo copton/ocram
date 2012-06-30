@@ -16,6 +16,7 @@ import Data.Maybe (fromJust, isNothing)
 import Prelude hiding (catch, interact)
 import Ruab.Backend.GDB.Commands (add_token, gdb_exit)
 import Ruab.Backend.GDB.Representation
+import Ruab.Backend.GDB.Output (response, notification, stream, Response, Notification, Stream)
 import System.IO (Handle, hSetBuffering, BufferMode(LineBuffering), hReady, hPutStr, hWaitForInput, hGetLine, stdout)
 import System.Posix.IO (fdToHandle, createPipe)
 import System.Process (ProcessHandle, runProcess, terminateProcess, waitForProcess)

@@ -3,7 +3,7 @@ module Ruab.Backend.GDB
 (
     backend_start
   , backend_quit
---  , set_breakpoint
+  , set_breakpoint
   , Backend
 ) where
 
@@ -28,22 +28,5 @@ backend_start binary callback = save $ do
 backend_quit :: Backend -> IO ()
 backend_quit = quit . async_gdb
 
--- set_breakpoint :: GDB -> FilePath -> Int -> IO (Either String ())
--- set_breakpoint gdb file row = do
---   output <- interact gdb $ MICommand Nothing "break-insert" [Option (file ++ ":" ++ show row) Nothing] []
---   return $ failOrSucceed (checkOutput output) ()
-
-checkOutput :: Output -> Maybe String
-checkOutput (Output _ (Just (ResultRecord _ RCDone _))) = Nothing
-checkOutput (Output _ (Just (ResultRecord _ RCError rs))) =
-  Just $ intercalate "\n" $ map getMsg $ filter isMsg rs
-  where
-    isMsg (Result var _) = var == "msg"
-    getMsg (Result _ (VConst str)) = str :: String
-    getMsg o = $abort $ "unexpected parameter" ++ show o
-
-checkOutput o = $abort $ "unexpected parameter" ++ show o
-
-failOrSucceed :: Maybe a -> b -> Either a b
-failOrSucceed Nothing  x = Right x
-failOrSucceed (Just x) _ = Left x
+set_breakpoint :: Backend -> FilePath -> Int -> IO (Either String Token)
+set_breakpoint gdb file line = save $ send_command (async_gdb gdb) (break_insert False False False False False Nothing Nothing Nothing (file_line_location file line))
