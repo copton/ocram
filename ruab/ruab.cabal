@@ -45,7 +45,7 @@ Executable ruab
     Ocram.Ruab,
     Ruab.Main,
     Ruab.Frontend,
-    Ruab.Mapping,
+    Ruab.Core,
     Ruab.Backend,
     Ruab.Options,
     Ruab.Test,

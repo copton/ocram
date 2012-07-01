@@ -29,6 +29,7 @@ type Location = (TLocation, ELocation) -- {{{2
 type LocMap = [Location] -- {{{2
 
 type Variable = String -- {{{2
+
 type VarMap = [(Variable, Variable)] -- {{{2
 
 data PreprocMap = PreprocMap { -- {{{2

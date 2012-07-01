@@ -3,6 +3,7 @@ module Ruab.Backend.GDB.Commands where
 -- imports {{{1
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
+import Prelude hiding (reverse, all, lines)
 import Ruab.Backend.GDB.Representation
 import Ruab.Util (replace)
 
@@ -241,7 +242,7 @@ break_commands :: Int -> [String] -> Command -- {{{3
 break_commands number commands = cmd "break-commands" $ opt number : map opt commands
 
 break_condition :: Int -> String -> Command -- {{{3
-break_condition number expr = cmd "break-condition" $ [opt expr]
+break_condition number expr = cmd "break-condition" $ opt number : opt expr : []
 
 break_delete :: [Int] -> Command -- {{{3
 break_delete numbers = cmd "break-delete" $ map opt numbers
@@ -406,7 +407,7 @@ var_info_num_children name = cmd "var-info-num-children" [opt name]
 
 var_list_children :: Maybe PrintValues -> String -> Maybe (Int, Int) -> Command -- {{{3
 var_list_children Nothing name range = var_list_children (Just NoValues) name range
-var_list_children (Just printValues) name range = cmd "var-list-children" $ opt printValues : maybTupleOpt range
+var_list_children (Just printValues) name range = cmd "var-list-children" $ opt printValues : opt name : maybTupleOpt range
 
 var_list_children' :: Int -> String -> Maybe (Int, Int) -> Command
 var_list_children' = mapPrintValues (var_list_children . Just)
@@ -464,7 +465,7 @@ data_list_register_values fmt regnos = cmd "data-list-register-values" $ opt fmt
 
 data_read_memory :: Maybe Int -> String -> OutputFormat -> Int -> Int -> Int -> Maybe Char -> Command -- {{{3
 data_read_memory byteOffset address wordFormat wordSize nrRows nrCols asChar =
-  cmd "data-read-memory" $ valueOpt "-o" byteOffset ?: opt address : opt wordFormat : opt nrRows : opt nrCols : fmap opt asChar ?: []
+  cmd "data-read-memory" $ valueOpt "-o" byteOffset ?: opt address : opt wordFormat : opt wordSize : opt nrRows : opt nrCols : fmap opt asChar ?: []
 
 data_read_memory_bytes :: Maybe Int -> String -> Int -> Command -- {{{3
 data_read_memory_bytes byteOffset address count = cmd "data-read-memory-bytes" $ valueOpt "-o" byteOffset ?: opt address : opt count : []

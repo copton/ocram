@@ -3,7 +3,7 @@ module Ruab.Frontend.Test (tests) where
 
 -- imports {{{1
 import Ruab.Test.Lib (enumTestGroup)
-import Ruab.Frontend.Internal
+import Ruab.Frontend.Infos
 import Test.Framework (Test, testGroup)
 import Test.HUnit (Assertion, (@=?))
 

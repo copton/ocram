@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Ruab.Frontend.Internal where
+module Ruab.Frontend.Infos where
 
 -- imports {{{1
 import Data.List (groupBy, sortBy)
@@ -37,21 +37,21 @@ type InfoInstance = (Int, Info)
 clearHighlight :: [InfoInstance] -> [InfoInstance]
 clearHighlight = filter (not . infoIsHighlight . snd)
 
-clearThread :: Int -> [InfoInstance] -> [InfoInstance]
-clearThread tid = filter (not . infoIsThread tid . snd)
+clearThread :: [InfoInstance] -> Int -> [InfoInstance]
+clearThread infos tid = filter (not . infoIsThread tid . snd) infos
 
-clearBreakpoint :: Int -> [InfoInstance] -> [InfoInstance]
-clearBreakpoint bid = filter (not . infoIsBreakpoint bid . snd)
+clearBreakpoint :: [InfoInstance] -> Int -> [InfoInstance]
+clearBreakpoint infos bid = filter (not . infoIsBreakpoint bid . snd) infos
 
-setHighlight :: Int -> [InfoInstance] -> [InfoInstance]
-setHighlight row infos = (row, InfHighlight) : clearHighlight infos
+setHighlight :: [InfoInstance] -> Int -> [InfoInstance]
+setHighlight infos row = (row, InfHighlight) : clearHighlight infos
 
-setThread :: Int -> Int -> [InfoInstance] -> [InfoInstance]
-setThread row tid infos = (row, InfThread tid) : clearThread tid infos
+setThread :: Int -> [InfoInstance] -> Int -> [InfoInstance]
+setThread row infos tid = (row, InfThread tid) : clearThread infos tid
 
-setBreakpoint :: Int -> Int -> [InfoInstance] -> [InfoInstance]
-setBreakpoint row 0 infos = (row, InfBreakpoint 0) : infos
-setBreakpoint row bid infos = (row, InfBreakpoint bid) : clearBreakpoint bid infos
+setBreakpoint :: Int -> [InfoInstance] -> Int -> [InfoInstance]
+setBreakpoint 0 infos row = (row, InfBreakpoint 0) : infos
+setBreakpoint bid infos row = (row, InfBreakpoint bid) : clearBreakpoint infos bid
 
 render_info :: [InfoInstance] -> String
 render_info = renderAll . map renderRow . groupBy groupf . sortBy sortf

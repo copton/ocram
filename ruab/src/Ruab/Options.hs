@@ -11,10 +11,11 @@ import System.Console.GetOpt (getOpt, usageInfo, ArgOrder(Permute), OptDescr, Ar
 
 data Options = Options { -- {{{1
     optDebugFile :: FilePath
-  , optHelp :: Bool
+  , optBinary    :: FilePath
+  , optHelp      :: Bool
 }
 
-options :: String -> [String] -> Either (ExitCode, String) Options
+options :: String -> [String] -> Either (ExitCode, String) Options -- {{{1
 options prg argv =
   case getOpt Permute availableOptions argv of
     (o, [], []) ->
@@ -31,19 +32,22 @@ options prg argv =
     err msg = "Error in command line options\n" ++ msg ++ "\n" ++ usage
     usage = usageInfo ("Usage: " ++ prg ++ " OPTIONS") availableOptions
           
-availableOptions :: [OptDescr (Options -> Options)]
+availableOptions :: [OptDescr (Options -> Options)] -- {{{2
 availableOptions = [
     Option "d" ["debug"] (ReqArg (\x opts -> opts {optDebugFile = x}) "debug") "file path for the debugging information (required)"     
+  , Option "b" ["binary"] (ReqArg (\x opts -> opts {optBinary = x}) "binary") "file path for the ecode binary (required)"
   , Option "h" ["help"] (NoArg (\opts -> opts {optHelp = True})) "print help and quit"
   ]
 
-defaultOptions :: Options
+defaultOptions :: Options -- {{{2
 defaultOptions = Options {
     optDebugFile = ""
-  , optHelp = False
+  , optBinary    = ""
+  , optHelp      = False
   }
 
-checkOptions :: Options -> Bool
+checkOptions :: Options -> Bool -- {{{2
 checkOptions opts
   | optDebugFile opts == optDebugFile defaultOptions = False
+  | optBinary opts == optBinary defaultOptions = False
   | otherwise = True

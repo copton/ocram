@@ -2,32 +2,35 @@
 module Ruab.Frontend
 -- exports {{{1
 (
-  ruab_ui
+  frontend_run
 ) where
 
 -- imports {{{1
+import Control.Monad.Fix (mfix)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
-import Data.Maybe (fromJust)
 import Data.List (intersperse, find)
+import Data.Maybe (fromJust)
 import Graphics.UI.Gtk
-import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Graphics.UI.Gtk.Gdk.Events (Event(Key))
-import Ocram.Ruab (DebugInfo(..), File(fileName), Thread(..), TLocation(..))
+import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
-import Ruab.Frontend.Internal
-import Ruab.Mapping (Context(..), preprocessed_row, ecode_row)
+import Ruab.Core
+import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint)
 import Ruab.Options (Options)
 import Ruab.Util (abort, fromJust_s)
 
 import qualified Data.ByteString.Char8 as BS
 
-ruab_ui :: Options -> Context -> IO () -- {{{1
-ruab_ui _ ctx = do
-  gui <- loadGui
-  setupGui ctx gui
+frontend_run :: Options -> IO () -- {{{1
+frontend_run opt = do
+  _ <- mfix (\gui -> do
+      core <- core_load opt (callback gui)
+      gui' <- loadGui core
+      setupGui core gui'
+      return gui'
+    )
   mainGUI
-  return ()
 
 -- types {{{1
 data Component = Component {
@@ -48,11 +51,12 @@ data GUI = GUI { -- {{{2
   , guiView   :: TextView
   , guiInput  :: Entry
   , guiStatus :: Statusbar
+  , guiCore   :: Core
   }
 
 -- GUI {{{1
-loadGui :: IO GUI -- {{{2
-loadGui = do
+loadGui :: Core -> IO GUI -- {{{2
+loadGui core = do
   gladefn <- getDataFileName "ruab.glade"
   _ <- initGUI
   Just xml <- xmlNew gladefn
@@ -61,7 +65,7 @@ loadGui = do
   [log', view] <- mapM (xmlGetWidget xml castToTextView) ["log", "view"]
   input <- xmlGetWidget xml castToEntry "input"
   status <- xmlGetWidget xml castToStatusbar "status"
-  return $ GUI window ct cp ce log' view input status
+  return $ GUI window ct cp ce log' view input status core
   where
     loadComponent xml comp = do
       [code, info, lines] <- mapM (xmlGetWidget xml castToTextView) $ map (comp++) ["code", "info", "lines"]
@@ -70,20 +74,20 @@ loadGui = do
       infos <- newIORef []
       return $ Component code info lines label view infos
 
-setupGui :: Context -> GUI -> IO () -- {{{2
-setupGui ctx gui = do
+setupGui :: Core -> GUI -> IO () -- {{{2
+setupGui core gui = do
   -- text views {{{3
   setupComponent (guiTcomp gui)
-    (ctxTcode ctx)
-    ("(T-code) " ++ ((fileName . diTcode . ctxDebugInfo) ctx))
+    (coreTcode core)
+    ("(T-code) " ++ coreTfile core)
 
   setupComponent (guiPcomp gui)
-    ((diPcode . ctxDebugInfo) ctx)
+    (corePcode core)
     "(pre-processed)"
 
   setupComponent (guiEcomp gui)
-    (ctxEcode ctx)
-    ("(E-code) " ++ ((fileName . diEcode . ctxDebugInfo) ctx))
+    (coreEcode core)
+    ("(E-code) " ++ (coreEfile core))
 
   setupText (guiLog gui) (BS.pack "")
   setupText (guiView gui) (BS.pack "")
@@ -95,7 +99,7 @@ setupGui ctx gui = do
   setuptBreakpoints
 
   -- events {{{3
-  _ <- onKeyPress (guiInput gui) (handleInput ctx gui)
+  _ <- onKeyPress (guiInput gui) (handleInput core gui)
   _ <- onDestroy (guiWin gui) mainQuit
 
   -- main window {{{3
@@ -127,8 +131,7 @@ setupGui ctx gui = do
       infos <- modifyReadIORef ((compInfos . guiPcomp) gui) modify
       setText ((compInfo . guiPcomp) gui) (render_info infos)
       where
-        modify infos = foldl go infos ((diLocMap . ctxDebugInfo) ctx)
-        go infos (tl, _) = setBreakpoint (tlocRow tl) 0 infos
+        modify infos = foldl (setBreakpoint 0) infos (possible_breakpoints core)
 
 
 appendToLog :: GUI -> [String] -> IO ()  -- {{{2
@@ -160,7 +163,7 @@ setText tv txt = do
 highlight :: Component -> Int -> IO () -- {{{2
 highlight comp row = do
   scrollToRow comp row
-  infos <- modifyReadIORef (compInfos comp) (setHighlight row)
+  infos <- modifyReadIORef (compInfos comp) (flip setHighlight row)
   setText (compInfo comp) $ render_info infos
 
 modifyReadIORef :: IORef a -> (a -> a) -> IO a -- {{{2
@@ -171,12 +174,12 @@ modifyReadIORef ref f = do
   return obj'
 
 -- user interaction {{{1
-handleInput :: Context -> GUI -> Event -> IO Bool -- {{{2
-handleInput ctx gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
+handleInput :: Core -> GUI -> Event -> IO Bool -- {{{2
+handleInput core gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
   command <- entryGetText (guiInput gui)
   entrySetText (guiInput gui) ""
   appendToLog gui ["$ " ++ command]
-  handleCommand ctx gui (words command)
+  handleCommand core gui (words command)
   return True
 
 handleInput _ _ _ = return False
@@ -200,15 +203,15 @@ displayHelp gui _ unknown  = log gui False       ["unknown command '" ++ unknown
 commands :: [String]
 commands = ["emap", "osapi", "pmap", "threads", "quit"]
 
-handleCommand :: Context -> GUI -> [String] -> IO () -- {{{2
+handleCommand :: Core -> GUI -> [String] -> IO () -- {{{2
 -- help {{{3
 handleCommand _ gui ["help"] = displayHelp gui True ""
 handleCommand _ gui ("help":what:_) = displayHelp gui True what
 
 -- emap {{{3
-handleCommand ctx gui ["emap", row@(parseInt -> Just _)] =
+handleCommand core gui ["emap", row@(parseInt -> Just _)] =
   let row' = (fromJust . parseInt) row in
-  case ecode_row ctx row' of
+  case ecode_row core row' of
     Nothing -> log gui False ["no row mapping found"]
     Just row'' -> do
       log gui True [show row'']
@@ -216,12 +219,12 @@ handleCommand ctx gui ["emap", row@(parseInt -> Just _)] =
       highlight (guiEcomp gui) row''
     
 -- osapi {{{3
-handleCommand ctx gui ["osapi"] = log gui True ["OS API: " ++ (concat $ intersperse ", " ((diOsApi . ctxDebugInfo) ctx))]
+handleCommand core gui ["osapi"] = log gui True ["OS API: " ++ (concat $ intersperse ", " (os_api core))]
 
 -- pmap {{{3
-handleCommand ctx gui ["pmap", row@(parseInt -> Just _)] =
+handleCommand core gui ["pmap", row@(parseInt -> Just _)] =
   let row' = (fromJust . parseInt) row in
-  case preprocessed_row ctx row' of
+  case preprocessed_row core row' of
     Nothing -> log gui False ["invalid row number"]
     Just row'' -> do
       log gui True [show row'']
@@ -229,12 +232,12 @@ handleCommand ctx gui ["pmap", row@(parseInt -> Just _)] =
       highlight (guiPcomp gui) row''
 
 -- thread {{{3
-handleCommand ctx gui ["thread"] =
-  log gui True $ concatMap printThread ((diThreads . ctxDebugInfo) ctx)
+handleCommand core gui ["thread"] =
+  log gui True $ concatMap printThread (all_threads core)
 
-handleCommand ctx gui ["thread", tid@(parseInt -> Just _)] =
+handleCommand core gui ["thread", tid@(parseInt -> Just _)] =
   let (Just tid') = parseInt tid in
-  case find (\(Thread tid'' _ _) -> tid'' == tid') ((diThreads . ctxDebugInfo) ctx) of
+  case find (\(Thread tid'' _ _) -> tid'' == tid') (all_threads core) of
     Nothing -> log gui False ["unknown thread id '" ++ tid ++ "'"]
     Just thread -> log gui True (printThread thread)
 
@@ -255,4 +258,6 @@ parseInt txt =
 printThread :: Thread -> [String] -- {{{4
 printThread (Thread tid ts tc) = [show tid ++ ": " ++ ts ++ ": " ++ (concat $ intersperse ", " tc)]
 
+callback :: GUI -> Callback -- {{{2
+callback = undefined
 

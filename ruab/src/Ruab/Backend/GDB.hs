@@ -1,32 +1,30 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Ruab.Backend.GDB
 (
-    backend_start
-  , backend_quit
+    Backend, Callback
+  , backend_start, backend_quit
   , set_breakpoint
-  , Backend
+  , module Ruab.Backend.GDB.Output
 ) where
 
-import Data.List (intercalate)
+-- imports {{{1
 import Prelude hiding (interact)
 import Ruab.Backend.GDB.Commands
-import Ruab.Backend.GDB.Representation
-import Ruab.Backend.GDB.IO
-import Ruab.Util (abort, save)
+import Ruab.Backend.GDB.IO (GDB, Callback, start, quit, send_command)
+import Ruab.Backend.GDB.Output
 
-type Backend = SyncGDB
+type Backend = GDB -- {{{1
 
-backend_start :: FilePath -> Callback -> IO (Either String Backend)
-backend_start binary callback = save $ do
-  sgdb <- sync_start Nothing callback
-  output <- sync_send_command sgdb (file_exec_and_symbols (Just binary))
-  if is_error output
-    then callback output
-    else return ()
-  return sgdb
+backend_start :: FilePath -> Callback -> IO Backend -- {{{1
+backend_start binary callback = do
+  gdb <- start Nothing callback
+  res <- send_command gdb (file_exec_and_symbols (Just binary))
+  if is_error res
+    then fail (show res)
+    else return gdb
 
-backend_quit :: Backend -> IO ()
-backend_quit = quit . async_gdb
+backend_quit :: Backend -> IO () -- {{{1
+backend_quit = quit
 
-set_breakpoint :: Backend -> FilePath -> Int -> IO (Either String Token)
-set_breakpoint gdb file line = save $ send_command (async_gdb gdb) (break_insert False False False False False Nothing Nothing Nothing (file_line_location file line))
+set_breakpoint :: Backend -> FilePath -> Int -> IO Response -- {{{1
+set_breakpoint gdb file line =
+  send_command gdb (break_insert False False False False False Nothing Nothing Nothing (file_line_location file line))
