@@ -38,7 +38,7 @@ frontendStop gui = do
   mainQuit
 
 -- types {{{1
-data Component = Component {
+data Component = Component { -- {{{2
     compCode  :: TextView
   , compInfo  :: TextView
   , compLines :: TextView
@@ -184,7 +184,7 @@ handleInput core gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
   command <- entryGetText (guiInput gui)
   entrySetText (guiInput gui) ""
   appendToLog gui ["$ " ++ command]
-  handleCommand core gui (words command)
+  handleCommand gui (words command)
   return True
 
 handleInput _ _ _ = return False
@@ -203,20 +203,21 @@ displayHelp gui f "osapi"  = log gui (True && f) ["osapi: list all blocking func
 displayHelp gui f "pmap"   = log gui (True && f) ["pmap row: map a T-code row number to the corresponding row number of the pre-processed T-code"]
 displayHelp gui f "thread" = log gui (True && f) ["thread [id]: list information of either all threads or the thread with the given id"]
 displayHelp gui f "quit"   = log gui (True && f) ["quit: quit the debugger"]
+displayHelp gui f "start"  = log gui (True && f) ["start: start debugging the binary"]
 displayHelp gui _ unknown  = log gui False       ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
 
 commands :: [String]
-commands = ["emap", "osapi", "pmap", "threads", "quit"]
+commands = ["emap", "osapi", "pmap", "threads", "quit", "start"]
 
-handleCommand :: Core -> GUI -> [String] -> IO () -- {{{2
+handleCommand :: GUI -> [String] -> IO () -- {{{2
 -- help {{{3
-handleCommand _ gui ["help"] = displayHelp gui True ""
-handleCommand _ gui ("help":what:_) = displayHelp gui True what
+handleCommand gui ["help"] = displayHelp gui True ""
+handleCommand gui ("help":what:_) = displayHelp gui True what
 
 -- emap {{{3
-handleCommand core gui ["emap", row@(parseInt -> Just _)] =
+handleCommand gui ["emap", row@(parseInt -> Just _)] =
   let row' = (fromJust . parseInt) row in
-  case ecode_row core row' of
+  case ecode_row (guiCore gui) row' of
     Nothing -> log gui False ["no row mapping found"]
     Just row'' -> do
       log gui True [show row'']
@@ -224,12 +225,12 @@ handleCommand core gui ["emap", row@(parseInt -> Just _)] =
       highlight (guiEcomp gui) row''
     
 -- osapi {{{3
-handleCommand core gui ["osapi"] = log gui True ["OS API: " ++ (concat $ intersperse ", " (os_api core))]
+handleCommand gui ["osapi"] = log gui True ["OS API: " ++ (concat $ intersperse ", " (os_api (guiCore gui)))]
 
 -- pmap {{{3
-handleCommand core gui ["pmap", row@(parseInt -> Just _)] =
+handleCommand gui ["pmap", row@(parseInt -> Just _)] =
   let row' = (fromJust . parseInt) row in
-  case preprocessed_row core row' of
+  case preprocessed_row (guiCore gui) row' of
     Nothing -> log gui False ["invalid row number"]
     Just row'' -> do
       log gui True [show row'']
@@ -237,21 +238,24 @@ handleCommand core gui ["pmap", row@(parseInt -> Just _)] =
       highlight (guiPcomp gui) row''
 
 -- thread {{{3
-handleCommand core gui ["thread"] =
-  log gui True $ concatMap printThread (all_threads core)
+handleCommand gui ["thread"] =
+  log gui True $ concatMap printThread (all_threads (guiCore gui))
 
-handleCommand core gui ["thread", tid@(parseInt -> Just _)] =
+handleCommand gui ["thread", tid@(parseInt -> Just _)] =
   let (Just tid') = parseInt tid in
-  case find (\(Thread tid'' _ _) -> tid'' == tid') (all_threads core) of
+  case find (\(Thread tid'' _ _ _) -> tid'' == tid') (all_threads (guiCore gui)) of
     Nothing -> log gui False ["unknown thread id '" ++ tid ++ "'"]
     Just thread -> log gui True (printThread thread)
 
 -- quit {{{3
-handleCommand _ gui ["quit"] = frontendStop gui
+handleCommand gui ["quit"] = frontendStop gui
+
+-- start {{{3
+handleCommand gui ["start"] = core_run (guiCore gui)
 
 -- catch all {{{3
-handleCommand _ gui (cmd:_) = displayHelp gui False cmd
-handleCommand _ _ x = $abort $ "unexpected parameter: " ++ show x
+handleCommand gui (cmd:_) = displayHelp gui False cmd
+handleCommand _ x = $abort $ "unexpected parameter: " ++ show x
 -- utils {{{4
 parseInt :: String -> Maybe Int -- {{{4
 parseInt txt =
@@ -261,7 +265,7 @@ parseInt txt =
     else Just $ (fst . head) readings
 
 printThread :: Thread -> [String] -- {{{4
-printThread (Thread tid ts tc) = [show tid ++ ": " ++ ts ++ ": " ++ (concat $ intersperse ", " tc)]
+printThread (Thread tid ts _ tc) = [show tid ++ ": " ++ ts ++ ": " ++ (concat $ intersperse ", " tc)]
 
 callback :: GUI -> Callback -- {{{2
 callback gui (Left x) = postGUIAsync $ log gui True [show x]

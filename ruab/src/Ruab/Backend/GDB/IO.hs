@@ -22,7 +22,7 @@ import Data.Maybe (isJust)
 import Prelude hiding (catch, interact)
 import Ruab.Backend.GDB.Commands (add_token, gdb_exit)
 import Ruab.Backend.GDB.Representation (Output(Output), Token, get_token, Command, render_command, parse_output)
-import Ruab.Backend.GDB.Output (response, notification, stream, Response, Notification, Stream)
+import Ruab.Backend.GDB.Output (output_response, output_notification, output_stream, Response, Notification, Stream)
 import System.IO (Handle, hSetBuffering, BufferMode(LineBuffering), hPutStr, hWaitForInput, hGetLine, stdout)
 import System.Posix.IO (fdToHandle, createPipe)
 import System.Process (ProcessHandle, runProcess, waitForProcess)
@@ -84,15 +84,15 @@ send_command gdb command = do
 handleOutput :: GDB -> IO () -- {{{2
 handleOutput gdb = do
   output@(Output _ rr) <- readOutput gdb
-  mapM_ (gdbCallback gdb . Left)  (notification output)
-  mapM_ (gdbCallback gdb . Right) (stream output)
+  mapM_ (gdbCallback gdb . Left)  (output_notification output)
+  mapM_ (gdbCallback gdb . Right) (output_stream output)
   token <- tryTakeMVar (gdbToken gdb)
   case token of
     Nothing -> when (isJust rr) (putStrLn "warning: result record lost!")
-    (Just (-1)) -> putMVar (gdbResponse gdb) (response output)
+    (Just (-1)) -> putMVar (gdbResponse gdb) (output_response output)
     _ -> do
       when (token /= get_token output) (putStrLn "warning: token missmatch!")
-      putMVar (gdbResponse gdb) (response output)
+      putMVar (gdbResponse gdb) (output_response output)
   handleOutput gdb
   `finally` putMVar (gdbFinished gdb) ()
 

@@ -12,6 +12,7 @@ import Ocram.Analysis (CallGraph, start_functions, blocking_functions, call_orde
 import Ocram.Options (Options(optInput, optOutput))
 import Ocram.Debug.Internal
 import Ocram.Ruab
+import Ocram.Transformation.Names (threadExecutionFunction)
 import Ocram.Util (fromJust_s)
 
 import qualified Data.ByteString.Char8 as BS
@@ -57,7 +58,7 @@ create_debug_info opt cg tcode pcode ecode vm lm =
   in
     DebugInfo tfile pcode efile ppm lm' vm ts oa
   where
-    createThreadInfo tid sf = Thread tid sf ($fromJust_s $ call_order cg sf)
+    createThreadInfo tid sf = Thread tid sf (threadExecutionFunction tid) ($fromJust_s $ call_order cg sf)
     adjustTloc ppm tl = tl {tlocRow = $fromJust_s (map_preprocessed_row ppm (tlocRow tl))}
 
 

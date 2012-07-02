@@ -1,5 +1,15 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Ruab.Backend.GDB.Output where
+module Ruab.Backend.GDB.Output
+-- exports {{{1
+(
+    Response (..) , ResponseType
+  , Dictionary
+  , Value(..)
+  , Notification(..), NotifcationType , Event(..)
+  , Stream(..), StreamType
+  , is_error, is_running, dictionary
+  , output_response, output_stream, output_notification
+) where
 
 -- imports {{{1
 import Ruab.Util (abort)
@@ -8,7 +18,7 @@ import qualified Data.Map as M
 import qualified Ruab.Backend.GDB.Representation as R
 
 -- types {{{1
-data Response
+data Response -- {{{2
   = Response (Maybe (ResponseType, Dictionary))
   deriving Show
 
@@ -20,15 +30,15 @@ data ResponseType
   | Exit
   deriving Show
 
-type Dictionary = M.Map String Value
+type Dictionary = M.Map String Value -- {{{2
 
-data Value
+data Value -- {{{2
   = ConstValue String
   | DictValue Dictionary
   | ListValue [Value]
   deriving Show
 
-data Notification
+data Notification -- {{{2
   = Notification NotifcationType Event Dictionary
   deriving Show
 
@@ -43,7 +53,7 @@ data Event
   | ThreadGroupAdded
   deriving Show
 
-data Stream
+data Stream -- {{{2
   = Stream StreamType String
   deriving Show
 
@@ -58,19 +68,27 @@ is_error :: Response -> Bool
 is_error (Response (Just (Error, _))) = True
 is_error _ = False
 
+is_running :: Response -> Bool
+is_running (Response (Just (Running, _))) = True
+is_running _ = False
+
+dictionary :: Response -> Maybe Dictionary -- {{{2
+dictionary (Response Nothing) = Nothing
+dictionary (Response (Just (_, d))) = Just d
+
 -- conversion {{{1
-response :: R.Output -> Response
-response (R.Output _ Nothing) = Response Nothing
-response (R.Output _ (Just (R.ResultRecord _ rc res))) = Response (Just (rt rc, dictionary res))
+output_response :: R.Output -> Response
+output_response (R.Output _ (Just (R.ResultRecord _ rc res))) = Response (Just (rt rc, outputDictionary res))
   where
     rt R.RCDone = Done
     rt R.RCRunning = Running
     rt R.RCConnected = Connected
     rt R.RCError = Error
     rt R.RCExit = Exit
+output_response _ = Response Nothing
 
-notification :: R.Output -> [Notification]
-notification (R.Output oobs _) = map (notification' . unp) $ filter isNotification oobs
+output_notification :: R.Output -> [Notification]
+output_notification (R.Output oobs _) = map (notification' . unp) $ filter isNotification oobs
   where
     isNotification (R.OOBAsyncRecord _) = True
     isNotification _ = False
@@ -78,15 +96,15 @@ notification (R.Output oobs _) = map (notification' . unp) $ filter isNotificati
     unp (R.OOBAsyncRecord x) = x
     unp x = $abort $ "unexpected parameter: " ++ show x
 
-    notification' (R.ARExecAsyncOutput (R.ExecAsyncOutput _ (R.AsyncOutput ac res))) = Notification Exec (event ac) (dictionary res) 
-    notification' (R.ARStatusAsyncOutput (R.StatusAsyncOutput _ (R.AsyncOutput ac res))) = Notification Status (event ac) (dictionary res)
-    notification' (R.ARNotifyAsyncOutput (R.NotifyAsyncOutput _ (R.AsyncOutput ac res))) = Notification Notify (event ac) (dictionary res)
+    notification' (R.ARExecAsyncOutput (R.ExecAsyncOutput _ (R.AsyncOutput ac res))) = Notification Exec (event ac) (outputDictionary res) 
+    notification' (R.ARStatusAsyncOutput (R.StatusAsyncOutput _ (R.AsyncOutput ac res))) = Notification Status (event ac) (outputDictionary res)
+    notification' (R.ARNotifyAsyncOutput (R.NotifyAsyncOutput _ (R.AsyncOutput ac res))) = Notification Notify (event ac) (outputDictionary res)
 
     event R.ACStop = Stopped
     event R.ACThreadGroupAdded = ThreadGroupAdded
 
-stream :: R.Output -> [Stream]
-stream (R.Output oobs _) = map (stream' . unp) $ filter isStream oobs
+output_stream :: R.Output -> [Stream]
+output_stream (R.Output oobs _) = map (stream' . unp) $ filter isStream oobs
   where
     isStream (R.OOBStreamRecord _) = True
     isStream _ = False
@@ -98,12 +116,12 @@ stream (R.Output oobs _) = map (stream' . unp) $ filter isStream oobs
     stream' (R.SRTargetStreamOutput (R.TargetStreamOutput s)) = Stream Target s
     stream' (R.SRLogStreamOutput (R.LogStreamOutput s)) = Stream Log s
 
-dictionary :: [R.Result] -> Dictionary
-dictionary res = M.fromList $ map entry res
+outputDictionary :: [R.Result] -> Dictionary
+outputDictionary res = M.fromList $ map entry res
   where
     entry (R.Result k v) = (k, value v)
     value (R.VConst s) = ConstValue s
-    value (R.VTuple (R.Tuple res')) = DictValue (dictionary res')
+    value (R.VTuple (R.Tuple res')) = DictValue (outputDictionary res')
     value (R.VList (R.EmptyList)) = ListValue []
     value (R.VList (R.ValueList vs)) = ListValue (map value vs)
-    value (R.VList (R.ResultList res')) = DictValue (dictionary res')
+    value (R.VList (R.ResultList res')) = DictValue (outputDictionary res')

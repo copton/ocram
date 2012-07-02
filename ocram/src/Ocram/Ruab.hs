@@ -44,8 +44,9 @@ data File = File { -- {{{2
 
 data Thread = Thread { -- {{{2
     threadId        :: Int
-  , threadStart    :: String
-  , threadCritical :: [String]
+  , threadStart     :: String
+  , threadExecution :: String
+  , threadCritical  :: [String]
   }
   
 data DebugInfo = DebugInfo { -- {{{2
@@ -109,18 +110,20 @@ instance JSON File where -- {{{2
   showJSON (File n c) = showJSON [n, c]
 
 instance JSON Thread where -- {{{2
-  showJSON (Thread tid ts tc) = (JSObject . toJSObject) [
+  showJSON (Thread tid ts te tc) = (JSObject . toJSObject) [
       ("id",       showJSON tid)
     , ("start",    showJSON ts)
+    , ("execute" , showJSON te)
     , ("critical", showJSON tc)
     ]
 
   readJSON (JSObject obj) = do
-    let [tid, ts, tc] = map snd $ fromJSObject obj
+    let [tid, ts, te, tc] = map snd $ fromJSObject obj
     tid' <- readJSON tid
     ts'  <- readJSON ts
+    te'  <- readJSON te
     tc'  <- readJSON tc
-    return $ Thread tid' ts' tc'
+    return $ Thread tid' ts' te' tc'
 
   readJSON x = readFail "Thread" x
 

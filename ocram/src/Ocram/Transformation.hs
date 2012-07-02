@@ -7,7 +7,7 @@ module Ocram.Transformation
 -- imports {{{1
 import Data.Generics (everything, everywhere, mkT, mkQ, extT)
 import Language.C.Syntax.AST
-import Ocram.Analysis (CallGraph, blocking_functions, is_critical)
+import Ocram.Analysis (CallGraph, blocking_functions)
 import Ocram.Debug (enrich_node_info, ENodeInfo(..), un)
 import Ocram.Ruab (VarMap)
 import Ocram.Symbols (symbol)
