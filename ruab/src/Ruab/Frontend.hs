@@ -25,12 +25,17 @@ import qualified Data.ByteString.Char8 as BS
 frontend_run :: Options -> IO () -- {{{1
 frontend_run opt = do
   _ <- mfix (\gui -> do
-      core <- core_load opt (callback gui)
+      core <- core_start opt (callback gui)
       gui' <- loadGui core
       setupGui core gui'
       return gui'
     )
   mainGUI
+
+frontendStop :: GUI -> IO ()  -- {{{2
+frontendStop gui = do
+  core_stop (guiCore gui)
+  mainQuit
 
 -- types {{{1
 data Component = Component {
@@ -100,7 +105,7 @@ setupGui core gui = do
 
   -- events {{{3
   _ <- onKeyPress (guiInput gui) (handleInput core gui)
-  _ <- onDestroy (guiWin gui) mainQuit
+  _ <- onDestroy (guiWin gui) (frontendStop gui)
 
   -- main window {{{3
   widgetGrabFocus (guiInput gui)
@@ -242,7 +247,7 @@ handleCommand core gui ["thread", tid@(parseInt -> Just _)] =
     Just thread -> log gui True (printThread thread)
 
 -- quit {{{3
-handleCommand _ _ ["quit"] = mainQuit
+handleCommand _ gui ["quit"] = frontendStop gui
 
 -- catch all {{{3
 handleCommand _ gui (cmd:_) = displayHelp gui False cmd
@@ -259,5 +264,5 @@ printThread :: Thread -> [String] -- {{{4
 printThread (Thread tid ts tc) = [show tid ++ ": " ++ ts ++ ": " ++ (concat $ intersperse ", " tc)]
 
 callback :: GUI -> Callback -- {{{2
-callback = undefined
-
+callback gui (Left x) = postGUIAsync $ log gui True [show x]
+callback gui (Right x) = postGUIAsync $ log gui True [show x]

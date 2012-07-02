@@ -2,7 +2,7 @@ module Ruab.Backend.GDB.IO
 -- exports {{{1
 (
     GDB, Callback
-  , start, quit, send_command
+  , start, stop, send_command
 ) where
 
 -- [The GDB/MI Interface](http://sourceware.org/gdb/current/onlinedocs/gdb/GDB_002fMI.html#GDB_002fMI)
@@ -15,12 +15,13 @@ module Ruab.Backend.GDB.IO
 -- imports {{{1
 import Control.Concurrent (forkIO, killThread, ThreadId, MVar, newEmptyMVar, newMVar, tryTakeMVar, putMVar, takeMVar)
 import Control.Exception (finally)
+import Control.Monad (when)
 import Control.Monad.Fix (mfix)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (isJust)
 import Prelude hiding (catch, interact)
 import Ruab.Backend.GDB.Commands (add_token, gdb_exit)
-import Ruab.Backend.GDB.Representation (Output, Token, get_token, Command, render_command, parse_output)
+import Ruab.Backend.GDB.Representation (Output(Output), Token, get_token, Command, render_command, parse_output)
 import Ruab.Backend.GDB.Output (response, notification, stream, Response, Notification, Stream)
 import System.IO (Handle, hSetBuffering, BufferMode(LineBuffering), hPutStr, hWaitForInput, hGetLine, stdout)
 import System.Posix.IO (fdToHandle, createPipe)
@@ -51,20 +52,21 @@ start workdir callback = do
                  Nothing
   mapM_ (`hSetBuffering` LineBuffering) [commandW, outputR]
   counterRef <- newIORef 0
-  tokenVar <- newEmptyMVar
+  tokenVar <- newMVar (-1)
   responseVar <- newEmptyMVar
   finished <- newMVar ()
   gdb <- mfix (\gdb -> do
       tid <- forkIO (handleOutput gdb)
       return $ GDB phandle commandW outputR counterRef tokenVar responseVar callback finished tid
     )
+  _ <- takeMVar (gdbResponse gdb)
   return gdb
   where
   asHandles (f1, f2) = do
     h1 <- fdToHandle f1; h2 <- fdToHandle f2; return (h1, h2)
 
-quit :: GDB -> IO () -- {{{1
-quit gdb = do
+stop :: GDB -> IO () -- {{{1
+stop gdb = do
   killThread (gdbThread gdb)
   _ <- takeMVar (gdbFinished gdb)
   writeCommand gdb gdb_exit 0
@@ -81,13 +83,16 @@ send_command gdb command = do
 -- implementation {{{1
 handleOutput :: GDB -> IO () -- {{{2
 handleOutput gdb = do
-  output <- readOutput gdb
+  output@(Output _ rr) <- readOutput gdb
   mapM_ (gdbCallback gdb . Left)  (notification output)
   mapM_ (gdbCallback gdb . Right) (stream output)
   token <- tryTakeMVar (gdbToken gdb)
-  if isJust token && token == get_token output
-    then putMVar (gdbResponse gdb) (response output)
-    else return ()
+  case token of
+    Nothing -> when (isJust rr) (putStrLn "warning: result record lost!")
+    (Just (-1)) -> putMVar (gdbResponse gdb) (response output)
+    _ -> do
+      when (token /= get_token output) (putStrLn "warning: token missmatch!")
+      putMVar (gdbResponse gdb) (response output)
   handleOutput gdb
   `finally` putMVar (gdbFinished gdb) ()
 

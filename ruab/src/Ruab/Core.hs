@@ -2,7 +2,7 @@ module Ruab.Core
 -- exports {{{1
 (
 -- context
-   core_load, Core, Callback
+    core_start, core_stop, Core, Callback
   , coreTcode, corePcode, coreEcode
   , coreTfile, coreEfile
 -- threads
@@ -24,7 +24,7 @@ import Data.List (intercalate, find)
 import Data.Maybe (catMaybes)
 import Ocram.Ruab
 import Prelude hiding (catch)
-import Ruab.Backend (Backend, Callback, backend_start)
+import Ruab.Backend (Backend, Callback, backend_start, backend_stop)
 import Ruab.Options (Options(optDebugFile, optBinary))
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
@@ -37,8 +37,8 @@ data Core = Core { -- {{{1
   , crBackend   :: Backend
   }
 
-core_load :: Options -> Callback -> IO Core -- {{{1
-core_load opt callback = do
+core_start :: Options -> Callback -> IO Core -- {{{1
+core_start opt callback = do
   backend <- backend_start (optBinary opt) callback
   hDi <- openFile (optDebugFile opt) ReadMode
   contents <- BS.hGetContents hDi
@@ -56,6 +56,9 @@ core_load opt callback = do
       | md5sum contents == fileChecksum file = Nothing
       | otherwise = Just $ failed $ fileName file
     failed file = "checksum for '" ++ file ++ "' differs"
+
+core_stop :: Core -> IO ()
+core_stop core = backend_stop (crBackend core)
 
 coreTcode, corePcode, coreEcode :: Core -> BS.ByteString -- {{{1
 coreTcode = crTcode
