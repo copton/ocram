@@ -51,6 +51,9 @@ data NotifcationType
 data Event
   = Stopped
   | ThreadGroupAdded
+  | ThreadGroupStarted
+  | ThreadCreated
+  | ERunning
   deriving Show
 
 data Stream -- {{{2
@@ -102,6 +105,9 @@ output_notification (R.Output oobs _) = map (notification' . unp) $ filter isNot
 
     event R.ACStop = Stopped
     event R.ACThreadGroupAdded = ThreadGroupAdded
+    event R.ACThreadGroupStarted = ThreadGroupStarted
+    event R.ACThreadCreated = ThreadCreated
+    event R.ACRunning = ERunning
 
 output_stream :: R.Output -> [Stream]
 output_stream (R.Output oobs _) = map (stream' . unp) $ filter isStream oobs

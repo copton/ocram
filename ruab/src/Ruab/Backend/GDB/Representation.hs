@@ -95,8 +95,12 @@ data ResultClass -- {{{3
   deriving Show
  
 data AsyncClass -- {{{3
+-- much more stuff than the documentation specifies
   = ACStop
   | ACThreadGroupAdded
+  | ACThreadGroupStarted
+  | ACThreadCreated
+  | ACRunning
   deriving Show
 
 data Result -- {{{3
@@ -145,7 +149,14 @@ type CString = String -- {{{3
 
 -- parsing {{{2
 p_output :: Parser Output -- {{{3
-p_output = Output <$> many p_outOfBandRecord <*> optionMaybe p_resultRecord <* string "(gdb) " <* newline <* eof
+-- http://sourceware.org/bugzilla/show_bug.cgi?id=7708
+-- p_output = Output <$> many p_outOfBandRecord <*> optionMaybe p_resultRecord <* string "(gdb) " <* newline <* eof
+p_output = do
+  oob <- many p_outOfBandRecord
+  rr <- optionMaybe p_resultRecord
+  oob' <- many p_outOfBandRecord
+  string "(gdb) " >> newline >> eof
+  return $ Output (oob ++ oob') rr
 
 p_resultRecord :: Parser ResultRecord -- {{{3
 p_resultRecord =
@@ -188,8 +199,11 @@ p_resultClass =
 
 p_asyncClass :: Parser AsyncClass -- {{{3
 p_asyncClass =
-      (string "stopped" >> return ACStop)
-  <|> (string "thread-group-added" >> return ACThreadGroupAdded)
+      try (string "stopped" >> return ACStop)
+  <|> try (string "thread-group-added" >> return ACThreadGroupAdded)
+  <|> try (string "thread-group-started" >> return ACThreadGroupStarted)
+  <|> try (string "thread-created" >> return ACThreadCreated)
+  <|>     (string "running" >> return ACRunning)
 
 p_result :: Parser Result -- {{{3
 p_result =

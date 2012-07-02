@@ -122,12 +122,25 @@ test_parse_output = enumTestGroup "parse_output" $ map runTest [
           ]
       ]
     )
-  , -- command result gdb-version
+  , -- command result gdb-version {{{3
   ([paste|
 ~"GNU gdb (GDB) 7.2-ubuntu\n"
 0^done
 (gdb) 
 |], Output [OOBStreamRecord $ SRConsoleStreamOutput $ ConsoleStreamOutput "GNU gdb (GDB) 7.2-ubuntu\n"] (Just $ ResultRecord (Just 0) RCDone [])
+  )
+  , -- command result exec-run {{{3
+  ([paste|
+=thread-group-started,id="i1",pid="18510"
+=thread-created,id="1",group-id="i1"
+2^running
+*running,thread-id="all"
+(gdb) 
+|], Output [
+        OOBAsyncRecord $ ARNotifyAsyncOutput $ NotifyAsyncOutput Nothing $ AsyncOutput ACThreadGroupStarted [Result "id" (VConst "i1"), Result "pid" (VConst "18510")]
+      , OOBAsyncRecord $ ARNotifyAsyncOutput $ NotifyAsyncOutput Nothing $ AsyncOutput ACThreadCreated [Result "id" (VConst "1"), Result "group-id" (VConst "i1")]
+      , OOBAsyncRecord $ ARExecAsyncOutput $ ExecAsyncOutput Nothing $ AsyncOutput ACRunning [Result "thread-id" (VConst "all")]
+    ] $ Just $ ResultRecord (Just 2) RCRunning []
   )
   ]
   where
