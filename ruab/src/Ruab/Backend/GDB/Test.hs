@@ -142,6 +142,53 @@ test_parse_output = enumTestGroup "parse_output" $ map runTest [
       , OOBAsyncRecord $ ARExecAsyncOutput $ ExecAsyncOutput Nothing $ AsyncOutput ACRunning [Result "thread-id" (VConst "all")]
     ] $ Just $ ResultRecord (Just 2) RCRunning []
   )
+  , -- breakpoint hit {{{3
+  ([paste|
+=library-loaded,id="/lib64/ld-linux-x86-64.so.2",target-name="/lib64/ld-linux-x86-64.so.2",host-name="/lib64/ld-linux-x86-64.so.2",symbols-loaded="0",thread-group="i1"
+=library-loaded,id="/lib/libc.so.6",target-name="/lib/libc.so.6",host-name="/lib/libc.so.6",symbols-loaded="0",thread-group="i1"
+*stopped,reason="breakpoint-hit",disp="keep",bkptno="1",frame={addr="0x0000000000400ba9",func="ec_thread_0",args=[{name="ec_cont",value="0x0"}],file="ec.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c",line="303"},thread-id="1",stopped-threads="all",core="0"
+(gdb) 
+|], Output
+      [
+        OOBAsyncRecord $ ARNotifyAsyncOutput $ NotifyAsyncOutput Nothing $ AsyncOutput ACLibraryLoaded 
+          [
+            Result "id" (VConst "/lib64/ld-linux-x86-64.so.2")
+          , Result "target-name" (VConst "/lib64/ld-linux-x86-64.so.2")
+          , Result "host-name" (VConst "/lib64/ld-linux-x86-64.so.2")
+          , Result "symbols-loaded" (VConst "0")
+          , Result "thread-group" (VConst "i1")
+          ]
+      , OOBAsyncRecord $ ARNotifyAsyncOutput $ NotifyAsyncOutput Nothing $ AsyncOutput ACLibraryLoaded 
+          [
+            Result "id" (VConst "/lib/libc.so.6")
+          , Result "target-name" (VConst "/lib/libc.so.6")
+          , Result "host-name" (VConst "/lib/libc.so.6")
+          , Result "symbols-loaded" (VConst "0")
+          , Result "thread-group" (VConst "i1")
+          ]
+      , OOBAsyncRecord $ ARExecAsyncOutput $ ExecAsyncOutput Nothing $ AsyncOutput ACStop
+          [
+            Result "reason" (VConst "breakpoint-hit")
+          , Result "disp" (VConst "keep")
+          , Result "bkptno" (VConst "1")
+          , Result "frame" (VTuple $ Tuple
+            [
+              Result "addr" (VConst "0x0000000000400ba9")
+            , Result "func" (VConst "ec_thread_0")
+            , Result "args" (VList $ ValueList [VTuple $ Tuple
+              [
+                Result "name" (VConst "ec_cont")
+              , Result "value" (VConst "0x0")
+              ]])
+            , Result "file" (VConst "ec.c")
+            , Result "fullname" (VConst "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c")
+            , Result "line" (VConst "303")
+            ])
+          , Result "thread-id" (VConst "1")
+          , Result "stopped-threads" (VConst "all")
+          , Result "core" (VConst "0")
+          ]
+      ] Nothing)
   ]
   where
     runTest :: (String, Output) -> Assertion -- {{{3

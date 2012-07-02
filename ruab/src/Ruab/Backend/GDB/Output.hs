@@ -54,6 +54,7 @@ data Event
   | ThreadGroupStarted
   | ThreadCreated
   | ERunning
+  | LibraryLoaded
   deriving Show
 
 data Stream -- {{{2
@@ -108,6 +109,7 @@ output_notification (R.Output oobs _) = map (notification' . unp) $ filter isNot
     event R.ACThreadGroupStarted = ThreadGroupStarted
     event R.ACThreadCreated = ThreadCreated
     event R.ACRunning = ERunning
+    event R.ACLibraryLoaded = LibraryLoaded
 
 output_stream :: R.Output -> [Stream]
 output_stream (R.Output oobs _) = map (stream' . unp) $ filter isStream oobs
