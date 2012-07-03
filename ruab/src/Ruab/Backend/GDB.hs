@@ -4,7 +4,9 @@ module Ruab.Backend.GDB
     Backend, Callback
   , backend_start, backend_stop
   , set_breakpoint, Location, file_line_location, file_function_location, Breakpoint
-  , backend_run
+  , backend_run, continue_execution
+  , Notification(..), NotifcationType(..), Stream(..), StreamType(..), Event(..)
+  , asConst
 ) where
 
 -- imports {{{1
@@ -37,6 +39,13 @@ backend_run gdb = do
   resp <- send_command gdb (exec_run (Left True))
   if not (is_running resp)
     then error $ "unexpected response for exec-run: '" ++ show resp ++ "'"
+    else return ()
+
+continue_execution :: Backend -> IO ()
+continue_execution gdb = do
+  resp <- send_command gdb (exec_continue False (Left True))
+  if not (is_running resp)
+    then error $ "unexpected response for exec-continue: '" ++ show resp ++ "'"
     else return ()
 
 -- utils {{{1

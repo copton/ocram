@@ -5,8 +5,8 @@ module Ruab.Backend.GDB.Output
     Response (..) , ResponseType
   , Dictionary
   , Value(..)
-  , Notification(..), NotifcationType , Event(..)
-  , Stream(..), StreamType
+  , Notification(..), NotifcationType(..), Event(..)
+  , Stream(..), StreamType(..)
   , is_error, is_running, dictionary
   , output_response, output_stream, output_notification
 ) where

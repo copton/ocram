@@ -132,14 +132,14 @@ writeCommand :: GDB -> Command -> Token -> IO () -- {{{2
 writeCommand gdb cmd token = 
   let cmdstr = (render_command . add_token token) cmd in
   do
-    hPutStr stdout cmdstr
+    hPutStr stdout ("// " ++ cmdstr)
     hPutStr (gdbCommandPipe gdb) cmdstr
 
 readOutput :: GDB -> IO Output -- {{{2
 readOutput gdb = do
   _ <- hWaitForInput (gdbOutputPipe gdb) (-1)
   str <- outputString (gdbOutputPipe gdb)
-  hPutStr stdout str
+  hPutStr stdout ("// " ++ str)
   return (parse_output str)
   where
     outputString handle = outputLines handle >>= return . unlines

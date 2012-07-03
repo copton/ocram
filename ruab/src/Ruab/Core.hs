@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ruab.Core
 -- exports {{{1
 (
@@ -5,6 +6,8 @@ module Ruab.Core
     core_start, core_stop, core_run, Core, Callback
   , coreTcode, corePcode, coreEcode
   , coreTfile, coreEfile
+-- updates
+  , StatusUpdate, Status(..)
 -- threads
   , Thread(Thread)
   , all_threads
@@ -19,34 +22,46 @@ module Ruab.Core
 ) where
 
 -- imports {{{1
+import Control.Monad (when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (intercalate, find)
 import Data.Maybe (catMaybes)
 import Ocram.Ruab
 import Prelude hiding (catch)
-import Ruab.Backend (Backend, Callback, backend_start, backend_stop, set_breakpoint, file_function_location, Breakpoint, backend_run)
+import Ruab.Backend (Backend, Callback, backend_start, backend_stop, set_breakpoint, file_function_location, Breakpoint, backend_run, Notification(..), NotifcationType(..), Event(..), continue_execution, asConst)
 import Ruab.Options (Options(optDebugFile, optBinary))
+import Ruab.Util (fromJust_s)
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
+import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as BS
 
 data Core = Core { -- {{{1
-    crDebugInfo   :: DebugInfo
-  , crTcode       :: BS.ByteString
-  , crEcode       :: BS.ByteString
-  , crBackend     :: Backend
-  , crBreakpoints :: [Breakpoint]
-  , crCallback    :: Callback
+    crDebugInfo    :: DebugInfo
+  , crTcode        :: BS.ByteString
+  , crEcode        :: BS.ByteString
+  , crBackend      :: Backend
+  , crBreakpoints  :: [Breakpoint]
+  , crStatusUpdate :: StatusUpdate
+  , crLastThread   :: IORef Int
   }
 
-core_start :: Options -> Callback -> IO Core -- {{{1
-core_start opt callback = do
+type StatusUpdate = Status -> IO () -- {{{1
+
+data Status 
+  = Running Int
+  | Break Int
+
+core_start :: Options -> StatusUpdate -> IO Core -- {{{1
+core_start opt su = do
   di <- loadDebugInfo
   (tcode, ecode) <- loadFiles di
+  lastThread <- newIORef (-1)
   mfix (\core -> do
-      (backend, breakpoints) <- setupBackend di (optBinary opt) callback
-      return $ Core di tcode ecode backend breakpoints callback
+      (backend, breakpoints) <- setupBackend di (optBinary opt) (coreCallback core)
+      return $ Core di tcode ecode backend breakpoints su lastThread
     )
   where
     loadFiles di = do
@@ -80,14 +95,27 @@ core_start opt callback = do
         Left e -> fail e
         Right bs -> return (backend, bs)
 
-coreCallback :: Core -> Callback
-coreCallback core = crCallback core
-
-core_run :: Core -> IO ()
+core_run :: Core -> IO () -- {{{1
 core_run core = backend_run (crBackend core)
 
 core_stop :: Core -> IO () -- {{{1
 core_stop core = backend_stop (crBackend core)
+
+-- callback {{{1
+coreCallback :: Core -> Callback
+coreCallback core (Left (Notification Exec Stopped dict)) =
+  let bkptno = (read $ $fromJust_s $ asConst =<< Map.lookup "bkptno" dict) :: Int in
+  if bkptno >=1 && bkptno <= length (crBreakpoints core)
+    then do
+      lastThread <- readIORef (crLastThread core)
+      when (bkptno /= lastThread) $ do
+        writeIORef (crLastThread core) bkptno
+        (crStatusUpdate core) (Running bkptno)
+      continue_execution (crBackend core)
+    else do
+      (crStatusUpdate core) (Break (bkptno - length (crBreakpoints core)))
+
+coreCallback _ x = putStrLn $ "## " ++ show x
 
 -- queries {{{1
 coreTcode, corePcode, coreEcode :: Core -> BS.ByteString -- {{{2
