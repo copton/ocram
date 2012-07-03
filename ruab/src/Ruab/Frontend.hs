@@ -6,8 +6,8 @@ module Ruab.Frontend
 ) where
 
 -- imports {{{1
-import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
 import Control.Monad.Fix (mfix)
+import Control.Monad (when)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (intersperse, find)
 import Data.Maybe (fromJust)
@@ -54,7 +54,6 @@ data GUI = GUI { -- {{{2
   , guiPcomp   :: Component
   , guiEcomp   :: Component
   , guiLog     :: TextView
-  , guiSyncLog :: MVar ()
   , guiView    :: TextView
   , guiInput   :: Entry
   , guiStatus  :: Statusbar
@@ -70,10 +69,9 @@ loadGui core = do
   window <- xmlGetWidget xml castToWindow "window"
   [ct, cp, ce] <- mapM (loadComponent xml) ["t", "p", "e"]
   [log', view] <- mapM (xmlGetWidget xml castToTextView) ["log", "view"]
-  syncLog <- newEmptyMVar
   input <- xmlGetWidget xml castToEntry "input"
   status <- xmlGetWidget xml castToStatusbar "status"
-  return $ GUI window ct cp ce log' syncLog view input status core
+  return $ GUI window ct cp ce log' view input status core
   where
     loadComponent xml comp = do
       [code, info, lines] <- mapM (xmlGetWidget xml castToTextView) $ map (comp++) ["code", "info", "lines"]
@@ -144,13 +142,11 @@ setupGui core gui = do
 
 appendToLog :: GUI -> [String] -> IO ()  -- {{{2
 appendToLog gui lines = do
-  putMVar (guiSyncLog gui) ()
   buffer <- textViewGetBuffer (guiLog gui)
   end <- textBufferGetEndIter buffer
   textBufferInsert buffer end $ (concat $ intersperse "\n" lines) ++ "\n"
   mark <- textBufferGetMark buffer "append"
   textViewScrollToMark (guiLog gui) ($fromJust_s mark) 0 Nothing 
-  _ <- takeMVar (guiSyncLog gui)
   return ()
 
 scrollToRow :: Component -> Int -> IO () -- {{{2
@@ -188,9 +184,10 @@ modifyReadIORef ref f = do
 handleInput :: GUI -> Event -> IO Bool -- {{{2
 handleInput gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
   command <- entryGetText (guiInput gui)
-  entrySetText (guiInput gui) ""
-  appendToLog gui ["$ " ++ command]
-  handleCommand gui (words command)
+  when (command /= "") $ do
+    entrySetText (guiInput gui) ""
+    appendToLog gui ["$ " ++ command]
+    handleCommand gui (words command)
   return True
 
 handleInput _ _ = return False
@@ -281,6 +278,6 @@ parseInt txt =
 printThread :: Thread -> [String] -- {{{4
 printThread (Thread tid ts _ tc) = [show tid ++ ": " ++ ts ++ ": " ++ (concat $ intersperse ", " tc)]
 
-statusUpdate :: GUI -> StatusUpdate
+statusUpdate :: GUI -> StatusUpdate -- {{{2
 statusUpdate gui (Running tid) = postGUIAsync $ log gui Status ["running thread " ++ show tid]
 statusUpdate gui (Break bid) = postGUIAsync $ log gui Status ["stopped at breakpoint " ++ show bid ]
