@@ -1,0 +1,25 @@
+extra white space at "(gdb) "
+
+gdb-exit should answer with "(gdb)"
+
+27.4.1
+not all options start with a dash
+
+27.4.2
+console-stream-output, target-stream-output, log-stream-output should end with nl
+
+27.10
+result of break-insert de facto has a 'original-location' value, missing in docu
+
+27.17
+why is 'mode' a parameter and not an option?
+
+27.20
+-file-exec-and-symbols, -file-exec, -file-symbol-file: file parameter is optional according to text
+
+page 422: redundant "GDB Command" and "Example" paragraphs
+
+27.23
+Synopsis of -gdb-set is missing options
+
+

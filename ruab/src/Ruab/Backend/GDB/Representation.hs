@@ -192,11 +192,11 @@ p_asyncOutput =
 
 p_resultClass :: Parser ResultClass -- {{{3
 p_resultClass =
-      (string "done"      >> return RCDone)
-  <|> (string "running"   >> return RCRunning)
-  <|> (string "connected" >> return RCConnected)
-  <|> (string "error"     >> return RCError)
-  <|> (string "exit"      >> return RCExit)
+      try (string "done"      >> return RCDone)
+  <|> try (string "running"   >> return RCRunning)
+  <|> try (string "connected" >> return RCConnected)
+  <|> try (string "error"     >> return RCError)
+  <|>     (string "exit"      >> return RCExit)
 
 p_asyncClass :: Parser AsyncClass -- {{{3
 p_asyncClass =
