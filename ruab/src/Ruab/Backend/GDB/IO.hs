@@ -14,10 +14,10 @@ module Ruab.Backend.GDB.IO
 
 -- imports {{{1
 import Control.Concurrent (forkIO, killThread, ThreadId, MVar, newEmptyMVar, newMVar, tryTakeMVar, putMVar, takeMVar)
+import Control.Concurrent.STM (TVar, TChan, TMVar, newEmptyTMVar, newTVarIO, newTChanIO, newEmptyTMVarIO, atomically, takeTMVar, readTVar, writeTVar, writeTChan, readTChan, putTMVar)
 import Control.Exception (finally)
-import Control.Monad (when)
+import Control.Monad (when, replicateM_)
 import Control.Monad.Fix (mfix)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.Maybe (isJust)
 import Prelude hiding (catch, interact)
 import Ruab.Backend.GDB.Commands (add_token, gdb_exit)
@@ -28,16 +28,27 @@ import System.Posix.IO (fdToHandle, createPipe)
 import System.Process (ProcessHandle, runProcess, waitForProcess)
 
 data GDB = GDB { -- {{{1
-    gdbHandle   :: ProcessHandle
-  , gdbCommand  :: Handle
-  , gdbOutput   :: Handle
-  , gdbCounter  :: IORef Token
-  , gdbToken    :: MVar Token
-  , gdbResponse :: MVar Response
-  , gdbCallback :: Callback
-  , gdbFinished :: MVar ()
-  , gdbThread   :: ThreadId
+-- gdb process {{{2
+    gdbProcess        :: ProcessHandle
+  , gdbCommandPipe    :: Handle
+  , gdbOutputPipe     :: Handle
+-- callback
+  , gdbCallback       :: Callback
+-- threads {{{2
+  , gdbCommandThread  :: ThreadId
+  , gdbOutputThread   :: ThreadId
+  , gdbCurrentJob     :: MVar Job
+  , gdbFinished       :: MVar ()
+-- jobs
+  , gdbNextToken      :: TVar Token
+  , gdbJobs           :: TChan Job
 }
+
+data Job = Job {
+    jobCommand  :: Maybe Command
+  , jobResponse :: TMVar Response
+  , jobToken    :: Token
+  }
 
 type Callback = Either Notification Stream -> IO () -- {{{1
 
@@ -51,68 +62,83 @@ start workdir callback = do
                  (Just outputW)
                  Nothing
   mapM_ (`hSetBuffering` LineBuffering) [commandW, outputR]
-  counterRef <- newIORef 0
-  tokenVar <- newMVar (-1)
-  responseVar <- newEmptyMVar
-  finished <- newMVar ()
+  response <- newEmptyTMVarIO
+  currentJob <- newMVar (Job Nothing response (-1))
+  finished <- newEmptyMVar
+  nextToken <- newTVarIO 0
+  jobs <- newTChanIO
   gdb <- mfix (\gdb -> do
-      tid <- forkIO (handleOutput gdb)
-      return $ GDB phandle commandW outputR counterRef tokenVar responseVar callback finished tid
+      itid <- forkIO (handleCommands gdb)
+      otid <- forkIO (handleOutput gdb)
+      return $ GDB phandle commandW outputR callback itid otid currentJob finished nextToken jobs
     )
-  _ <- takeMVar (gdbResponse gdb)
+  _ <- atomically $ takeTMVar response
   return gdb
   where
   asHandles (f1, f2) = do
-    h1 <- fdToHandle f1; h2 <- fdToHandle f2; return (h1, h2)
+    h1 <- fdToHandle f1
+    h2 <- fdToHandle f2
+    return (h1, h2)
 
 stop :: GDB -> IO () -- {{{1
 stop gdb = do
-  killThread (gdbThread gdb)
-  _ <- takeMVar (gdbFinished gdb)
+  mapM_ (killThread . ($gdb)) [gdbCommandThread, gdbOutputThread]
+  replicateM_ 2 (takeMVar (gdbFinished gdb))
   writeCommand gdb gdb_exit 0
-  _ <- waitForProcess (gdbHandle gdb)
+  _ <- waitForProcess (gdbProcess gdb)
   return ()
 
 send_command :: GDB -> Command -> IO Response -- {{{1
-send_command gdb command = do
-  token <- nextToken gdb
-  putMVar (gdbToken gdb) token
-  writeCommand gdb command token
-  takeMVar (gdbResponse gdb)
+send_command gdb command = sendCommand >>= receiveResponse
+  where
+    sendCommand = atomically $ do
+      token <- readTVar (gdbNextToken gdb)
+      writeTVar (gdbNextToken gdb) (token + 1)
+      response <- newEmptyTMVar
+      let job = Job (Just command) response token
+      writeTChan (gdbJobs gdb) job
+      return response
+    
+    receiveResponse = atomically . takeTMVar
 
 -- implementation {{{1
+handleCommands :: GDB -> IO () -- {{{2
+handleCommands gdb = do
+  job <- atomically $ readTChan (gdbJobs gdb)
+  putMVar (gdbCurrentJob gdb) job
+  case jobCommand job of
+    Nothing -> return ()
+    Just job' -> writeCommand gdb job' (jobToken job)
+  handleCommands gdb
+  `finally` putMVar (gdbFinished gdb) ()
+
 handleOutput :: GDB -> IO () -- {{{2
 handleOutput gdb = do
   output@(Output _ rr) <- readOutput gdb
-  mapM_ (gdbCallback gdb . Left)  (output_notification output)
-  mapM_ (gdbCallback gdb . Right) (output_stream output)
-  token <- tryTakeMVar (gdbToken gdb)
-  case token of
-    Nothing -> when (isJust rr) (putStrLn "warning: result record lost!")
-    (Just (-1)) -> putMVar (gdbResponse gdb) (output_response output)
-    _ -> do
-      when (token /= get_token output) (putStrLn "warning: token missmatch!")
-      putMVar (gdbResponse gdb) (output_response output)
+  let response = output_response output
+  _ <- forkIO $ do
+    mapM_ (gdbCallback gdb . Left)  (output_notification output)
+    mapM_ (gdbCallback gdb . Right) (output_stream output)
+  maybJob <- tryTakeMVar (gdbCurrentJob gdb)
+  case maybJob of
+    Nothing -> when (isJust rr) (error "result record lost!")
+    Just job -> atomically $ do
+      when (jobToken job /= (-1) && get_token output /= Just (jobToken job)) (error "token missmatch!")
+      putTMVar (jobResponse job) response
   handleOutput gdb
   `finally` putMVar (gdbFinished gdb) ()
-
-nextToken :: GDB -> IO Token -- {{{2
-nextToken gdb = do
-  token <- readIORef  (gdbCounter gdb)
-  writeIORef (gdbCounter gdb) (token + 1)
-  return token
 
 writeCommand :: GDB -> Command -> Token -> IO () -- {{{2
 writeCommand gdb cmd token = 
   let cmdstr = (render_command . add_token token) cmd in
   do
     hPutStr stdout cmdstr
-    hPutStr (gdbCommand gdb) cmdstr
+    hPutStr (gdbCommandPipe gdb) cmdstr
 
 readOutput :: GDB -> IO Output -- {{{2
 readOutput gdb = do
-  _ <- hWaitForInput (gdbOutput gdb) (-1)
-  str <- outputString (gdbOutput gdb)
+  _ <- hWaitForInput (gdbOutputPipe gdb) (-1)
+  str <- outputString (gdbOutputPipe gdb)
   hPutStr stdout str
   return (parse_output str)
   where
