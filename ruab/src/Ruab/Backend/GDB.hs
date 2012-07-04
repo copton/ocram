@@ -10,21 +10,24 @@ module Ruab.Backend.GDB
 ) where
 
 -- imports {{{1
+import Control.Monad (when)
 import Prelude hiding (interact)
 import Ruab.Backend.GDB.Commands
 import Ruab.Backend.GDB.IO (GDB, Callback, start, stop, send_command)
 import Ruab.Backend.GDB.Output
 import Ruab.Backend.GDB.Responses
+import Ruab.Backend.GDB.Representation (Command(CLICommand))
 
 type Backend = GDB -- {{{1
 
 backend_start :: FilePath -> Callback -> IO Backend -- {{{1
 backend_start binary callback = do
   gdb <- start Nothing callback
-  res <- send_command gdb (file_exec_and_symbols (Just binary))
-  if is_error res
-    then fail (show res)
-    else return gdb
+  res <- send_command gdb (CLICommand Nothing "tty /dev/null") -- http://sourceware.org/bugzilla/show_bug.cgi?id=8759
+  when (is_error res) (fail (show res))
+  res'<- send_command gdb (file_exec_and_symbols (Just binary))
+  when (is_error res') (fail (show res'))
+  return gdb
 
 backend_stop:: Backend -> IO () -- {{{1
 backend_stop= stop

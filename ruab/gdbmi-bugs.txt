@@ -1,3 +1,5 @@
+program output is not prefixed with @ (bug 8759)
+
 extra white space at "(gdb) "
 
 gdb-exit should answer with "(gdb)"
@@ -7,6 +9,9 @@ not all options start with a dash
 
 27.4.2
 console-stream-output, target-stream-output, log-stream-output should end with nl
+
+27.4.2
+out-of-band records may follow result record (bug 7708)
 
 27.10
 result of break-insert de facto has a 'original-location' value, missing in docu

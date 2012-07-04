@@ -104,7 +104,7 @@ core_stop core = backend_stop (crBackend core)
 -- callback {{{1
 coreCallback :: Core -> Callback
 coreCallback core (Left (Notification Exec Stopped dict)) =
-  let bkptno = (read $ $fromJust_s $ asConst =<< Map.lookup "bkptno" dict) :: Int in
+  let bkptno = read $ $fromJust_s $ asConst =<< Map.lookup "bkptno" dict in
   if bkptno >=1 && bkptno <= length (crBreakpoints core)
     then do
       lastThread <- readIORef (crLastThread core)
