@@ -28,12 +28,13 @@ void pal_run()
 
 typedef struct {
     void* frame;
-    const int tid;
+    int tid;
 } Context;
 
 #define NEW_CONTEXT \
     Context* ctx = malloc(sizeof(Context)); \
-    ctx->frame = frame;
+    ctx->frame = frame; \
+    ctx->tid = ctid;
 
 #define RETURN_FROM_SYSCALL \
     ctid = ctx->tid; \
