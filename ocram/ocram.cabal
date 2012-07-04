@@ -39,8 +39,7 @@ Executable ocram
     json == 0.5.*,
     HUnit == 1.2.*,
     test-framework == 0.6.*,
-    test-framework-hunit == 0.2.*,
-    ocramruab == 0.1.*
+    test-framework-hunit == 0.2.*
   Other-modules:
     Main,
     Ocram.Analysis,
