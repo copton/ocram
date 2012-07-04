@@ -4,6 +4,7 @@ bin
 *~
 *.swp
 *.swo
+*.swn
 .quickfix
 dist/
 cabal-dev/
