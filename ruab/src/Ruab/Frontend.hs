@@ -197,7 +197,7 @@ log gui l lines =
 displayHelp :: GUI -> Log -> String -> IO () -- {{{2
 displayHelp gui _ ""       = log gui Output (("available commands: " ++ (concat $ intersperse ", " commands)) : ["type 'help command' to see more information for a command"])
 displayHelp gui l "osapi"  = log gui l ["osapi: list all blocking functions"]
-displayHelp gui l "tmap"   = log gui l ["pmap row: map a T-code row number to the corresponding row number of the pre-processed T-code"]
+displayHelp gui l "tmap"   = log gui l ["tmap row: map a T-code row number to the corresponding row number of the pre-processed T-code"]
 displayHelp gui l "pmap"   = log gui l ["pmap row: map a row number from the pre-processed T-code to the corresponding row number of the original T-code"]
 displayHelp gui l "thread" = log gui l ["thread [id]: list information of either all threads or the thread with the given id"]
 displayHelp gui l "quit"   = log gui l ["quit: quit the debugger"]
