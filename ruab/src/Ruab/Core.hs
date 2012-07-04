@@ -128,7 +128,12 @@ coreTfile = fileName . diTcode . crDebugInfo
 coreEfile = fileName . diEcode . crDebugInfo
 
 possible_breakpoints :: Core -> [Int] -- {{{2
-possible_breakpoints core = map (tlocRow . fst) $ diLocMap . crDebugInfo $ core
+possible_breakpoints core =
+  let
+    lm = (diLocMap . crDebugInfo) core
+    ppm = (diPpm . crDebugInfo) core
+  in
+    map ($fromJust_s . t2p_row' ppm . tlocRow . fst) lm
 
 os_api :: Core -> [String] -- {{{2
 os_api = diOsApi . crDebugInfo

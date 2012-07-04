@@ -8,16 +8,16 @@ module Ruab.Frontend
 -- imports {{{1
 import Control.Monad.Fix (mfix)
 import Control.Monad (when)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef, modifyIORef)
 import Data.List (intersperse, find)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, catMaybes)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Gdk.Events (Event(Key))
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
 import Ruab.Core (Status(..), core_start, core_run, core_stop, Core, coreTfile, coreEfile, coreTcode, corePcode, coreEcode, possible_breakpoints, os_api, all_threads, Thread(..), StatusUpdate, t2p_row, p2t_row, p2e_location, e2p_location)
-import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint)
+import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight)
 import Ruab.Options (Options)
 import Ruab.Util (abort, fromJust_s)
 
@@ -134,19 +134,19 @@ setupGui core gui = do
       textViewSetBuffer tv buffer
 
     setuptBreakpoints = do
-      infos <- modifyReadIORef ((compInfos . guiPcomp) gui) modify
-      setText ((compInfo . guiPcomp) gui) (render_info infos)
+      modifyIORef ((compInfos . guiPcomp) gui) modify
+      syncView gui
       where
         modify infos = foldl (setBreakpoint 0) infos (possible_breakpoints core)
 
 
-appendToLog :: GUI -> [String] -> IO ()  -- {{{2
-appendToLog gui lines = do
-  buffer <- textViewGetBuffer (guiLog gui)
+append :: TextView -> [String] -> IO ()  -- {{{2
+append tv lines = do
+  buffer <- textViewGetBuffer tv
   end <- textBufferGetEndIter buffer
   textBufferInsert buffer end $ (concat $ intersperse "\n" lines) ++ "\n"
   mark <- textBufferGetMark buffer "append"
-  textViewScrollToMark (guiLog gui) ($fromJust_s mark) 0 Nothing 
+  textViewScrollToMark tv ($fromJust_s mark) 0 Nothing 
   return ()
 
 scrollToRow :: Component -> Int -> IO () -- {{{2
@@ -167,26 +167,13 @@ setText tv txt = do
   buffer <- textViewGetBuffer tv
   textBufferSetText buffer txt
 
-highlight :: Component -> Int -> IO () -- {{{2
-highlight comp row = do
-  scrollToRow comp row
-  infos <- modifyReadIORef (compInfos comp) (flip setHighlight row)
-  setText (compInfo comp) $ render_info infos
-
-modifyReadIORef :: IORef a -> (a -> a) -> IO a -- {{{2
-modifyReadIORef ref f = do
-  obj <- readIORef ref
-  let obj' = f obj
-  writeIORef ref obj'
-  return obj'
-
 -- user interaction {{{1
 handleInput :: GUI -> Event -> IO Bool -- {{{2
 handleInput gui (Key _ _ _ [] _ _ _ _ "Return" _) = do
   command <- entryGetText (guiInput gui)
   when (command /= "") $ do
     entrySetText (guiInput gui) ""
-    appendToLog gui ["$ " ++ command]
+    append (guiLog gui) ["$ " ++ command]
     handleCommand gui (words command)
   return True
 
@@ -205,7 +192,7 @@ instance Show Log where
 log :: GUI -> Log -> [String] -> IO () -- {{{2
 log gui l lines =
   let prefix = show l ++ " " in
-  appendToLog gui (map (prefix++) lines)
+  append (guiLog gui) (map (prefix++) lines)
 
 displayHelp :: GUI -> Log -> String -> IO () -- {{{2
 displayHelp gui _ ""       = log gui Output (("available commands: " ++ (concat $ intersperse ", " commands)) : ["type 'help command' to see more information for a command"])
@@ -218,7 +205,7 @@ displayHelp gui l "start"  = log gui l ["start: start debugging the binary"]
 displayHelp gui _ unknown  = log gui Error ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
 
 commands :: [String]
-commands = ["tmap", "osapi", "pmap", "threads", "quit", "start"]
+commands = ["tmap", "pmap", "osapi", "threads", "quit", "start"]
 
 handleCommand :: GUI -> [String] -> IO () -- {{{2
 -- help {{{3
@@ -231,23 +218,23 @@ handleCommand gui ["osapi"] = log gui Output ["OS API: " ++ (concat $ interspers
 
 -- pmap {{{3
 handleCommand gui ["pmap", row@(parseInt -> Just _)] =
-  let row' = (fromJust . parseInt) row in
-  case p2t_row (guiCore gui) row' of
+  let prow = (fromJust . parseInt) row in
+  case p2t_row (guiCore gui) prow of
     Nothing -> log gui Error ["invalid row number"]
-    Just row'' -> do
-      log gui Output [show row'']
-      highlight (guiTcomp gui) row'
-      highlight (guiPcomp gui) row''
+    Just trow -> do
+      log gui Output [show trow]
+      modifyIORef ((compInfos . guiPcomp) gui) (flip setHighlight prow)
+      syncView gui
 
 -- tmap {{{3
-handleCommand gui ["pmap", row@(parseInt -> Just _)] =
-  let row' = (fromJust . parseInt) row in
-  case t2p_row (guiCore gui) row' of
+handleCommand gui ["tmap", row@(parseInt -> Just _)] =
+  let trow = (fromJust . parseInt) row in
+  case t2p_row (guiCore gui) trow of
     Nothing -> log gui Error ["invalid row number"]
-    Just row'' -> do
-      log gui Output [show row'']
-      highlight (guiTcomp gui) row'
-      highlight (guiPcomp gui) row''
+    Just prow -> do
+      log gui Output [show prow]
+      modifyIORef ((compInfos . guiPcomp) gui) (flip setHighlight prow)
+      syncView gui
 
 -- thread {{{3
 handleCommand gui ["thread"] =
@@ -282,3 +269,28 @@ printThread (Thread tid ts _ tc) = [show tid ++ ": " ++ ts ++ ": " ++ (concat $ 
 statusUpdate :: GUI -> StatusUpdate -- {{{2
 statusUpdate gui (Running tid) = postGUIAsync $ log gui Status ["running thread " ++ show tid]
 statusUpdate gui (Break bid) = postGUIAsync $ log gui Status ["stopped at breakpoint " ++ show bid ]
+
+syncView :: GUI -> IO () -- {{{2
+syncView gui = 
+  let
+    tcomp = (guiTcomp gui)
+    pcomp = (guiPcomp gui)
+  in do
+    pinfos <- readIORef (compInfos pcomp)
+    let tinfos = catMaybes $ map syncInfo pinfos
+    writeIORef (compInfos tcomp) tinfos
+    updateCompView tcomp
+    updateCompView pcomp
+  where
+    syncInfo (row, x) = case p2t_row (guiCore gui) row of
+      Nothing -> Nothing
+      Just row' -> Just (row', x)
+
+updateCompView :: Component -> IO () -- {{{2
+updateCompView comp = do
+  infos <- readIORef (compInfos comp)
+  setText (compInfo comp) (render_info infos)
+  case find (infoIsHighlight . snd) infos of
+    Nothing -> return ()
+    Just (row, _) -> scrollToRow comp row
+
