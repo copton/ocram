@@ -16,7 +16,7 @@ import Graphics.UI.Gtk.Gdk.Events (Event(Key))
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
-import Ruab.Core (Status(..), core_start, core_run, core_stop, Core, coreTfile, coreEfile, coreTcode, corePcode, coreEcode, possible_breakpoints, preprocessed_row, ecode_row, os_api, all_threads, Thread(..), StatusUpdate)
+import Ruab.Core (Status(..), core_start, core_run, core_stop, Core, coreTfile, coreEfile, coreTcode, corePcode, coreEcode, possible_breakpoints, os_api, all_threads, Thread(..), StatusUpdate, t2p_row, p2t_row, p2e_location, e2p_location)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint)
 import Ruab.Options (Options)
 import Ruab.Util (abort, fromJust_s)
@@ -209,31 +209,22 @@ log gui l lines =
 
 displayHelp :: GUI -> Log -> String -> IO () -- {{{2
 displayHelp gui _ ""       = log gui Output (("available commands: " ++ (concat $ intersperse ", " commands)) : ["type 'help command' to see more information for a command"])
-displayHelp gui l "emap"   = log gui l ["emap row: map a pre-processed T-code row number to the corresponding row number of the E-code"] 
 displayHelp gui l "osapi"  = log gui l ["osapi: list all blocking functions"]
-displayHelp gui l "pmap"   = log gui l ["pmap row: map a T-code row number to the corresponding row number of the pre-processed T-code"]
+displayHelp gui l "tmap"   = log gui l ["pmap row: map a T-code row number to the corresponding row number of the pre-processed T-code"]
+displayHelp gui l "pmap"   = log gui l ["pmap row: map a row number from the pre-processed T-code to the corresponding row number of the original T-code"]
 displayHelp gui l "thread" = log gui l ["thread [id]: list information of either all threads or the thread with the given id"]
 displayHelp gui l "quit"   = log gui l ["quit: quit the debugger"]
 displayHelp gui l "start"  = log gui l ["start: start debugging the binary"]
 displayHelp gui _ unknown  = log gui Error ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
 
 commands :: [String]
-commands = ["emap", "osapi", "pmap", "threads", "quit", "start"]
+commands = ["tmap", "osapi", "pmap", "threads", "quit", "start"]
 
 handleCommand :: GUI -> [String] -> IO () -- {{{2
 -- help {{{3
 handleCommand gui ["help"] = displayHelp gui Output ""
 handleCommand gui ("help":what:_) = displayHelp gui Output what
 
--- emap {{{3
-handleCommand gui ["emap", row@(parseInt -> Just _)] =
-  let row' = (fromJust . parseInt) row in
-  case ecode_row (guiCore gui) row' of
-    Nothing -> log gui Error ["no row mapping found"]
-    Just row'' -> do
-      log gui Output [show row'']
-      highlight (guiPcomp gui) row'
-      highlight (guiEcomp gui) row''
     
 -- osapi {{{3
 handleCommand gui ["osapi"] = log gui Output ["OS API: " ++ (concat $ intersperse ", " (os_api (guiCore gui)))]
@@ -241,7 +232,17 @@ handleCommand gui ["osapi"] = log gui Output ["OS API: " ++ (concat $ interspers
 -- pmap {{{3
 handleCommand gui ["pmap", row@(parseInt -> Just _)] =
   let row' = (fromJust . parseInt) row in
-  case preprocessed_row (guiCore gui) row' of
+  case p2t_row (guiCore gui) row' of
+    Nothing -> log gui Error ["invalid row number"]
+    Just row'' -> do
+      log gui Output [show row'']
+      highlight (guiTcomp gui) row'
+      highlight (guiPcomp gui) row''
+
+-- tmap {{{3
+handleCommand gui ["pmap", row@(parseInt -> Just _)] =
+  let row' = (fromJust . parseInt) row in
+  case t2p_row (guiCore gui) row' of
     Nothing -> log gui Error ["invalid row number"]
     Just row'' -> do
       log gui Output [show row'']

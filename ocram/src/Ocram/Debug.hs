@@ -7,7 +7,7 @@ import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Maybe (fromMaybe)
 import Data.Typeable (Typeable)
 import Language.C.Data.Node (lengthOfNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
-import Language.C.Data.Position (posRow, posColumn)
+import Language.C.Data.Position (posRow, posColumn, posFile)
 import Ocram.Analysis (CallGraph, start_functions, blocking_functions, call_order)
 import Ocram.Options (Options(optInput, optOutput))
 import Ocram.Debug.Internal
@@ -44,7 +44,7 @@ tlocation eni =
     ni = enTnodeInfo eni
     pos = posOfNode ni
   in
-    TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
+    TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
 
 create_debug_info :: Options -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> LocMap -> DebugInfo -- {{{1
 create_debug_info opt cg tcode pcode ecode vm lm =
@@ -52,13 +52,9 @@ create_debug_info opt cg tcode pcode ecode vm lm =
     tfile = File (optInput opt) (md5sum tcode)
     efile = File (optOutput opt) (md5sum ecode)
     ts = zipWith createThreadInfo [0..] (start_functions cg)
-    ppm = preproc_map pcode
+    ppm = preproc_map tcode pcode
     oa = blocking_functions cg
-    lm' = map (\(tl, el) -> (adjustTloc ppm tl, el)) lm
   in
-    DebugInfo tfile pcode efile ppm lm' vm ts oa
+    DebugInfo tfile pcode efile ppm lm vm ts oa
   where
     createThreadInfo tid sf = Thread tid sf (threadExecutionFunction tid) ($fromJust_s $ call_order cg sf)
-    adjustTloc ppm tl = tl {tlocRow = $fromJust_s (map_preprocessed_row ppm (tlocRow tl))}
-
-

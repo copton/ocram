@@ -21,14 +21,14 @@ import qualified Data.Set as Set
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
   let
-    ast' = (translate cg . normalize cg . enableLocationTracing cg . fmap enrich_node_info) ast
+    ast' = (translate cg . normalize cg . enableLocationTracing . fmap enrich_node_info) ast
     pal = extractPal cg ast'
     ds = extractVarMap ast'
   in
     (ast', pal, ds)
 
-enableLocationTracing :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
-enableLocationTracing cg = everywhere (mkT tExtDecl `extT` tStat `extT` tExpr)
+enableLocationTracing :: CTranslUnit' -> CTranslUnit' -- {{{1
+enableLocationTracing = everywhere (mkT tExtDecl `extT` tStat `extT` tExpr)
   where
     tExtDecl :: CExtDecl' -> CExtDecl' 
     tExtDecl (CFDefExt fd) = CFDefExt (amap enableTrace fd)

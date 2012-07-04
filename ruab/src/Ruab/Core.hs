@@ -16,9 +16,8 @@ module Ruab.Core
 -- OS
   , os_api
 -- preprocessor
-  , PreprocMap
-  , preprocessed_row
-  , ecode_row
+  , t2p_row, p2t_row
+  , p2e_location, e2p_location
 ) where
 
 -- imports {{{1
@@ -28,9 +27,10 @@ import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (intercalate, find)
 import Data.Maybe (catMaybes)
-import Ocram.Ruab
+import Ocram.Ruab (DebugInfo(..), File(..), Thread(..),TLocation(..), decode_debug_info)
 import Prelude hiding (catch)
 import Ruab.Backend (Backend, Callback, backend_start, backend_stop, set_breakpoint, file_function_location, Breakpoint, backend_run, Notification(..), NotifcationType(..), Event(..), continue_execution, asConst)
+import Ruab.Core.Internal
 import Ruab.Options (Options(optDebugFile, optBinary))
 import Ruab.Util (fromJust_s)
 import System.IO (openFile, IOMode(ReadMode), hClose)
@@ -136,8 +136,14 @@ os_api = diOsApi . crDebugInfo
 all_threads :: Core -> [Thread] -- {{{2
 all_threads = diThreads . crDebugInfo
 
-preprocessed_row :: Core -> Int -> Maybe Int -- {{{2
-preprocessed_row = map_preprocessed_row . diPpm . crDebugInfo
+t2p_row :: Core -> Int -> Maybe Int -- {{{2
+t2p_row core row = t2p_row' ((diPpm . crDebugInfo) core) row
 
-ecode_row :: Core -> Int -> Maybe Int -- {{{2
-ecode_row ctx row = fmap (elocRow . snd) $ find ((row==) . tlocRow . fst) $ (diLocMap . crDebugInfo) ctx
+p2t_row :: Core -> Int -> Maybe Int -- {{{2
+p2t_row core row = p2t_row' ((diPpm . crDebugInfo) core) row
+
+--t2e_breakpoint :: Core -> Int -> Maybe Int -- {{{2
+--t2e_breakpoint core row = fmap (elocRow . snd) $ find ((row==) . tlocRow . fst) $ (diLocMap . crDebugInfo) core
+
+p2e_location = undefined
+e2p_location = undefined

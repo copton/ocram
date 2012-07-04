@@ -7,14 +7,15 @@ import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString.Char8 as BS
 
-preproc_map :: BS.ByteString -> PreprocMap -- {{{1
-preproc_map ptcode
-  | BS.null ptcode = PreprocMap 0 []
-  | BS.last ptcode /= '\n' = $abort "pre-processed file should be terminated by a newline"
-  | otherwise = PreprocMap (rows - 1) (reverse ppm)
+preproc_map :: BS.ByteString -> BS.ByteString -> PreprocMap -- {{{1
+preproc_map tcode pcode
+  | BS.null pcode = PreprocMap 0 0 []
+  | BS.last pcode /= '\n' = $abort "pre-processed file should be terminated by a newline"
+  | otherwise = PreprocMap (trows) (prows - 1) (reverse ppm)
   where
-    (first:rest) = init $ BS.split '\n' ptcode
-    (ppm, rows) = foldl go ([], 2) rest
+    trows = length $ BS.split '\n' tcode
+    (first:rest) = init $ BS.split '\n' pcode
+    (ppm, prows) = foldl go ([], 2) rest
     mainFile = case match first of
       (_, (BS.null -> True), _, _) -> $abort $ "unexpected first row in pre-processed file"
       (_, _, _, (_:file:_)) -> file

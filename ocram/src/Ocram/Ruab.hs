@@ -13,9 +13,10 @@ decode_debug_info string = (resultToEither . decodeStrict . BS.unpack) string
 
 -- types {{{1
 data TLocation = TLocation { -- {{{2
-    tlocRow :: Int
-  , tlocCol :: Int
-  , tlocLen :: Int
+    tlocRow  :: Int
+  , tlocCol  :: Int
+  , tlocLen  :: Int
+  , tlocFile :: String
   } deriving Show
 
 data ELocation = ELocation { -- {{{2
@@ -33,7 +34,8 @@ type Variable = String -- {{{2
 type VarMap = [(Variable, Variable)] -- {{{2
 
 data PreprocMap = PreprocMap { -- {{{2
-    ppmMaxRow :: Int
+    ppmMaxTRow :: Int
+  , ppmMaxPRow :: Int
   , ppmMapping :: [(Int, Int)]
   }
 
@@ -60,25 +62,14 @@ data DebugInfo = DebugInfo { -- {{{2
   , diOsApi   :: [String]
   }
 
-map_preprocessed_row :: PreprocMap -> Int -> Maybe Int -- {{{1
-map_preprocessed_row (PreprocMap rows locs) row
-  | row <= 0 = Nothing
-  | otherwise =
-    let
-      (src, dst) = (last . takeWhile ((<=row) . fst)) locs
-      res = dst + (row - src) + 1
-    in
-      if res > rows
-        then Nothing
-        else Just res
 
 -- instances {{{1
 instance JSON TLocation where -- {{{2
   readJSON val = do
-    [r,c,l] <- readJSON val
-    return $ TLocation r c l
+    ([r,c,l], f) <- readJSON val
+    return $ TLocation r c l f
 
-  showJSON (TLocation r c l) = showJSON [r, c, l]
+  showJSON (TLocation r c l f) = showJSON ([r, c, l], f)
 
 instance JSON ELocation where -- {{{2
   readJSON val = do
@@ -92,16 +83,16 @@ instance JSON ELocation where -- {{{2
   showJSON (ELocation r c (Just t)) = showJSON [r, c, t]
 
 instance JSON PreprocMap where  -- {{{2
-  showJSON (PreprocMap mr ma) = (JSObject . toJSObject) [
-        ("maxrow",  showJSON mr)
+  showJSON (PreprocMap mtr mpr ma) = (JSObject . toJSObject) [
+        ("maxrow",  showJSON (mtr, mpr))
       , ("mapping", showJSON ma)
     ]
 
   readJSON (JSObject obj) = do
     let [mr, ma] = map snd $ fromJSObject obj
-    mr' <- readJSON mr
+    (mtr, mpr) <- readJSON mr
     ma' <- readJSON ma
-    return $ PreprocMap mr' ma' 
+    return $ PreprocMap mtr mpr ma' 
 
   readJSON x = readFail "PreprocMap" x
 

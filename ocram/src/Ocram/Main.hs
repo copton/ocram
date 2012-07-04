@@ -14,7 +14,6 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
 
-
 main :: IO () -- {{{1
 main = do
   argv <- getArgs 
