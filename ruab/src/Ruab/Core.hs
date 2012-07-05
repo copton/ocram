@@ -3,70 +3,97 @@ module Ruab.Core
 -- exports {{{1
 (
 -- context
-    core_start, core_stop, core_run, Core, Callback
-  , coreTcode, corePcode, coreEcode
-  , coreTfile, coreEfile
+    start, stop, run, Context
+  , t_code, p_code, e_code
+  , t_file, e_file
 -- updates
-  , StatusUpdate, Status(..)
+  , StatusUpdate, ThreadStatus(..)
 -- threads
-  , Thread(Thread)
-  , all_threads
+  , Thread(..)
 -- breakpoints
   , possible_breakpoints
 -- OS
   , os_api
--- preprocessor
-  , t2p_row, p2t_row
-  , p2e_location, e2p_location
+-- row mapping
+  , t2p_row, p2t_row, p2e_row, e2p_row
 ) where
 
 -- imports {{{1
-import Control.Monad (when)
+import Control.Applicative ((<$>), (<*>))
+import Control.Concurrent.STM (TVar, newTVarIO, atomically, readTVar, writeTVar)
 import Control.Monad.Fix (mfix)
+import Control.Monad (forM)
 import Data.Digest.OpenSSL.MD5 (md5sum)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef)
 import Data.List (intercalate, find)
 import Data.Maybe (catMaybes)
-import Ocram.Ruab (DebugInfo(..), File(..), Thread(..),TLocation(..), decode_debug_info)
 import Prelude hiding (catch)
-import Ruab.Backend (Backend, Callback, backend_start, backend_stop, set_breakpoint, file_function_location, Breakpoint, backend_run, Notification(..), NotifcationType(..), Event(..), continue_execution, asConst)
 import Ruab.Core.Internal
 import Ruab.Options (Options(optDebugFile, optBinary))
 import Ruab.Util (fromJust_s)
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
-import qualified Data.Map as Map
+import qualified Ocram.Ruab as R
+import qualified Ruab.Backend as B
+import qualified Data.Map as M
+import qualified Data.IntMap as IM
 import qualified Data.ByteString.Char8 as BS
 
-data Core = Core { -- {{{1
-    crDebugInfo    :: DebugInfo
-  , crTcode        :: BS.ByteString
-  , crEcode        :: BS.ByteString
-  , crBackend      :: Backend
-  , crBreakpoints  :: [Breakpoint]
-  , crStatusUpdate :: StatusUpdate
-  , crLastThread   :: IORef Int
+import Debug.Trace (trace)
+
+-- types {{{1
+data Context = Context { -- {{{2
+    crDebugInfo     :: R.DebugInfo
+  , crTcode         :: BS.ByteString
+  , crEcode         :: BS.ByteString
+  , crBackend       :: B.Context
+  , crBreakpoints   :: TVar (IM.IntMap Breakpoint)
+  , crStatusUpdate  :: StatusUpdate
+  , crState         :: TVar State
   }
 
-type StatusUpdate = Status -> IO () -- {{{1
+data State = State { -- {{{2
+    stateThreads :: IM.IntMap Thread
+  }
 
-data Status 
-  = Running Int
-  | Break Int
+data Breakpoint = Breakpoint { -- {{{2
+    bkptNumber :: Int
+  , bkptAction :: IO ()
+  }
 
-core_start :: Options -> StatusUpdate -> IO Core -- {{{1
-core_start opt su = do
+data Thread = Thread { -- {{{2
+    thId     :: Int
+  , thStatus :: ThreadStatus
+  , thProw    :: Maybe Int
+  } deriving Show
+
+
+data ThreadStatus -- {{{2
+  = Waiting     -- not yet started
+  | Blocked     -- called a blocking function
+  | Running     -- currently executing
+  | Stopped Int -- stopped at user breakpoint
+  deriving Show
+
+type StatusUpdate = [Thread] -> IO () -- {{{2
+
+start :: Options -> StatusUpdate -> IO Context -- {{{1
+start opt su = do
   di <- loadDebugInfo
   (tcode, ecode) <- loadFiles di
-  lastThread <- newIORef (-1)
-  mfix (\core -> do
-      (backend, breakpoints) <- setupBackend di (optBinary opt) (coreCallback core)
-      return $ Core di tcode ecode backend breakpoints su lastThread
+  let threads = IM.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) Waiting Nothing)) $ R.diThreads di
+  state <- newTVarIO (State threads)
+  ctx <- mfix (\ctx' -> do
+      backend <- B.start (optBinary opt) (coreCallback ctx')
+      bm <- newTVarIO (IM.empty)
+      return $ Context di tcode ecode backend bm su state
     )
+  breakpoints <- (++) <$> threadExecutionBkpts ctx <*> blockingCallBkpts ctx
+  atomically $ writeTVar (crBreakpoints ctx) $ IM.fromList $ map (\b -> (bkptNumber b, b)) breakpoints
+  return ctx
   where
     loadFiles di = do
-      let files = [diTcode di, diEcode di]
-      code@[tcode, ecode] <- mapM (BS.readFile . fileName) files
+      let files = [R.diTcode di, R.diEcode di]
+      code@[tcode, ecode] <- mapM (BS.readFile . R.fileName) files
       case catMaybes (zipWith verify code files) of
         [] -> return (tcode, ecode)
         err -> fail (intercalate "\n" err)
@@ -75,80 +102,129 @@ core_start opt su = do
       hDi <- openFile (optDebugFile opt) ReadMode
       contents <- BS.hGetContents hDi
       hClose hDi
-      failOnError $ decode_debug_info contents
+      either fail return $ R.decode_debug_info contents
 
     failOnError :: Either String a -> IO a
-    failOnError (Left s) = fail s
+    failOnError (Left s) = error s
     failOnError (Right x) = return x
 
     verify contents file
-      | md5sum contents == fileChecksum file = Nothing
-      | otherwise = Just $ failed $ fileName file
+      | md5sum contents == R.fileChecksum file = Nothing
+      | otherwise = Just $ failed $ R.fileName file
     failed file = "checksum for '" ++ file ++ "' differs"
 
-    setupBackend di binary callback' = do
-      backend <- backend_start binary callback'
-      let efile = (fileName . diEcode) di
-      let functions = map threadExecution $ diThreads di
-      breakpoints <- mapM (set_breakpoint backend . file_function_location efile) functions
-      case sequence breakpoints of
-        Left e -> fail e
-        Right bs -> return (backend, bs)
+    threadExecutionBkpts ctx =
+      let
+        backend = crBackend ctx
+        threads = (R.diThreads . crDebugInfo) ctx
+        efile = (R.fileName . R.diEcode . crDebugInfo) ctx
+      in
+        forM threads (\thread ->
+            let
+              function = R.threadExecution thread
+              location = B.file_function_location efile function
+              action = bkptThreadExecution ctx (R.threadId thread)
+            in do
+              breakpoint <- either fail return =<< B.set_breakpoint backend location
+              return $ Breakpoint (B.bkptNumber breakpoint) action
+          )
 
-core_run :: Core -> IO () -- {{{1
-core_run core = backend_run (crBackend core)
+    blockingCallBkpts ctx =
+      let
+        backend = crBackend ctx
+        blockingCalls = filter R.locIsBlockingCall $ (R.diLocMap . crDebugInfo) ctx
+        efile = (R.fileName . R.diEcode . crDebugInfo) ctx
+      in
+        forM blockingCalls (\loc ->
+            let
+              location = B.file_line_location efile ((R.elocRow . R.locEloc) loc)
+              tid = ($fromJust_s . R.locThreadId) loc
+              row = (R.elocRow . R.locEloc) loc
+              action = bkptBlockingCall ctx tid row
+            in do
+              breakpoint <- either fail return =<< B.set_breakpoint backend location
+              return $ Breakpoint (B.bkptNumber breakpoint) action
+        )
 
-core_stop :: Core -> IO () -- {{{1
-core_stop core = backend_stop (crBackend core)
+run :: Context -> IO () -- {{{1
+run ctx = B.run (crBackend ctx)
+
+stop :: Context -> IO () -- {{{1
+stop ctx = B.stop (crBackend ctx)
 
 -- callback {{{1
-coreCallback :: Core -> Callback
-coreCallback core (Left (Notification Exec Stopped dict)) =
-  let bkptno = read $ $fromJust_s $ asConst =<< Map.lookup "bkptno" dict in
-  if bkptno >=1 && bkptno <= length (crBreakpoints core)
-    then do
-      lastThread <- readIORef (crLastThread core)
-      when (bkptno /= lastThread) $ do
-        writeIORef (crLastThread core) bkptno
-        (crStatusUpdate core) (Running bkptno)
-      continue_execution (crBackend core)
-    else do
-      (crStatusUpdate core) (Break (bkptno - length (crBreakpoints core)))
+coreCallback :: Context -> B.Callback -- {{{2
+coreCallback ctx x@(Left (B.Notification B.Exec B.Stopped dict)) =
+  case M.lookup "bkptno" dict of
+    Just value -> do
+      bm <- atomically $ readTVar (crBreakpoints ctx)
+      let bkptno = (read . $fromJust_s . B.asConst) value
+      let bkpt = $fromJust_s $ IM.lookup bkptno bm
+      bkptAction bkpt
+    Nothing -> putStrLn $ "## " ++ show x
 
 coreCallback _ x = putStrLn $ "## " ++ show x
 
+bkptThreadExecution :: Context -> Int -> IO () -- {{{2
+bkptThreadExecution ctx tid = do
+  threads <- modifyThread ctx tid (\t -> t {thStatus = Running, thProw = Nothing})
+  (crStatusUpdate ctx) threads
+  B.continue_execution (crBackend ctx)
+  
+bkptBlockingCall :: Context -> Int -> Int -> IO () -- {{{2
+bkptBlockingCall ctx tid row = do
+  threads <- modifyThread ctx tid (\t -> t {thStatus = Blocked, thProw = e2p_row ctx row})
+  (crStatusUpdate ctx) threads
+  B.continue_execution (crBackend ctx)
+
+bkptUserBreakpoint :: Context -> Int -> Int -> Int -> IO () -- {{{2
+bkptUserBreakpoint ctx bid tid row = do
+  threads <- modifyThread ctx tid (\t -> t {thStatus = Stopped bid, thProw = e2p_row ctx row})
+  (crStatusUpdate ctx) threads
+  B.continue_execution (crBackend ctx)
+  
+modifyThread :: Context -> Int -> (Thread -> Thread) -> IO [Thread] -- {{{2
+modifyThread ctx tid f = atomically $ do
+  state <- readTVar (crState ctx)
+  let threads = IM.update (Just . f) tid (stateThreads state)
+  writeTVar (crState ctx) (state {stateThreads = threads})
+  return $ IM.elems threads
+
 -- queries {{{1
-coreTcode, corePcode, coreEcode :: Core -> BS.ByteString -- {{{2
-coreTcode = crTcode
-corePcode = diPcode . crDebugInfo
-coreEcode = crEcode 
+t_code, p_code, e_code :: Context -> BS.ByteString -- {{{2
+t_code = crTcode
+p_code = R.diPcode . crDebugInfo
+e_code = crEcode 
 
-coreTfile, coreEfile :: Core -> String -- {{{2
-coreTfile = fileName . diTcode . crDebugInfo
-coreEfile = fileName . diEcode . crDebugInfo
+t_file, e_file :: Context -> String -- {{{2
+t_file = R.fileName . R.diTcode . crDebugInfo
+e_file = R.fileName . R.diEcode . crDebugInfo
 
-possible_breakpoints :: Core -> [Int] -- {{{2
-possible_breakpoints core =
+possible_breakpoints :: Context -> [Int] -- {{{2
+possible_breakpoints ctx =
   let
-    lm = (diLocMap . crDebugInfo) core
-    ppm = (diPpm . crDebugInfo) core
+    lm = (R.diLocMap . crDebugInfo) ctx
+    ppm = (R.diPpm . crDebugInfo) ctx
   in
-    map ($fromJust_s . t2p_row' ppm . tlocRow . fst) lm
+    map ($fromJust_s . t2p_row' ppm . R.tlocRow . R.locTloc) lm
 
-os_api :: Core -> [String] -- {{{2
-os_api = diOsApi . crDebugInfo
+os_api :: Context -> [String] -- {{{2
+os_api = R.diOsApi . crDebugInfo
 
-all_threads :: Core -> [Thread] -- {{{2
-all_threads = diThreads . crDebugInfo
+t2p_row, p2t_row, p2e_row, e2p_row :: Context -> Int -> Maybe Int -- {{{2
 
-t2p_row :: Core -> Int -> Maybe Int -- {{{2
-t2p_row core row = t2p_row' ((diPpm . crDebugInfo) core) row
+t2p_row ctx row = t2p_row' ((R.diPpm . crDebugInfo) ctx) row
 
-p2t_row :: Core -> Int -> Maybe Int -- {{{2
-p2t_row core row = p2t_row' ((diPpm . crDebugInfo) core) row
+p2t_row ctx row = p2t_row' ((R.diPpm . crDebugInfo) ctx) row
 
---t2e_breakpoint :: Core -> Int -> Maybe Int -- {{{2
---t2e_breakpoint core row = fmap (elocRow . snd) $ find ((row==) . tlocRow . fst) $ (diLocMap . crDebugInfo) core
+p2e_row ctx row =
+  fmap (R.elocRow . R.locEloc) $
+  find ((row==) . R.tlocRow . R.locTloc) $
+  filter (((R.fileName . R.diTcode . crDebugInfo) ctx ==) . (R.tlocFile . R.locTloc)) $
+  (R.diLocMap . crDebugInfo) ctx
 
-p2e_location = undefined
-e2p_location = undefined
+e2p_row ctx row =
+  fmap (R.tlocRow . R.locTloc) $
+  find ((row==) . R.elocRow . R.locEloc) $
+  filter (((R.fileName . R.diTcode . crDebugInfo) ctx ==) . (R.tlocFile . R.locTloc)) $
+  (R.diLocMap . crDebugInfo) ctx

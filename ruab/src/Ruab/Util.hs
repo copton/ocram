@@ -2,12 +2,11 @@
 module Ruab.Util
 -- export {{{1
 (
-    replace, save
+    replace
   , fromJust_s, head_s, tail_s, lookup_s, abort
 ) where
 
 -- import {{{1
-import Control.Exception (SomeException, catch)
 import Data.List (intersperse)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax ()
@@ -25,14 +24,6 @@ replace old new = join new . split old
       if null rest
         then [str']
         else str' : split c (tail rest)
-
-save :: IO a -> IO (Either String a) -- {{{1
-save io =
-  (io >>= return . Right)
-  `catch`
-  (\e -> (return . Left) (show (e :: SomeException))) 
-
-
 
 fromJust_s :: Q Exp -- {{{1
 fromJust_s = withLocatedError [| fromJust' |]

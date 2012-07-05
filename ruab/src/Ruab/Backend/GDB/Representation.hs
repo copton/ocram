@@ -333,9 +333,10 @@ parse_output str = case parse p_output "gdb" str of
   Left pe -> $abort $ "parse failed: " ++ show pe
   Right o -> o
 
-is_error :: Output -> Bool
-is_error (Output _ (Just (ResultRecord _ RCError _))) = True
-is_error _ = False
+-- XXX
+-- is_error :: Output -> Bool
+-- is_error (Output _ (Just (ResultRecord _ RCError _))) = True
+-- is_error _ = False
 
 parameter_valid :: Parameter -> Bool
 parameter_valid param

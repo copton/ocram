@@ -18,9 +18,10 @@ import Ocram.Util (fromJust_s)
 import qualified Data.ByteString.Char8 as BS
 
 data ENodeInfo = ENodeInfo { -- {{{1
-    enTnodeInfo :: NodeInfo
-  , enThreadId :: Maybe Int
+    enTnodeInfo     :: NodeInfo
+  , enThreadId      :: Maybe Int
   , enTraceLocation :: Bool
+  , enBlockingCall  :: Bool
   } deriving (Data, Typeable)
 
 instance CNode ENodeInfo where
@@ -33,7 +34,7 @@ un :: ENodeInfo -- {{{1
 un = enrich_node_info undefNode
 
 enrich_node_info :: NodeInfo -> ENodeInfo -- {{{1
-enrich_node_info ni = ENodeInfo ni Nothing False
+enrich_node_info ni = ENodeInfo ni Nothing False False
 
 setThread :: Int -> ENodeInfo -> ENodeInfo -- {{{1
 setThread tid eni = eni {enThreadId = Just tid}

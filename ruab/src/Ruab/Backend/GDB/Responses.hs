@@ -7,9 +7,9 @@ import qualified Data.Map as Map
 
 -- types {{{1
 data Breakpoint = Breakpoint { -- {{{2
-    bpktNumber           :: Int
-  , bpktType             :: BreakpointType
-  , bpktDisp             :: BreakpointDisp
+    bkptNumber           :: Int
+  , bkptType             :: BreakpointType
+  , bkptDisp             :: BreakpointDisp
   , bkptEnabled          :: Bool
   , bkptAddress          :: String
   , bkptFunc             :: String

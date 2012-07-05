@@ -46,7 +46,7 @@ import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
 import Text.PrettyPrint
 import Ocram.Debug (ENodeInfo(..), tlocation)
-import Ocram.Ruab (ELocation(ELocation), LocMap)
+import Ocram.Ruab (ELocation(ELocation), Location(Location), LocMap)
 import Ocram.Util (abort)
 
 import qualified Data.ByteString.Char8 as BS
@@ -59,7 +59,7 @@ marker eni doc
   | enTraceLocation eni = here logger doc
   | otherwise = doc
   where
-    logger (Position r c) = [(tlocation eni, ELocation r c (enThreadId eni))]
+    logger (Position r c) = [Location (tlocation eni) (ELocation r c ) (enBlockingCall eni) (enThreadId eni)]
     
 class PrettyLog a where
   pretty :: a -> DocL LocMap

@@ -2,41 +2,26 @@
 module Ruab.Frontend
 -- exports {{{1
 (
-  frontend_run
+  run
 ) where
 
 -- imports {{{1
 import Control.Monad.Fix (mfix)
-import Control.Monad (when)
+import Control.Monad (when, forM_, zipWithM_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef, modifyIORef)
 import Data.List (intersperse, find)
-import Data.Maybe (fromJust, catMaybes)
+import Data.Maybe (fromJust, catMaybes, isJust)
 import Graphics.UI.Gtk
 import Graphics.UI.Gtk.Gdk.Events (Event(Key))
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
-import Ruab.Core (Status(..), core_start, core_run, core_stop, Core, coreTfile, coreEfile, coreTcode, corePcode, coreEcode, possible_breakpoints, os_api, all_threads, Thread(..), StatusUpdate, t2p_row, p2t_row, p2e_location, e2p_location)
-import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight)
+import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread)
 import Ruab.Options (Options)
 import Ruab.Util (abort, fromJust_s)
 
+import qualified Ruab.Core as C
 import qualified Data.ByteString.Char8 as BS
-
-frontend_run :: Options -> IO () -- {{{1
-frontend_run opt = do
-  _ <- mfix (\gui -> do
-      core <- core_start opt (statusUpdate gui)
-      gui' <- loadGui core
-      setupGui core gui'
-      return gui'
-    )
-  mainGUI
-
-frontendStop :: GUI -> IO ()  -- {{{2
-frontendStop gui = do
-  core_stop (guiCore gui)
-  mainQuit
 
 -- types {{{1
 data Component = Component { -- {{{2
@@ -57,11 +42,22 @@ data GUI = GUI { -- {{{2
   , guiView    :: TextView
   , guiInput   :: Entry
   , guiStatus  :: Statusbar
-  , guiCore    :: Core
+  , guiCore    :: C.Context
   }
 
+run :: Options -> IO () -- {{{1
+run opt = do
+  gui <- mfix (\gui' -> C.start opt (statusUpdate gui') >>= loadGui)
+  setupGui gui
+  mainGUI
+
+frontendStop :: GUI -> IO ()  -- {{{2
+frontendStop gui = do
+  C.stop (guiCore gui)
+  mainQuit
+
 -- GUI {{{1
-loadGui :: Core -> IO GUI -- {{{2
+loadGui :: C.Context -> IO GUI -- {{{2
 loadGui core = do
   gladefn <- getDataFileName "ruab.glade"
   _ <- initGUI
@@ -80,20 +76,20 @@ loadGui core = do
       infos <- newIORef []
       return $ Component code info lines label view infos
 
-setupGui :: Core -> GUI -> IO () -- {{{2
-setupGui core gui = do
+setupGui :: GUI -> IO () -- {{{2
+setupGui gui = do
   -- text views {{{3
   setupComponent (guiTcomp gui)
-    (coreTcode core)
-    ("(T-code) " ++ coreTfile core)
+    ((C.t_code . guiCore) gui)
+    ("(T-code) " ++ (C.t_file . guiCore) gui)
 
   setupComponent (guiPcomp gui)
-    (corePcode core)
+    ((C.p_code . guiCore) gui)
     "(pre-processed)"
 
   setupComponent (guiEcomp gui)
-    (coreEcode core)
-    ("(E-code) " ++ (coreEfile core))
+    ((C.e_code . guiCore) gui)
+    ("(E-code) " ++ (C.e_file . guiCore) gui)
 
   setupText (guiLog gui) (BS.pack "")
   setupText (guiView gui) (BS.pack "")
@@ -137,7 +133,7 @@ setupGui core gui = do
       modifyIORef ((compInfos . guiPcomp) gui) modify
       syncView gui
       where
-        modify infos = foldl (setBreakpoint 0) infos (possible_breakpoints core)
+        modify infos = foldl (setBreakpoint 0) infos ((C.possible_breakpoints . guiCore) gui)
 
 
 append :: TextView -> [String] -> IO ()  -- {{{2
@@ -199,13 +195,12 @@ displayHelp gui _ ""       = log gui Output (("available commands: " ++ (concat 
 displayHelp gui l "osapi"  = log gui l ["osapi: list all blocking functions"]
 displayHelp gui l "tmap"   = log gui l ["tmap row: map a T-code row number to the corresponding row number of the pre-processed T-code"]
 displayHelp gui l "pmap"   = log gui l ["pmap row: map a row number from the pre-processed T-code to the corresponding row number of the original T-code"]
-displayHelp gui l "thread" = log gui l ["thread [id]: list information of either all threads or the thread with the given id"]
 displayHelp gui l "quit"   = log gui l ["quit: quit the debugger"]
 displayHelp gui l "start"  = log gui l ["start: start debugging the binary"]
 displayHelp gui _ unknown  = log gui Error ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
 
 commands :: [String]
-commands = ["tmap", "pmap", "osapi", "threads", "quit", "start"]
+commands = ["tmap", "pmap", "osapi", "quit", "start"]
 
 handleCommand :: GUI -> [String] -> IO () -- {{{2
 -- help {{{3
@@ -214,12 +209,12 @@ handleCommand gui ("help":what:_) = displayHelp gui Output what
 
     
 -- osapi {{{3
-handleCommand gui ["osapi"] = log gui Output ["OS API: " ++ (concat $ intersperse ", " (os_api (guiCore gui)))]
+handleCommand gui ["osapi"] = log gui Output ["OS API: " ++ (concat $ intersperse ", " (C.os_api (guiCore gui)))]
 
 -- pmap {{{3
 handleCommand gui ["pmap", row@(parseInt -> Just _)] =
   let prow = (fromJust . parseInt) row in
-  case p2t_row (guiCore gui) prow of
+  case C.p2t_row (guiCore gui) prow of
     Nothing -> log gui Error ["invalid row number"]
     Just trow -> do
       log gui Output [show trow]
@@ -229,28 +224,19 @@ handleCommand gui ["pmap", row@(parseInt -> Just _)] =
 -- tmap {{{3
 handleCommand gui ["tmap", row@(parseInt -> Just _)] =
   let trow = (fromJust . parseInt) row in
-  case t2p_row (guiCore gui) trow of
+  case C.t2p_row (guiCore gui) trow of
     Nothing -> log gui Error ["invalid row number"]
     Just prow -> do
       log gui Output [show prow]
       modifyIORef ((compInfos . guiPcomp) gui) (flip setHighlight prow)
       syncView gui
 
--- thread {{{3
-handleCommand gui ["thread"] =
-  log gui Output $ concatMap printThread (all_threads (guiCore gui))
-
-handleCommand gui ["thread", tid@(parseInt -> Just _)] =
-  let (Just tid') = parseInt tid in
-  case find (\(Thread tid'' _ _ _) -> tid'' == tid') (all_threads (guiCore gui)) of
-    Nothing -> log gui Error ["unknown thread id '" ++ tid ++ "'"]
-    Just thread -> log gui Output (printThread thread)
 
 -- quit {{{3
 handleCommand gui ["quit"] = frontendStop gui
 
 -- start {{{3
-handleCommand gui ["start"] = core_run (guiCore gui)
+handleCommand gui ["start"] = C.run (guiCore gui)
 
 -- catch all {{{3
 handleCommand gui (cmd:_) = displayHelp gui Error cmd
@@ -263,26 +249,38 @@ parseInt txt =
     then Nothing
     else Just $ (fst . head) readings
 
-printThread :: Thread -> [String] -- {{{4
-printThread (Thread tid ts _ tc) = [show tid ++ ": " ++ ts ++ ": " ++ (concat $ intersperse ", " tc)]
-
-statusUpdate :: GUI -> StatusUpdate -- {{{2
-statusUpdate gui (Running tid) = postGUIAsync $ log gui Status ["running thread " ++ show tid]
-statusUpdate gui (Break bid) = postGUIAsync $ log gui Status ["stopped at breakpoint " ++ show bid ]
+statusUpdate :: GUI -> C.StatusUpdate -- {{{2
+statusUpdate gui threads = postGUIAsync $ do
+  forM_ threads (\thread ->
+      let
+        prow = C.thProw thread
+        erow = prow >>= C.p2e_row (guiCore gui)
+        components = [guiPcomp gui, guiEcomp gui]
+        update = \infos row -> setThread ($fromJust_s row) infos (C.thId thread)
+      in do
+        when (isJust erow) $ do
+          infos <- mapM (readIORef . compInfos) components
+          let infos' = zipWith update infos [prow, erow]
+          zipWithM_ (\comp is -> writeIORef (compInfos comp) is) components infos'
+        log gui Status [show thread]
+    )
+  syncView gui 
 
 syncView :: GUI -> IO () -- {{{2
 syncView gui = 
   let
     tcomp = (guiTcomp gui)
     pcomp = (guiPcomp gui)
+    ecomp = (guiEcomp gui)
   in do
     pinfos <- readIORef (compInfos pcomp)
     let tinfos = catMaybes $ map syncInfo pinfos
     writeIORef (compInfos tcomp) tinfos
     updateCompView tcomp
     updateCompView pcomp
+    updateCompView ecomp
   where
-    syncInfo (row, x) = case p2t_row (guiCore gui) row of
+    syncInfo (row, x) = case C.p2t_row (guiCore gui) row of
       Nothing -> Nothing
       Just row' -> Just (row', x)
 

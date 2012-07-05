@@ -1,62 +1,61 @@
 module Ruab.Backend.GDB
 -- exports {{{1
 (
-    Backend, Callback
-  , backend_start, backend_stop
-  , set_breakpoint, Location, file_line_location, file_function_location, Breakpoint
-  , backend_run, continue_execution
-  , Notification(..), NotifcationType(..), Stream(..), StreamType(..), Event(..)
-  , asConst
+    G.Context, G.Callback
+  , start, stop, run
+  , G.Location, G.file_line_location, G.file_function_location, G.Breakpoint(..)
+  , set_breakpoint, continue_execution
+  , G.Notification(..), G.NotifcationType(..), G.Stream(..), G.StreamType(..), G.Event(..)
+  , G.asConst
 ) where
 
 -- imports {{{1
 import Control.Monad (when)
 import Prelude hiding (interact)
-import Ruab.Backend.GDB.Commands
-import Ruab.Backend.GDB.IO (GDB, Callback, start, stop, send_command)
-import Ruab.Backend.GDB.Output
-import Ruab.Backend.GDB.Responses
-import Ruab.Backend.GDB.Representation (Command(CLICommand))
 
-type Backend = GDB -- {{{1
+import qualified Ruab.Backend.GDB.Commands as G
+import qualified Ruab.Backend.GDB.IO as G
+import qualified Ruab.Backend.GDB.Output as G
+import qualified Ruab.Backend.GDB.Responses as G
+import qualified Ruab.Backend.GDB.Representation as G
 
-backend_start :: FilePath -> Callback -> IO Backend -- {{{1
-backend_start binary callback = do
-  gdb <- start Nothing callback
-  res <- send_command gdb (CLICommand Nothing "tty /dev/null") -- http://sourceware.org/bugzilla/show_bug.cgi?id=8759
-  when (is_error res) (fail (show res))
-  res'<- send_command gdb (file_exec_and_symbols (Just binary))
-  when (is_error res') (fail (show res'))
-  return gdb
+start :: FilePath -> G.Callback -> IO G.Context -- {{{1
+start binary callback = do
+  ctx <- G.start Nothing callback
+  res <- G.send_command ctx (G.CLICommand Nothing "tty /dev/null") -- http://sourceware.org/bugzilla/show_bug.cgi?id=8759
+  when (G.is_error res) (fail (show res))
+  res'<- G.send_command ctx (G.file_exec_and_symbols (Just binary))
+  when (G.is_error res') (fail (show res'))
+  return ctx
 
-backend_stop:: Backend -> IO () -- {{{1
-backend_stop= stop
+stop :: G.Context -> IO () -- {{{1
+stop = G.stop
 
-set_breakpoint :: Backend -> Location -> IO (Either String Breakpoint) -- {{{1
-set_breakpoint gdb loc = do
-  resp <- send_command gdb (break_insert False False False False False Nothing Nothing Nothing loc)
-  return $ convert "break-insert" response_break_insert resp
+set_breakpoint :: G.Context -> G.Location -> IO (Either String G.Breakpoint) -- {{{1
+set_breakpoint ctx loc = do
+  resp <- G.send_command ctx (G.break_insert False False False False False Nothing Nothing Nothing loc)
+  return $ convert "break-insert" G.response_break_insert resp
 
-backend_run :: Backend -> IO ()
-backend_run gdb = do
-  resp <- send_command gdb (exec_run (Left True))
-  if not (is_running resp)
+run :: G.Context -> IO ()
+run ctx = do
+  resp <- G.send_command ctx (G.exec_run (Left True))
+  if not (G.is_running resp)
     then error $ "unexpected response for exec-run: '" ++ show resp ++ "'"
     else return ()
 
-continue_execution :: Backend -> IO ()
-continue_execution gdb = do
-  resp <- send_command gdb (exec_continue False (Left True))
-  if not (is_running resp)
+continue_execution :: G.Context -> IO ()
+continue_execution ctx = do
+  resp <- G.send_command ctx (G.exec_continue False (Left True))
+  if not (G.is_running resp)
     then error $ "unexpected response for exec-continue: '" ++ show resp ++ "'"
     else return ()
 
 -- utils {{{1
-convert :: String -> (Dictionary -> Maybe a) -> Response -> Either String a -- {{{2
+convert :: String -> (G.Dictionary -> Maybe a) -> G.Response -> Either String a -- {{{2
 convert s f resp =
-  if is_error resp
+  if G.is_error resp
     then Left (show resp)
-    else case dictionary resp >>= f of
+    else case G.dictionary resp >>= f of
       Nothing -> error $ "invalid response for " ++ s ++ ": '" ++ show resp ++ "'"
       Just x -> Right x
 

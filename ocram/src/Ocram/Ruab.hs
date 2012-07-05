@@ -22,10 +22,14 @@ data TLocation = TLocation { -- {{{2
 data ELocation = ELocation { -- {{{2
     elocRow  :: Int
   , elocCol  :: Int
-  , elocTid :: Maybe Int
   } deriving Show
 
-type Location = (TLocation, ELocation) -- {{{2
+data Location = Location { -- {{{2
+    locTloc           :: TLocation
+  , locEloc           :: ELocation
+  , locIsBlockingCall :: Bool
+  , locThreadId       :: Maybe Int
+  } deriving (Show)
 
 type LocMap = [Location] -- {{{2
 
@@ -49,7 +53,7 @@ data Thread = Thread { -- {{{2
   , threadStart     :: String
   , threadExecution :: String
   , threadCritical  :: [String]
-  }
+  } deriving Show
   
 data DebugInfo = DebugInfo { -- {{{2
     diTcode   :: File
@@ -72,15 +76,16 @@ instance JSON TLocation where -- {{{2
   showJSON (TLocation r c l f) = showJSON ([r, c, l], f)
 
 instance JSON ELocation where -- {{{2
-  readJSON val = do
-    (r:c:t) <- readJSON val
-    case t of
-      [] -> return $ ELocation r c Nothing
-      [t'] -> return $ ELocation r c (Just t')
-      _ -> Error "wrong number of values on JSON array of ELocation type"
+  readJSON val = readJSON val >>= return . uncurry ELocation
 
-  showJSON (ELocation r c Nothing) = showJSON [r, c]
-  showJSON (ELocation r c (Just t)) = showJSON [r, c, t]
+  showJSON (ELocation r c) = showJSON (r, c)
+
+instance JSON Location where -- {{{2
+  readJSON val = do
+    (t, e, b, tid) <- readJSON val
+    return $ Location t e b (if tid == -1 then Nothing else Just tid)
+
+  showJSON (Location t e b tid) = showJSON (t, e, b, maybe (-1) id tid)
 
 instance JSON PreprocMap where  -- {{{2
   showJSON (PreprocMap mtr mpr ma) = (JSObject . toJSObject) [
