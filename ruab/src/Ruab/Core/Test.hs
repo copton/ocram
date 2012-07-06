@@ -69,4 +69,4 @@ test_pe_row_mapping = enumTestGroup "p/e row mapping" $ map runTest [
 
   ]
   where
-    runTest :: (TLocMap
+    runTest = undefined

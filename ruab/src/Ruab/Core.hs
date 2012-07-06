@@ -39,8 +39,6 @@ import qualified Ocram.Ruab as R
 import qualified Data.Set as S
 import qualified Ruab.Backend as B
 
-import Debug.Trace (trace)
-
 -- types {{{1
 data Context = Context { -- {{{2
     crDebugInfo     :: R.DebugInfo

@@ -7,7 +7,7 @@ module Ruab.Main
 import Ruab.Options (options)
 import Ruab.Test (runTests)
 import System.Environment (getArgs, getProgName)
-import System.Exit (exitWith, ExitCode(ExitFailure))
+import System.Exit (exitWith)
 import System.IO (stderr, hPutStrLn)
 
 import qualified Ruab.Frontend as F
