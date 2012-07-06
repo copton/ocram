@@ -24,7 +24,7 @@ import Control.Concurrent.STM (TVar, newTVarIO, atomically, readTVar, writeTVar)
 import Control.Monad.Fix (mfix)
 import Control.Monad (forM)
 import Data.Digest.OpenSSL.MD5 (md5sum)
-import Data.List (intercalate, find)
+import Data.List (intercalate)
 import Data.Maybe (catMaybes)
 import Prelude hiding (catch)
 import Ruab.Core.Internal
@@ -32,11 +32,12 @@ import Ruab.Options (Options(optDebugFile, optBinary))
 import Ruab.Util (fromJust_s)
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
-import qualified Ocram.Ruab as R
-import qualified Ruab.Backend as B
-import qualified Data.Map as M
-import qualified Data.IntMap as IM
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.IntMap as IM
+import qualified Data.Map as M
+import qualified Ocram.Ruab as R
+import qualified Data.Set as S
+import qualified Ruab.Backend as B
 
 import Debug.Trace (trace)
 
@@ -202,29 +203,17 @@ e_file = R.fileName . R.diEcode . crDebugInfo
 
 possible_breakpoints :: Context -> [Int] -- {{{2
 possible_breakpoints ctx =
-  let
-    lm = (R.diLocMap . crDebugInfo) ctx
-    ppm = (R.diPpm . crDebugInfo) ctx
-  in
-    map ($fromJust_s . t2p_row' ppm . R.tlocRow . R.locTloc) lm
+  S.toList $ S.fromList $ map ($fromJust_s . t2p_row ctx . R.tlocRow . R.locTloc) $ (R.diLocMap . crDebugInfo) ctx
 
 os_api :: Context -> [String] -- {{{2
 os_api = R.diOsApi . crDebugInfo
 
 t2p_row, p2t_row, p2e_row, e2p_row :: Context -> Int -> Maybe Int -- {{{2
 
-t2p_row ctx row = t2p_row' ((R.diPpm . crDebugInfo) ctx) row
+t2p_row ctx = t2p_row' $ (R.diPpm . crDebugInfo) ctx
 
-p2t_row ctx row = p2t_row' ((R.diPpm . crDebugInfo) ctx) row
+p2t_row ctx = p2t_row' $ (R.diPpm . crDebugInfo) ctx
 
-p2e_row ctx row =
-  fmap (R.elocRow . R.locEloc) $
-  find ((row==) . R.tlocRow . R.locTloc) $
-  filter (((R.fileName . R.diTcode . crDebugInfo) ctx ==) . (R.tlocFile . R.locTloc)) $
-  (R.diLocMap . crDebugInfo) ctx
+p2e_row ctx = p2e_row' ((R.diLocMap . crDebugInfo) ctx) ((R.fileName . R.diTcode . crDebugInfo) ctx)
 
-e2p_row ctx row =
-  fmap (R.tlocRow . R.locTloc) $
-  find ((row==) . R.elocRow . R.locEloc) $
-  filter (((R.fileName . R.diTcode . crDebugInfo) ctx ==) . (R.tlocFile . R.locTloc)) $
-  (R.diLocMap . crDebugInfo) ctx
+e2p_row ctx = e2p_row' ((R.diLocMap . crDebugInfo) ctx) ((R.fileName . R.diTcode . crDebugInfo) ctx)

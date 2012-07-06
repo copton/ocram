@@ -7,8 +7,8 @@ module Ruab.Frontend
 
 -- imports {{{1
 import Control.Monad.Fix (mfix)
-import Control.Monad (when, forM_, zipWithM_)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef, modifyIORef)
+import Control.Monad (when, forM_)
+import Data.IORef (IORef, newIORef, readIORef, modifyIORef)
 import Data.List (intersperse, find)
 import Data.Maybe (fromJust, catMaybes, isJust)
 import Graphics.UI.Gtk
@@ -30,7 +30,6 @@ data Component = Component { -- {{{2
   , compLines :: TextView
   , compLabel :: Label
   , compView  :: Viewport
-  , compInfos :: IORef [InfoInstance]
   }
 
 data GUI = GUI { -- {{{2
@@ -42,8 +41,16 @@ data GUI = GUI { -- {{{2
   , guiView    :: TextView
   , guiInput   :: Entry
   , guiStatus  :: Statusbar
+  , guiState   :: IORef State
   , guiCore    :: C.Context
   }
+
+data State = State { -- {{{2
+    stateInfos :: [InfoInstance] -- based on p-code
+  }
+
+modifyInfos :: ([InfoInstance] -> [InfoInstance]) -> State -> State
+modifyInfos f s = s {stateInfos = f (stateInfos s)}
 
 run :: Options -> IO () -- {{{1
 run opt = do
@@ -67,14 +74,14 @@ loadGui core = do
   [log', view] <- mapM (xmlGetWidget xml castToTextView) ["log", "view"]
   input <- xmlGetWidget xml castToEntry "input"
   status <- xmlGetWidget xml castToStatusbar "status"
-  return $ GUI window ct cp ce log' view input status core
+  state <- newIORef $ State []
+  return $ GUI window ct cp ce log' view input status state core
   where
     loadComponent xml comp = do
       [code, info, lines] <- mapM (xmlGetWidget xml castToTextView) $ map (comp++) ["code", "info", "lines"]
       label <- xmlGetWidget xml castToLabel (comp++"label")
       view <- xmlGetWidget xml castToViewport (comp++"view")
-      infos <- newIORef []
-      return $ Component code info lines label view infos
+      return $ Component code info lines label view
 
 setupGui :: GUI -> IO () -- {{{2
 setupGui gui = do
@@ -98,7 +105,7 @@ setupGui gui = do
   addAppendMarker (guiLog gui)
 
   -- infos {{{3
-  setuptBreakpoints
+  setupBreakpoints
 
   -- events {{{3
   _ <- onKeyPress (guiInput gui) (handleInput gui)
@@ -129,12 +136,11 @@ setupGui gui = do
       textBufferInsertByteStringAtCursor buffer txt
       textViewSetBuffer tv buffer
 
-    setuptBreakpoints = do
-      modifyIORef ((compInfos . guiPcomp) gui) modify
-      syncView gui
+    setupBreakpoints = do
+      modifyIORef (guiState gui) (modifyInfos (const infos))
+      syncComponents gui
       where
-        modify infos = foldl (setBreakpoint 0) infos ((C.possible_breakpoints . guiCore) gui)
-
+        infos = foldr (flip setBreakpoint 0) [] ((C.possible_breakpoints . guiCore) gui)
 
 append :: TextView -> [String] -> IO ()  -- {{{2
 append tv lines = do
@@ -193,14 +199,13 @@ log gui l lines =
 displayHelp :: GUI -> Log -> String -> IO () -- {{{2
 displayHelp gui _ ""       = log gui Output (("available commands: " ++ (concat $ intersperse ", " commands)) : ["type 'help command' to see more information for a command"])
 displayHelp gui l "osapi"  = log gui l ["osapi: list all blocking functions"]
-displayHelp gui l "tmap"   = log gui l ["tmap row: map a T-code row number to the corresponding row number of the pre-processed T-code"]
-displayHelp gui l "pmap"   = log gui l ["pmap row: map a row number from the pre-processed T-code to the corresponding row number of the original T-code"]
 displayHelp gui l "quit"   = log gui l ["quit: quit the debugger"]
+displayHelp gui l "scroll" = log gui l ["scroll (t|p|e) row: scroll the t-, e-, or p-code component to display the given row."]
 displayHelp gui l "start"  = log gui l ["start: start debugging the binary"]
 displayHelp gui _ unknown  = log gui Error ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
 
 commands :: [String]
-commands = ["tmap", "pmap", "osapi", "quit", "start"]
+commands = ["osapi", "quit", "scroll", "start"]
 
 handleCommand :: GUI -> [String] -> IO () -- {{{2
 -- help {{{3
@@ -211,29 +216,24 @@ handleCommand gui ("help":what:_) = displayHelp gui Output what
 -- osapi {{{3
 handleCommand gui ["osapi"] = log gui Output ["OS API: " ++ (concat $ intersperse ", " (C.os_api (guiCore gui)))]
 
--- pmap {{{3
-handleCommand gui ["pmap", row@(parseInt -> Just _)] =
-  let prow = (fromJust . parseInt) row in
-  case C.p2t_row (guiCore gui) prow of
-    Nothing -> log gui Error ["invalid row number"]
-    Just trow -> do
-      log gui Output [show trow]
-      modifyIORef ((compInfos . guiPcomp) gui) (flip setHighlight prow)
-      syncView gui
-
--- tmap {{{3
-handleCommand gui ["tmap", row@(parseInt -> Just _)] =
-  let trow = (fromJust . parseInt) row in
-  case C.t2p_row (guiCore gui) trow of
-    Nothing -> log gui Error ["invalid row number"]
-    Just prow -> do
-      log gui Output [show prow]
-      modifyIORef ((compInfos . guiPcomp) gui) (flip setHighlight prow)
-      syncView gui
-
-
 -- quit {{{3
 handleCommand gui ["quit"] = frontendStop gui
+
+-- scroll {{{3
+handleCommand gui ["scroll", comp@((`elem`["t","p","e"]) -> True), row@(parseInt -> Just _)] =
+  let
+    srow = (fromJust . parseInt) row
+    f = case comp of
+      "t" -> C.t2p_row (guiCore gui)
+      "p" -> Just
+      "e" -> C.e2p_row (guiCore gui)
+      x -> $abort $ "unexpected case: " ++ x
+  in 
+    case f srow of
+      Nothing -> log gui Error ["invalid row number"]
+      Just prow -> do
+        modifyIORef (guiState gui) (modifyInfos (setHighlight prow))
+        syncComponents gui
 
 -- start {{{3
 handleCommand gui ["start"] = C.run (guiCore gui)
@@ -251,44 +251,29 @@ parseInt txt =
 
 statusUpdate :: GUI -> C.StatusUpdate -- {{{2
 statusUpdate gui threads = postGUIAsync $ do
-  forM_ threads (\thread ->
-      let
-        prow = C.thProw thread
-        erow = prow >>= C.p2e_row (guiCore gui)
-        components = [guiPcomp gui, guiEcomp gui]
-        update = \infos row -> setThread ($fromJust_s row) infos (C.thId thread)
-      in do
-        when (isJust erow) $ do
-          infos <- mapM (readIORef . compInfos) components
-          let infos' = zipWith update infos [prow, erow]
-          zipWithM_ (\comp is -> writeIORef (compInfos comp) is) components infos'
-        log gui Status [show thread]
+  forM_ threads (\thread -> do
+      when (isJust (C.thProw thread)) $
+        modifyIORef (guiState gui) (modifyInfos (setThread (fromJust (C.thProw thread)) (C.thId thread)))
+      log gui Status [show thread]
     )
-  syncView gui 
+  syncComponents gui
 
-syncView :: GUI -> IO () -- {{{2
-syncView gui = 
-  let
-    tcomp = (guiTcomp gui)
-    pcomp = (guiPcomp gui)
-    ecomp = (guiEcomp gui)
-  in do
-    pinfos <- readIORef (compInfos pcomp)
-    let tinfos = catMaybes $ map syncInfo pinfos
-    writeIORef (compInfos tcomp) tinfos
-    updateCompView tcomp
-    updateCompView pcomp
-    updateCompView ecomp
+syncComponents :: GUI -> IO () -- {{{2
+syncComponents gui = do
+  state <- readIORef (guiState gui)
+  let pinfos = stateInfos state
+  update (guiTcomp gui) $ sync C.p2t_row pinfos
+  update (guiPcomp gui) $ pinfos
+  update (guiEcomp gui) $ sync C.p2e_row pinfos
   where
-    syncInfo (row, x) = case C.p2t_row (guiCore gui) row of
-      Nothing -> Nothing
-      Just row' -> Just (row', x)
+    sync :: (C.Context -> Int -> Maybe Int) -> [InfoInstance] -> [InfoInstance]
+    sync f infos = catMaybes $ map (\(row, x) ->
+        case f (guiCore gui) row of
+          Nothing -> Nothing
+          Just row' -> Just (row', x)
+      ) infos
 
-updateCompView :: Component -> IO () -- {{{2
-updateCompView comp = do
-  infos <- readIORef (compInfos comp)
-  setText (compInfo comp) (render_info infos)
-  case find (infoIsHighlight . snd) infos of
-    Nothing -> return ()
-    Just (row, _) -> scrollToRow comp row
-
+    update :: Component -> [InfoInstance] -> IO ()
+    update comp infos = do
+      setText (compInfo comp) (render_info infos)
+      maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos
