@@ -14,7 +14,7 @@ import Test.HUnit (Assertion, assertBool, (@=?))
 import Text.Regex.Posix ((=~))
 
 tests :: Test -- {{{1
-tests = testGroup "Debug" [test_tp_row_mapping, test_pe_row_mapping]
+tests = testGroup "Debug" [test_tp_row_mapping]
 
 test_tp_row_mapping :: Test -- {{{1
 test_tp_row_mapping = enumTestGroup "t/p row mapping" $ map runTest [
@@ -64,9 +64,3 @@ test_tp_row_mapping = enumTestGroup "t/p row mapping" $ map runTest [
             assertBool "back-mapping failed" (isJust row'')
             row @=? fromJust row''
 
-test_pe_row_mapping :: Test -- {{{1
-test_pe_row_mapping = enumTestGroup "p/e row mapping" $ map runTest [
-
-  ]
-  where
-    runTest = undefined

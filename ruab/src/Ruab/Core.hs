@@ -15,7 +15,7 @@ module Ruab.Core
 -- OS
   , os_api
 -- row mapping
-  , t2p_row, p2t_row, p2e_row, e2p_row
+  , PRow(..), t2p_row, p2t_row, p2e_row, e2p_row
 ) where
 
 -- imports {{{1
@@ -60,9 +60,9 @@ data Breakpoint = Breakpoint { -- {{{2
   }
 
 data Thread = Thread { -- {{{2
-    thId     :: Int
-  , thStatus :: ThreadStatus
-  , thProw    :: Maybe Int
+    thId      :: Int
+  , thStatus  :: ThreadStatus
+  , thProw    :: Maybe PRow
   } deriving Show
 
 
@@ -74,6 +74,14 @@ data ThreadStatus -- {{{2
   deriving Show
 
 type StatusUpdate = [Thread] -> IO () -- {{{2
+
+newtype PRow = PRow {getRow :: Int} -- {{{2
+instance Show PRow where
+  show (PRow row) = show row
+instance Eq PRow where
+  (PRow row) == (PRow row') = row == row'
+instance Ord PRow where
+  (PRow row) <= (PRow row') = row <= row'
 
 start :: Options -> StatusUpdate -> IO Context -- {{{1
 start opt su = do
@@ -199,19 +207,36 @@ t_file, e_file :: Context -> String -- {{{2
 t_file = R.fileName . R.diTcode . crDebugInfo
 e_file = R.fileName . R.diEcode . crDebugInfo
 
-possible_breakpoints :: Context -> [Int] -- {{{2
+possible_breakpoints :: Context -> [PRow] -- {{{2
 possible_breakpoints ctx =
   S.toList $ S.fromList $ map ($fromJust_s . t2p_row ctx . R.tlocRow . R.locTloc) $ (R.diLocMap . crDebugInfo) ctx
 
 os_api :: Context -> [String] -- {{{2
 os_api = R.diOsApi . crDebugInfo
 
-t2p_row, p2t_row, p2e_row, e2p_row :: Context -> Int -> Maybe Int -- {{{2
+t2p_row :: Context -> Int -> Maybe PRow -- {{{2
+t2p_row ctx row = fmap PRow $ t2p_row' ((R.diPpm . crDebugInfo) ctx) row
 
-t2p_row ctx = t2p_row' $ (R.diPpm . crDebugInfo) ctx
+p2t_row :: Context -> PRow -> Maybe Int -- {{{2
+p2t_row ctx prow = p2t_row' ((R.diPpm . crDebugInfo) ctx) (getRow prow)
 
-p2t_row ctx = p2t_row' $ (R.diPpm . crDebugInfo) ctx
+e2p_row :: Context -> Int -> Maybe PRow -- {{{2
+e2p_row ctx erow =
+  let
+    tfile = (R.fileName . R.diTcode . crDebugInfo) ctx
+    lm = (R.diLocMap . crDebugInfo) ctx
+    ppm = (R.diPpm . crDebugInfo) ctx
+  in do
+    trow <- e2t_row' lm tfile erow
+    prow <- t2p_row' ppm trow
+    return $ PRow prow
 
-p2e_row ctx = p2e_row' ((R.diLocMap . crDebugInfo) ctx) ((R.fileName . R.diTcode . crDebugInfo) ctx)
-
-e2p_row ctx = e2p_row' ((R.diLocMap . crDebugInfo) ctx) ((R.fileName . R.diTcode . crDebugInfo) ctx)
+p2e_row :: Context -> PRow -> Maybe Int -- {{{2
+p2e_row ctx prow =
+  let
+    tfile = (R.fileName . R.diTcode . crDebugInfo) ctx
+    lm = (R.diLocMap . crDebugInfo) ctx
+    ppm = (R.diPpm . crDebugInfo) ctx
+  in do
+    trow <- p2t_row' ppm (getRow prow)
+    t2e_row' lm tfile trow

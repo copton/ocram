@@ -23,15 +23,15 @@ p2t_row' ppm@(R.PreprocMap trows _ locs) prow = do
   guard (prow' == prow)
   return trow
 
-p2e_row' :: R.LocMap -> String -> Int -> Maybe Int
-p2e_row' lm tfile row = 
+t2e_row' :: R.LocMap -> String -> Int -> Maybe Int -- {{{1
+t2e_row' lm tfile row = 
   fmap (R.elocRow . R.locEloc) $
   find ((row==) . R.tlocRow . R.locTloc) $
   filter ((tfile==) . R.tlocFile . R.locTloc) $
   lm
 
-e2p_row' :: R.LocMap -> String -> Int -> Maybe Int
-e2p_row' lm tfile row =
+e2t_row' :: R.LocMap -> String -> Int -> Maybe Int -- {{{1
+e2t_row' lm tfile row =
   fmap (R.tlocRow . R.locTloc) $
   find ((row==) . R.elocRow . R.locEloc) $
   filter ((tfile==) . R.tlocFile . R.locTloc) $

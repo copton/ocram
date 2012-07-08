@@ -22,6 +22,7 @@ import Ruab.Util (abort, fromJust_s)
 
 import qualified Ruab.Core as C
 import qualified Data.ByteString.Char8 as BS
+import Debug.Trace (trace)
 
 -- types {{{1
 data Component = Component { -- {{{2
@@ -140,7 +141,7 @@ setupGui gui = do
       modifyIORef (guiState gui) (modifyInfos (const infos))
       syncComponents gui
       where
-        infos = foldr (flip setBreakpoint 0) [] ((C.possible_breakpoints . guiCore) gui)
+        infos = foldr (flip setBreakpoint 0) [] ((map C.getRow . C.possible_breakpoints . guiCore) gui)
 
 append :: TextView -> [String] -> IO ()  -- {{{2
 append tv lines = do
@@ -224,9 +225,9 @@ handleCommand gui ["scroll", comp@((`elem`["t","p","e"]) -> True), row@(parseInt
   let
     srow = (fromJust . parseInt) row
     f = case comp of
-      "t" -> C.t2p_row (guiCore gui)
+      "t" -> fmap C.getRow . C.t2p_row (guiCore gui)
       "p" -> Just
-      "e" -> C.e2p_row (guiCore gui)
+      "e" -> fmap C.getRow . C.e2p_row (guiCore gui)
       x -> $abort $ "unexpected case: " ++ x
   in 
     case f srow of
@@ -253,7 +254,7 @@ statusUpdate :: GUI -> C.StatusUpdate -- {{{2
 statusUpdate gui threads = postGUIAsync $ do
   forM_ threads (\thread -> do
       when (isJust (C.thProw thread)) $
-        modifyIORef (guiState gui) (modifyInfos (setThread (fromJust (C.thProw thread)) (C.thId thread)))
+        modifyIORef (guiState gui) (modifyInfos (setThread ((C.getRow . fromJust . C.thProw) thread) (C.thId thread)))
       log gui Status [show thread]
     )
   syncComponents gui
@@ -266,10 +267,10 @@ syncComponents gui = do
   update (guiPcomp gui) $ pinfos
   update (guiEcomp gui) $ sync C.p2e_row pinfos
   where
-    sync :: (C.Context -> Int -> Maybe Int) -> [InfoInstance] -> [InfoInstance]
+    sync :: (C.Context -> C.PRow -> Maybe Int) -> [InfoInstance] -> [InfoInstance]
     sync f infos = catMaybes $ map (\(row, x) ->
-        case f (guiCore gui) row of
-          Nothing -> Nothing
+        case f (guiCore gui) (C.PRow row) of
+          Nothing -> trace ("XXX: failed: " ++ show row) Nothing
           Just row' -> Just (row', x)
       ) infos
 
