@@ -15,7 +15,8 @@ module Ruab.Backend.GDB.IO
 -- imports {{{1
 import Control.Concurrent (forkIO, killThread, ThreadId, MVar, newEmptyMVar, newMVar, tryTakeMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (TVar, TChan, TMVar, newEmptyTMVar, newTVarIO, newTChanIO, newEmptyTMVarIO, atomically, takeTMVar, readTVar, writeTVar, writeTChan, readTChan, putTMVar)
-import Control.Exception (finally)
+import Control.Exception (catchJust)
+import Control.Exception.Base (AsyncException(ThreadKilled))
 import Control.Monad (when, replicateM_)
 import Control.Monad.Fix (mfix)
 import Data.Maybe (isJust)
@@ -103,17 +104,16 @@ send_command ctx command = sendCommand >>= receiveResponse
 
 -- implementation {{{1
 handleCommands :: Context -> IO () -- {{{2
-handleCommands ctx = do
+handleCommands ctx = handleKill ctx $ do
   job <- atomically $ readTChan (ctxJobs ctx)
   putMVar (ctxCurrentJob ctx) job
   case jobCommand job of
     Nothing -> return ()
     Just job' -> writeCommand ctx job' (jobToken job)
   handleCommands ctx
-  `finally` putMVar (ctxFinished ctx) ()
 
 handleOutput :: Context -> IO () -- {{{2
-handleOutput ctx = do
+handleOutput ctx = handleKill ctx $ do
   output@(Output _ rr) <- readOutput ctx
   let response = output_response output
   _ <- forkIO $ do
@@ -122,24 +122,33 @@ handleOutput ctx = do
   maybJob <- tryTakeMVar (ctxCurrentJob ctx)
   case maybJob of
     Nothing -> when (isJust rr) (error "result record lost!")
-    Just job -> atomically $ do
+    Just job -> do
       when (jobToken job /= (-1) && get_token output /= Just (jobToken job)) (error "token missmatch!")
-      putTMVar (jobResponse job) response
+      atomically $ putTMVar (jobResponse job) response
   handleOutput ctx
-  `finally` putMVar (ctxFinished ctx) ()
+
+handleKill :: Context -> IO () -> IO ()
+handleKill ctx action = catchJust select action handler
+  where
+    select :: AsyncException -> Maybe ()
+    select ThreadKilled = Just ()
+    select _ = Nothing
+
+    handler :: () -> IO ()
+    handler _ = putMVar (ctxFinished ctx) ()
 
 writeCommand :: Context -> Command -> Token -> IO () -- {{{2
 writeCommand ctx cmd token = 
   let cmdstr = (render_command . add_token token) cmd in
   do
-    debugLog cmdstr
+    debugLog True cmdstr
     hPutStr (ctxCommandPipe ctx) cmdstr
 
 readOutput :: Context -> IO Output -- {{{2
 readOutput ctx = do
   _ <- hWaitForInput (ctxOutputPipe ctx) (-1)
   str <- outputString (ctxOutputPipe ctx)
-  debugLog str
+  debugLog False str
   return (parse_output str)
   where
     outputString handle = outputLines handle >>= return . unlines
@@ -149,6 +158,6 @@ readOutput ctx = do
         then return [line]
         else outputLines handle >>= return . (line:)
 
-debugLog :: String -> IO ()
-debugLog text = 
-    hPutStr stdout ((unlines . map ("// "++) . lines) text)
+debugLog :: Bool -> String -> IO () -- {{{2
+debugLog io text = let prefix = if io then "/i " else "/o " in
+    hPutStr stdout ((unlines . map (prefix++) . lines) text)

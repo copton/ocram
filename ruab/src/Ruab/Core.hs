@@ -20,7 +20,7 @@ module Ruab.Core
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
-import Control.Concurrent.STM (TVar, newTVarIO, atomically, readTVar, writeTVar)
+import Control.Concurrent.STM (TVar, newTVarIO, atomically, readTVar, readTVarIO, writeTVar)
 import Control.Monad.Fix (mfix)
 import Control.Monad (forM)
 import Data.Digest.OpenSSL.MD5 (md5sum)
@@ -161,10 +161,10 @@ stop ctx = B.stop (crBackend ctx)
 
 -- callback {{{1
 coreCallback :: Context -> B.Callback -- {{{2
-coreCallback ctx x@(Left (B.Notification B.Exec B.Stopped dict)) =
+coreCallback ctx x@(Left (B.Notification B.Exec B.Stopped dict)) = do
   case M.lookup "bkptno" dict of
     Just value -> do
-      bm <- atomically $ readTVar (crBreakpoints ctx)
+      bm <- readTVarIO (crBreakpoints ctx)
       let bkptno = (read . $fromJust_s . B.asConst) value
       let bkpt = $fromJust_s $ IM.lookup bkptno bm
       bkptAction bkpt
