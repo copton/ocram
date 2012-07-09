@@ -56,7 +56,7 @@ setup :: Maybe FilePath -> Callback -> IO Context -- {{{1
 setup workdir callback = do
   (commandR,  commandW)  <- createPipe >>= asHandles
   (outputR, outputW) <- createPipe >>= asHandles
-  phandle <- runProcess "gdb" ["--interpreter", "mi"]
+  phandle <- runProcess "setsid" ["gdb", "--interpreter", "mi"] -- avoid receiving SIGINTs when issuing -exec-interrupt
                  workdir Nothing
                  (Just commandR)
                  (Just outputW)
