@@ -10,10 +10,13 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith)
 import System.IO (stderr, hPutStrLn)
 
+import System.Posix.Signals
+
 import qualified Ruab.Frontend as F
 
 main :: IO () -- {{{1
 main = do
+  _ <- installHandler sigINT (Catch (error "caught SIGINT")) Nothing 
   argv <- getArgs
   case argv of
     ("--test":rest) -> runTests rest

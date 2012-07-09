@@ -22,6 +22,7 @@ module Ruab.Core
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
 import Control.Concurrent.STM (TVar, newTVarIO, atomically, readTVar, writeTVar)
+import Control.Concurrent.MVar (MVar, newEmptyMVar, takeMVar, putMVar)
 import Control.Monad.Fix (mfix)
 import Control.Monad (forM, join)
 import Data.Digest.OpenSSL.MD5 (md5sum)
@@ -47,6 +48,7 @@ data Context = Context { -- {{{2
   , ctxEcode         :: BS.ByteString
   , ctxBackend       :: B.Context
   , ctxStatusUpdate  :: StatusUpdate
+  , ctxSync          :: MVar ()
   , ctxState         :: TVar State
   }
 
@@ -112,9 +114,10 @@ setup opt su = do
   (tcode, ecode) <- loadFiles di
   let threads = IM.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) Waiting Nothing)) $ R.diThreads di
   stateV <- newTVarIO (State ExWaiting threads IM.empty)
+  sync <- newEmptyMVar
   ctx <- mfix (\ctx' -> do
       backend <- B.setup (optBinary opt) (coreCallback ctx')
-      return $ Context di tcode ecode backend su stateV
+      return $ Context di tcode ecode backend su sync stateV
     )
   breakpoints <- coreBreakpoints ctx
   let bm = IM.fromList $ map (\b -> (bkptNumber b, b)) breakpoints
@@ -251,25 +254,30 @@ handleEvent ctx state (EvStopped _)   ExInterrupted = Right (
 handleEvent ctx state (EvStopped _)   ExShutdown    = $abort "illegal state"
 handleEvent ctx state (EvStopped _)   ExWaiting     = $abort "illegal state"
 
-setThread :: State -> Int -> (Thread -> Thread) -> State -- {{{3
+-- utils {{{3
+setThread :: State -> Int -> (Thread -> Thread) -> State -- {{{4
 setThread state tid f = state {stateThreads = IM.update (Just . f) tid (stateThreads state)}
 
-nop :: State -> Either String (State, IO ()) -- {{{3
+nop :: State -> Either String (State, IO ()) -- {{{4
 nop state = Right (state, return ())
 
-notRunning, alreadyRunning, alreadyShutdown :: Either String a -- {{{3
+notRunning, alreadyRunning, alreadyShutdown :: Either String a -- {{{4
 notRunning = Left "Debugger is not running"
 alreadyRunning = Left "Debugger is already running"
 alreadyShutdown = Left "Debugger has already been shut down"
 
 onEvent :: Context -> Event -> IO (Either String ()) -- {{{2
-onEvent ctx event = join $ atomically $ do
-  state <- readTVar (ctxState ctx)
-  case handleEvent ctx state event (stateExecution state) of
-    Left e -> return ((return . Left) e)
-    Right (state', action) -> do
-      writeTVar (ctxState ctx) state'
-      return (action >> (return . Right) ())
+onEvent ctx event = do
+  putMVar (ctxSync ctx) ()
+  result <- join $ atomically $ do
+    state <- readTVar (ctxState ctx)
+    case handleEvent ctx state event (stateExecution state) of
+      Left e -> return ((return . Left) e)
+      Right (state', action) -> do
+        writeTVar (ctxState ctx) state'
+        return (action >> (return . Right) ())
+  takeMVar (ctxSync ctx)
+  return result
 
 -- queries {{{1
 t_code, p_code, e_code :: Context -> BS.ByteString -- {{{2
