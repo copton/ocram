@@ -1,5 +1,6 @@
 module Ruab.Backend.GDB.Responses where
 
+-- import {{{1
 import Control.Applicative ((<$>), (<*>))
 import Ruab.Backend.GDB.Output (Dictionary, Value(..))
 

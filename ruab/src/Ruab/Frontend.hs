@@ -199,21 +199,33 @@ log gui l lines =
 
 displayHelp :: GUI -> Log -> String -> IO () -- {{{2
 displayHelp gui _ ""       = log gui Output (("available commands: " ++ (concat $ intersperse ", " commands)) : ["type 'help command' to see more information for a command"])
+displayHelp gui l "interrupt"  = log gui l ["interrupt: interrupt execution"]
+displayHelp gui l "continue"   = log gui l ["continue: continue execution"]
 displayHelp gui l "osapi"  = log gui l ["osapi: list all blocking functions"]
 displayHelp gui l "quit"   = log gui l ["quit: quit the debugger"]
 displayHelp gui l "scroll" = log gui l ["scroll (t|p|e) row: scroll the t-, e-, or p-code component to display the given row."]
 displayHelp gui l "start"  = log gui l ["start: start debugging the binary"]
 displayHelp gui _ unknown  = log gui Error ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
 
-commands :: [String]
-commands = ["osapi", "quit", "scroll", "start"]
+commands :: [String] -- {{{2
+commands = ["osapi", "quit", "scroll", "start", "interrupt", "continue"]
 
 handleCommand :: GUI -> [String] -> IO () -- {{{2
 -- help {{{3
 handleCommand gui ["help"] = displayHelp gui Output ""
 handleCommand gui ("help":what:_) = displayHelp gui Output what
+-- continue {{{3
+handleCommand gui ["continue"] =
+  C.continue (guiCore gui) >>= either 
+    (log gui Error . (:[]))
+    (const $ log gui Output ["continued"])  
 
-    
+-- interrupt {{{3
+handleCommand gui ["interrupt"] =
+  C.interrupt (guiCore gui) >>= either
+    (log gui Error . (:[]))
+    (const $ log gui Output ["interrupted"])
+
 -- osapi {{{3
 handleCommand gui ["osapi"] = log gui Output ["OS API: " ++ (concat $ intersperse ", " (C.os_api (guiCore gui)))]
 
@@ -237,7 +249,10 @@ handleCommand gui ["scroll", comp@((`elem`["t","p","e"]) -> True), row@(parseInt
         syncComponents gui
 
 -- start {{{3
-handleCommand gui ["start"] = C.run (guiCore gui)
+handleCommand gui ["start"] =
+  C.run (guiCore gui) >>= either
+    (log gui Error . (:[]))
+    (const $ log gui Output ["started"])
 
 -- catch all {{{3
 handleCommand gui (cmd:_) = displayHelp gui Error cmd
@@ -252,12 +267,10 @@ parseInt txt =
 
 statusUpdate :: GUI -> C.StatusUpdate -- {{{2
 statusUpdate gui threads = postGUIAsync $ do
-  forM_ threads (\thread -> do
+  forM_ threads (\thread ->
       when (isJust (C.thProw thread)) $
         modifyIORef (guiState gui) (modifyInfos (setThread ((C.getRow . fromJust . C.thProw) thread) (C.thId thread)))
-      log gui Status [show thread]
     )
-  syncComponents gui
 
 syncComponents :: GUI -> IO () -- {{{2
 syncComponents gui = do

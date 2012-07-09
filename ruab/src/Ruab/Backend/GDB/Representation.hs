@@ -290,7 +290,7 @@ p_token :: Parser Token -- {{{3
 p_token = many1 digit >>= return . read
 
 -- token {{{1
-type Token = Integer
+type Token = Int
 
 class GetToken a where
   get_token :: a -> Maybe Token

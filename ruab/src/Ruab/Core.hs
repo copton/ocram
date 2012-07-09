@@ -3,9 +3,10 @@ module Ruab.Core
 -- exports {{{1
 (
 -- context
-    start, stop, run, Context
+    start, stop, Context
   , t_code, p_code, e_code
   , t_file, e_file
+  , run, interrupt, continue
 -- updates
   , StatusUpdate, ThreadStatus(..)
 -- threads
@@ -153,8 +154,14 @@ start opt su = do
               return $ Breakpoint (B.bkptNumber breakpoint) action
         )
 
-run :: Context -> IO () -- {{{1
+run :: Context -> IO (Either String ()) -- {{{1
 run ctx = B.run (crBackend ctx)
+
+interrupt :: Context -> IO (Either String ()) -- {{{1
+interrupt ctx = B.interrupt (crBackend ctx)
+
+continue :: Context -> IO (Either String ()) -- {{{1
+continue ctx = B.continue (crBackend ctx)
 
 stop :: Context -> IO () -- {{{1
 stop ctx = B.stop (crBackend ctx)
@@ -176,19 +183,19 @@ bkptThreadExecution :: Context -> Int -> IO () -- {{{2
 bkptThreadExecution ctx tid = do
   threads <- modifyThread ctx tid (\t -> t {thStatus = Running, thProw = Nothing})
   (crStatusUpdate ctx) threads
-  B.continue_execution (crBackend ctx)
+  B.continue (crBackend ctx) >>= either fail return
   
 bkptBlockingCall :: Context -> Int -> Int -> IO () -- {{{2
 bkptBlockingCall ctx tid row = do
   threads <- modifyThread ctx tid (\t -> t {thStatus = Blocked, thProw = e2p_row ctx row})
   (crStatusUpdate ctx) threads
-  B.continue_execution (crBackend ctx)
+  B.continue (crBackend ctx) >>= either fail return
 
 bkptUserBreakpoint :: Context -> Int -> Int -> Int -> IO () -- {{{2
 bkptUserBreakpoint ctx bid tid row = do
   threads <- modifyThread ctx tid (\t -> t {thStatus = Stopped bid, thProw = e2p_row ctx row})
   (crStatusUpdate ctx) threads
-  B.continue_execution (crBackend ctx)
+  B.continue (crBackend ctx) >>= either fail return
   
 modifyThread :: Context -> Int -> (Thread -> Thread) -> IO [Thread] -- {{{2
 modifyThread ctx tid f = atomically $ do

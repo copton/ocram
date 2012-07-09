@@ -7,7 +7,7 @@ module Ruab.Backend.GDB.Output
   , Value(..)
   , Notification(..), NotifcationType(..), Event(..)
   , Stream(..), StreamType(..)
-  , is_error, is_running, dictionary
+  , has_result, is_error, is_running, dictionary
   , output_response, output_stream, output_notification
 ) where
 
@@ -68,6 +68,10 @@ data StreamType
   deriving Show
 
 -- helper {{{1
+has_result :: Response -> Bool
+has_result (Response Nothing) = False
+has_result _ = True
+
 is_error :: Response -> Bool
 is_error (Response (Just (Error, _))) = True
 is_error _ = False

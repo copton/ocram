@@ -4,7 +4,7 @@ module Ruab.Backend.GDB
     G.Context, G.Callback
   , start, stop, run
   , G.Location, G.file_line_location, G.file_function_location, G.Breakpoint(..)
-  , set_breakpoint, continue_execution
+  , set_breakpoint, continue, interrupt 
   , G.Notification(..), G.NotifcationType(..), G.Stream(..), G.StreamType(..), G.Event(..)
   , G.asConst
 ) where
@@ -31,24 +31,31 @@ start binary callback = do
 stop :: G.Context -> IO () -- {{{1
 stop = G.stop
 
+interrupt :: G.Context -> IO (Either String ()) -- {{{1
+interrupt ctx = do
+  resp <- G.send_command ctx (G.exec_interrupt (Left True))
+  putStrLn (show resp)
+  (return . Right) ()
+  
+
 set_breakpoint :: G.Context -> G.Location -> IO (Either String G.Breakpoint) -- {{{1
 set_breakpoint ctx loc = do
   resp <- G.send_command ctx (G.break_insert False False False False False Nothing Nothing Nothing loc)
   return $ convert "break-insert" G.response_break_insert resp
 
-run :: G.Context -> IO ()
+run :: G.Context -> IO (Either String ())
 run ctx = do
   resp <- G.send_command ctx (G.exec_run (Left True))
   if not (G.is_running resp)
-    then error $ "unexpected response for exec-run: '" ++ show resp ++ "'"
-    else return ()
+    then return . Left $ "unexpected response for exec-run: '" ++ show resp ++ "'"
+    else return . Right $ ()
 
-continue_execution :: G.Context -> IO ()
-continue_execution ctx = do
+continue :: G.Context -> IO (Either String ())
+continue ctx = do
   resp <- G.send_command ctx (G.exec_continue False (Left True))
   if not (G.is_running resp)
-    then error $ "unexpected response for exec-continue: '" ++ show resp ++ "'"
-    else return ()
+    then return . Left $ "unexpected response for exec-continue: '" ++ show resp ++ "'"
+    else return .Right $ ()
 
 -- utils {{{1
 convert :: String -> (G.Dictionary -> Maybe a) -> G.Response -> Either String a -- {{{2
