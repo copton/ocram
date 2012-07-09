@@ -2,12 +2,12 @@
 module Ruab.Backend.GDB.Output
 -- exports {{{1
 (
-    Response (..) , ResponseType
+    Response (..) , ResponseType(..)
   , Dictionary
   , Value(..)
   , Notification(..), NotifcationType(..), Event(..)
   , Stream(..), StreamType(..)
-  , has_result, is_error, is_running, dictionary
+  , has_result, result_is, dictionary
   , output_response, output_stream, output_notification
 ) where
 
@@ -28,7 +28,7 @@ data ResponseType
   | Connected
   | Error
   | Exit
-  deriving Show
+  deriving (Show, Eq)
 
 type Dictionary = M.Map String Value -- {{{2
 
@@ -72,13 +72,9 @@ has_result :: Response -> Bool
 has_result (Response Nothing) = False
 has_result _ = True
 
-is_error :: Response -> Bool
-is_error (Response (Just (Error, _))) = True
-is_error _ = False
-
-is_running :: Response -> Bool
-is_running (Response (Just (Running, _))) = True
-is_running _ = False
+result_is :: ResponseType -> Response -> Bool
+result_is _ (Response Nothing) = False
+result_is t (Response (Just (t', _))) = t == t'
 
 dictionary :: Response -> Maybe Dictionary -- {{{2
 dictionary (Response Nothing) = Nothing

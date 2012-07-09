@@ -55,13 +55,13 @@ modifyInfos f s = s {stateInfos = f (stateInfos s)}
 
 run :: Options -> IO () -- {{{1
 run opt = do
-  gui <- mfix (\gui' -> C.start opt (statusUpdate gui') >>= loadGui)
+  gui <- mfix (\gui' -> C.setup opt (statusUpdate gui') >>= loadGui)
   setupGui gui
   mainGUI
 
 frontendStop :: GUI -> IO ()  -- {{{2
 frontendStop gui = do
-  C.stop (guiCore gui)
+  _ <- C.shutdown (guiCore gui)
   mainQuit
 
 -- GUI {{{1
@@ -271,6 +271,7 @@ statusUpdate gui threads = postGUIAsync $ do
       when (isJust (C.thProw thread)) $
         modifyIORef (guiState gui) (modifyInfos (setThread ((C.getRow . fromJust . C.thProw) thread) (C.thId thread)))
     )
+  syncComponents gui
 
 syncComponents :: GUI -> IO () -- {{{2
 syncComponents gui = do

@@ -2,7 +2,7 @@ module Ruab.Backend.GDB.IO
 -- exports {{{1
 (
     Context, Callback
-  , start, stop, send_command
+  , setup, shutdown, send_command
 ) where
 
 -- [The GDB/MI Interface](http://sourceware.org/gdb/current/onlinedocs/gdb/GDB_002fMI.html#GDB_002fMI)
@@ -45,15 +45,15 @@ data Context = Context { -- {{{1
 }
 
 data Job = Job {
-    jobCommand  :: Maybe Command
+    jobCommand  :: Command
   , jobResponse :: TMVar Response
   , jobToken    :: Token
   }
 
 type Callback = Either Notification Stream -> IO () -- {{{1
 
-start :: Maybe FilePath -> Callback -> IO Context -- {{{1
-start workdir callback = do
+setup :: Maybe FilePath -> Callback -> IO Context -- {{{1
+setup workdir callback = do
   (commandR,  commandW)  <- createPipe >>= asHandles
   (outputR, outputW) <- createPipe >>= asHandles
   phandle <- runProcess "gdb" ["--interpreter", "mi"]
@@ -78,35 +78,40 @@ start workdir callback = do
     h2 <- fdToHandle f2
     return (h1, h2)
 
-stop :: Context -> IO () -- {{{1
-stop ctx = do
+shutdown :: Context -> IO () -- {{{1
+shutdown ctx = do
   mapM_ (killThread . ($ctx)) [ctxCommandThread, ctxOutputThread]
   replicateM_ 2 (takeMVar (ctxFinished ctx))
   writeCommand ctx gdb_exit 0
   _ <- waitForProcess (ctxProcess ctx)
+  putMVar (ctxFinished ctx) ()
   return ()
 
 send_command :: Context -> Command -> IO Response -- {{{1
-send_command ctx command = sendCommand >>= receiveResponse
+send_command ctx command = checkShutdown >> sendCommand >>= receiveResponse
   where
+    checkShutdown = do
+      finished <- tryTakeMVar (ctxFinished ctx)
+      case finished of
+        Nothing -> return ()
+        Just () -> error "context has already been shut down"
+
     sendCommand = atomically $ do
       token <- readTVar (ctxNextToken ctx)
       writeTVar (ctxNextToken ctx) (if token == maxBound then 0 else token + 1)
       response <- newEmptyTMVar
-      let job = Job (Just command) response token
-      writeTChan (ctxJobs ctx) job
+      writeTChan (ctxJobs ctx) $ Job command response token
       return response
     
     receiveResponse = atomically . takeTMVar
+
 
 -- implementation {{{1
 handleCommands :: Context -> IO () -- {{{2
 handleCommands ctx = handleKill ctx $ do
   job <- atomically $ readTChan (ctxJobs ctx)
   putMVar (ctxCurrentJob ctx) job
-  case jobCommand job of
-    Nothing -> return ()
-    Just job' -> writeCommand ctx job' (jobToken job)
+  writeCommand ctx (jobCommand job) (jobToken job)
   handleCommands ctx
 
 handleOutput :: Context -> IO () -- {{{2
