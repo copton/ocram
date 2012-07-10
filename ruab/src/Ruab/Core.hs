@@ -21,13 +21,13 @@ module Ruab.Core
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
-import Control.Concurrent.STM (TVar, newTVarIO, atomically, readTVar, writeTVar)
 import Control.Concurrent.MVar (MVar, newEmptyMVar, takeMVar, putMVar)
 import Control.Monad.Fix (mfix)
-import Control.Monad (forM, join)
+import Control.Monad (forM)
 import Data.Digest.OpenSSL.MD5 (md5sum)
-import Data.List (intercalate)
-import Data.Maybe (catMaybes)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef, modifyIORef)
+import Data.List (intercalate, find)
+import Data.Maybe (catMaybes, isNothing)
 import Prelude hiding (catch)
 import Ruab.Core.Internal
 import Ruab.Options (Options(optDebugFile, optBinary))
@@ -48,7 +48,7 @@ data Context = Context { -- {{{2
   , ctxBackend       :: B.Context
   , ctxStatusUpdate  :: StatusUpdate
   , ctxSync          :: MVar ()
-  , ctxState         :: TVar State
+  , ctxState         :: IORef State
   }
 
 data State = State { -- {{{2
@@ -112,15 +112,15 @@ setup opt su = do
   di <- loadDebugInfo
   (tcode, ecode) <- loadFiles di
   let threads = IM.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) Waiting Nothing)) $ R.diThreads di
-  stateV <- newTVarIO (State ExWaiting threads IM.empty)
+  stateRef <- newIORef (State ExWaiting threads IM.empty)
   sync <- newEmptyMVar
   ctx <- mfix (\ctx' -> do
       backend <- B.setup (optBinary opt) (coreCallback ctx')
-      return $ Context di tcode ecode backend su sync stateV
+      return $ Context di tcode ecode backend su sync stateRef
     )
   breakpoints <- coreBreakpoints ctx
   let bm = IM.fromList $ map (\b -> (bkptNumber b, b)) breakpoints
-  atomically $ readTVar stateV >>= \state -> writeTVar stateV (state {stateBreakpoints = bm})
+  modifyIORef stateRef (\state -> (state {stateBreakpoints = bm}))
   return ctx
   where
     loadFiles di = do
@@ -173,13 +173,13 @@ setup opt su = do
 run :: Context -> IO (Either String ()) -- {{{2
 run ctx = onEvent ctx EvRun
 
-interrupt :: Context -> IO (Either String ()) -- {{{1
+interrupt :: Context -> IO (Either String ()) -- {{{2
 interrupt ctx = onEvent ctx EvInterrupt
 
-continue :: Context -> IO (Either String ()) -- {{{1
+continue :: Context -> IO (Either String ()) -- {{{2
 continue ctx = onEvent ctx EvContinue
 
-shutdown :: Context -> IO (Either String ()) -- {{{1
+shutdown :: Context -> IO (Either String ()) -- {{{2
 shutdown ctx = onEvent ctx EvShutdown
 
 coreCallback :: Context -> B.Callback -- {{{2
@@ -192,43 +192,59 @@ coreCallback ctx x@(Left (B.Notification B.Exec B.Stopped items)) =
 coreCallback _ x = putStrLn $ "## " ++ show x
 
 -- state machine {{{1
-handleEvent :: Context -> State -> Event -> Execution -> Either String (State, IO ()) -- {{{2
+handleEvent :: Context -> State -> Event -> Execution -> Either String (IO State) -- {{{2
 
 -- EvRun {{{3
-handleEvent ctx state EvRun ExWaiting  = Right (
-    state {stateExecution = ExRunning}
-  , B.run (ctxBackend ctx)
-  )
+handleEvent ctx state EvRun ExWaiting  = Right $ do
+  B.run (ctxBackend ctx)
+  return $ state {stateExecution = ExRunning}
+
 handleEvent _   _     EvRun ExInterrupted = alreadyRunning
 handleEvent _   _     EvRun ExRunning     = alreadyRunning
 handleEvent _   _     EvRun ExShutdown    = alreadyShutdown
 
--- EvShutdown
+-- EvShutdown {{{3
 handleEvent _   _     EvShutdown ExShutdown = alreadyShutdown
-handleEvent ctx state EvShutdown _          = Right (
-    state {stateExecution = ExShutdown}
-  , B.shutdown (ctxBackend ctx)
-  )
+handleEvent ctx state EvShutdown _          = Right $ do
+  B.shutdown (ctxBackend ctx)
+  return $ state {stateExecution = ExShutdown}
 
--- EvInterrupt
-handleEvent ctx state EvInterrupt ExRunning     = Right (
-    state {stateExecution = ExInterrupted}
-  , B.interrupt (ctxBackend ctx)
-  )
+-- EvInterrupt {{{3
+handleEvent ctx state EvInterrupt ExRunning     = Right $ do
+  B.interrupt (ctxBackend ctx)
+  let runningThread = IM.filter (isNothing . thProw) (stateThreads state)
+  state' <- case IM.size runningThread of
+    0 -> return state
+    1 ->
+      let 
+        efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
+        [thread] = IM.elems runningThread
+        update frm t = Just $ t {thProw = (e2p_row ctx . B.frameLine) frm}
+      in do
+        stack <- B.backtrace (ctxBackend ctx) 
+        let frame = $fromJust_s $ find ((efile==) . B.frameFile) (B.stackFrames stack)
+        putStrLn ("XXX: " ++ show frame ++ "/" ++ (show . e2p_row ctx . B.frameLine) frame)
+        let threads = IM.update (update frame) (thId thread) (stateThreads state)
+        return $ state {stateThreads = threads}
+  
+    _ -> $abort "multiple threads without row information"
+  (ctxStatusUpdate ctx) ((IM.elems . stateThreads) state')
+  return $ state' {stateExecution = ExInterrupted}
+
 handleEvent _   state EvInterrupt ExInterrupted = nop state
 handleEvent _   _     EvInterrupt ExWaiting     = notRunning
 handleEvent _   _     EvInterrupt ExShutdown    = alreadyShutdown
 
--- EvContinue
-handleEvent ctx state EvContinue ExInterrupted = Right (
-    state {stateExecution = ExRunning}
-  , B.continue (ctxBackend ctx)
-  )
+-- EvContinue {{{3
+handleEvent ctx state EvContinue ExInterrupted = Right $ do
+  B.continue (ctxBackend ctx)
+  return $ state {stateExecution = ExRunning}
+
 handleEvent _   state EvContinue ExRunning     = nop state
 handleEvent _   _     EvContinue ExShutdown    = alreadyShutdown
 handleEvent _   _     EvContinue ExWaiting     = notRunning
 
--- EvBreak
+-- EvBreak {{{3
 handleEvent _   state EvBreak    _             = nop state -- TODO
 
 -- EvStopped {{{3
@@ -238,18 +254,15 @@ handleEvent ctx state (EvStopped bid) ExRunning     =
     tid = bkptThread bkpt
   in case bkptType bkpt of
     BkptUser -> nop state -- TODO
-    BkptThreadExecution -> Right (
-        setThread state tid (\t -> t {thStatus = Running, thProw = Nothing})
-      , B.continue (ctxBackend ctx)
-      )
-    (BkptCriticalCall erow) -> Right (
-        setThread state tid (\t -> t {thStatus = Blocked, thProw = e2p_row ctx erow})
-      , B.continue (ctxBackend ctx)
-      )
-handleEvent ctx state (EvStopped _)   ExInterrupted = Right (
-    state
-  , (ctxStatusUpdate ctx) ((IM.elems . stateThreads) state)
-  )
+    BkptThreadExecution -> Right $ do
+      B.continue (ctxBackend ctx)
+      return $ setThread state tid (\t -> t {thStatus = Running, thProw = Nothing})
+      
+    (BkptCriticalCall erow) -> Right $ do
+      B.continue (ctxBackend ctx)
+      return $ setThread state tid (\t -> t {thStatus = Blocked, thProw = e2p_row ctx erow})
+      
+handleEvent _   state (EvStopped _)   ExInterrupted = nop state
 handleEvent ctx state (EvStopped _)   ExShutdown    = $abort "illegal state"
 handleEvent ctx state (EvStopped _)   ExWaiting     = $abort "illegal state"
 
@@ -257,8 +270,15 @@ handleEvent ctx state (EvStopped _)   ExWaiting     = $abort "illegal state"
 setThread :: State -> Int -> (Thread -> Thread) -> State -- {{{4
 setThread state tid f = state {stateThreads = IM.update (Just . f) tid (stateThreads state)}
 
-nop :: State -> Either String (State, IO ()) -- {{{4
-nop state = Right (state, return ())
+nop :: State -> Either String (IO State) -- {{{4
+nop = Right . return
+
+atomicIO :: MVar () -> IO a -> IO a
+atomicIO mv io = do
+  putMVar mv ()
+  result <- io
+  takeMVar mv
+  return result
 
 notRunning, alreadyRunning, alreadyShutdown :: Either String a -- {{{4
 notRunning = Left "Debugger is not running"
@@ -266,17 +286,14 @@ alreadyRunning = Left "Debugger is already running"
 alreadyShutdown = Left "Debugger has already been shut down"
 
 onEvent :: Context -> Event -> IO (Either String ()) -- {{{2
-onEvent ctx event = do
-  putMVar (ctxSync ctx) ()
-  result <- join $ atomically $ do
-    state <- readTVar (ctxState ctx)
-    case handleEvent ctx state event (stateExecution state) of
-      Left e -> return ((return . Left) e)
-      Right (state', action) -> do
-        writeTVar (ctxState ctx) state'
-        return (action >> (return . Right) ())
-  takeMVar (ctxSync ctx)
-  return result
+onEvent ctx event = atomicIO (ctxSync ctx) $ do
+  state <- readIORef (ctxState ctx)
+  case handleEvent ctx state event (stateExecution state) of
+    Left e -> (return . Left) e
+    Right action -> do
+      state' <- action
+      writeIORef (ctxState ctx) state'
+      (return . Right) ()
 
 -- queries {{{1
 t_code, p_code, e_code :: Context -> BS.ByteString -- {{{2

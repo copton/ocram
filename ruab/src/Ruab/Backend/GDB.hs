@@ -4,8 +4,9 @@ module Ruab.Backend.GDB
 (
     G.Context, G.Callback
   , setup, shutdown, run
-  , G.Location, G.file_line_location, G.file_function_location, G.Breakpoint(..)
-  , set_breakpoint, continue, interrupt 
+  , G.Location, G.file_line_location, G.file_function_location
+  , G.Breakpoint(..), G.Stack(..), G.Frame(..)
+  , set_breakpoint, continue, interrupt, backtrace
   , G.Notification(..), G.NotifcationType(..), G.Stream(..), G.StreamType(..), G.Event(..)
   , G.asConst
 ) where

@@ -197,8 +197,9 @@ test_parse_output = enumTestGroup "parse_output" $ map runTest [
     runTest (str, output) =
       show output @=? show (parse_output (tail str))
 
-test_response_stack_list_frames :: Test
+test_response_stack_list_frames :: Test -- {{{2
 test_response_stack_list_frames = enumTestGroup "response_stack_list_frames" $ map runTest [
+    -- example {{{3 
     ([paste|
 ^done,stack=[frame={level="0",addr="0x00007ffff7a9dcc7",func="_IO_vfprintf_internal",file="vfprintf.c",line="1647"},frame={level="1",addr="0x00007ffff7ac2c79",func="__IO_vsprintf",file="iovsprintf.c",line="43"},frame={level="2",addr="0x0000000000402520",func="logger_syscall",file="logger.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/logger.c",line="57"},frame={level="3",addr="0x0000000000401c13",func="os_receive",file="core.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/core.c",line="145"},frame={level="4",addr="0x0000000000401489",func="tc_receive",file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="116"},frame={level="5",addr="0x0000000000400e2e",func="ec_thread_1",file="ec.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c",line="433"},frame={level="6",addr="0x00000000004016b2",func="flash_write_cb",file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="156"},frame={level="7",addr="0x00000000004019ff",func="cb_default",file="core.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/core.c",line="90"},frame={level="8",addr="0x0000000000402f05",func="dispatcher_run",file="dispatcher.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/dispatcher.c",line="93"},frame={level="9",addr="0x000000000040188e",func="os_run",file="core.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/core.c",line="37"},frame={level="10",addr="0x00000000004012f0",func="pal_run",file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="70"},frame={level="11",addr="0x0000000000401818",func="main",file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="200"}]
 (gdb) 
@@ -218,7 +219,7 @@ test_response_stack_list_frames = enumTestGroup "response_stack_list_frames" $ m
       ])
   ]
   where
-    runTest :: (String, Stack) -> Assertion
+    runTest :: (String, Stack) -> Assertion -- {{{3
     runTest (str, stack) =
       let
         output = parse_output (tail str)
