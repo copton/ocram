@@ -4,7 +4,7 @@ module Ruab.Backend.GDB.Commands where
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Prelude hiding (reverse, all, lines)
-import Ruab.Backend.GDB.Representation
+import Ruab.Backend.GDB.Representation hiding (Exec, Console)
 import Ruab.Util (replace)
 
 -- types {{{1

@@ -2,8 +2,9 @@ module Ruab.Backend.GDB.Responses where
 
 -- import {{{1
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (forM, guard)
-import Ruab.Backend.GDB.Output (Items, Value(..))
+import Control.Monad (guard, msum, (<=<))
+import Data.List (find)
+import Ruab.Backend.GDB.Representation
 
 -- types {{{1
 data Breakpoint = Breakpoint { -- {{{2
@@ -19,10 +20,11 @@ data Breakpoint = Breakpoint { -- {{{2
   , bkptTimes            :: Int
   , bkptOriginalLocation :: String
   }
+  deriving Show
 
-type BreakpointType = String
+type BreakpointType = String -- {{{2
 
-data BreakpointDisp
+data BreakpointDisp -- {{{2
   = BreakpointKeep
   | BreakpointDel
   deriving Show
@@ -34,74 +36,139 @@ instance Read BreakpointDisp where
 
 newtype Stack -- {{{2
   = Stack {stackFrames :: [Frame] }
-  deriving (Show, Eq)
+  deriving Show
 
-data Frame = Frame {
-    frameLevel    :: Int
+data Frame = Frame { -- {{{2
+    frameLevel    :: Maybe Int
   , frameAddr     :: String
   , frameFunc     :: String
+  , frameArgs     :: Maybe [Arg]
   , frameFile     :: String
   , frameFullname :: Maybe String
   , frameLine     :: Int
-  } deriving (Show, Eq)
+  } deriving Show
+
+data Stopped = Stopped { -- {{{2
+      stoppedReason   :: StopReason
+    , stoppedFrame    :: Frame
+    , stoppedThreadId :: Int
+    , stoppedThreads  :: String
+    , stoppedCore     :: Int
+  }
+  deriving Show
+
+data StopReason -- {{{2
+  = BreakpointHit {
+      bkptHitDisp   :: BreakpointDisp
+    , kbptHitNumber :: Int
+    }
+  | EndSteppingRange
+  deriving Show
+
+data Arg = Arg { -- {{{2
+    argName  :: String
+  , argValue :: String
+  } deriving Show
+
+-- composition {{{1
+responseBreakpoint :: Result -> Maybe Breakpoint -- {{{2
+responseBreakpoint (Result variable value) = do
+  guard (variable == "bkpt")
+  (Tuple rs) <- asTuple value
+  Breakpoint
+    <$> get rs tryRead "number"
+    <*> get rs Just    "type" 
+    <*> get rs tryRead "disp"
+    <*> get rs gdbBool "enabled"
+    <*> get rs Just    "addr"
+    <*> get rs Just    "func"
+    <*> get rs Just    "file"
+    <*> get rs Just    "fullname"
+    <*> get rs tryRead "line"
+    <*> get rs tryRead "times"
+    <*> get rs Just    "original-location"
+
+responseStack :: Result -> Maybe Stack -- {{{2
+responseStack (Result variable value) = do
+  guard (variable == "stack")
+  list <- asList value
+  case list of
+    EmptyList -> Just $ Stack []
+    ResultList is ->
+      Stack <$> mapM responseFrame is
+    _ -> Nothing
+
+responseFrame :: Result -> Maybe Frame -- {{{2
+responseFrame (Result variable value) = do
+  guard (variable == "frame")
+  (Tuple rs) <- asTuple value
+  Frame
+    <$> Just (get rs tryRead "level")
+    <*>       get rs Just    "addr"
+    <*>       get rs Just    "func"
+    <*> Just (msum (map responseArgs rs))
+    <*>       get rs Just   "file"
+    <*> Just (get rs Just   "fullname")
+    <*>       get rs tryRead "line"
+
+responseStopped :: [Result] -> Maybe Stopped -- {{{2
+responseStopped rs = do
+  Stopped
+    <$> responseStopReason rs
+    <*> msum (map responseFrame rs)
+    <*> get rs tryRead "thread-id"
+    <*> get rs Just    "stopped-threads"
+    <*> get rs tryRead "core"
+
+responseStopReason :: [Result] -> Maybe StopReason  -- {{{2
+responseStopReason rs = do
+  reason <- find (("reason"==) . resVariable) rs >>= asConst . resValue
+  case reason of 
+    "breakpoint-hit" ->
+      BreakpointHit
+        <$> get rs tryRead "disp"
+        <*> get rs tryRead "bkptno"
+    "end-stepping-range" -> Just EndSteppingRange
+    _ -> Nothing 
+
+responseArgs :: Result -> Maybe [Arg] -- {{{2
+responseArgs (Result variable value) = do
+  guard (variable == "args")
+  list <- asList value
+  case list of
+    EmptyList -> Just []
+    ValueList is -> do
+      mapM ((responseArg . tupleResults) <=< asTuple) is
+    _ -> Nothing 
+
+responseArg :: [Result] -> Maybe Arg -- {{{2
+responseArg rs = do
+  Arg
+    <$> get rs Just "name"
+    <*> get rs Just "value"
 
 -- responses {{{1
-response_break_insert :: Items -> Maybe Breakpoint -- {{{2
-response_break_insert items = do
-  value <- lookup "bkpt" items
-  items' <- asItems value
-  Breakpoint
-    <$> get items' tryRead "number"
-    <*> get items' Just    "type" 
-    <*> get items' tryRead "disp"
-    <*> get items' gdbBool "enabled"
-    <*> get items' Just    "addr"
-    <*> get items' Just    "func"
-    <*> get items' Just    "file"
-    <*> get items' Just    "fullname"
-    <*> get items' tryRead "line"
-    <*> get items' tryRead "times"
-    <*> get items' Just    "original-location"
+response_stack_list_frames :: [Result] -> Maybe Stack -- {{{2
+response_stack_list_frames [item] = responseStack item
+response_stack_list_frames _      = Nothing
 
-response_stack_list_frames :: Items -> Maybe Stack -- {{{2
-response_stack_list_frames items = do
-  value  <- lookup "stack" items
-  values <- asItems value
-  frames <- forM values (\(name, value') -> do
-      guard (name == "frame")
-      items' <- asItems value'
-      Frame
-        <$> get items' tryRead "level"
-        <*> get items' Just "addr"
-        <*> get items' Just "func"
-        <*> get items' Just "file"
-        <*> Just (get items' Just "fullname")
-        <*> get items' tryRead "line"
-    )
-  return (Stack frames)
+response_break_insert :: [Result] -> Maybe Breakpoint
+response_break_insert [item] = responseBreakpoint item
+response_break_insert _      = Nothing
 
+response_stopped :: [Result] -> Maybe Stopped
+response_stopped items = responseStopped items
+  
 -- utils {{{1
-get :: Items -> (String -> Maybe a) -> (String -> Maybe a) -- {{{2
-get items parse key = lookup key items >>= asConst >>= parse
-
-asItems :: Value -> Maybe Items -- {{{2
-asItems (ItemsValue d) = Just d
-asItems _ = Nothing
-
-asConst :: Value -> Maybe String -- {{{2
-asConst (ConstValue s) = Just s
-asConst _ = Nothing
-
-asList :: Value -> Maybe [Value] -- {{{2
-asList (ListValue vs) = Just vs
-asList _ = Nothing
+get :: [Result] -> (String -> Maybe a) -> (String -> Maybe a) -- {{{2
+get rs parse key = find ((key==) . resVariable) rs >>= asConst . resValue >>= parse
 
 tryRead :: Read a => String -> Maybe a -- {{{2
 tryRead str = case readsPrec 0 str of
   [(x, "")] -> Just x
   _ -> Nothing
 
-gdbBool :: String -> Maybe Bool
+gdbBool :: String -> Maybe Bool -- {{{2
 gdbBool "y" = Just True
 gdbBool "n" = Just False
 gdbBool _ = Nothing

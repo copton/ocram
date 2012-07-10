@@ -20,6 +20,9 @@ data Option = Option Parameter (Maybe Parameter) -- {{{3
 type Parameter = String -- {{{3
 
 -- rendering {{{2
+render_command :: Command -> String -- {{{3
+render_command cmd = r_command cmd ""
+
 r_command :: Command -> ShowS -- {{{3
 r_command (CLICommand tok str) = maybe id r_token tok . showString str . showString "\n"
 r_command (MICommand tok operation options parameters) =
@@ -90,7 +93,7 @@ data ResultClass -- {{{3
   | RCConnected
   | RCError
   | RCExit
-  deriving Show
+  deriving (Show, Eq)
  
 data AsyncClass -- {{{3
 -- much more stuff than the documentation specifies
@@ -100,10 +103,13 @@ data AsyncClass -- {{{3
   | ACThreadCreated
   | ACRunning
   | ACLibraryLoaded
-  deriving Show
+  deriving (Show, Eq)
 
 data Result -- {{{3
-  = Result Variable Value
+  = Result {
+      resVariable :: Variable
+    , resValue    :: Value
+  }
   deriving Show
 
 type Variable = String -- {{{3
@@ -117,7 +123,9 @@ data Value -- {{{3
 type Const = CString -- {{{3
 
 data Tuple -- {{{3
-  = Tuple [Result]
+  = Tuple {
+      tupleResults :: [Result]
+  }
   deriving Show
 
 data List -- {{{3
@@ -147,6 +155,11 @@ data LogStreamOutput -- {{{3
 type CString = String -- {{{3
 
 -- parsing {{{2
+parse_output :: String -> Output -- {{{3
+parse_output str = case parse p_output "gdb" str of
+  Left pe -> error $ "parse failed: " ++ show pe
+  Right o -> o
+
 p_output :: Parser Output -- {{{3
 -- http://sourceware.org/bugzilla/show_bug.cgi?id=7708
 -- p_output = Output <$> many p_outOfBandRecord <*> optionMaybe p_resultRecord <* string "(gdb) " <* newline <* eof
@@ -198,12 +211,12 @@ p_resultClass =
 
 p_asyncClass :: Parser AsyncClass -- {{{3
 p_asyncClass =
-      try (string "stopped" >> return ACStop)
-  <|> try (string "thread-group-added" >> return ACThreadGroupAdded)
+      try (string "stopped"              >> return ACStop)
+  <|> try (string "thread-group-added"   >> return ACThreadGroupAdded)
   <|> try (string "thread-group-started" >> return ACThreadGroupStarted)
-  <|> try (string "thread-created" >> return ACThreadCreated)
-  <|> try (string "running" >> return ACRunning)
-  <|>     (string "library-loaded" >> return ACLibraryLoaded)
+  <|> try (string "thread-created"       >> return ACThreadCreated)
+  <|> try (string "running"              >> return ACRunning)
+  <|>     (string "library-loaded"       >> return ACLibraryLoaded)
 
 p_result :: Parser Result -- {{{3
 p_result =
@@ -287,6 +300,81 @@ p_cString = between (char '"') (char '"') (many p_cchar)
 p_token :: Parser Token -- {{{3
 p_token = many1 digit >>= return . read
 
+-- simplification {{{1
+data Response -- {{{2
+  = Response {
+      respClass   :: ResultClass
+    , respResults :: [Result]
+    }
+    deriving (Show)
+
+data Notification -- {{{2
+  = Notification {
+      notiClass      :: NotificationClass
+    , notiAsyncClass :: AsyncClass
+    , notiResults    :: [Result]
+    }
+    deriving Show
+
+data NotificationClass -- {{{3
+  = Exec
+  | Status
+  | Notify
+  deriving (Show, Eq)
+
+data Stream -- {{{2
+  = Stream StreamClass String
+  deriving Show
+
+data StreamClass -- {{{3
+  = Console
+  | Target
+  | Log
+  deriving Show
+
+output_response :: Output -> Maybe Response -- {{{2
+output_response (Output _ Nothing) = Nothing
+output_response (Output _ (Just (ResultRecord _ rc rs))) = Just $ Response rc rs
+
+output_notification :: Output -> [Notification] -- {{{2
+output_notification (Output oobs _) = map (notification . unp) $ filter isNotification oobs
+  where
+    isNotification (OOBAsyncRecord _) = True
+    isNotification _ = False
+
+    unp (OOBAsyncRecord x) = x
+    unp x = error $ "unexpected parameter: " ++ show x
+
+    notification (ARExecAsyncOutput (ExecAsyncOutput _ (AsyncOutput ac rs))) = Notification Exec ac rs
+    notification (ARStatusAsyncOutput (StatusAsyncOutput _ (AsyncOutput ac rs))) = Notification Status ac rs 
+    notification (ARNotifyAsyncOutput (NotifyAsyncOutput _ (AsyncOutput ac rs))) = Notification Notify ac rs
+
+output_stream :: Output -> [Stream] -- {{{2
+output_stream (Output oobs _) = map (stream . unp) $ filter isStream oobs
+  where
+    isStream (OOBStreamRecord _) = True
+    isStream _ = False
+
+    unp (OOBStreamRecord x) = x
+    unp x = error $ "unexpected parameter: " ++ show x
+
+    stream (SRConsoleStreamOutput (ConsoleStreamOutput s)) = Stream Console s
+    stream (SRTargetStreamOutput (TargetStreamOutput s)) = Stream Target s
+    stream (SRLogStreamOutput (LogStreamOutput s)) = Stream Log s
+
+-- utils {{{2
+asConst :: Value -> Maybe Const -- {{{2
+asConst (VConst x) = Just x
+asConst _          = Nothing
+
+asTuple :: Value -> Maybe Tuple -- {{{2
+asTuple (VTuple x) = Just x
+asTuple _          = Nothing
+
+asList  :: Value -> Maybe List -- {{{2
+asList (VList x) = Just x
+asList _         = Nothing
+
 -- token {{{1
 type Token = Int
 
@@ -323,15 +411,7 @@ instance GetToken NotifyAsyncOutput where
   get_token (NotifyAsyncOutput token _) = token
 
 -- utils {{{1
-render_command :: Command -> String
-render_command cmd = r_command cmd ""
-
-parse_output :: String -> Output
-parse_output str = case parse p_output "gdb" str of
-  Left pe -> error $ "parse failed: " ++ show pe
-  Right o -> o
-
-parameter_valid :: Parameter -> Bool
+parameter_valid :: Parameter -> Bool -- {{{2
 parameter_valid param
   | null param = False
   | isCString param = isNothing $ find (not . isAscii) param

@@ -1,7 +1,7 @@
 module Ruab.Backend.GDB.IO
 -- exports {{{1
 (
-    Context, Callback
+    Context, Callback(..)
   , setup, shutdown, send_command
 ) where
 
@@ -13,19 +13,22 @@ module Ruab.Backend.GDB.IO
 --
 
 -- imports {{{1
+import Control.Applicative ((<*>), (<$>))
 import Control.Concurrent (forkIO, killThread, ThreadId, MVar, newEmptyMVar, tryTakeMVar, putMVar, takeMVar)
 import Control.Concurrent.STM (TVar, TChan, TMVar, newEmptyTMVar, newTVarIO, newTChanIO, atomically, takeTMVar, readTVar, writeTVar, writeTChan, readTChan, putTMVar)
 import Control.Exception (catchJust)
 import Control.Exception.Base (AsyncException(ThreadKilled))
-import Control.Monad (when, replicateM_)
+import Control.Monad (replicateM_)
 import Control.Monad.Fix (mfix)
+import Data.List (partition)
 import Prelude hiding (catch, interact)
-import Ruab.Backend.GDB.Commands (add_token, gdb_exit)
-import Ruab.Backend.GDB.Representation (Output, Token, get_token, Command, render_command, parse_output)
-import Ruab.Backend.GDB.Output (output_response, output_notification, output_stream, Response, Notification, Stream, has_result)
 import System.IO (Handle, hSetBuffering, BufferMode(LineBuffering), hPutStr, hWaitForInput, hGetLine, stdout)
 import System.Posix.IO (fdToHandle, createPipe)
 import System.Process (ProcessHandle, runProcess, waitForProcess)
+
+import qualified Ruab.Backend.GDB.Commands as C
+import qualified Ruab.Backend.GDB.Representation as R
+import qualified Ruab.Backend.GDB.Responses as S
 
 data Context = Context { -- {{{1
 -- gdb process {{{2
@@ -40,17 +43,22 @@ data Context = Context { -- {{{1
   , ctxCurrentJob     :: MVar Job
   , ctxFinished       :: MVar ()
 -- jobs
-  , ctxNextToken      :: TVar Token
+  , ctxNextToken      :: TVar R.Token
   , ctxJobs           :: TChan Job
 }
 
 data Job = Job {
-    jobCommand  :: Command
-  , jobResponse :: TMVar Response
-  , jobToken    :: Token
+    jobCommand  :: R.Command
+  , jobResponse :: TMVar R.Response
+  , jobToken    :: R.Token
   }
 
-type Callback = Either Notification Stream -> IO () -- {{{1
+data Callback  -- {{{1
+  = Callback {
+      cbStream  :: R.Stream -> IO ()
+    , cbStopped :: S.Stopped -> IO ()
+    , cbNotify  :: R.Notification -> IO ()
+  }
 
 setup :: Maybe FilePath -> Callback -> IO Context -- {{{1
 setup workdir callback = do
@@ -82,12 +90,12 @@ shutdown :: Context -> IO () -- {{{1
 shutdown ctx = do
   mapM_ (killThread . ($ctx)) [ctxCommandThread, ctxOutputThread]
   replicateM_ 2 (takeMVar (ctxFinished ctx))
-  writeCommand ctx gdb_exit 0
+  writeCommand ctx C.gdb_exit 0
   _ <- waitForProcess (ctxProcess ctx)
   putMVar (ctxFinished ctx) ()
   return ()
 
-send_command :: Context -> Command -> IO Response -- {{{1
+send_command :: Context -> R.Command -> IO R.Response -- {{{1
 send_command ctx command = checkShutdown >> sendCommand >>= receiveResponse
   where
     checkShutdown = do
@@ -117,18 +125,26 @@ handleCommands ctx = handleKill ctx $ do
 handleOutput :: Context -> IO () -- {{{2
 handleOutput ctx = handleKill ctx $ do
   output  <- readOutput ctx
-  _ <- forkIO $ do
-    mapM_ (ctxCallback ctx . Left)  (output_notification output)
-    mapM_ (ctxCallback ctx . Right) (output_stream output)
-  let response = output_response output
-  when (has_result response) $ do
-    maybJob <- tryTakeMVar (ctxCurrentJob ctx)
-    case maybJob of
-      Nothing -> error "result record lost!"
-      Just job -> 
-        if (get_token output /= Just (jobToken job))
-          then error $ "token missmatch! " ++ show (get_token output) ++ " vs. " ++ show (jobToken job)
-          else atomically $ putTMVar (jobResponse job) response
+  _ <- forkIO $
+    let
+      streams = R.output_stream output
+      notifications = R.output_notification output
+      (stops, others) = partition ((&&) <$> (R.Exec==) . R.notiClass <*> (R.ACStop==) . R.notiAsyncClass) notifications
+      Just stops' = sequence $ map (S.response_stopped . R.notiResults) stops
+    in do
+      mapM_ ((cbStream . ctxCallback) ctx)  streams
+      mapM_ ((cbNotify . ctxCallback) ctx)  others
+      mapM_ ((cbStopped . ctxCallback) ctx) stops'
+  case R.output_response output of
+    Nothing -> return ()
+    Just response -> do
+      maybJob <- tryTakeMVar (ctxCurrentJob ctx)
+      case maybJob of
+        Nothing -> error "result record lost!"
+        Just job -> 
+          if (R.get_token output /= Just (jobToken job))
+            then error $ "token missmatch! " ++ show (R.get_token output) ++ " vs. " ++ show (jobToken job)
+            else atomically $ putTMVar (jobResponse job) response
   handleOutput ctx  
 
 handleKill :: Context -> IO () -> IO ()
@@ -141,19 +157,19 @@ handleKill ctx action = catchJust select action handler
     handler :: () -> IO ()
     handler _ = putMVar (ctxFinished ctx) ()
 
-writeCommand :: Context -> Command -> Token -> IO () -- {{{2
+writeCommand :: Context -> R.Command -> R.Token -> IO () -- {{{2
 writeCommand ctx cmd token = 
-  let cmdstr = (render_command . add_token token) cmd in
+  let cmdstr = (R.render_command . C.add_token token) cmd in
   do
     debugLog True cmdstr
     hPutStr (ctxCommandPipe ctx) cmdstr
 
-readOutput :: Context -> IO Output -- {{{2
+readOutput :: Context -> IO R.Output -- {{{2
 readOutput ctx = do
   _ <- hWaitForInput (ctxOutputPipe ctx) (-1)
   str <- outputString (ctxOutputPipe ctx)
   debugLog False str
-  return (parse_output str)
+  return (R.parse_output str)
   where
     outputString handle = outputLines handle >>= return . unlines
     outputLines handle = do

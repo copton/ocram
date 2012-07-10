@@ -115,7 +115,8 @@ setup opt su = do
   stateRef <- newIORef (State ExWaiting threads IM.empty)
   sync <- newEmptyMVar
   ctx <- mfix (\ctx' -> do
-      backend <- B.setup (optBinary opt) (coreCallback ctx')
+      let callback = B.Callback (streamCallback ctx') (stoppedCallback ctx') (notifyCallback ctx')
+      backend <- B.setup (optBinary opt) callback
       return $ Context di tcode ecode backend su sync stateRef
     )
   breakpoints <- coreBreakpoints ctx
@@ -182,14 +183,18 @@ continue ctx = onEvent ctx EvContinue
 shutdown :: Context -> IO (Either String ()) -- {{{2
 shutdown ctx = onEvent ctx EvShutdown
 
-coreCallback :: Context -> B.Callback -- {{{2
-coreCallback ctx x@(Left (B.Notification B.Exec B.Stopped items)) =
-  case lookup "bkptno" items of
-    Just value ->
-      let bkptno = (read . $fromJust_s . B.asConst) value in
-      onEvent ctx (EvStopped bkptno) >>= either ($abort . show) return
-    Nothing -> putStrLn $ "## " ++ show x
-coreCallback _ x = putStrLn $ "## " ++ show x
+streamCallback :: Context -> B.Stream -> IO ()
+streamCallback _ stream = putStrLn $ "## " ++ show stream
+
+notifyCallback :: Context -> B.Notification -> IO ()
+notifyCallback _ notification = putStrLn $ "## " ++ show notification
+
+stoppedCallback :: Context -> B.Stopped -> IO ()
+stoppedCallback ctx stopped =
+  case B.stoppedReason stopped of
+    B.BreakpointHit _ number ->
+      onEvent ctx (EvStopped number) >>= either ($abort . show) return
+    B.EndSteppingRange -> return () -- TODO
 
 -- state machine {{{1
 handleEvent :: Context -> State -> Event -> Execution -> Either String (IO State) -- {{{2
