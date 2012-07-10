@@ -77,6 +77,7 @@ data BreakpointType
 
 data Thread = Thread { -- {{{2
     thId      :: Int
+  , thStart   :: String
   , thStatus  :: ThreadStatus
   , thProw    :: Maybe PRow
   } deriving Show
@@ -111,7 +112,7 @@ setup :: Options -> StatusUpdate -> IO Context -- {{{1
 setup opt su = do
   di <- loadDebugInfo
   (tcode, ecode) <- loadFiles di
-  let threads = IM.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) Waiting Nothing)) $ R.diThreads di
+  let threads = IM.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) (R.threadStart t) Waiting Nothing)) $ R.diThreads di
   stateRef <- newIORef (State ExWaiting threads IM.empty)
   sync <- newEmptyMVar
   ctx <- mfix (\ctx' -> do
