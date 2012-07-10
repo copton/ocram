@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Ruab.Backend.GDB.Representation where
 
 -- imports {{{1
@@ -6,7 +5,6 @@ import Control.Applicative ((<$>), (<*>), (<*))
 import Data.Char (isAscii)
 import Data.List (find)
 import Data.Maybe (isNothing)
-import Ruab.Util (abort)
 import Text.ParserCombinators.Parsec hiding (token)
 
 -- input {{{1
@@ -330,13 +328,8 @@ render_command cmd = r_command cmd ""
 
 parse_output :: String -> Output
 parse_output str = case parse p_output "gdb" str of
-  Left pe -> $abort $ "parse failed: " ++ show pe
+  Left pe -> error $ "parse failed: " ++ show pe
   Right o -> o
-
--- XXX
--- is_error :: Output -> Bool
--- is_error (Output _ (Just (ResultRecord _ RCError _))) = True
--- is_error _ = False
 
 parameter_valid :: Parameter -> Bool
 parameter_valid param

@@ -44,9 +44,10 @@ interrupt ctx = do
 set_breakpoint :: G.Context -> G.Location -> IO G.Breakpoint -- {{{1
 set_breakpoint ctx loc = do
   resp <- G.send_command ctx (G.break_insert False False False False False Nothing Nothing Nothing loc)
-  case convert G.response_break_insert resp of
-    Nothing -> $abort ("unexpected response: " ++ show resp)
-    Just x -> return x
+  maybe
+    ($abort ("unexpected response: " ++ show resp))
+    return
+    (convert G.response_break_insert resp)
 
 run :: G.Context -> IO ()
 run ctx = do
@@ -60,9 +61,17 @@ continue ctx = do
   when (not (G.result_is G.Running resp))
     ($abort $ "unexpected response: " ++ show resp)
 
+backtrace :: G.Context -> IO G.Stack
+backtrace ctx = do
+  resp <- G.send_command ctx (G.stack_list_frames Nothing)
+  maybe
+    ($abort ("unexpected response: " ++ show resp))
+    return
+    (convert G.response_stack_list_frames resp)
+
 -- utils {{{1
-convert :: (G.Dictionary -> Maybe a) -> G.Response -> Maybe a -- {{{2
+convert :: (G.Items -> Maybe a) -> G.Response -> Maybe a -- {{{2
 convert f resp = do
   guard (not (G.result_is G.Error resp))
-  dict <- G.dictionary resp
-  f dict
+  items <- G.items resp
+  f items

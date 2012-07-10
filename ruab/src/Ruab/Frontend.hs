@@ -267,9 +267,10 @@ parseInt txt =
 
 statusUpdate :: GUI -> C.StatusUpdate -- {{{2
 statusUpdate gui threads = postGUIAsync $ do
-  forM_ threads (\thread ->
+  forM_ threads (\thread -> do
       when (isJust (C.thProw thread)) $
         modifyIORef (guiState gui) (modifyInfos (setThread ((C.getRow . fromJust . C.thProw) thread) (C.thId thread)))
+      log gui Status [show thread]
     )
   syncComponents gui
 

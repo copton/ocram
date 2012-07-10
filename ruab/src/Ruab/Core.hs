@@ -36,7 +36,6 @@ import System.IO (openFile, IOMode(ReadMode), hClose)
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.IntMap as IM
-import qualified Data.Map as M
 import qualified Ocram.Ruab as R
 import qualified Data.Set as S
 import qualified Ruab.Backend as B
@@ -184,8 +183,8 @@ shutdown :: Context -> IO (Either String ()) -- {{{1
 shutdown ctx = onEvent ctx EvShutdown
 
 coreCallback :: Context -> B.Callback -- {{{2
-coreCallback ctx x@(Left (B.Notification B.Exec B.Stopped dict)) =
-  case M.lookup "bkptno" dict of
+coreCallback ctx x@(Left (B.Notification B.Exec B.Stopped items)) =
+  case lookup "bkptno" items of
     Just value ->
       let bkptno = (read . $fromJust_s . B.asConst) value in
       onEvent ctx (EvStopped bkptno) >>= either ($abort . show) return
@@ -214,7 +213,7 @@ handleEvent ctx state EvShutdown _          = Right (
 -- EvInterrupt
 handleEvent ctx state EvInterrupt ExRunning     = Right (
     state {stateExecution = ExInterrupted}
-  , B.interrupt (ctxBackend ctx) >> (ctxStatusUpdate ctx) ((IM.elems . stateThreads) state) 
+  , B.interrupt (ctxBackend ctx)
   )
 handleEvent _   state EvInterrupt ExInterrupted = nop state
 handleEvent _   _     EvInterrupt ExWaiting     = notRunning

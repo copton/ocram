@@ -3,12 +3,14 @@ module Ruab.Backend.GDB.Test (tests) where
 
 -- imports {{{1
 import Ruab.Backend.GDB.Representation
+import Ruab.Backend.GDB.Output
+import Ruab.Backend.GDB.Responses
 import Ruab.Test.Lib (enumTestGroup, paste)
 import Test.Framework (Test, testGroup)
 import Test.HUnit ((@=?), Assertion)
 
 tests :: Test -- {{{1
-tests = testGroup "GDB" [test_render_command, test_parse_output]
+tests = testGroup "GDB" [test_render_command, test_parse_output, test_response_stack_list_frames]
 
 test_render_command:: Test -- {{{2
 test_render_command = enumTestGroup "render_command" $ map runTest [
@@ -194,3 +196,33 @@ test_parse_output = enumTestGroup "parse_output" $ map runTest [
     runTest :: (String, Output) -> Assertion -- {{{3
     runTest (str, output) =
       show output @=? show (parse_output (tail str))
+
+test_response_stack_list_frames :: Test
+test_response_stack_list_frames = enumTestGroup "response_stack_list_frames" $ map runTest [
+    ([paste|
+^done,stack=[frame={level="0",addr="0x00007ffff7a9dcc7",func="_IO_vfprintf_internal",file="vfprintf.c",line="1647"},frame={level="1",addr="0x00007ffff7ac2c79",func="__IO_vsprintf",file="iovsprintf.c",line="43"},frame={level="2",addr="0x0000000000402520",func="logger_syscall",file="logger.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/logger.c",line="57"},frame={level="3",addr="0x0000000000401c13",func="os_receive",file="core.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/core.c",line="145"},frame={level="4",addr="0x0000000000401489",func="tc_receive",file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="116"},frame={level="5",addr="0x0000000000400e2e",func="ec_thread_1",file="ec.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c",line="433"},frame={level="6",addr="0x00000000004016b2",func="flash_write_cb",file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="156"},frame={level="7",addr="0x00000000004019ff",func="cb_default",file="core.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/core.c",line="90"},frame={level="8",addr="0x0000000000402f05",func="dispatcher_run",file="dispatcher.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/dispatcher.c",line="93"},frame={level="9",addr="0x000000000040188e",func="os_run",file="core.c",fullname="/home/alex/scm/ocram/applications/simulation_os/os/core.c",line="37"},frame={level="10",addr="0x00000000004012f0",func="pal_run",file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="70"},frame={level="11",addr="0x0000000000401818",func="main",file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="200"}]
+(gdb) 
+|], Stack [
+        Frame  0 "0x00007ffff7a9dcc7" "_IO_vfprintf_internal" "vfprintf.c" Nothing 1647
+      , Frame  1 "0x00007ffff7ac2c79" "__IO_vsprintf" "iovsprintf.c" Nothing 43
+      , Frame  2 "0x0000000000402520" "logger_syscall" "logger.c" (Just "/home/alex/scm/ocram/applications/simulation_os/os/logger.c") 57
+      , Frame  3 "0x0000000000401c13" "os_receive" "core.c" (Just "/home/alex/scm/ocram/applications/simulation_os/os/core.c") 145
+      , Frame  4 "0x0000000000401489" "tc_receive" "pal.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c") 116
+      , Frame  5 "0x0000000000400e2e" "ec_thread_1" "ec.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c") 433
+      , Frame  6 "0x00000000004016b2" "flash_write_cb" "pal.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c") 156
+      , Frame  7 "0x00000000004019ff" "cb_default" "core.c" (Just "/home/alex/scm/ocram/applications/simulation_os/os/core.c") 90
+      , Frame  8 "0x0000000000402f05" "dispatcher_run" "dispatcher.c" (Just "/home/alex/scm/ocram/applications/simulation_os/os/dispatcher.c") 93
+      , Frame  9 "0x000000000040188e" "os_run" "core.c" (Just "/home/alex/scm/ocram/applications/simulation_os/os/core.c") 37
+      , Frame 10 "0x00000000004012f0" "pal_run" "pal.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c") 70
+      , Frame 11 "0x0000000000401818" "main" "pal.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c") 200
+      ])
+  ]
+  where
+    runTest :: (String, Stack) -> Assertion
+    runTest (str, stack) =
+      let
+        output = parse_output (tail str)
+        (Response (Just (_, dict))) = output_response output
+        stack' = response_stack_list_frames dict
+      in 
+        Just stack @=? stack'
