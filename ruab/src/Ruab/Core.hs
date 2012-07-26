@@ -31,7 +31,7 @@ import Data.List (intercalate, find)
 import Data.Maybe (catMaybes, isNothing)
 import Prelude hiding (catch)
 import Ruab.Core.Internal
-import Ruab.Options (Options(optDebugFile, optBinary))
+import Ruab.Options (Options(optDebugFile))
 import Ruab.Util (fromJust_s, abort)
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
@@ -125,7 +125,7 @@ setup opt su = do
   sync <- newEmptyMVar
   ctx <- mfix (\ctx' -> do
       let callback = B.Callback (streamCallback ctx') (stoppedCallback ctx') (notifyCallback ctx')
-      backend <- B.setup (optBinary opt) callback
+      backend <- B.setup opt callback
       return $ Context di tcode ecode backend su sync stateRef
     )
   breakpoints <- coreBreakpoints ctx

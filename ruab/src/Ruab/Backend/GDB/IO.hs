@@ -22,7 +22,7 @@ import Control.Monad (replicateM_)
 import Control.Monad.Fix (mfix)
 import Data.List (partition)
 import Prelude hiding (catch, interact)
-import System.IO (Handle, hSetBuffering, BufferMode(LineBuffering), hPutStr, hWaitForInput, hGetLine, stdout)
+import System.IO (Handle, hSetBuffering, BufferMode(LineBuffering), hPutStr, hWaitForInput, hGetLine, IOMode(WriteMode), stdout, openFile, hFlush)
 import System.Posix.IO (fdToHandle, createPipe)
 import System.Process (ProcessHandle, runProcess, waitForProcess)
 
@@ -35,9 +35,10 @@ data Context = Context { -- {{{1
     ctxProcess        :: ProcessHandle
   , ctxCommandPipe    :: Handle
   , ctxOutputPipe     :: Handle
+  , ctxLog            :: Maybe Handle
 -- callback
   , ctxCallback       :: Callback
--- threads {{{2
+-- threads
   , ctxCommandThread  :: ThreadId
   , ctxOutputThread   :: ThreadId
   , ctxCurrentJob     :: MVar Job
@@ -61,15 +62,19 @@ data Callback  -- {{{1
   }
 
 setup :: Maybe FilePath -> Callback -> IO Context -- {{{1
-setup workdir callback = do
+setup logfile callback = do
   (commandR,  commandW)  <- createPipe >>= asHandles
   (outputR, outputW) <- createPipe >>= asHandles
   phandle <- runProcess "setsid" ["gdb", "--interpreter", "mi"] -- avoid receiving SIGINTs when issuing -exec-interrupt
-                 workdir Nothing
+                 Nothing Nothing
                  (Just commandR)
                  (Just outputW)
                  Nothing
   mapM_ (`hSetBuffering` LineBuffering) [commandW, outputR]
+  logH <- case logfile of
+    Nothing -> return Nothing
+    Just "-" -> return $ Just stdout
+    Just f -> fmap Just $ openFile f WriteMode
   currentJob <- newEmptyMVar
   finished <- newEmptyMVar
   nextToken <- newTVarIO 0
@@ -77,7 +82,7 @@ setup workdir callback = do
   ctx <- mfix (\ctx -> do
       itid <- forkIO (handleCommands ctx)
       otid <- forkIO (handleOutput ctx)
-      return $ Context phandle commandW outputR callback itid otid currentJob finished nextToken jobs
+      return $ Context phandle commandW outputR logH callback itid otid currentJob finished nextToken jobs
     )
   return ctx
   where
@@ -161,14 +166,14 @@ writeCommand :: Context -> R.Command -> R.Token -> IO () -- {{{2
 writeCommand ctx cmd token = 
   let cmdstr = (R.render_command . C.add_token token) cmd in
   do
-    debugLog True cmdstr
+    debugLog ctx True cmdstr
     hPutStr (ctxCommandPipe ctx) cmdstr
 
 readOutput :: Context -> IO R.Output -- {{{2
 readOutput ctx = do
   _ <- hWaitForInput (ctxOutputPipe ctx) (-1)
   str <- outputString (ctxOutputPipe ctx)
-  debugLog False str
+  debugLog ctx False str
   return (R.parse_output str)
   where
     outputString handle = outputLines handle >>= return . unlines
@@ -178,6 +183,12 @@ readOutput ctx = do
         then return [line]
         else outputLines handle >>= return . (line:)
 
-debugLog :: Bool -> String -> IO () -- {{{2
-debugLog io text = let prefix = if io then "/i " else "/o " in
-    hPutStr stdout ((unlines . map (prefix++) . lines) text)
+debugLog :: Context -> Bool -> String -> IO () -- {{{2
+debugLog ctx io text = 
+  let
+    prefix = if io then "/i " else "/o "
+    line = ((unlines . map (prefix++) . lines) text)
+  in
+  case (ctxLog ctx) of
+    Nothing -> return ()
+    Just h -> hPutStr h line >> hFlush h

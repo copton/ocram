@@ -12,6 +12,7 @@ import System.Console.GetOpt (getOpt, usageInfo, ArgOrder(Permute), OptDescr, Ar
 data Options = Options { -- {{{1
     optDebugFile :: FilePath
   , optBinary    :: FilePath
+  , optGdbLog    :: Maybe FilePath
   , optHelp      :: Bool
 }
 
@@ -36,6 +37,7 @@ availableOptions :: [OptDescr (Options -> Options)] -- {{{2
 availableOptions = [
     Option "d" ["debug"] (ReqArg (\x opts -> opts {optDebugFile = x}) "debug") "file path for the debugging information (required)"     
   , Option "b" ["binary"] (ReqArg (\x opts -> opts {optBinary = x}) "binary") "file path for the ecode binary (required)"
+  , Option "l" ["GDB log"] (ReqArg (\x opts -> opts {optGdbLog = Just x}) "gdblog") "log file for GDB interaction (optional)"
   , Option "h" ["help"] (NoArg (\opts -> opts {optHelp = True})) "print help and quit"
   ]
 
@@ -43,6 +45,7 @@ defaultOptions :: Options -- {{{2
 defaultOptions = Options {
     optDebugFile = ""
   , optBinary    = ""
+  , optGdbLog    = Nothing
   , optHelp      = False
   }
 
