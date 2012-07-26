@@ -8,7 +8,7 @@ module Ruab.Frontend
 -- imports {{{1
 import Control.Monad.Fix (mfix)
 import Control.Monad (when, forM_)
-import Data.IORef (IORef, newIORef, readIORef, modifyIORef)
+import Data.IORef (IORef, newIORef, readIORef, writeIORef, modifyIORef)
 import Data.List (intersperse, find)
 import Data.Maybe (fromJust, catMaybes, isJust)
 import Graphics.UI.Gtk
@@ -208,12 +208,29 @@ displayHelp gui l "start"  = log gui l ["start: start debugging the binary"]
 displayHelp gui _ unknown  = log gui Error ["unknown command '" ++ unknown ++ "'", "type 'help' to see a list of known commands"]
 
 commands :: [String] -- {{{2
-commands = ["osapi", "quit", "scroll", "start", "interrupt", "continue"]
+commands = ["break", "osapi", "quit", "scroll", "start", "interrupt", "continue"]
 
 handleCommand :: GUI -> [String] -> IO () -- {{{2
 -- help {{{3
 handleCommand gui ["help"] = displayHelp gui Output ""
 handleCommand gui ("help":what:_) = displayHelp gui Output what
+-- break {{{3
+handleCommand gui ["break", "add", row@(parseInt -> Just _)] =
+  let prow = (fromJust . parseInt) row in do
+  res <- C.add_breakpoint (guiCore gui) (C.PRow prow)
+  case res of
+    Left e -> log gui Error [e]
+    Right bp -> do
+      log gui Output ["breakpoint added", show bp]
+      state <- readIORef (guiState gui)
+      let pinfos = setBreakpoint ((C.getRow . C.breakpointRow) bp) (C.breakpointNumber bp) (stateInfos state)
+      writeIORef (guiState gui) (state {stateInfos = pinfos})
+      syncComponents gui
+
+handleCommand gui ["break", "list"] = do
+  bps <- C.list_breakpoints (guiCore gui)
+  log gui Output $ "breakpoints:" : map show bps
+
 -- continue {{{3
 handleCommand gui ["continue"] =
   C.continue (guiCore gui) >>= either 
