@@ -8,24 +8,21 @@ module Ruab.Frontend
 -- imports {{{1
 import Control.Applicative ((<$>))
 import Control.Monad.Fix (mfix)
-import Control.Monad (when, forM_)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef, modifyIORef)
 import Data.List (intercalate, find)
-import Data.Maybe (fromJust, catMaybes, isJust, listToMaybe)
+import Data.Maybe (fromJust, listToMaybe)
 import Graphics.UI.Gtk
-import Graphics.UI.Gtk.Gdk.Events (Event(Key))
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
-import Reactive.Banana (actuate, compile, reactimate, NetworkDescription, newEvent, union)
+import Reactive.Banana (actuate, compile, reactimate, NetworkDescription, newEvent, accumE)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread)
 import Ruab.Frontend.Reactive (event_input)
 import Ruab.Options (Options)
-import Ruab.Util (abort, fromJust_s)
+import Ruab.Util (fromJust_s, abort)
 
 import qualified Ruab.Core as C
 import qualified Data.ByteString.Char8 as BS
-import Debug.Trace (trace)
 
 -- types {{{1
 data Component = Component { -- {{{2
@@ -93,12 +90,35 @@ createNetwork :: GUI -> NetworkDescription t () -- {{{2
 createNetwork gui = do
   eInput <- event_input (guiInput gui)
   (eLog, fireLog) <- newEvent
+  (eInfo, fireInfo) <- newEvent
   let
     eCommand = read <$> eInput
+    infos = foldr (flip setBreakpoint 0) [] $ map C.getRow $ C.possible_breakpoints (guiCore gui)
+    ePinfo = accumE infos eInfo
+    eTinfo = sync C.p2t_row <$> ePinfo
+    eEinfo = sync C.p2e_row <$> ePinfo
 
+  -- echoing commands
   reactimate $ log (guiLog gui) . LogEvent LogPrompt . (:[]) <$> eInput
+  -- show log output
   reactimate $ log (guiLog gui) <$> eLog
-  reactimate $ handleCommand (guiCore gui) fireLog <$> eCommand
+  -- update infos
+  reactimate $ update (guiTcomp gui) <$> eTinfo
+  reactimate $ update (guiPcomp gui) <$> ePinfo
+  reactimate $ update (guiEcomp gui) <$> eEinfo
+  -- handle commands
+  reactimate $ handleCommand (guiCore gui) fireLog fireInfo <$> eCommand
+    where
+      sync :: (C.Context -> C.PRow -> Maybe Int) -> [InfoInstance] -> [InfoInstance]
+      sync f infos = flip map infos $ \(row, x) ->
+        case f (guiCore gui) (C.PRow row) of
+          Nothing -> $abort $ "failed to map row: " ++ show row
+          Just row' -> (row', x)
+
+      update :: Component -> [InfoInstance] -> IO ()
+      update comp infos = do
+        setText (compInfo comp) (render_info infos)
+        maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos
 
 setupGui :: GUI -> IO () -- {{{2
 setupGui gui = do
@@ -121,8 +141,6 @@ setupGui gui = do
   widgetGrabFocus (guiInput gui)
   widgetShowAll (guiWin gui)
 
---  setupBreakpoints
-
   where
     addAppendMarker tv = do -- {{{3
       buffer <- textViewGetBuffer tv
@@ -144,12 +162,7 @@ setupGui gui = do
       textBufferInsertByteStringAtCursor buffer txt
       textViewSetBuffer tv buffer
 
---     setupBreakpoints = do -- {{{3
---       modifyIORef (guiState gui) (modifyInfos (const infos))
---       syncComponents gui
---       where
---         infos = foldr (flip setBreakpoint 0) [] ((map C.getRow . C.possible_breakpoints . guiCore) gui)
-
+-- UI utils {{{1
 scrollToRow :: Component -> Int -> IO () -- {{{2
 scrollToRow comp row = do
   buffer <- textViewGetBuffer (compCode comp)
@@ -168,7 +181,7 @@ setText tv txt = do
   buffer <- textViewGetBuffer tv
   textBufferSetText buffer txt
 
--- actions
+-- actions {{{1
 log :: TextView -> LogEvent -> IO () -- {{{2
 log tv (LogEvent lt lines) = do
   let
@@ -181,29 +194,29 @@ log tv (LogEvent lt lines) = do
   textViewScrollToMark tv ($fromJust_s mark) 0 Nothing 
   return ()
 
-handleCommand :: C.Context -> (LogEvent -> IO ()) -> CommandEvent -> IO () -- {{{2
-handleCommand core fireLog event = handle event
+type FireEvent e = e -> IO ()
+
+handleCommand :: C.Context -> FireEvent LogEvent -> FireEvent InfoEvent -> CommandEvent -> IO () -- {{{2
+handleCommand core fireLog fireInfo event = handle event
   where
     handle (CmdEvUnknown cmd) = -- {{{3
       lerror ["unknown command '" ++ cmd ++ "'", "type 'help' for assistance"]
 
-    handle (CmdEvBreakAdd prow) = do -- {{{3
-      res <- C.add_breakpoint core prow
-      failOrDo res $ \bp -> do
-        loutput ["breakpoint added", show bp]
-        -- TODO update infos
+    handle (CmdEvBreakAdd prow) = -- {{{3
+      C.add_breakpoint core prow >>= either lerror' (\bp -> do
+          loutput ["breakpoint added", show bp]
+          fireInfo $ setBreakpoint ((C.getRow . C.breakpointRow) bp) (C.breakpointNumber bp)
+        )
 
     handle CmdEvBreakList = do -- {{{3
       bps <- C.list_breakpoints core
       loutput $ "breakpoints:" : map show bps
 
-    handle CmdEvContinue = do -- {{{3
-      res <- C.continue core
-      failOrDo res $ \_ -> loutput ["continued"]
+    handle CmdEvContinue = -- {{{3
+      C.continue core >>= either lerror' (\_ -> loutput' "continued")
 
-    handle CmdEvInterrupt = do -- {{{3
-      res <- C.interrupt core
-      failOrDo res $ \_ -> loutput ["interrupted"]
+    handle CmdEvInterrupt = -- {{{3
+      C.interrupt core >>= either lerror' (\_ -> loutput' "interrupted")
 
     handle CmdEvQuit = -- {{{3
       frontendStop core
@@ -214,12 +227,28 @@ handleCommand core fireLog event = handle event
     handle (CmdEvHelp (Just cmd)) = -- {{{3
       loutput (help cmd)
 
-    loutput ss = fireLog $ LogEvent LogOutput ss
-    lerror ss = fireLog $ LogEvent LogError ss
+    handle (CmdEvScroll rt srow) = -- {{{3
+      let
+        f = case rt of     
+          Tcode -> fmap C.getRow . C.t2p_row core
+          Pcode -> Just
+          Ecode -> fmap C.getRow . C.e2p_row core
+      in
+        case f srow of
+          Nothing -> lerror ["invalid row number"]
+          Just prow -> fireInfo (setHighlight prow)
 
-    failOrDo e a = either (fireLog . LogEvent LogError . (:[])) a e
+    handle CmdEvStart = -- {{{3
+      C.run core >>= either lerror' (\_ -> loutput' "interrupted")
+
+    loutput ss = fireLog $ LogEvent LogOutput ss
+    loutput' s = loutput [s]
+    lerror ss = fireLog $ LogEvent LogError ss
+    lerror' s = lerror [s]
 
 -- types {{{1
+type InfoEvent = [InfoInstance] -> [InfoInstance]
+
 commands :: [(String, Command)] -- {{{2
 commands = [
     ("badd", CmdBreakAdd)
@@ -290,9 +319,9 @@ commandEvent text =
       CmdContinue -> noopt CmdContinue CmdEvContinue options
 
       CmdHelp -> case options of
-        [cmd] -> case mread cmd of
-          Nothing -> CmdEvUnknown cmd
-          Just cmd' -> CmdEvHelp (Just cmd')
+        [cmd'] -> case mread cmd' of
+          Nothing -> CmdEvUnknown cmd'
+          Just cmd'' -> CmdEvHelp (Just cmd'')
         _ -> CmdEvHelp Nothing
 
       CmdInterrupt -> noopt CmdInterrupt CmdEvInterrupt options
@@ -318,6 +347,8 @@ help CmdContinue  = ["continue: continue execution"]
 help CmdBreakAdd  = ["badd prow: add a breakpoint"]
 help CmdBreakList = ["blist: list all breakpoints"]
 help CmdQuit = ["quit: quit ruab"]
+help CmdScroll = ["scroll t|p|e row: scroll views to the given row"]
+help CmdHelp = ["help: show the list of available commands"]
 help CmdStart = ["start: start execution"]
 
 data LogEvent = LogEvent LogType [String] -- {{{2
@@ -334,65 +365,7 @@ instance Show LogType where -- {{{2
   show LogStatus = "@"
   show LogPrompt = "$"
 
-
 -- old {{{1
-
--- handleCommand :: GUI -> [String] -> IO () -- {{{2
--- handleCommand gui ["help"] = displayHelp gui Output ""
--- handleCommand gui ("help":what:_) = displayHelp gui Output what
--- handleCommand gui ["break", "add", row@(parseInt -> Just _)] =
---   let prow = (fromJust . parseInt) row in do
---   res <- C.add_breakpoint (guiCore gui) (C.PRow prow)
---   case res of
---     Left e -> log gui Error [e]
---     Right bp -> do
---       log gui Output ["breakpoint added", show bp]
---       state <- readIORef (guiState gui)
---       let pinfos = setBreakpoint ((C.getRow . C.breakpointRow) bp) (C.breakpointNumber bp) (stateInfos state)
---       writeIORef (guiState gui) (state {stateInfos = pinfos})
---       syncComponents gui
-
--- handleCommand gui ["break", "list"] = do
---   bps <- C.list_breakpoints (guiCore gui)
---   log gui Output $ "breakpoints:" : map show bps
-
--- handleCommand gui ["continue"] =
---   C.continue (guiCore gui) >>= either 
---     (log gui Error . (:[]))
---     (const $ log gui Output ["continued"])  
-
--- handleCommand gui ["interrupt"] =
---   C.interrupt (guiCore gui) >>= either
---     (log gui Error . (:[]))
---     (const $ log gui Output ["interrupted"])
-
--- handleCommand gui ["osapi"] = log gui Output ["OS API: " ++ (concat $ intersperse ", " (C.os_api (guiCore gui)))]
-
--- handleCommand gui ["quit"] = frontendStop gui
-
--- handleCommand gui ["scroll", comp@((`elem`["t","p","e"]) -> True), row@(parseInt -> Just _)] =
---   let
---     srow = (fromJust . parseInt) row
---     f = case comp of
---       "t" -> fmap C.getRow . C.t2p_row (guiCore gui)
---       "p" -> Just
---       "e" -> fmap C.getRow . C.e2p_row (guiCore gui)
---       x -> $abort $ "unexpected case: " ++ x
---   in 
---     case f srow of
---       Nothing -> log gui Error ["invalid row number"]
---       Just prow -> do
---         modifyIORef (guiState gui) (modifyInfos (setHighlight prow))
---         syncComponents gui
-
--- handleCommand gui ["start"] =
---   C.run (guiCore gui) >>= either
---     (log gui Error . (:[]))
---     (const $ log gui Output ["started"])
-
--- handleCommand gui (cmd:_) = displayHelp gui Error cmd
--- handleCommand _ x = $abort $ "unexpected parameter: " ++ show x
--- utils {{{4
 
 statusUpdate :: GUI -> C.StatusUpdate
 statusUpdate _ _ = return ()
@@ -404,23 +377,3 @@ statusUpdate _ _ = return ()
 --       log gui Status [show thread]
 --     )
 --   syncComponents gui
-
--- syncComponents :: GUI -> IO () -- {{{2
--- syncComponents gui = do
---   state <- readIORef (guiState gui)
---   let pinfos = stateInfos state
---   update (guiTcomp gui) $ sync C.p2t_row pinfos
---   update (guiPcomp gui) $ pinfos
---   update (guiEcomp gui) $ sync C.p2e_row pinfos
---   where
---     sync :: (C.Context -> C.PRow -> Maybe Int) -> [InfoInstance] -> [InfoInstance]
---     sync f infos = catMaybes $ map (\(row, x) ->
---         case f (guiCore gui) (C.PRow row) of
---           Nothing -> trace ("XXX: failed: " ++ show row) Nothing
---           Just row' -> Just (row', x)
---       ) infos
-
---     update :: Component -> [InfoInstance] -> IO ()
---     update comp infos = do
---       setText (compInfo comp) (render_info infos)
---       maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos
