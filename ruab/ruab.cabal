@@ -39,7 +39,8 @@ Executable ruab
     json == 0.5.*,
     parsec == 3.1.*,
     unix == 2.5.*,
-    stm == 2.3.*
+    stm == 2.3.*,
+    reactive-banana == 0.6.*
   Other-Modules:
     Main,
     Ocram.Ruab,
