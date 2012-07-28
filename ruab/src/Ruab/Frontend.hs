@@ -8,7 +8,6 @@ module Ruab.Frontend
 -- imports {{{1
 import Control.Applicative ((<$>))
 import Control.Monad.Fix (mfix)
-import Data.IORef (IORef, newIORef, readIORef, writeIORef, modifyIORef)
 import Data.List (intercalate, find)
 import Data.Maybe (fromJust, listToMaybe)
 import Graphics.UI.Gtk
@@ -42,16 +41,8 @@ data GUI = GUI { -- {{{2
   , guiView    :: TextView
   , guiInput   :: Entry
   , guiStatus  :: Statusbar
-  , guiState   :: IORef State
   , guiCore    :: C.Context
   }
-
-data State = State { -- {{{2
-    stateInfos :: [InfoInstance] -- based on p-code
-  }
-
-modifyInfos :: ([InfoInstance] -> [InfoInstance]) -> State -> State
-modifyInfos f s = s {stateInfos = f (stateInfos s)}
 
 run :: Options -> IO () -- {{{1
 run opt = do
@@ -77,8 +68,7 @@ loadGui core = do
   [log', view] <- mapM (xmlGetWidget xml castToTextView) ["log", "view"]
   input <- xmlGetWidget xml castToEntry "input"
   status <- xmlGetWidget xml castToStatusbar "status"
-  state <- newIORef $ State []
-  return $ GUI window ct cp ce log' view input status state core
+  return $ GUI window ct cp ce log' view input status core
   where
     loadComponent xml comp = do
       [code, info, lines] <- mapM (xmlGetWidget xml castToTextView) $ map (comp++) ["code", "info", "lines"]
@@ -116,7 +106,7 @@ createNetwork gui = do
           Just row' -> (row', x)
 
       update :: Component -> [InfoInstance] -> IO ()
-      update comp infos = do
+      update comp infos = postGUIAsync $ do
         setText (compInfo comp) (render_info infos)
         maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos
 
@@ -183,7 +173,7 @@ setText tv txt = do
 
 -- actions {{{1
 log :: TextView -> LogEvent -> IO () -- {{{2
-log tv (LogEvent lt lines) = do
+log tv (LogEvent lt lines) = postGUIAsync $ do
   let
     prefix = show lt ++ " "
     text = (intercalate "\n" $ map (prefix++) lines) ++ "\n"
@@ -239,7 +229,7 @@ handleCommand core fireLog fireInfo event = handle event
           Just prow -> fireInfo (setHighlight prow)
 
     handle CmdEvStart = -- {{{3
-      C.run core >>= either lerror' (\_ -> loutput' "interrupted")
+      C.run core >>= either lerror' (\_ -> loutput' "started")
 
     loutput ss = fireLog $ LogEvent LogOutput ss
     loutput' s = loutput [s]
