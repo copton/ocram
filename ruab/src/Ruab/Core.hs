@@ -12,7 +12,7 @@ module Ruab.Core
 -- types
   , StatusUpdate, ThreadStatus(..)
   , Thread(..)
-  , PRow(..)
+  , PRow, TRow, ERow
   , UserBreakpoint(..)
 -- queries
   , possible_breakpoints, list_breakpoints
@@ -114,14 +114,6 @@ data Result -- {{{2
   | ResBreak UserBreakpoint
 
 type StatusUpdate = [Thread] -> IO () -- {{{2
-
-newtype PRow = PRow {getRow :: Int} -- {{{2
-instance Show PRow where
-  show (PRow row) = show row
-instance Eq PRow where
-  (PRow row) == (PRow row') = row == row'
-instance Ord PRow where
-  (PRow row) <= (PRow row') = row <= row'
 
 setup :: Options -> StatusUpdate -> IO Context -- {{{1
 setup opt su = do
@@ -381,13 +373,13 @@ list_breakpoints ctx = atomicIO ctx $ do
 os_api :: Context -> [String] -- {{{2
 os_api = R.diOsApi . ctxDebugInfo
 
-t2p_row :: Context -> Int -> Maybe PRow -- {{{2
-t2p_row ctx row = fmap PRow $ t2p_row' ((R.diPpm . ctxDebugInfo) ctx) row
+t2p_row :: Context -> TRow -> Maybe PRow -- {{{2
+t2p_row ctx row = t2p_row' ((R.diPpm . ctxDebugInfo) ctx) row
 
-p2t_row :: Context -> PRow -> Maybe Int -- {{{2
-p2t_row ctx prow = p2t_row' ((R.diPpm . ctxDebugInfo) ctx) (getRow prow)
+p2t_row :: Context -> PRow -> Maybe TRow -- {{{2
+p2t_row ctx prow = p2t_row' ((R.diPpm . ctxDebugInfo) ctx) prow
 
-e2p_row :: Context -> Int -> Maybe PRow -- {{{2
+e2p_row :: Context -> ERow -> Maybe PRow -- {{{2
 e2p_row ctx erow =
   let
     tfile = (R.fileName . R.diTcode . ctxDebugInfo) ctx
@@ -396,14 +388,14 @@ e2p_row ctx erow =
   in do
     trow <- e2t_row' lm tfile erow
     prow <- t2p_row' ppm trow
-    return $ PRow prow
+    return prow
 
-p2e_row :: Context -> PRow -> Maybe Int -- {{{2
+p2e_row :: Context -> PRow -> Maybe ERow -- {{{2
 p2e_row ctx prow =
   let
     tfile = (R.fileName . R.diTcode . ctxDebugInfo) ctx
     lm = (R.diLocMap . ctxDebugInfo) ctx
     ppm = (R.diPpm . ctxDebugInfo) ctx
   in do
-    trow <- p2t_row' ppm (getRow prow)
+    trow <- p2t_row' ppm prow
     t2e_row' lm tfile trow

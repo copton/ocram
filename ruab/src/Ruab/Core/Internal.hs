@@ -5,7 +5,12 @@ import Data.List (find)
 
 import qualified Ocram.Ruab as R
 
-t2p_row' :: R.PreprocMap -> Int -> Maybe Int -- {{{1
+-- types {{{1
+type PRow = Int
+type TRow = Int
+type ERow = Int
+
+t2p_row' :: R.PreprocMap -> TRow -> Maybe PRow -- {{{1
 t2p_row'(R.PreprocMap _ prows locs) trow = do
   guard (trow > 0)
   let (src, dst) = (last . takeWhile ((<=trow) . fst)) locs
@@ -13,7 +18,7 @@ t2p_row'(R.PreprocMap _ prows locs) trow = do
   guard (prow <= prows)
   return prow
 
-p2t_row' :: R.PreprocMap -> Int -> Maybe Int -- {{{1
+p2t_row' :: R.PreprocMap -> PRow -> Maybe TRow -- {{{1
 p2t_row' ppm@(R.PreprocMap trows _ locs) prow = do
   guard (prow > 0)
   let (src, dst) = (last . takeWhile ((<=prow) . snd)) locs
@@ -23,14 +28,14 @@ p2t_row' ppm@(R.PreprocMap trows _ locs) prow = do
   guard (prow' == prow)
   return trow
 
-t2e_row' :: R.LocMap -> String -> Int -> Maybe Int -- {{{1
+t2e_row' :: R.LocMap -> String -> TRow -> Maybe ERow -- {{{1
 t2e_row' lm tfile row = 
   fmap (R.elocRow . R.locEloc) $
   find ((row==) . R.tlocRow . R.locTloc) $
   filter ((tfile==) . R.tlocFile . R.locTloc) $
   lm
 
-e2t_row' :: R.LocMap -> String -> Int -> Maybe Int -- {{{1
+e2t_row' :: R.LocMap -> String -> ERow -> Maybe TRow -- {{{1
 e2t_row' lm tfile row =
   fmap (R.tlocRow . R.locTloc) $
   find ((row==) . R.elocRow . R.locEloc) $

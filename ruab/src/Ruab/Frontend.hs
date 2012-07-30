@@ -83,7 +83,7 @@ createNetwork gui = do
   (eInfo, fireInfo) <- newEvent
   let
     eCommand = read <$> eInput
-    infos = foldr (flip setBreakpoint 0) [] $ map C.getRow $ C.possible_breakpoints (guiCore gui)
+    infos = foldr (flip setBreakpoint 0) [] $ C.possible_breakpoints (guiCore gui)
     ePinfo = accumE infos eInfo
     eTinfo = sync C.p2t_row <$> ePinfo
     eEinfo = sync C.p2e_row <$> ePinfo
@@ -100,9 +100,9 @@ createNetwork gui = do
   reactimate $ handleCommand (guiCore gui) fireLog fireInfo <$> eCommand
     where
       sync :: (C.Context -> C.PRow -> Maybe Int) -> [InfoInstance] -> [InfoInstance]
-      sync f infos = flip map infos $ \(row, x) ->
-        case f (guiCore gui) (C.PRow row) of
-          Nothing -> $abort $ "failed to map row: " ++ show row
+      sync f infos = flip map infos $ \(prow, x) ->
+        case f (guiCore gui) prow of
+          Nothing -> $abort $ "failed to map row: " ++ show prow
           Just row' -> (row', x)
 
       update :: Component -> [InfoInstance] -> IO ()
@@ -195,7 +195,7 @@ handleCommand core fireLog fireInfo event = handle event
     handle (CmdEvBreakAdd prow) = -- {{{3
       C.add_breakpoint core prow >>= either lerror' (\bp -> do
           loutput ["breakpoint added", show bp]
-          fireInfo $ setBreakpoint ((C.getRow . C.breakpointRow) bp) (C.breakpointNumber bp)
+          fireInfo $ setBreakpoint (C.breakpointRow bp) (C.breakpointNumber bp)
         )
 
     handle CmdEvBreakList = do -- {{{3
@@ -220,9 +220,9 @@ handleCommand core fireLog fireInfo event = handle event
     handle (CmdEvScroll rt srow) = -- {{{3
       let
         f = case rt of     
-          Tcode -> fmap C.getRow . C.t2p_row core
+          Tcode -> C.t2p_row core
           Pcode -> Just
-          Ecode -> fmap C.getRow . C.e2p_row core
+          Ecode -> C.e2p_row core
       in
         case f srow of
           Nothing -> lerror ["invalid row number"]
@@ -301,7 +301,7 @@ commandEvent text =
     Nothing -> CmdEvUnknown command
     Just cmd -> case cmd of
       CmdBreakAdd -> case options of
-        [row@(mread -> Just (_ :: Int))] -> CmdEvBreakAdd $ (C.PRow . fromJust . mread) row
+        [row@(mread -> Just (_ :: Int))] -> CmdEvBreakAdd $ (fromJust . mread) row
         _ -> CmdEvHelp (Just CmdBreakAdd)
 
       CmdBreakList -> noopt CmdBreakList CmdEvBreakList options
