@@ -9,25 +9,26 @@ data Command = CommandNop | CommandA | CommandB deriving (Show, Enum)
 
 type State = Int
 
--- createNetwork :: AddHandler Command -> NetworkDescription t ()
--- createNetwork ah = do
---   eCommand <- fromAddHandler ah
---   (eStateUpdate, fStateUpdate) <- newEvent
---   let
---     bState = accumB 0 eStateUpdate
---     bHandleCommand = handleCommand fStateUpdate <$> bState
---     eReaction = bHandleCommand <@> eCommand
-
---   reactimate eReaction
-
 createNetwork :: AddHandler Command -> NetworkDescription t ()
 createNetwork ah = do
   eCommand <- fromAddHandler ah
   (eStateUpdate, fStateUpdate) <- newEvent
-  reactimate $ (handleCommand fStateUpdate <$> (accumB 0 eStateUpdate)) <@> eCommand
+  let
+    eState = accumE 0 eStateUpdate
+    bState = stepper 0 eState
+    bHandleCommand = handleCommand fStateUpdate <$> bState
+    eReaction = bHandleCommand <@> eCommand
+
+  reactimate eReaction
+
+-- createNetwork :: AddHandler Command -> NetworkDescription t ()
+-- createNetwork ah = do
+--   eCommand <- fromAddHandler ah
+--   (eStateUpdate, fStateUpdate) <- newEvent
+--   reactimate $ (handleCommand fStateUpdate <$> (accumB 0 eStateUpdate)) <@> eCommand
 
 handleCommand :: ((State -> State) -> IO ()) -> State -> Command -> IO ()
-handleCommand f s c = putStrLn ("state: " ++ show s ++ ", command: " ++ show c) >> f (+1)
+handleCommand f s c = putStrLn ("state: " ++ show s ++ ", command: " ++ show c) >> f (+1) >> f (+1)
 
 eventLoop :: (Command -> IO ()) -> IO ()
 eventLoop fire = loop

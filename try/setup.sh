@@ -1,1 +1,1 @@
-export GHC_PACKAGE_PATH=`pwd`/../cabal-dev/packages-7.0.3.conf:
+export GHC_PACKAGE_PATH=$ROOT/ruab/cabal-dev/packages-7.4.1.conf:$ROOT/ocram/cabal-dev/packages-7.4.1.conf:
