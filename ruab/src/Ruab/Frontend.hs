@@ -7,14 +7,13 @@ module Ruab.Frontend
 
 -- imports {{{1
 import Control.Applicative ((<$>))
-import Control.Monad.Fix (mfix)
 import Data.List (intercalate, find)
 import Data.Maybe (fromJust, listToMaybe)
-import Graphics.UI.Gtk
+import Graphics.UI.Gtk hiding (response)
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
-import Reactive.Banana (actuate, compile, reactimate, NetworkDescription, newEvent, accumE)
+import Reactive.Banana (actuate, compile, reactimate, NetworkDescription, newEvent, accumE, union, liftIO)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread)
 import Ruab.Frontend.Reactive (event_input)
 import Ruab.Options (Options)
@@ -25,9 +24,11 @@ import qualified Data.ByteString.Char8 as BS
 
 run :: Options -> IO () -- {{{1
 run opt = do
-  gui <- mfix (\gui' -> C.setup opt (statusUpdate gui') >>= loadGui)
-  setupGui gui
-  network <- compile $ createNetwork gui
+  gui <- loadGui
+  core <- C.setup opt
+  let ctx = Context gui core
+  setupGui ctx
+  network <- compile $ createNetwork ctx opt
   actuate network
   mainGUI
 
@@ -41,7 +42,6 @@ data GUI = GUI { -- {{{2
   , guiView    :: TextView
   , guiInput   :: Entry
   , guiStatus  :: Statusbar
-  , guiCore    :: C.Context
   }
 
 data Component = Component { -- {{{2
@@ -50,6 +50,11 @@ data Component = Component { -- {{{2
   , compLines :: TextView
   , compLabel :: Label
   , compView  :: Viewport
+  }
+
+data Context = Context { -- {{{2
+    ctxGUI  :: GUI
+  , ctxCore :: C.Context
   }
 
 type InfoEvent = [InfoInstance] -> [InfoInstance] -- {{{2
@@ -172,28 +177,38 @@ instance Show LogType where -- {{{2
   show LogPrompt = "$"
 
 -- event network {{{1
-createNetwork :: GUI -> NetworkDescription t () -- {{{2
-createNetwork gui = do
+type Fire e = e -> IO () -- {{{2
+
+createNetwork :: Context -> Options -> NetworkDescription t () -- {{{2
+createNetwork (Context gui core) opt = do
   eInput <- event_input (guiInput gui)
-  (eLog, fireLog) <- newEvent
-  (eInfo, fireInfo) <- newEvent
+  (eLog, fLog) <- newEvent
+  (eInfo, fInfoUpdate) <- newEvent
+  (eQuit, fQuit) <- newEvent
+  (fCommand, eResponse, eStatus) <- C.create_network core opt
+
   let
     eCommand = read <$> eInput
-    infos = foldr (flip setBreakpoint 0) [] $ C.possible_breakpoints (guiCore gui)
+    infos = foldr (flip setBreakpoint 0) [] $ C.possible_breakpoints core
     ePinfo = accumE infos eInfo
-    eTinfo = sync (C.p2t_row (guiCore gui)) <$> ePinfo
-    eEinfo = sync (C.p2e_row (guiCore gui)) <$> ePinfo
+    eTinfo = sync (C.p2t_row core) <$> ePinfo
+    eEinfo = sync (C.p2e_row core) <$> ePinfo
 
   -- echoing commands
   reactimate $ log (guiLog gui) . LogEvent LogPrompt . (:[]) <$> eInput
   -- show log output
   reactimate $ log (guiLog gui) <$> eLog
+  -- handle status updates
+  reactimate $ statusUpdate fLog fInfoUpdate <$> eStatus
   -- update infos
-  reactimate $ update (guiTcomp gui) <$> eTinfo
-  reactimate $ update (guiPcomp gui) <$> ePinfo
-  reactimate $ update (guiEcomp gui) <$> eEinfo
+  reactimate $ infoUpdate (guiTcomp gui) <$> eTinfo
+  reactimate $ infoUpdate (guiPcomp gui) <$> ePinfo
+  reactimate $ infoUpdate (guiEcomp gui) <$> eEinfo
   -- handle commands
-  reactimate $ handleCommand (guiCore gui) fireLog fireInfo <$> eCommand
+  _ <- liftIO $ onDestroy (guiWin gui) (fQuit CmdEvQuit)
+  reactimate $ handleCommand core fLog fInfoUpdate fCommand <$> eCommand `union` eQuit
+  -- handle responses
+  reactimate $ handleResponse fLog fInfoUpdate <$> eResponse
 
 sync :: (C.PRow -> Maybe Int) -> [InfoInstance] -> [InfoInstance] -- {{{2
 sync f infos = flip map infos $ \(prow, x) ->
@@ -201,10 +216,22 @@ sync f infos = flip map infos $ \(prow, x) ->
     Nothing -> $abort $ "failed to map row: " ++ show prow
     Just row' -> (row', x)
 
-update :: Component -> [InfoInstance] -> IO () -- {{{2
-update comp infos = postGUIAsync $ do
+infoUpdate :: Component -> [InfoInstance] -> IO () -- {{{2
+infoUpdate comp infos = postGUIAsync $ do
   setText (compInfo comp) (render_info infos)
   maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos
+
+statusUpdate :: Fire LogEvent -> Fire InfoEvent -> C.Status -> IO ()
+statusUpdate fLog fInfoUpdate status =
+  let
+    threads = C.statusThreads status
+    updateInfo = foldr updateThread id threads
+    updateThread thread f = case C.thProw thread of
+      Nothing -> f
+      Just prow -> f . setThread prow (C.thId thread)
+  in do
+    fLog $ LogEvent LogStatus $ map show threads
+    fInfoUpdate updateInfo
 
 log :: TextView -> LogEvent -> IO () -- {{{2
 log tv (LogEvent lt lines) = postGUIAsync $ do
@@ -218,36 +245,52 @@ log tv (LogEvent lt lines) = postGUIAsync $ do
   textViewScrollToMark tv ($fromJust_s mark) 0 Nothing 
   return ()
 
-handleCommand :: C.Context -> FireEvent LogEvent -> FireEvent InfoEvent -> CommandEvent -> IO () -- {{{2
-handleCommand core fireLog fireInfo event = handle event
+handleResponse :: Fire LogEvent -> Fire InfoEvent -> C.Response -> IO () -- {{{2
+handleResponse fLog fInfoUpdate = either lerror' handle . snd
   where
-    handle (CmdEvUnknown cmd) = -- {{{3
-      lerror ["unknown command '" ++ cmd ++ "'", "type 'help' for assistance"]
+    handle (C.ResAddBreakpoint bp) = do -- {{{3
+      loutput ["breakpoint added", show bp]
+      fInfoUpdate $ setBreakpoint (C.breakpointRow bp) (C.breakpointNumber bp)
 
-    handle (CmdEvBreakAdd prow) = -- {{{3
-      C.add_breakpoint core prow >>= either lerror' (\bp -> do
-          loutput ["breakpoint added", show bp]
-          fireInfo $ setBreakpoint (C.breakpointRow bp) (C.breakpointNumber bp)
-        )
+    handle C.ResContinue = -- {{{3
+      loutput ["continued"]
 
-    handle CmdEvBreakList = do -- {{{3
-      bps <- C.list_breakpoints core
+    handle C.ResInterrupt = -- {{{3
+      loutput ["interrupted"]
+
+    handle (C.ResListBreakpoints bps) = -- {{{3
       loutput $ "breakpoints:" : map show bps
 
-    handle CmdEvContinue = -- {{{3
-      C.continue core >>= either lerror' (\_ -> loutput' "continued")
+    handle C.ResShutdown = mainQuit
 
-    handle CmdEvInterrupt = -- {{{3
-      C.interrupt core >>= either lerror' (\_ -> loutput' "interrupted")
+    handle C.ResStart = loutput ["started"]
 
-    handle CmdEvQuit = -- {{{3
-      frontendStop core
+    loutput ss = fLog $ LogEvent LogOutput ss
+    lerror ss = fLog $ LogEvent LogError ss
+    lerror' s = lerror [s]
 
-    handle (CmdEvHelp Nothing) = -- {{{3
-      loutput $ "available commands:" : intercalate ", " (map fst commands) : "type 'help <command>' for more information about <command>" : []
+handleCommand :: C.Context -> Fire LogEvent -> Fire InfoEvent -> Fire C.Command -> CommandEvent -> IO () -- {{{2
+handleCommand core fLog fInfoUpdate fCommand event = handle event
+  where
+    handle (CmdEvUnknown cmd) = lerror ["unknown command '" ++ cmd ++ "'", "type 'help' for assistance"]
 
-    handle (CmdEvHelp (Just cmd)) = -- {{{3
-      loutput (help cmd)
+    handle (CmdEvBreakAdd prow) = fCommand $ C.CmdAddBreakpoint prow
+
+    handle CmdEvBreakList = fCommand C.CmdListBreakpoints
+
+    handle CmdEvContinue = fCommand C.CmdContinue
+
+    handle CmdEvInterrupt = fCommand C.CmdInterrupt
+
+    handle CmdEvQuit = fCommand C.CmdShutdown
+
+    handle (CmdEvHelp Nothing) = loutput $ -- {{{3
+       "available commands:"
+      : intercalate ", " (map fst commands)
+      : "type 'help <command>' for more information about <command>"
+      : []
+
+    handle (CmdEvHelp (Just cmd)) = loutput (help cmd)
 
     handle (CmdEvScroll rt srow) = -- {{{3
       let
@@ -258,26 +301,17 @@ handleCommand core fireLog fireInfo event = handle event
       in
         case f srow of
           Nothing -> lerror ["invalid row number"]
-          Just prow -> fireInfo (setHighlight prow)
+          Just prow -> fInfoUpdate (setHighlight prow)
 
-    handle CmdEvStart = -- {{{3
-      C.run core >>= either lerror' (\_ -> loutput' "started")
+    handle CmdEvStart = fCommand C.CmdStart
 
-    loutput ss = fireLog $ LogEvent LogOutput ss
-    loutput' s = loutput [s]
-    lerror ss = fireLog $ LogEvent LogError ss
-    lerror' s = lerror [s]
+    -- utils {{{3
+    loutput ss = fLog $ LogEvent LogOutput ss
+    lerror ss = fLog $ LogEvent LogError ss
 
-type FireEvent e = e -> IO () -- {{{3
-
-frontendStop :: C.Context -> IO ()  -- {{{2
-frontendStop core = do
-  _ <- C.shutdown core
-  mainQuit
-
--- setup {{{1
-loadGui :: C.Context -> IO GUI -- {{{2
-loadGui core = do
+-- setup and shutdown {{{1
+loadGui :: IO GUI -- {{{2
+loadGui = do
   gladefn <- getDataFileName "ruab.glade"
   _ <- initGUI
   Just xml <- xmlNew gladefn
@@ -286,7 +320,7 @@ loadGui core = do
   [log', view] <- mapM (xmlGetWidget xml castToTextView) ["log", "view"]
   input <- xmlGetWidget xml castToEntry "input"
   status <- xmlGetWidget xml castToStatusbar "status"
-  return $ GUI window ct cp ce log' view input status core
+  return $ GUI window ct cp ce log' view input status
   where
     loadComponent xml comp = do
       [code, info, lines] <- mapM (xmlGetWidget xml castToTextView) $ map (comp++) ["code", "info", "lines"]
@@ -294,24 +328,23 @@ loadGui core = do
       view <- xmlGetWidget xml castToViewport (comp++"view")
       return $ Component code info lines label view
 
-setupGui :: GUI -> IO () -- {{{2
-setupGui gui = do
+setupGui :: Context -> IO () -- {{{2
+setupGui (Context gui core) = do
   setupComponent (guiTcomp gui)
-    ((C.t_code . guiCore) gui)
-    ("(T-code) " ++ (C.t_file . guiCore) gui)
+    (C.t_code core)
+    ("(T-code) " ++ C.t_file core)
 
   setupComponent (guiPcomp gui)
-    ((C.p_code . guiCore) gui)
+    (C.p_code core)
     "(pre-processed)"
 
   setupComponent (guiEcomp gui)
-    ((C.e_code . guiCore) gui)
-    ("(E-code) " ++ (C.e_file . guiCore) gui)
+    (C.e_code core)
+    ("(E-code) " ++ C.e_file core)
 
   setupText (guiView gui) (BS.pack "")
   setupText (guiLog gui) (BS.pack "")
   addAppendMarker (guiLog gui)
-  _ <- onDestroy (guiWin gui) (frontendStop (guiCore gui))
   widgetGrabFocus (guiInput gui)
   widgetShowAll (guiWin gui)
 
@@ -356,15 +389,3 @@ setText tv txt = do
   textBufferSetText buffer txt
 
 
--- old {{{1
-
-statusUpdate :: GUI -> C.StatusUpdate
-statusUpdate _ _ = return ()
--- statusUpdate :: GUI -> C.StatusUpdate -- {{{2
--- statusUpdate gui threads = postGUIAsync $ do
---   forM_ threads (\thread -> do
---       when (isJust (C.thProw thread)) $
---         modifyIORef (guiState gui) (modifyInfos (setThread ((C.getRow . fromJust . C.thProw) thread) (C.thId thread)))
---       log gui Status [show thread]
---     )
---   syncComponents gui
