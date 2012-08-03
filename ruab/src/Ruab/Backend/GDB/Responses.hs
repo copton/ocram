@@ -60,7 +60,7 @@ data Stopped = Stopped { -- {{{2
 data StopReason -- {{{2
   = BreakpointHit {
       bkptHitDisp   :: BreakpointDisp
-    , kbptHitNumber :: Int
+    , bkptHitNumber :: Int
     }
   | EndSteppingRange
   deriving Show

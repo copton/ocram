@@ -265,6 +265,7 @@ handleResponse fLog fInfoUpdate = either lerror' handle . snd
 
     handle C.ResStart = loutput ["started"]
 
+    -- utils {{{3
     loutput ss = fLog $ LogEvent LogOutput ss
     lerror ss = fLog $ LogEvent LogError ss
     lerror' s = lerror [s]
