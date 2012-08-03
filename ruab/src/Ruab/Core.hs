@@ -21,7 +21,7 @@ module Ruab.Core
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (forM)
+import Control.Monad (forM, mplus)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.List (intercalate, find)
 import Data.Maybe (catMaybes)
@@ -70,6 +70,9 @@ data State = State { -- {{{2
   , stateBreakpoints     :: IM.IntMap Breakpoint
   , stateUserBreakpoints :: Int
   }
+
+instance Show State where
+  show (State e t _ _) = "State: " ++ show e ++ " / " ++ show t
 
 data Execution -- {{{2
   = ExRunning
@@ -123,14 +126,14 @@ data BreakCondition -- {{{2
 -- event network {{{1
 type Fire e = e -> IO () -- {{{2
 
-create_network :: Context -> Options -> NetworkDescription t (Fire Command, Event t Response, Event t Status) -- {{{2
-create_network ctx opt = do
-  (eCommand, fireCommand) <- newEvent
-  (eResponse, fResponse) <- newEvent
-  (eContinuation, fContinuation) <- newEvent
+create_network :: Context -> Options -> Fire Response -> Fire Status -> NetworkDescription t (Fire Command) -- {{{2
+create_network ctx opt fResponse fStatus = do
+  (eCommand, fCommand) <- newEvent
 
   (eBackendStopped, fBackendStopped) <- newEvent
   backend <- liftIO $ B.setup opt $ B.Callback display fBackendStopped display
+
+  (eContinuation, fContinuation) <- newEvent
 
   s0 <- liftIO $ initialState ctx backend
   
@@ -140,9 +143,11 @@ create_network ctx opt = do
     eHistory = accumE (s0, return ()) (eCommandHandler `union` eStopHandler `union` eContinuation)
     eStatus = skipEqual $ state2status <$> filterE ((==ExStopped) . stateExecution) (fst <$> eHistory)
 
+  reactimate $ print . fst <$> eHistory
+  reactimate $ fStatus <$> eStatus
   reactimate $ snd <$> eHistory
 
-  return (fireCommand, eResponse, eStatus)
+  return fCommand
   where
     skipEqual = filterJust . fst . mapAccum Nothing . fmap f
       where
@@ -192,7 +197,7 @@ handleStop ctx backend stopped (state, _) =
           )
 
         BkptCriticalCall tid erow -> (
-            updateThread tid (\thread -> thread {thStatus = Blocked, thProw = e2p_row ctx erow})
+            updateThread tid (\thread -> thread {thStatus = Blocked, thProw = e2p_row ctx erow `mplus` Just (-2)})
           , B.continue backend
           )
 
@@ -271,8 +276,8 @@ handleCommand ctx backend fResponse fContinuation command (state, _) =
               fContinuation $ \(state', _) -> 
                 let frame = $fromJust_s $ find ((efile==) . B.frameFile) (B.stackFrames stack) in (
                     updateThread (thId thread) (\t ->
-                      t {thProw = (e2p_row ctx . B.frameLine) frame}
-                    ) state
+                      t {thProw = (e2p_row ctx . B.frameLine) frame `mplus` Just (-1)}
+                    ) state'
                   , respond ResInterrupt
                   )
 
