@@ -56,28 +56,26 @@ data Context = Context { -- {{{2
   , ctxCore :: C.Context
   }
 
-type InfoEvent = [InfoInstance] -> [InfoInstance] -- {{{2
-
 data CommandPrefix -- {{{2
-  = CmdBreakAdd
-  | CmdBreakList
-  | CmdContinue
-  | CmdHelp
-  | CmdInterrupt
-  | CmdQuit
-  | CmdScroll
-  | CmdStart
+  = CmdPrBreakAdd
+  | CmdPrBreakList
+  | CmdPrContinue
+  | CmdPrHelp
+  | CmdPrInterrupt
+  | CmdPrQuit
+  | CmdPrScroll
+  | CmdPrStart
 
 data Command -- {{{2
-  = CmdEvUnknown String
-  | CmdEvBreakAdd C.PRow
-  | CmdEvBreakList
-  | CmdEvContinue
-  | CmdEvHelp (Maybe CommandPrefix)
-  | CmdEvInterrupt
-  | CmdEvQuit
-  | CmdEvScroll RowType Int
-  | CmdEvStart
+  = CmdUnknown String
+  | CmdBreakAdd C.PRow
+  | CmdBreakList
+  | CmdContinue
+  | CmdHelp (Maybe CommandPrefix)
+  | CmdInterrupt
+  | CmdQuit
+  | CmdScroll RowType Int
+  | CmdStart
 
 data RowType -- {{{2
   = Tcode | Pcode | Ecode
@@ -102,14 +100,14 @@ instance Read CommandPrefix where -- {{{2
 
 commands :: [(String, CommandPrefix)] -- {{{2
 commands = [
-    ("badd", CmdBreakAdd)
-  , ("blist", CmdBreakList)
-  , ("continue", CmdContinue)
-  , ("help", CmdHelp)
-  , ("interrupt", CmdInterrupt)
-  , ("quit", CmdQuit)
-  , ("scroll", CmdScroll)
-  , ("start", CmdStart)
+    ("badd", CmdPrBreakAdd)
+  , ("blist", CmdPrBreakList)
+  , ("continue", CmdPrContinue)
+  , ("help", CmdPrHelp)
+  , ("interrupt", CmdPrInterrupt)
+  , ("quit", CmdPrQuit)
+  , ("scroll", CmdPrScroll)
+  , ("start", CmdPrStart)
   ]
 
 instance Read Command where -- {{{2
@@ -119,48 +117,52 @@ parseCommand :: String -> Command -- {{{2
 parseCommand text =
   let (command:options) = words text in
   case mread command of
-    Nothing -> CmdEvUnknown command
+    Nothing -> CmdUnknown command
     Just cmd -> case cmd of
-      CmdBreakAdd -> case options of
-        [row@(mread -> Just (_ :: Int))] -> CmdEvBreakAdd $ (fromJust . mread) row
-        _ -> CmdEvHelp (Just CmdBreakAdd)
+      CmdPrBreakAdd -> case options of
+        [row@(mread -> Just (_ :: Int))] -> CmdBreakAdd $ (fromJust . mread) row
+        _ -> CmdHelp (Just CmdPrBreakAdd)
 
-      CmdBreakList -> noopt CmdBreakList CmdEvBreakList options
+      CmdPrBreakList -> noopt CmdPrBreakList CmdBreakList options
       
-      CmdContinue -> noopt CmdContinue CmdEvContinue options
+      CmdPrContinue -> noopt CmdPrContinue CmdContinue options
 
-      CmdHelp -> case options of
+      CmdPrHelp -> case options of
         [cmd'] -> case mread cmd' of
-          Nothing -> CmdEvUnknown cmd'
-          Just cmd'' -> CmdEvHelp (Just cmd'')
-        _ -> CmdEvHelp Nothing
+          Nothing -> CmdUnknown cmd'
+          Just cmd'' -> CmdHelp (Just cmd'')
+        _ -> CmdHelp Nothing
 
-      CmdInterrupt -> noopt CmdInterrupt CmdEvInterrupt options
+      CmdPrInterrupt -> noopt CmdPrInterrupt CmdInterrupt options
 
-      CmdQuit -> noopt CmdQuit CmdEvQuit options
+      CmdPrQuit -> noopt CmdPrQuit CmdQuit options
 
-      CmdScroll -> case options of
+      CmdPrScroll -> case options of
+        [row@(mread -> Just (_ :: Int))] ->
+          CmdScroll Pcode ((fromJust . mread) row)
+
         [rtype@((`elem`["t","p","e"]) -> True), row@(mread -> Just (_ :: Int))] ->
-          CmdEvScroll (read rtype)  ((fromJust . mread) row)
-        _ -> CmdEvHelp (Just CmdScroll)
+          CmdScroll (read rtype)  ((fromJust . mread) row)
 
-      CmdStart -> noopt CmdStart CmdEvStart options
+        _ -> CmdHelp (Just CmdPrScroll)
+
+      CmdPrStart -> noopt CmdPrStart CmdStart options
 
   where
     noopt _   ev [] = ev
-    noopt cmd _  _  = CmdEvHelp (Just cmd)
+    noopt cmd _  _  = CmdHelp (Just cmd)
 
     mread x = listToMaybe [y | (y,"") <- reads x] 
 
 help :: CommandPrefix -> [String] -- {{{2
-help CmdInterrupt = ["interrupt: interrupt execution"]
-help CmdContinue  = ["continue: continue execution"]
-help CmdBreakAdd  = ["badd prow: add a breakpoint"]
-help CmdBreakList = ["blist: list all breakpoints"]
-help CmdQuit = ["quit: quit ruab"]
-help CmdScroll = ["scroll t|p|e row: scroll views to the given row"]
-help CmdHelp = ["help: show the list of available commands"]
-help CmdStart = ["start: start execution"]
+help CmdPrBreakAdd  = ["badd prow: add a breakpoint"]
+help CmdPrBreakList = ["blist: list all breakpoints"]
+help CmdPrContinue  = ["continue: continue execution"]
+help CmdPrHelp      = ["help: show the list of available commands"]
+help CmdPrInterrupt = ["interrupt: interrupt execution"]
+help CmdPrQuit      = ["quit: quit ruab"]
+help CmdPrScroll    = ["scroll [t|p|e] row: scroll views to the given row. Default row type is p-code."]
+help CmdPrStart     = ["start: start execution"]
 
 instance Read RowType where -- {{{2
   readsPrec _ rtype = case lookup rtype rowtypes of
@@ -182,7 +184,6 @@ instance Show LogType where -- {{{2
 -- event network {{{1
 createNetwork :: Context -> Options -> IO () -- {{{2
 createNetwork ctx@(Context gui core) opt = do
-  -- infos {{{3
   let infos = foldr (flip setBreakpoint 0) [] $ C.possible_breakpoints core
   aInfo <- new_actor infos
   let
@@ -194,11 +195,11 @@ createNetwork ctx@(Context gui core) opt = do
 
   let fLog      = log (guiLog gui)
   let fResponse = handleResponse fInfo fLog
-  let fStatus   = handleStatus fInfo (guiView gui)
+  let fStatus   = handleStatus ctx fInfo
   fCore        <- C.create_network core opt fResponse fStatus
   let fCommand  = handleCommand core fInfo fLog fCore
 
-  _ <- onDestroy (guiWin gui) (fCommand CmdEvQuit)
+  _ <- onDestroy (guiWin gui) (fCommand CmdQuit)
   _ <- onKeyPress (guiInput gui) (handleInput (guiInput gui) fLog fCommand)
 
   fInfo id
@@ -231,7 +232,7 @@ log tv (Log lt lines) = postGUIAsync $ do
   textViewScrollToMark tv ($fromJust_s mark) 0 Nothing 
   return ()
 
-handleResponse :: Fire InfoUpdate -> Fire Log -> C.Response -> IO ()
+handleResponse :: Fire InfoUpdate -> Fire Log -> C.Response -> IO () -- {{{2
 handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
   where
     handle (C.ResAddBreakpoint bp) = do
@@ -248,8 +249,8 @@ handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
 
     handle C.ResStart = fLog $ Log LogOutput ["started"]
 
-handleStatus :: Fire InfoUpdate -> TextView -> C.Status -> IO () -- {{{2
-handleStatus fInfo view status =
+handleStatus :: Context -> Fire InfoUpdate -> C.Status -> IO () -- {{{2
+handleStatus ctx fInfo status =
   let
     threads = C.statusThreads status
     updateInfo = foldr updateThread id threads
@@ -258,32 +259,36 @@ handleStatus fInfo view status =
       Just prow -> f . setThread prow (C.thId thread)
   in do
     fInfo updateInfo
-    setText view $ intercalate "\n" $ map show threads
+    renderStatus ctx status
+
+renderStatus :: Context -> C.Status -> IO () -- {{{2
+renderStatus ctx status = postGUIAsync $
+  setText ((guiView . ctxGUI) ctx) $ intercalate "\n" $ map show $ C.statusThreads status
 
 handleCommand :: C.Context -> Fire InfoUpdate -> Fire Log -> Fire C.Command -> Command -> IO () -- {{{2
 handleCommand core fInfo fLog fCommand = handle
   where
-    handle (CmdEvUnknown cmd) = fLog $ Log LogError ["unknown command '" ++ cmd ++ "'", "type 'help' for assistance"]
+    handle (CmdUnknown cmd) = fLog $ Log LogError ["unknown command '" ++ cmd ++ "'", "type 'help' for assistance"]
 
-    handle (CmdEvBreakAdd prow) = fCommand $ C.CmdAddBreakpoint prow
+    handle (CmdBreakAdd prow) = fCommand $ C.CmdAddBreakpoint prow
 
-    handle CmdEvBreakList = fCommand $ C.CmdListBreakpoints
+    handle CmdBreakList = fCommand $ C.CmdListBreakpoints
 
-    handle CmdEvContinue = fCommand C.CmdContinue
+    handle CmdContinue = fCommand C.CmdContinue
 
-    handle CmdEvInterrupt = fCommand C.CmdInterrupt
+    handle CmdInterrupt = fCommand C.CmdInterrupt
 
-    handle CmdEvQuit = fCommand C.CmdShutdown
+    handle CmdQuit = fCommand C.CmdShutdown
 
-    handle (CmdEvHelp Nothing) = fLog $ Log LogOutput $ -- {{{3
+    handle (CmdHelp Nothing) = fLog $ Log LogOutput $
          "available commands:"
         : intercalate ", " (map fst commands)
         : "type 'help <command>' for more information about <command>"
         : []
 
-    handle (CmdEvHelp (Just cmd)) = fLog $ Log LogOutput (help cmd)
+    handle (CmdHelp (Just cmd)) = fLog $ Log LogOutput (help cmd)
 
-    handle (CmdEvScroll rt srow) = -- {{{3
+    handle (CmdScroll rt srow) =
       let
         f = case rt of     
           Tcode -> C.t2p_row core
@@ -294,7 +299,7 @@ handleCommand core fInfo fLog fCommand = handle
           Nothing -> fLog $ Log LogError ["invalid row number"]
           Just prow -> fInfo $ setHighlight prow
 
-    handle CmdEvStart = fCommand C.CmdStart
+    handle CmdStart = fCommand C.CmdStart
 
 handleInput :: Entry -> Fire Log -> Fire Command -> Event -> IO Bool -- {{{2
 handleInput entry fLog fCommand = handle
@@ -308,7 +313,6 @@ handleInput entry fLog fCommand = handle
     return True
     
   handle _ = return False
-
 
 -- setup and shutdown {{{1
 loadGui :: IO GUI -- {{{2
