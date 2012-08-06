@@ -68,10 +68,8 @@ data State = State { -- {{{2
   , stateThreads         :: IM.IntMap Thread
   , stateBreakpoints     :: IM.IntMap Breakpoint
   , stateUserBreakpoints :: Int
+  , stateHide            :: Bool
   }
-
-instance Show State where
-  show (State e t _ _) = "State: " ++ show e ++ " / " ++ show t
 
 data Execution -- {{{2
   = ExRunning
@@ -110,7 +108,7 @@ data ThreadStatus -- {{{2
 data Status = Status { -- {{{2
     statusThreads :: [Thread]
   , statusExecution :: Execution
-  } deriving (Show, Eq)
+  } deriving Show
 
 data UserBreakpoint = UserBreakpoint { -- {{{2
     breakpointNumber :: Int
@@ -132,10 +130,7 @@ create_network ctx opt fResponse fStatus = do
   let
     fCore f = update aCore $ \state -> do
       state' <- f state
-      let
-        status = state2status state
-        status' = state2status state'
-      when (stateExecution state' == ExStopped && status /= status') (fStatus status')
+      when (not (stateHide state')) (fStatus $ state2status state')
       return state'
 
   backend <- mfix (\backend' -> B.setup opt (B.Callback display (fCore . handleStop ctx backend') display))
@@ -166,7 +161,7 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
     handle (B.BreakpointHit _ bid) ExRunning =
       let bkpt = $fromJust_s $ IM.lookup bid (stateBreakpoints state) in
       case bkptType bkpt of
-        BkptUser ub -> return $
+        BkptUser ub -> return $ hide False .
             setExecution ExStopped . (mapThreads $ \thread ->
                 if thStatus thread == Running
                   then thread {thStatus = Stopped (breakpointNumber ub), thProw = Just (breakpointRow ub)}
@@ -175,18 +170,20 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
         
         BkptThreadExecution tid -> do
           B.continue backend
-          return $ updateThread tid (\thread ->
+          return $ hide True . updateThread tid (\thread ->
               thread {thStatus = Running, thProw = Nothing}
             )
 
         BkptCriticalCall tid erow -> do
           B.continue backend
-          return $ updateThread tid (\thread ->
+          return $ hide True . updateThread tid (\thread ->
               thread {thStatus = Blocked, thProw = e2p_row ctx erow `mplus` Just (-2)}
             )
 
 handleCommand :: Context -> B.Context -> Fire Response -> Command -> State -> IO State -- {{{2
-handleCommand ctx backend fResponse command state = handle command  (stateExecution state) <*> pure state
+handleCommand ctx backend fResponse command state = do
+  f <- handle command  (stateExecution state)
+  return $ (hide False . f) state
   where
     -- CmdStart {{{3
     handle CmdStart ExWaiting = do
@@ -293,6 +290,9 @@ mapThreads f state = state {stateThreads = IM.map f (stateThreads state)}
 setExecution :: Execution -> State -> State -- {{{2
 setExecution e state = state {stateExecution = e}
 
+hide :: Bool -> State -> State -- {{{2
+hide b state = state {stateHide = b}
+
 -- conversion {{{1
 state2status :: State -> Status -- {{{2
 state2status state = Status (IM.elems (stateThreads state)) (stateExecution state)
@@ -358,7 +358,7 @@ setupBreakpoints ctx backend state = do
 initialState :: Context -> State -- {{{2
 initialState ctx =
   let threads = IM.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) (R.threadStart t) Waiting Nothing)) $ R.diThreads $ ctxDebugInfo ctx in
-  State ExWaiting threads IM.empty 0
+  State ExWaiting threads IM.empty 0 False
 
 -- queries {{{1
 t_code, p_code, e_code :: Context -> BS.ByteString -- {{{2

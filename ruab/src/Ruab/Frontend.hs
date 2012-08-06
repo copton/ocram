@@ -263,7 +263,7 @@ handleStatus ctx fInfo status =
 
 renderStatus :: Context -> C.Status -> IO () -- {{{2
 renderStatus ctx status = postGUIAsync $
-  setText ((guiView . ctxGUI) ctx) $ intercalate "\n" $ map show $ C.statusThreads status
+  setText ((guiView . ctxGUI) ctx) $ intercalate "\n" $ (show . C.statusExecution) status : (map show $ C.statusThreads status)
 
 handleCommand :: C.Context -> Fire InfoUpdate -> Fire Log -> Fire C.Command -> Command -> IO () -- {{{2
 handleCommand core fInfo fLog fCommand = handle
