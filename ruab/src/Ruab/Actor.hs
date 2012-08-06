@@ -3,7 +3,7 @@ module Ruab.Actor
 (
     new_actor
   , update
-  , quit, wait, kill
+ , quit, wait, kill
 ) where
 
 -- imports {{{1

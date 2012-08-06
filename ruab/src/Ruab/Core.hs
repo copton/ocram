@@ -5,13 +5,11 @@ module Ruab.Core
     setup, Context
   , create_network
   , Command(..), Result(..), Response
--- types {{{2
   , Status(..)
   , ThreadStatus(..)
   , Thread(..)
   , PRow, TRow, ERow
   , UserBreakpoint(..)
--- queries {{{2
   , t_code, p_code, e_code
   , t_file, e_file
   , possible_breakpoints
@@ -20,13 +18,14 @@ module Ruab.Core
 ) where
 
 -- imports {{{1
-import Control.Applicative ((<$>), (<*>))
-import Control.Monad (forM, mplus)
+import Control.Applicative ((<*>), pure)
+import Control.Monad (forM, mplus, when)
+import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.List (intercalate, find)
 import Data.Maybe (catMaybes)
 import Prelude hiding (catch)
-import Reactive.Banana (NetworkDescription, newEvent, liftIO, Event, accumE, reactimate, filterE, union, mapAccum, filterJust)
+import Ruab.Actor (new_actor, update)
 import Ruab.Core.Internal
 import Ruab.Options (Options(optDebugFile))
 import Ruab.Util (fromJust_s, abort)
@@ -111,7 +110,7 @@ data ThreadStatus -- {{{2
 data Status = Status { -- {{{2
     statusThreads :: [Thread]
   , statusExecution :: Execution
-  } deriving Eq
+  } deriving (Show, Eq)
 
 data UserBreakpoint = UserBreakpoint { -- {{{2
     breakpointNumber :: Int
@@ -126,110 +125,88 @@ data BreakCondition -- {{{2
 -- event network {{{1
 type Fire e = e -> IO () -- {{{2
 
-create_network :: Context -> Options -> Fire Response -> Fire Status -> NetworkDescription t (Fire Command) -- {{{2
+create_network :: Context -> Options -> Fire Response -> Fire Status -> IO (Fire Command) -- {{{2
 create_network ctx opt fResponse fStatus = do
-  (eCommand, fCommand) <- newEvent
-
-  (eBackendStopped, fBackendStopped) <- newEvent
-  backend <- liftIO $ B.setup opt $ B.Callback display fBackendStopped display
-
-  (eContinuation, fContinuation) <- newEvent
-
-  s0 <- liftIO $ initialState ctx backend
-  
+  let s0 = initialState ctx
+  aCore <- new_actor s0
   let
-    eCommandHandler = handleCommand ctx backend fResponse fContinuation <$> eCommand
-    eStopHandler = handleStop ctx backend <$> eBackendStopped
-    eHistory = accumE (s0, return ()) (eCommandHandler `union` eStopHandler `union` eContinuation)
-    eStatus = skipEqual $ state2status <$> filterE ((==ExStopped) . stateExecution) (fst <$> eHistory)
+    fCore f = update aCore $ \state -> do
+      state' <- f state
+      let
+        status = state2status state
+        status' = state2status state'
+      when (stateExecution state' == ExStopped && status /= status') (fStatus status')
+      return state'
 
-  reactimate $ print . fst <$> eHistory
-  reactimate $ fStatus <$> eStatus
-  reactimate $ snd <$> eHistory
+  backend <- mfix (\backend' -> B.setup opt (B.Callback display (fCore . handleStop ctx backend') display))
 
-  return fCommand
-  where
-    skipEqual = filterJust . fst . mapAccum Nothing . fmap f
-      where
-        f y (Just x) = if x == y then (Nothing, Just x) else (Just y, Just y)
-        f y Nothing  = (Just y, Just y)
+  fStatus (state2status s0)
+  fCore (setupBreakpoints ctx backend)
 
+  return $ fCore . handleCommand ctx backend fResponse
+  
 display :: Show a => a -> IO () -- {{{2
-display x = putStrLn $ "## " ++ show x
+--display x = putStrLn $ "## " ++ show x
+display _ = return ()
 
 type Continuation = (State, IO ()) -> (State, IO ())
 
-handleStop :: Context -> B.Context -> B.Stopped -> Continuation -- {{{2
-handleStop ctx backend stopped (state, _) =
-  let (f, io) = handle (B.stoppedReason stopped) (stateExecution state) in
-  (f state, io)
+handleStop :: Context -> B.Context -> B.Stopped -> State -> IO State -- {{{2
+handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateExecution state) <*> pure state
   where
     -- EndSteppingRange {{{3
-    handle B.EndSteppingRange _ = ( -- TODO
-        id
-      , return ()
-      )
+    handle B.EndSteppingRange _ = return id -- TODO
 
     -- BreakpointHit {{{3
     handle (B.BreakpointHit _ _  ) ExShutdown = $abort "illegal state"
     handle (B.BreakpointHit _ _  ) ExWaiting  = $abort "illegal state"
 
-    handle (B.BreakpointHit _ _  ) ExStopped  = (
-        id
-      , return ()
-      )
+    handle (B.BreakpointHit _ _  ) ExStopped  = return id
 
     handle (B.BreakpointHit _ bid) ExRunning =
       let bkpt = $fromJust_s $ IM.lookup bid (stateBreakpoints state) in
       case bkptType bkpt of
-        BkptUser ub -> (
+        BkptUser ub -> return $
             setExecution ExStopped . (mapThreads $ \thread ->
                 if thStatus thread == Running
                   then thread {thStatus = Stopped (breakpointNumber ub), thProw = Just (breakpointRow ub)}
                   else thread
-              )
-          , return ()
-          )
+              ) 
         
-        BkptThreadExecution tid -> (
-            updateThread tid (\thread -> thread {thStatus = Running, thProw = Nothing})
-          , B.continue backend
-          )
+        BkptThreadExecution tid -> do
+          B.continue backend
+          return $ updateThread tid (\thread ->
+              thread {thStatus = Running, thProw = Nothing}
+            )
 
-        BkptCriticalCall tid erow -> (
-            updateThread tid (\thread -> thread {thStatus = Blocked, thProw = e2p_row ctx erow `mplus` Just (-2)})
-          , B.continue backend
-          )
+        BkptCriticalCall tid erow -> do
+          B.continue backend
+          return $ updateThread tid (\thread ->
+              thread {thStatus = Blocked, thProw = e2p_row ctx erow `mplus` Just (-2)}
+            )
 
-handleCommand :: Context -> B.Context -> Fire Response -> Fire Continuation -> Command -> Continuation -- {{{2
-handleCommand ctx backend fResponse fContinuation command (state, _) =
-  let (f, io) = handle command (stateExecution state) in
-  (f state, io)
+handleCommand :: Context -> B.Context -> Fire Response -> Command -> State -> IO State -- {{{2
+handleCommand ctx backend fResponse command state = handle command  (stateExecution state) <*> pure state
   where
     -- CmdStart {{{3
-    handle CmdStart ExWaiting = (
-        setExecution ExRunning
-      , do
-          B.run backend
-          respond ResStart
-      )
+    handle CmdStart ExWaiting = do
+      B.run backend
+      _ <- respond ResStart
+      return $ setExecution ExRunning
 
     handle CmdStart ExStopped  = alreadyRunning
     handle CmdStart ExRunning  = alreadyRunning
     handle CmdStart ExShutdown = alreadyShutdown
 
     -- CmdContinue {{{3
-    handle CmdContinue ExStopped = (
-        setExecution ExRunning
-      , do
-          B.continue backend
-          respond ResContinue
-      )
+    handle CmdContinue ExStopped = do
+      B.continue backend
+      _ <- respond ResContinue
+      return $ setExecution ExRunning
 
-    handle CmdContinue ExRunning = (
-        id
-      , respond ResContinue
-      )
+    handle CmdContinue ExRunning = do
+      _ <- respond ResContinue
+      return id
 
     handle CmdContinue ExShutdown = alreadyShutdown
 
@@ -243,51 +220,43 @@ handleCommand ctx backend fResponse fContinuation command (state, _) =
     handle (CmdAddBreakpoint prow) _ = 
       case (p2e_row ctx prow) of
         Nothing -> failed "invalid row number"
-        Just erow -> (
-            id
-          , do
-              let
-                bnum = stateUserBreakpoints state + 1
-                efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
-                userBp = UserBreakpoint bnum prow Nothing
-              bkpt <- B.set_breakpoint backend (B.file_line_location efile erow)
-              fContinuation $ \(state', _) ->
-                let
-                  bid = B.bkptNumber bkpt
-                  breakpoint = Breakpoint bid (BkptUser userBp)
-                  bkpts = IM.insert bid breakpoint (stateBreakpoints state')
-                in ( 
-                      state' {stateUserBreakpoints = bnum, stateBreakpoints = bkpts}
-                    , respond (ResAddBreakpoint userBp)
-                    )
-          )
+        Just erow -> do
+          let
+            bnum = stateUserBreakpoints state + 1
+            efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
+            userBp = UserBreakpoint bnum prow Nothing
+          bkpt <- B.set_breakpoint backend (B.file_line_location efile erow)
+          let
+            bid = B.bkptNumber bkpt
+            breakpoint = Breakpoint bid (BkptUser userBp)
+            bkpts = IM.insert bid breakpoint (stateBreakpoints state)
+          _ <- respond (ResAddBreakpoint userBp)
+          return $ \state' -> state' {stateUserBreakpoints = bnum, stateBreakpoints = bkpts}
             
     -- CmdInterrupt {{{3
-    handle CmdInterrupt ExRunning = (
-        setExecution ExStopped
-      , do
-          B.interrupt backend
-          let runningThread = IM.filter ((==Running). thStatus) (stateThreads state)
-          case IM.elems runningThread of
-            [] -> respond ResInterrupt
-            [thread] -> do
-              let efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
-              stack <- B.backtrace backend
-              fContinuation $ \(state', _) -> 
-                let frame = $fromJust_s $ find ((efile==) . B.frameFile) (B.stackFrames stack) in (
-                    updateThread (thId thread) (\t ->
-                      t {thProw = (e2p_row ctx . B.frameLine) frame `mplus` Just (-1)}
-                    ) state'
-                  , respond ResInterrupt
-                  )
+    handle CmdInterrupt ExRunning = do
+      B.interrupt backend
+      let runningThread = IM.filter ((==Running). thStatus) (stateThreads state)
+      case IM.elems runningThread of
+        [] -> do
+          _ <- respond ResInterrupt 
+          return $ setExecution ExStopped
 
-            x -> $abort $ "illegal state of threads: " ++ show x
-      )
+        [thread] -> do
+          stack <- B.backtrace backend
+          _ <- respond ResInterrupt
+          let 
+            efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
+            frame = $fromJust_s $ find ((efile==) . B.frameFile) (B.stackFrames stack)
+          return $ setExecution ExStopped . updateThread (thId thread) (\t ->
+              t {thProw = (e2p_row ctx . B.frameLine) frame `mplus` Just (-1)}
+            )
 
-    handle CmdInterrupt ExStopped = (
-        id
-      , respond ResInterrupt
-      )
+        x -> $abort $ "illegal state of threads: " ++ show x
+
+    handle CmdInterrupt ExStopped = do
+      _ <- respond ResInterrupt
+      return $ id
 
     handle CmdInterrupt ExWaiting = notRunning
     handle CmdInterrupt ExShutdown = alreadyShutdown
@@ -295,24 +264,21 @@ handleCommand ctx backend fResponse fContinuation command (state, _) =
     -- CmdShutdown {{{3
     handle CmdShutdown ExShutdown = alreadyShutdown
 
-    handle CmdShutdown _ = (
-        setExecution ExShutdown
-      , do
-          B.shutdown backend
-          respond ResShutdown
-      )
+    handle CmdShutdown _ = do
+      B.shutdown backend
+      _ <- respond ResShutdown
+      return $ setExecution ExShutdown
 
     -- CmdListBreakpoints {{{3
     handle CmdListBreakpoints ExShutdown = alreadyShutdown
 
-    handle CmdListBreakpoints _ = (
-        id
-      , respond $ ResListBreakpoints (state2breakpoints state)
-      )
+    handle CmdListBreakpoints _ = do
+      _ <- respond $ ResListBreakpoints (state2breakpoints state)
+      return id
     
     --utils {{{3
-    respond r = fResponse (command, Right r)
-    failed e  = (id, fResponse (command, Left e))
+    respond r = fResponse (command, Right r) >> return id
+    failed e  = fResponse (command, Left e) >> return id
     alreadyRunning = failed "debugger is already running"
     alreadyShutdown = failed "debugger is already shut down"
     notRunning = failed "debugger has not been started yet"
@@ -361,8 +327,12 @@ setup opt = do
       | otherwise = Just $ failed $ R.fileName file
     failed file = "checksum for '" ++ file ++ "' differs"
 
-setupBreakpoints :: Context -> B.Context -> IO [Breakpoint] -- {{{2
-setupBreakpoints ctx backend = (++) <$> threadExecutionBreakpoints <*> criticalCallBreakpoints
+setupBreakpoints :: Context -> B.Context -> State -> IO State -- {{{2
+setupBreakpoints ctx backend state = do
+  teb <- threadExecutionBreakpoints
+  ccb <- criticalCallBreakpoints
+  let bbm = IM.fromList $ map (\b -> (bkptNumber b, b)) (teb ++ ccb)
+  return $ state {stateBreakpoints = bbm}
   where
     threads = (R.diThreads . ctxDebugInfo) ctx
     blockingCalls = filter R.locIsBlockingCall $ (R.diLocMap . ctxDebugInfo) ctx
@@ -385,12 +355,10 @@ setupBreakpoints ctx backend = (++) <$> threadExecutionBreakpoints <*> criticalC
           return $ Breakpoint (B.bkptNumber breakpoint) (BkptCriticalCall tid erow)
       )
 
-initialState :: Context -> B.Context -> IO State -- {{{2
-initialState ctx backend = do
-  breakpoints <- setupBreakpoints ctx backend
-  let threads = IM.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) (R.threadStart t) Waiting Nothing)) $ R.diThreads $ ctxDebugInfo ctx
-  let bm = IM.fromList $ map (\b -> (bkptNumber b, b)) breakpoints
-  return $ State ExWaiting threads bm 0
+initialState :: Context -> State -- {{{2
+initialState ctx =
+  let threads = IM.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) (R.threadStart t) Waiting Nothing)) $ R.diThreads $ ctxDebugInfo ctx in
+  State ExWaiting threads IM.empty 0
 
 -- queries {{{1
 t_code, p_code, e_code :: Context -> BS.ByteString -- {{{2

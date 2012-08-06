@@ -6,17 +6,16 @@ module Ruab.Frontend
 ) where
 
 -- imports {{{1
-import Control.Applicative ((<$>))
+import Control.Monad (when)
 import Data.List (intercalate, find)
 import Data.Maybe (fromJust, listToMaybe)
 import Graphics.UI.Gtk hiding (response)
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
+import Graphics.UI.Gtk.Gdk.Events (Event(Key))
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
-import Reactive.Banana (actuate, compile, reactimate, NetworkDescription, newEvent, accumE, union, liftIO, filterJust)
 import Ruab.Actor (new_actor, update)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread)
-import Ruab.Frontend.Reactive (event_input)
 import Ruab.Options (Options)
 import Ruab.Util (fromJust_s, abort)
 
@@ -29,8 +28,7 @@ run opt = do
   core <- C.setup opt
   let ctx = Context gui core
   setupGui ctx
-  network <- compile $ createNetwork ctx opt
-  actuate network
+  _ <- createNetwork ctx opt
   mainGUI
 
 -- types {{{1
@@ -189,41 +187,22 @@ createNetwork ctx@(Context gui core) opt = do
   aInfo <- new_actor infos
   let
     fInfo u = update aInfo (\s -> do
-        s' <- u s
+        let s' = u s
         renderInfo ctx s'
         return s'
       )
-  uInfo id
 
-  -- logging {{{3
-  aLog <- new_actor ()
-  let
-    uLog :: Log -> IO ()
-    uLog l = update aLog (\_ -> log l)
-  fLog (Log LogOutput "welcome")
+  let fLog      = log (guiLog gui)
+  let fResponse = handleResponse fInfo fLog
+  let fStatus   = handleStatus fInfo (guiView gui)
+  fCore        <- C.create_network core opt fResponse fStatus
+  let fCommand  = handleCommand core fInfo fLog fCore
 
-  -- responses {{{3
-  aResponse <- new_actor ()
-  let uResponse = update aResponse (\_ -> handleResponse fInfo fLog)
+  _ <- onDestroy (guiWin gui) (fCommand CmdEvQuit)
+  _ <- onKeyPress (guiInput gui) (handleInput (guiInput gui) fLog fCommand)
 
-  -- status {{{3
-  aStatus <- new_actor Nothing
-  let
-    uStatus s' = update aStatus (\s -> do
-        when (Just s' /= s) (handleStatus fInfo fLog s')
-        return (Just s')
-      )
-
-  -- core {{{3
-  uCore <- create_network core uResponse uStatus
-
-  -- commands {{{3
-  aCommand <- new_actor ()
-  let uCommand c = step aCommand (\_ -> handleCommand core aInfo aLog uCore c)
-
-  -- input {{{3
-  _ <- liftIO $ onDestroy (guiWin gui) (uCommand CmdEvQuit)
-  onKeyPress (guiInput gui) (handleInput uCommand)
+  fInfo id
+  fLog (Log LogOutput ["welcome"])
 
 renderInfo :: Context -> [InfoInstance] -> IO () -- {{{2
 renderInfo (Context gui core) infos = do
@@ -231,11 +210,11 @@ renderInfo (Context gui core) infos = do
   render (guiTcomp gui) (sync (C.p2t_row core) infos)
   render (guiEcomp gui) (sync (C.p2e_row core) infos)
   where
-    render comp infos = postGUIAsync $ do
-      setText (compInfo comp) (render_info infos)
-      maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos
+    render comp infos' = postGUIAsync $ do
+      setText (compInfo comp) (render_info infos')
+      maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos'
 
-    sync f infos = flip map infos $ \(prow, x) ->
+    sync f infos' = flip map infos' $ \(prow, x) ->
       case f prow of
         Nothing -> $abort $ "failed to map row: " ++ show prow
         Just row' -> (row', x)
@@ -252,7 +231,7 @@ log tv (Log lt lines) = postGUIAsync $ do
   textViewScrollToMark tv ($fromJust_s mark) 0 Nothing 
   return ()
 
-handleResponse :: Fire InfoUpdate -> Fire Log -> C.Response -> InternalEvent -- {{{2
+handleResponse :: Fire InfoUpdate -> Fire Log -> C.Response -> IO ()
 handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
   where
     handle (C.ResAddBreakpoint bp) = do
@@ -269,8 +248,8 @@ handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
 
     handle C.ResStart = fLog $ Log LogOutput ["started"]
 
-handleStatus :: Fire InfoUpdate -> Fire Log -> C.Status -> IO () -- {{{2
-handleStatus fInfo fLog status =
+handleStatus :: Fire InfoUpdate -> TextView -> C.Status -> IO () -- {{{2
+handleStatus fInfo view status =
   let
     threads = C.statusThreads status
     updateInfo = foldr updateThread id threads
@@ -278,10 +257,10 @@ handleStatus fInfo fLog status =
       Nothing -> f
       Just prow -> f . setThread prow (C.thId thread)
   in do
-    fLog $ Log LogStatus $ map show threads
     fInfo updateInfo
+    setText view $ intercalate "\n" $ map show threads
 
-handleCommand :: C.Context -> Fire InfoUpdate -> Fire Log -> Fire C.Command -> Command -> InternalEvent -- {{{2
+handleCommand :: C.Context -> Fire InfoUpdate -> Fire Log -> Fire C.Command -> Command -> IO () -- {{{2
 handleCommand core fInfo fLog fCommand = handle
   where
     handle (CmdEvUnknown cmd) = fLog $ Log LogError ["unknown command '" ++ cmd ++ "'", "type 'help' for assistance"]
@@ -316,6 +295,20 @@ handleCommand core fInfo fLog fCommand = handle
           Just prow -> fInfo $ setHighlight prow
 
     handle CmdEvStart = fCommand C.CmdStart
+
+handleInput :: Entry -> Fire Log -> Fire Command -> Event -> IO Bool -- {{{2
+handleInput entry fLog fCommand = handle
+  where
+  handle (Key _ _ _ [] _ _ _ _ "Return" _) = do
+    command <- entryGetText entry
+    when (command /= "") $ do 
+      fLog $ Log LogPrompt [command]
+      fCommand $ read command
+      entrySetText entry ""
+    return True
+    
+  handle _ = return False
+
 
 -- setup and shutdown {{{1
 loadGui :: IO GUI -- {{{2
