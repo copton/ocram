@@ -68,7 +68,7 @@ data CommandPrefix -- {{{2
 
 data Command -- {{{2
   = CmdUnknown String
-  | CmdBreakAdd C.PRow
+  | CmdBreakAdd C.PRow (Maybe [C.ThreadId])
   | CmdBreakList
   | CmdContinue
   | CmdHelp (Maybe CommandPrefix)
@@ -120,7 +120,12 @@ parseCommand text =
     Nothing -> CmdUnknown command
     Just cmd -> case cmd of
       CmdPrBreakAdd -> case options of
-        [row@(mread -> Just (_ :: Int))] -> CmdBreakAdd $ (fromJust . mread) row
+        (row@(mread -> Just (_ :: Int)):tids) ->
+          let row' = (fromJust . mread) row in
+          case sequence (map mread tids) of
+            Nothing -> CmdHelp (Just CmdPrBreakAdd)
+            Just [] -> CmdBreakAdd row' Nothing
+            Just tids' -> CmdBreakAdd row' (Just tids')
         _ -> CmdHelp (Just CmdPrBreakAdd)
 
       CmdPrBreakList -> noopt CmdPrBreakList CmdBreakList options
@@ -155,7 +160,7 @@ parseCommand text =
     mread x = listToMaybe [y | (y,"") <- reads x] 
 
 help :: CommandPrefix -> [String] -- {{{2
-help CmdPrBreakAdd  = ["badd prow: add a breakpoint"]
+help CmdPrBreakAdd  = ["badd prow [tid,...]: add a breakpoint, optionally filtered by thread id"]
 help CmdPrBreakList = ["blist: list all breakpoints"]
 help CmdPrContinue  = ["continue: continue execution"]
 help CmdPrHelp      = ["help: show the list of available commands"]
@@ -270,7 +275,7 @@ handleCommand core fInfo fLog fCommand = handle
   where
     handle (CmdUnknown cmd) = fLog $ Log LogError ["unknown command '" ++ cmd ++ "'", "type 'help' for assistance"]
 
-    handle (CmdBreakAdd prow) = fCommand $ C.CmdAddBreakpoint prow
+    handle (CmdBreakAdd prow tids) = fCommand $ C.CmdAddBreakpoint prow tids
 
     handle CmdBreakList = fCommand $ C.CmdListBreakpoints
 
