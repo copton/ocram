@@ -6,7 +6,6 @@ module Ruab.Frontend
 ) where
 
 -- imports {{{1
-import Control.Monad (when)
 import Data.List (intercalate, find)
 import Data.Maybe (fromJust, listToMaybe)
 import Graphics.UI.Gtk hiding (response)
@@ -55,6 +54,17 @@ data Context = Context { -- {{{2
     ctxGUI  :: GUI
   , ctxCore :: C.Context
   }
+
+data InputState = InputState { -- {{{2
+    inputHistory :: [String]
+  , inputFuture :: [String]
+  }
+
+data InputEvent -- {{{2
+  = InputReturn
+  | InputUp
+  | InputDown 
+  | InputEscape
 
 data CommandPrefix -- {{{2
   = CmdPrBreakAdd
@@ -204,8 +214,11 @@ createNetwork ctx@(Context gui core) opt = do
   fCore        <- C.create_network core opt fResponse fStatus
   let fCommand  = handleCommand core fInfo fLog fCore
 
+  aInput <- new_actor (InputState [] [])
+  let fInput = update aInput . handleInput (guiInput gui) fLog fCommand
+
   _ <- onDestroy (guiWin gui) (fCommand CmdQuit)
-  _ <- onKeyPress (guiInput gui) (handleInput (guiInput gui) fLog fCommand)
+  _ <- onKeyPress (guiInput gui) (handleKeyEvent fInput)
 
   fInfo id
   fLog (Log LogOutput ["welcome"])
@@ -306,18 +319,60 @@ handleCommand core fInfo fLog fCommand = handle
 
     handle CmdStart = fCommand C.CmdStart
 
-handleInput :: Entry -> Fire Log -> Fire Command -> Event -> IO Bool -- {{{2
-handleInput entry fLog fCommand = handle
+handleKeyEvent :: Fire InputEvent -> Event -> IO Bool -- {{{2
+handleKeyEvent fInput (Key _ _ _ [] _ _ _ _ "Return" _) = fInput InputReturn >> return True
+handleKeyEvent fInput (Key _ _ _ [] _ _ _ _ "Up"     _) = fInput InputUp     >> return True
+handleKeyEvent fInput (Key _ _ _ [] _ _ _ _ "Down"   _) = fInput InputDown   >> return True
+handleKeyEvent fInput (Key _ _ _ [] _ _ _ _ "Escape" _) = fInput InputEscape >> return True
+handleKeyEvent _ _ = return False
+
+handleInput :: Entry -> Fire Log -> Fire Command -> InputEvent -> InputState -> IO InputState -- {{{2
+handleInput entry fLog fCommand event state = handle event
   where
-  handle (Key _ _ _ [] _ _ _ _ "Return" _) = do
+  handle InputReturn = do
     command <- entryGetText entry
-    when (command /= "") $ do 
-      fLog $ Log LogPrompt [command]
-      fCommand $ read command
-      entrySetText entry ""
-    return True
+    if (command /= "")
+      then do
+        fLog $ Log LogPrompt [command]
+        fCommand $ read command
+        entrySetText entry ""
+        return $ state {
+            inputHistory = (command : reverse (inputFuture state) ++ inputHistory state)
+          , inputFuture = []
+          }
+      else
+        return state
     
-  handle _ = return False
+  handle InputUp = case inputHistory state of
+    [] -> return state
+    (command:history) -> do
+      entrySetText entry command
+      return $ state {
+          inputHistory = history
+        , inputFuture = command : inputFuture state
+        }
+
+  handle InputDown = case inputFuture state of
+    [] -> return state
+    [current] -> do
+      entrySetText entry ""
+      return $ state {
+          inputHistory = current : (inputHistory state)
+        , inputFuture = []
+        }
+    (current:next:future) -> do
+      entrySetText entry next
+      return $ state {
+          inputFuture = next : future
+        , inputHistory = current : inputHistory state
+        }
+
+  handle InputEscape = do
+    entrySetText entry ""
+    return $ state {
+        inputHistory = reverse (inputFuture state) ++ inputHistory state
+      , inputFuture = []
+      }
 
 -- setup and shutdown {{{1
 loadGui :: IO GUI -- {{{2
