@@ -2,6 +2,7 @@ include ../config.mk
 -include depend.mak
 
 BENCH=$(ROOT)/applications/simulation_os/bench.py
+PALGEN=$(ROOT)/applications/pal.py
 
 export OCRAM_PAL_TEMPLATE = $(OS_ROOT)/os/pal.jinja.c
 
@@ -13,7 +14,7 @@ endif
 
 .PHONY: all clean test bench
 
-all: $(TARGETS)
+all: $(TARGETS) debug.json
 
 clean:
 	git clean -d -f -x
@@ -39,8 +40,5 @@ ec.elf: ec.o pal.o $(OS_ROOT)/os/libos.a
 native.elf: native.o $(OS_ROOT)/os/libos.a
 	$(CC) $(CFLAGS) -o $@ $^
 
-tc.pped.c: tc.c
-	$(CC) $(CFLAGS) -DOCRAM_MODE -E $< -o $@
-
-ec.c pal.c: tc.pped.c $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
-	$(OCRAM) -i $< -o ec.c -g $(PALGEN) -p pal.c || (rm -f ec.c pal.c; exit 1)
+ec.c pal.c debug.json: tc.c $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
+	$(OCRAM) -p pal.c -i $< -o ec.c -g $(PALGEN) -d debug.json -c "$(CC) $(CFLAGS) -DOCRAM_MODE -E -o -" || (rm -f ec.c pal.c; exit 1)

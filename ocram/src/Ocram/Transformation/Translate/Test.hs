@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 module Ocram.Transformation.Translate.Test
 -- export {{{1
 (
@@ -8,11 +9,12 @@ module Ocram.Transformation.Translate.Test
 import Language.C.Syntax.AST
 import Language.C.Data.Node (nodeInfo)
 import Ocram.Analysis (analysis, CallGraph)
-import Ocram.Debug (enrichNodeInfo, CTranslUnit')
+import Ocram.Debug (enrich_node_info)
 import Ocram.Text (show_errors)
 import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Transformation.Translate.Internal
 import Ocram.Transformation.Translate.ThreadFunctions
+import Ocram.Transformation.Types
 import Test.Framework (Test, testGroup)
 import Test.HUnit ((@=?), Assertion)
 
@@ -90,7 +92,7 @@ test_add_blocking_function_decls = enumTestGroup "add_blocking_function_decls" $
   where
   runTest' (code, decl, expected) = -- {{{2
     let
-      result = (reduce $ fmap nodeInfo $ add_blocking_function_decls $ fmap enrichNodeInfo $ enrich code) :: String
+      result = (reduce $ fmap nodeInfo $ add_blocking_function_decls $ fmap enrich_node_info $ enrich code) :: String
       expected' = reduce $ (enrich (decl ++ expected) :: CTranslUnit)
     in
       expected' @=? decl ++ result
@@ -209,6 +211,6 @@ runTest f (code, expected) =
       Left es -> error $ show_errors "test" es
       Right (x, _) -> x
     expected' = (reduce (enrich expected :: CTranslUnit)) :: String
-    result = (reduce . fmap nodeInfo . f cg . fmap enrichNodeInfo) ast
+    result = (reduce . fmap nodeInfo . f cg . fmap enrich_node_info) ast
   in
     expected' @=? result

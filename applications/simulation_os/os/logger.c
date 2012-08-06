@@ -80,7 +80,7 @@ void logger_syscall_return(int sequence_number)
 
 char* array(uint8_t* data, size_t len)
 {
-    static char buffer[1024];
+    static char buffer[2048];
     size_t offset = 0;
     int size;
 

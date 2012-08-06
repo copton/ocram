@@ -1,5 +1,5 @@
 -- vim: set expandtab:
-Name:                Ocram
+Name:                ocram
 Version:             0.1
 Synopsis:            Threads-to-Events compiler
 Homepage:            https://github.com/copton/ocram
@@ -15,28 +15,13 @@ Description: Translating cooperative threads into a semantically equivalent reac
 
 Cabal-version:       >=1.10
 
-Data-files:
-  README.mkd,
-  LICENSE
-
-Extra-source-files:  
-  util/pretty_ast/DumpAst.hs
-  util/view_ast/ViewAst.hs
-
 Executable ocram
   Hs-Source-Dirs: src
   Ghc-Options: -Wall
   Main-is: Main.hs
-  Default-language: Haskell98
+  Default-Language: Haskell98
   Default-extensions: 
-    MultiParamTypeClasses,
-    FlexibleInstances,
-    TypeSynonymInstances,
-    GeneralizedNewtypeDeriving,
-    TemplateHaskell,
-    Rank2Types,
-    QuasiQuotes
-  Build-depends:       
+  Build-Depends:       
     base >= 4 && < 5,
     language-c == 0.5.*,
     containers == 0.4.*,
@@ -47,51 +32,52 @@ Executable ocram
     template-haskell,
     bytestring == 0.9.*,
     pretty == 1.2,
-    json == 0.5.*,
     regex-posix == 0.95.*,
-    nano-md5 == 0.1.*,
     filepath == 1.3.*,
     directory == 1.1.*,
+    nano-md5 == 0.1.*,
+    json == 0.5.*,
     HUnit == 1.2.*,
     test-framework == 0.6.*,
     test-framework-hunit == 0.2.*
   Other-modules:
     Main,
-    Ocram.Main,
     Ocram.Analysis,
-    Ocram.Test.Lib,
-    Ocram.Query,
-    Ocram.Symbols,
+    Ocram.Analysis.CallGraph,
+    Ocram.Analysis.CallGraph.Test,
+    Ocram.Analysis.Fgl,
+    Ocram.Analysis.Fgl.Test,
+    Ocram.Analysis.Filter,
+    Ocram.Analysis.Filter.Test,
+    Ocram.Analysis.Test,
+    Ocram.Analysis.Test.Cases,
+    Ocram.Analysis.Test.Types,
+    Ocram.Analysis.Types,
+    Ocram.Debug,
     Ocram.IO,
-    Ocram.Text,
+    Ocram.Main,
     Ocram.Names,
     Ocram.Options,
     Ocram.Print,
-    Ocram.Debug,
-    Ocram.Transformation.Normalize.ShortCircuiting,
+    Ocram.Query,
+    Ocram.Query.Test,
+    Ocram.Symbols,
+    Ocram.Symbols.Test,
+    Ocram.Test,
+    Ocram.Test.Lib,
+    Ocram.Text,
+    Ocram.Transformation,
+    Ocram.Transformation.Names,
+    Ocram.Transformation.Normalize,
     Ocram.Transformation.Normalize.Internal,
+    Ocram.Transformation.Normalize.ShortCircuiting,
     Ocram.Transformation.Normalize.Test,
     Ocram.Transformation.Normalize.UniqueIdentifiers,
-    Ocram.Transformation.Names,
-    Ocram.Transformation.Util,
-    Ocram.Transformation.Normalize,
     Ocram.Transformation.Test,
     Ocram.Transformation.Translate,
     Ocram.Transformation.Translate.Internal,
-    Ocram.Transformation.Translate.ThreadFunctions,
     Ocram.Transformation.Translate.Test,
-    Ocram.Transformation,
-    Ocram.Util,
-    Ocram.Analysis.Fgl,
-    Ocram.Analysis.Test.Types,
-    Ocram.Analysis.Test.Cases,
-    Ocram.Analysis.Filter.Test,
-    Ocram.Analysis.Types,
-    Ocram.Analysis.Fgl.Test,
-    Ocram.Analysis.CallGraph.Test,
-    Ocram.Analysis.Filter,
-    Ocram.Analysis.CallGraph,
-    Ocram.Analysis.Test,
-    Ocram.Test,
-    Ocram.Query.Test,
-    Ocram.Symbols.Test
+    Ocram.Transformation.Translate.ThreadFunctions,
+    Ocram.Transformation.Types,
+    Ocram.Transformation.Util,
+    Ocram.Util

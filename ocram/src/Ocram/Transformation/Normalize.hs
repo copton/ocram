@@ -5,11 +5,11 @@ module Ocram.Transformation.Normalize
 
 import Language.C.Syntax.AST
 import Ocram.Analysis (critical_functions, CallGraph)
-import Ocram.Debug
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Normalize.Internal
 import Ocram.Transformation.Normalize.ShortCircuiting
 import Ocram.Transformation.Normalize.UniqueIdentifiers
+import Ocram.Transformation.Types
 
 import qualified Data.Set as Set
 

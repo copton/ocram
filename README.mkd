@@ -6,17 +6,15 @@
   * [gcc 4.4.5](http://gcc.gnu.org/)
   * [Python 2.6.6](http://www.python.org/getit/releases/2.6.6/)
   * [JDK 1.6.0_30](http://java.sun.com)
-  * [Scala 2.9.9](http://scala-lang.org)
  * Build tools
   * [cabal-dev 0.9](http://hackage.haskell.org/package/cabal-dev-0.9.1)
   * [GNU Make 3.81](http://www.gnu.org/software/make/)
-  * [sbt 0.11.3](http://github.com/harrah/xsbt)
   * [Ant 1.7.1](http://ant.apache.org/)
  * Operating systems
   * [Contiki 2.5](http://www.contiki-os.org/)
    * [commit 92765b3](http://contiki.git.sourceforge.net/git/gitweb.cgi?p=contiki/contiki;a=commit;h=92765b384ec87de96e97529dd463c48a8d199ec3)
      * patches from applications/contiki/contiki-patches/
-     * [TinyOS](http://tinyos-main.googlecode.com/svn/trunk)
+  * [TinyOS](http://tinyos-main.googlecode.com/svn/trunk)
  * Tools and Libraries
   * [Jinja2](http://jinja.pocoo.org/)
   * [gnuplot 4.4](http://www.gnuplot.info/download.html)
@@ -34,6 +32,7 @@ Note:
  
 	$ cd /path/to/repository
 	$ source ./setup
+	$ cd ocram
 	$ cabal-dev install
 	$ ./make
 

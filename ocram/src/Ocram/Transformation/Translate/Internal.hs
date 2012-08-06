@@ -1,12 +1,14 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Transformation.Translate.Internal
 where
 -- imports {{{1
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, dependency_list, start_functions, is_start, get_callees, is_blocking, is_critical)
-import Ocram.Debug (CTranslUnit', un)
+import Ocram.Debug (un)
 import Ocram.Query (is_blocking_function', return_type, local_variables, is_function_declaration)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Names
+import Ocram.Transformation.Types
 import Ocram.Transformation.Util (ident)
 import Ocram.Util ((?:), fromJust_s, abort)
 

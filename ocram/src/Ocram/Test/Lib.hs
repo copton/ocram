@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 module Ocram.Test.Lib where
 
 -- imports {{{1

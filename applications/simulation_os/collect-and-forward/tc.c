@@ -38,6 +38,17 @@ void receive_run(const char* channel, const char* file)
     }
 }
 
+static void do_aggregate(uint8_t* buffer, size_t len, int32_t* min, int32_t* max)
+{
+	int i;
+	for (i=0; i < len / sizeof(int32_t); i++) {
+		int32_t tmp;
+		memcpy(&tmp, buffer + i * sizeof(int32_t), sizeof(int32_t));
+		if (tmp < *min) *min = tmp;
+		if (tmp > *max) *max = tmp;
+	}
+}
+
 static void aggregate_from(int log, int32_t* min, int32_t* max)
 {
     uint8_t buffer[1024];
@@ -51,13 +62,7 @@ static void aggregate_from(int log, int32_t* min, int32_t* max)
 	result = os_flash_seek(log, 0);
 	assert (result == SUCCESS);
 
-	int i;
-	for (i=0; i < len / sizeof(int32_t); i++) {
-		int32_t tmp;
-		memcpy(&tmp, buffer + i * sizeof(int32_t), sizeof(int32_t));
-		if (tmp < *min) *min = tmp;
-		if (tmp > *max) *max = tmp;
-	}
+    do_aggregate(buffer, len, min, max);
 }
 
 static void send_via(int socket, int32_t min, int32_t max)

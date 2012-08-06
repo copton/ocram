@@ -10,24 +10,22 @@ import Data.Maybe (isJust)
 import Ocram.Text (new_error, OcramError)
 import System.Console.GetOpt
 
--- types {{{1
-data Options = Options {
+data Options = Options { -- {{{1
     optInput :: FilePath
   , optOutput :: FilePath
-  , optPalFile :: Maybe FilePath
-  , optPTFile :: Maybe FilePath
-  , optDebugFile :: Maybe FilePath
   , optPreprocessor :: FilePath
   , optPalGenerator :: Maybe FilePath
+  , optPalFile :: Maybe FilePath
+  , optDebugFile :: Maybe FilePath
   , optHelp :: Bool
-} deriving Show
+}
 
 
 -- options :: String -> [String] -> Either String Options {{{1
 options :: String -> [String] -> Either [OcramError] Options
 options prg argv =
   let use = usage prg in
-  case getOpt Permute available_options argv of
+  case getOpt Permute availableOptions argv of
     (o,[],[]) -> 
       let opts = foldl (flip id) defaultOptions o in
       if optHelp opts then
@@ -47,17 +45,16 @@ err :: String -> String -> String
 err use msg = "Error in command line options\n" ++ msg ++ "\n" ++ use
 
 usage :: String -> String
-usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") available_options
+usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") availableOptions
 
-available_options :: [OptDescr (Options -> Options)]
-available_options = [
+availableOptions :: [OptDescr (Options -> Options)]
+availableOptions = [
     Option "i" ["input"] (ReqArg (\x opts -> opts {optInput = x}) "input") "input tc file (required)"
   , Option "o" ["output"] (ReqArg (\x opts -> opts {optOutput = x}) "output") "output ec file (required)"
-  , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalFile = Just x}) "pal") "target file path for the PAL generator program (mandatory if generator is specified)"
-  , Option "d" ["debug"] (ReqArg (\x opts -> opts {optDebugFile = Just x}) "debug") "target file path for debug information (optional)"
-  , Option "t" ["ptfile"] (ReqArg (\x opts -> opts {optPTFile = Just x}) "ptfile") "target file for pre-processed input file (mandatory if debugging is activated"
   , Option "c" ["preprocessor"] (ReqArg (\x opts -> opts {optPreprocessor = x}) "preprocessor") "external program which performs the pre-processing of the input C file (required)"
   , Option "g" ["generator"] (ReqArg (\x opts -> opts {optPalGenerator = Just x}) "generator") "external program which generates the PAL implementation (optional)"
+  , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalFile = Just x}) "pal") "file path for the PAL generator program (mandatory if generator is specified)"
+  , Option "d" ["debug"] (ReqArg (\x opts -> opts {optDebugFile = Just x}) "debug") "file path for the debugging information (optional)"
   , Option "h" ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
   ]
 
@@ -65,11 +62,10 @@ defaultOptions :: Options
 defaultOptions = Options { 
     optInput = ""
   , optOutput = ""
+  , optPreprocessor = ""
+  , optPalGenerator = Nothing
   , optPalFile = Nothing
   , optDebugFile = Nothing
-  , optPTFile = Nothing
-  , optPalGenerator = Nothing
-  , optPreprocessor = ""
   , optHelp = False
 }
 
@@ -79,5 +75,4 @@ checkOptions opts
   | optOutput opts == optOutput defaultOptions = False
   | isJust (optPalGenerator opts) && not (isJust (optPalFile opts)) = False
   | optPreprocessor opts == optPreprocessor defaultOptions = False
-  | isJust (optDebugFile opts) && not (isJust (optPTFile opts)) = False
   | otherwise = True

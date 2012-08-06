@@ -1,9 +1,11 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.IO
 -- export {{{1
 (
-  parse,
-  dump_ptcode, dump_ecode, dump_debug_info,
-  generate_pal
+    parse
+  , dump_ecode
+  , dump_debug_info
+  , generate_pal
 ) where
 
 -- import {{{1
@@ -29,23 +31,24 @@ parse :: Options -> IO (Either [OcramError] (BS.ByteString, BS.ByteString, CTran
 parse opt = do
   tcode <- BS.readFile infile
   runOcramError $ do
-    tcode' <- IoOcramError $ exec ((words (optPreprocessor opt)) ++ [infile]) Nothing
-    ast <- parseC' tcode'
-    return (tcode, tcode', ast)
+    pcode <- IoOcramError $ exec ((words (optPreprocessor opt)) ++ [infile]) Nothing
+    ast <- parseC' pcode
+    return (tcode, pcode, ast)
   where
     infile = optInput opt
     parseC' code = case parseC code (initPos infile) of
       Left e -> (IoOcramError . return . Left) [new_error 1 ("parsing failed\n" ++ show e) Nothing]
       Right x -> return x
 
-dump_ptcode :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
-dump_ptcode options ptcode = case optPTFile options of
-  Nothing -> (return . Right) ()
-  Just file -> write file ptcode
 
 dump_ecode :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
 dump_ecode options ecode =
   write (optOutput options) $ ecode
+
+dump_debug_info :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
+dump_debug_info opt di = case optDebugFile opt of
+  Nothing -> (return . Right) ()
+  Just file -> write file di
 
 generate_pal :: Options -> Footprint -> CTranslationUnit ENodeInfo -> IO (Either [OcramError] ()) -- {{{1
 generate_pal options fpr header = case optPalGenerator options of
@@ -60,10 +63,6 @@ generate_pal options fpr header = case optPalGenerator options of
         pal <- IoOcramError $ exec (generator:args) (Just input)
         IoOcramError $ write target pal
       
-dump_debug_info :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
-dump_debug_info opt debugInfo = case optDebugFile opt of
-  Nothing -> (return . Right) ()
-  Just file -> write file debugInfo
 
 -- utils {{{1
 write :: String -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{2

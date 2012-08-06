@@ -1,5 +1,4 @@
-{-# LANGUAGE ViewPatterns #-} 
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
 module Ocram.Debug where
 
 -- import {{{1
@@ -7,131 +6,56 @@ import Data.Data (Data)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Maybe (fromMaybe)
 import Data.Typeable (Typeable)
-import Language.C.Data.Node (lengthOfNode, isUndefNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
-import Language.C.Data.Position (posRow, posColumn)
-import Language.C.Syntax.AST
-import Ocram.Options
-import Ocram.Symbols (Symbol)
-import Ocram.Util (abort, fromJust_s)
-import System.FilePath ((</>))
-import Text.JSON (encodeStrict, toJSObject, toJSString, JSON(..), JSValue(JSString, JSObject))
-import Text.Regex.Posix ((=~))
+import Language.C.Data.Node (lengthOfNode, posOfNode, CNode(nodeInfo), NodeInfo, undefNode)
+import Language.C.Data.Position (posRow, posColumn, posFile)
+import Ocram.Analysis (CallGraph, start_functions, blocking_functions, call_order)
+import Ocram.Options (Options(optInput, optOutput))
+import Ocram.Debug.Internal
+import Ocram.Ruab
+import Ocram.Transformation.Names (threadExecutionFunction)
+import Ocram.Util (fromJust_s)
 
 import qualified Data.ByteString.Char8 as BS
 
-data File = -- {{{1
-  File {fileName :: String, fileChecksum :: String}
-
-instance JSON File where
-  readJSON _ = undefined
-  
-  showJSON (File name cs) = JSObject $ toJSObject [
-      ("file", (JSString . toJSString) name),
-      ("checksum", (JSString . toJSString) cs)
-    ]
-
-data TLocation = -- {{{1
-  TLocation {tlocRow :: Int, tlocCol :: Int, tlocLen :: Int}
-
-instance Show TLocation where
-  show (TLocation r c l) = show (r, c, l)
-
-data ELocation = -- {{{1
-  ELocation {elocRow :: Int, elocCol :: Int, elocTidd :: Maybe Int}
-
-instance Show ELocation where
-  show (ELocation r c t) = show (r, c, t)
-
-data Location = Location TLocation ELocation -- {{{1
-
-instance JSON Location where
-  readJSON _ = undefined
-
-  showJSON (Location (TLocation r c l) (ELocation r' c' t)) =
-    case t of
-      Nothing -> showJSON [r, c, l, r', c']
-      (Just t') -> showJSON [r, c, l, r', c', t']
-  
-type LocMap = [Location] -- {{{1
-
-type PrepLocation = (Int, Int)
-
-type PrepMap = [PrepLocation] -- {{{1
-
-type Variable = Symbol -- {{{1
-type VarMap = [(Variable, Variable)]
-
 data ENodeInfo = ENodeInfo { -- {{{1
-  tnodeInfo :: NodeInfo,
-  threadId :: Maybe Int,
-  isBreakpoint :: Bool
+    enTnodeInfo     :: NodeInfo
+  , enThreadId      :: Maybe Int
+  , enTraceLocation :: Bool
+  , enBlockingCall  :: Bool
   } deriving (Data, Typeable)
 
 instance CNode ENodeInfo where
-  nodeInfo = tnodeInfo
+  nodeInfo = enTnodeInfo
 
 instance Show ENodeInfo where
   show _ = ""
 
 un :: ENodeInfo -- {{{1
-un = enrichNodeInfo undefNode
+un = enrich_node_info undefNode
 
-enrichNodeInfo :: NodeInfo -> ENodeInfo -- {{{1
-enrichNodeInfo ni = ENodeInfo ni Nothing False
-
-enableBreakpoint :: ENodeInfo -> ENodeInfo -- {{{1
-enableBreakpoint eni
-  | isUndefNode (tnodeInfo eni) = $abort "enabling breakpoint for undefined node"
-  | otherwise = eni {isBreakpoint = True}
-
-validBreakpoint :: ENodeInfo -> Bool -- {{{1
-validBreakpoint (ENodeInfo tni _ bp) = bp && not (isUndefNode tni)
+enrich_node_info :: NodeInfo -> ENodeInfo -- {{{1
+enrich_node_info ni = ENodeInfo ni Nothing False False
 
 setThread :: Int -> ENodeInfo -> ENodeInfo -- {{{1
-setThread tid eni = eni {threadId = Just tid}
+setThread tid eni = eni {enThreadId = Just tid}
 
 tlocation :: ENodeInfo -> TLocation -- {{{1
 tlocation eni =
   let
-    ni = tnodeInfo eni
+    ni = enTnodeInfo eni
     pos = posOfNode ni
   in
-    TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni))
+    TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
 
-format_debug_info :: Options -> FilePath -> BS.ByteString -> BS.ByteString -> BS.ByteString -> LocMap -> VarMap -> BS.ByteString -- {{{1
-format_debug_info opt cwd tcode ptcode ecode lm vm =
-  (BS.pack . encodeStrict . toJSObject) [
-    ("tcode", showJSON (File (cwd </> optInput opt) (md5sum tcode))),
-    ("ptcode", showJSON (File (cwd </> $fromJust_s (optPTFile opt)) (md5sum ptcode))),
-    ("ecode", showJSON (File (cwd </> optOutput opt) (md5sum ecode))),
-    ("prepmap", showJSON (prepMap ptcode)),
-    ("locmap", showJSON lm),
-    ("varmap", showJSON vm)
-  ]
+create_debug_info :: Options -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> LocMap -> DebugInfo -- {{{1
+create_debug_info opt cg tcode pcode ecode vm lm =
+  let
+    tfile = File (optInput opt) (md5sum tcode)
+    efile = File (optOutput opt) (md5sum ecode)
+    ts = zipWith createThreadInfo [0..] (start_functions cg)
+    ppm = preproc_map tcode pcode
+    oa = blocking_functions cg
+  in
+    DebugInfo tfile pcode efile ppm lm vm ts oa
   where
-  prepMap :: BS.ByteString -> PrepMap
-  prepMap code = (reverse . fst . foldl go ([], 2)) rest
-    where
-      (first:rest) = BS.split '\n' code
-      match :: BS.ByteString -> (BS.ByteString, BS.ByteString, BS.ByteString, [BS.ByteString])
-      match txt = txt =~ "^# ([0-9]*) \"([^\"]+)\".*$"
-      mainFile = case match first of
-        (_, (BS.null -> True), _, _) -> $abort $ "unexpected first row in pre-processed file"
-        (_, _, _, (_:file:_)) -> file
-        x -> $abort $ "unexpected parameter: " ++ show x
-      go (tplm, row) line = case match line of
-        (_, (BS.null -> True), _, _ ) -> (tplm, row + 1)
-        (_, _, _, (row':file:_)) -> if file == mainFile
-          then (((read . BS.unpack) row', row) : tplm, row + 1)
-          else (tplm, row + 1)
-        x -> $abort $ "unexpected parameter:" ++ show x
-
--- {{{1 Types
-type CTranslUnit' = CTranslationUnit ENodeInfo
-type CExpr' = CExpression ENodeInfo
-type CBlockItem' = CCompoundBlockItem ENodeInfo
-type CStat' = CStatement ENodeInfo
-type CFunDef' = CFunctionDef ENodeInfo
-type CDesignator' = CPartDesignator ENodeInfo
-type CInit' = CInitializer ENodeInfo
-type CDecl' = CDeclaration ENodeInfo
+    createThreadInfo tid sf = Thread tid sf (threadExecutionFunction tid) ($fromJust_s $ call_order cg sf)

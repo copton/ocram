@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 module Ocram.Transformation.Normalize.Test
 -- exports {{{1
 (
@@ -7,12 +8,13 @@ module Ocram.Transformation.Normalize.Test
 -- imports {{{1
 import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Debug
+import Ocram.Debug (enrich_node_info)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Transformation.Normalize.Internal
 import Ocram.Transformation.Normalize.ShortCircuiting
 import Ocram.Transformation.Normalize.UniqueIdentifiers
+import Ocram.Transformation.Types
 import Test.Framework (Test, testGroup)
 import Test.HUnit ((@=?), Assertion)
 
@@ -687,7 +689,7 @@ test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' 
   runTest'' (code, expected) =
     let
       ast = enrich code
-      ast'@(CTranslUnit fds ni) = fmap enrichNodeInfo ast
+      ast'@(CTranslUnit fds ni) = fmap enrich_node_info ast
       fds' = map (CFDefExt . critical_statements 1 cf ast' . (\(CFDefExt fd) -> fd)) fds
       cf = Set.fromList $ map symbol fds
       result = (reduce $ fmap nodeInfo $ CTranslUnit fds' ni) :: String
@@ -715,7 +717,7 @@ test_defer_criticial_initialization = enumTestGroup "defer_critical_initializati
 runTest :: (CFunDef' -> CFunDef') -> (String, String) -> Assertion -- {{{1
 runTest f (code, expected) =
   let
-    (CTranslUnit [CFDefExt fd] ni) = fmap enrichNodeInfo $ enrich code
+    (CTranslUnit [CFDefExt fd] ni) = fmap enrich_node_info $ enrich code
     result = (reduce $ fmap nodeInfo $ CTranslUnit [CFDefExt (f fd)] ni) :: String
     expected' = reduce $ (enrich expected :: CTranslUnit)
   in
@@ -725,7 +727,7 @@ runTest' :: (Set.Set Symbol -> CFunDef' -> CFunDef') -> ([String], String, Strin
 runTest' f (cf, code, expected) =
   let
     cf' = Set.fromList cf
-    (CTranslUnit [CFDefExt fd] ni) = fmap enrichNodeInfo $ enrich code
+    (CTranslUnit [CFDefExt fd] ni) = fmap enrich_node_info $ enrich code
     result = (reduce $ fmap nodeInfo $ CTranslUnit [CFDefExt (f cf' fd)] ni) :: String
     expected' = reduce $ (enrich expected :: CTranslUnit)
   in

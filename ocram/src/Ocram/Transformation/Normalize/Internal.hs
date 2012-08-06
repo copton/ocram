@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Transformation.Normalize.Internal
 -- export {{{1
 (
@@ -10,11 +11,12 @@ import Data.Data (Data)
 import Data.Generics (everything, mkQ, everywhere, everywhereBut, mkT, everywhereM, mkM)
 import Data.Monoid (Any(Any, getAny), mappend)
 import Language.C.Syntax.AST
-import Ocram.Debug
+import Ocram.Debug (un, ENodeInfo)
 import Ocram.Query (return_type_fd, return_type)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names (ctrlbl, varCrit)
 import Ocram.Transformation.Util (ident)
+import Ocram.Transformation.Types
 import Ocram.Util (abort, unexp, tmap, (?:), fromJust_s)
 import Prelude hiding (init)
 

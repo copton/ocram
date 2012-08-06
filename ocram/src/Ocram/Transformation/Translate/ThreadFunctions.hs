@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Transformation.Translate.ThreadFunctions
 where
 
@@ -7,11 +8,12 @@ import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Debug
+import Ocram.Debug (un, setThread, ENodeInfo(..))
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names
 import Ocram.Transformation.Util (ident)
+import Ocram.Transformation.Types
 import Ocram.Util ((?:), fromJust_s, abort)
 import Prelude hiding (exp, id)
 import qualified Data.Map as Map
@@ -108,12 +110,13 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
         callSequence calledFunction ni params resultLhs = do
           lblIdx <- get
           put (lblIdx + 1)  
-          return $ criticalFunctionCallSequence calledFunction (enableBreakpoint ni) lblIdx params resultLhs
+          return $ criticalFunctionCallSequence calledFunction ni lblIdx params resultLhs
 
     criticalFunctionCallSequence :: Symbol -> ENodeInfo -> Int -> [CExpr'] -> Maybe (CExpr')-> [CBlockItem'] -- {{{3
     criticalFunctionCallSequence calledFunction ni lblIdx params resultLhs =
       parameters ++ continuation : callExp : returnExp ?: lbl' : resultExp ?: []
       where
+        bni = ni {enBlockingCall = True}
         callChain' = callChain ++ [calledFunction]
         blocking = is_blocking cg calledFunction
         parameters = zipWith createParamAssign params $ $fromJust_s $ function_parameters ast calledFunction
@@ -124,7 +127,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
         assignResult lhs = createAssign lhs (stackAccess callChain' (Just resVar))
 
         callExp = CBlockStmt $ if blocking
-          then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain' Nothing) un] ni)) un
+          then CExpr (Just (CCall (CVar (ident calledFunction) un) [CUnary CAdrOp (stackAccess callChain' Nothing) un] bni)) un
           else CGoto (ident $ label calledFunction 0) ni
 
         returnExp = if blocking

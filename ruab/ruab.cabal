@@ -1,0 +1,52 @@
+-- sim: set expandtab:
+Name:                Ruab
+Version:             0.1
+Synopsis:            Threads-to-Events debugger
+Homepage:            https://github.com/copton/ocram
+License:             GPL-2
+License-file:        LICENSE
+Author:              Alexander Bernauer <bernauer@inf.ethz.ch>
+Maintainer:          Alexander Bernauer <bernauer@inf.ethz.ch>
+Category:            Development
+Tested-with:         GHC==7.0.3
+Build-type:          Simple
+Stability:           Experimental
+Description: Translating cooperative threads into a semantically equivalent reactive code, thus combining the comfort of sequential programing with the efficiency of event-based systems. This is the debugger to the Ocram compiler.
+
+Cabal-version:       >=1.10
+
+Data-files:
+  ruab.glade
+
+Executable ruab
+  Hs-Source-Dirs: src
+  Ghc-Options: -Wall -threaded
+  Main-is: Main.hs
+  Default-Language: Haskell98
+  Build-Depends:
+    base >= 4 && < 5,
+    bytestring == 0.9.*,
+    regex-posix == 0.95.*,
+    containers == 0.4.*,
+    template-haskell,
+    gtk == 0.12.*,
+    glade == 0.12.*,
+    HUnit == 1.2.*,
+    test-framework == 0.6.*,
+    test-framework-hunit == 0.2.*,
+    process == 1.1.*,
+    nano-md5 == 0.1.*,
+    json == 0.5.*,
+    parsec == 3.1.*,
+    unix == 2.5.*,
+    stm == 2.3.*
+  Other-Modules:
+    Main,
+    Ocram.Ruab,
+    Ruab.Main,
+    Ruab.Frontend,
+    Ruab.Core,
+    Ruab.Backend,
+    Ruab.Options,
+    Ruab.Test,
+    Ruab.Test.Lib

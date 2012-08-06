@@ -3,3 +3,4 @@ depend.mak
 *.o
 *.a
 core
+debug.json

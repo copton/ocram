@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances, TemplateHaskell #-}
 module Ocram.Symbols 
 -- export {{{1
 (

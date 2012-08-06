@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 module Ocram.Analysis.Filter.Test (tests) where
 
 import Ocram.Analysis.CallGraph (call_graph)

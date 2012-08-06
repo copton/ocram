@@ -5,13 +5,15 @@ module Ocram.Transformation
 ) where
 
 -- imports {{{1
-import Data.Generics (everything, mkQ)
+import Data.Generics (everything, everywhere, mkT, mkQ, extT)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, blocking_functions)
-import Ocram.Debug (enrichNodeInfo, VarMap, CTranslUnit', un)
+import Ocram.Debug (enrich_node_info, ENodeInfo(..), un)
+import Ocram.Ruab (VarMap)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Normalize (normalize)
 import Ocram.Transformation.Translate (translate)
+import Ocram.Transformation.Types
 import Ocram.Transformation.Names (frameType)
 
 import qualified Data.Set as Set
@@ -19,11 +21,27 @@ import qualified Data.Set as Set
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
   let
-    ast' = (translate cg . normalize cg . fmap enrichNodeInfo) ast
+    ast' = (translate cg . normalize cg . enableLocationTracing . fmap enrich_node_info) ast
     pal = extractPal cg ast'
     ds = extractVarMap ast'
   in
     (ast', pal, ds)
+
+enableLocationTracing :: CTranslUnit' -> CTranslUnit' -- {{{1
+enableLocationTracing = everywhere (mkT tExtDecl `extT` tStat `extT` tExpr)
+  where
+    tExtDecl :: CExtDecl' -> CExtDecl' 
+    tExtDecl (CFDefExt fd) = CFDefExt (amap enableTrace fd)
+    tExtDecl x = x
+
+    tStat :: CStat' -> CStat'
+    tStat = amap enableTrace
+
+    tExpr :: CExpr' -> CExpr'
+    tExpr o@(CCall _ _ _) = amap enableTrace o
+    tExpr o = o
+
+    enableTrace x = x {enTraceLocation = True}
 
 extractPal :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
 extractPal cg (CTranslUnit ds _) = CTranslUnit (map CDeclExt ds') un

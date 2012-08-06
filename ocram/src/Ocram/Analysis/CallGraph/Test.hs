@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 module Ocram.Analysis.CallGraph.Test (tests) where
 
 -- imports {{{1

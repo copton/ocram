@@ -1,0 +1,28 @@
+module Main where
+
+import Reactive.Banana
+import Control.Concurrent (newEmptyMVar, takeMVar)
+
+data Command = CommandA | CommandB | CommandC deriving (Show, Enum)
+
+type State = Int
+
+createNetwork :: (AddHandler Command, Command -> IO ()) -> NetworkDescription t ()
+createNetwork (ah, fire) = do
+  eCommand <- fromAddHandler ah
+
+  reactimate $ print <$> eCommand
+  reactimate $ handle fire <$> eCommand 
+  where
+    handle fire c@CommandA = print c >> fire CommandC
+    handle _ c = print c
+
+main :: IO ()
+main = do
+  (ah, fire) <- newAddHandler
+  network <- compile $ createNetwork ah
+  actuate network
+  fire CommandA
+  fire CommandB
+  v <- newEmptyMVar
+  takeMVar v
