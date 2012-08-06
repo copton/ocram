@@ -315,7 +315,23 @@ handleCommand core fInfo fLog fCommand = handle
       in
         case f srow of
           Nothing -> fLog $ Log LogError ["invalid row number"]
-          Just prow -> fInfo $ setHighlight prow
+          Just prow -> 
+            let rows = [C.p2t_row core prow, C.p2e_row core prow] in
+            case sequence rows of
+              Nothing -> fLog $ Log LogError [
+                  "invalid row number: "
+                , "T: " ++ show (head rows)
+                , "P: " ++ show prow
+                , "E: " ++ show (last rows)
+                ]
+              Just [trow, erow] -> do
+                fLog $ Log LogOutput [
+                    "T: " ++ show trow
+                  , "P: " ++ show prow
+                  , "E: " ++ show erow
+                  ]
+                fInfo $ setHighlight prow
+              x -> $abort $ "unexpected value: " ++ show x
 
     handle CmdStart = fCommand C.CmdStart
 
