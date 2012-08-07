@@ -14,6 +14,7 @@ module Ruab.Core
   , possible_breakpoints
   , os_api
   , t2p_row, p2t_row, p2e_row, e2p_row
+  , ERowMatch(..)
 ) where
 
 -- imports {{{1
@@ -22,7 +23,7 @@ import Control.Monad (forM, mplus, when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.List (intercalate, find)
-import Data.Maybe (catMaybes, fromJust, isJust)
+import Data.Maybe (catMaybes)
 import Prelude hiding (catch)
 import Ruab.Actor (new_actor, update)
 import Ruab.Core.Internal
@@ -31,7 +32,7 @@ import Ruab.Util (fromJust_s, abort)
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.IntMap as IM
+import qualified Data.Map as M
 import qualified Ocram.Ruab as R
 import qualified Data.Set as S
 import qualified Ruab.Backend as B
@@ -44,7 +45,7 @@ data Context = Context { -- {{{2
   }
 
 data Command -- {{{2
-  = CmdAddBreakpoint PRow (Maybe [ThreadId])
+  = CmdAddBreakpoint PRow [ThreadId]
   | CmdContinue
   | CmdInterrupt
   | CmdListBreakpoints
@@ -64,9 +65,9 @@ type Response = (Command, Either String Result) -- {{{2
 
 data State = State { -- {{{2
     stateExecution       :: Execution
-  , stateThreads         :: IM.IntMap Thread
-  , stateBreakpoints     :: IM.IntMap Breakpoint
-  , stateUserBreakpoints :: Int
+  , stateThreads         :: M.Map ThreadId Thread
+  , stateBreakpoints     :: M.Map B.BkptNumber Breakpoint
+  , stateUserBreakpoints :: M.Map BreakpointNumber [B.BkptNumber]
   , stateHide            :: Bool
   }
 
@@ -78,11 +79,9 @@ data Execution -- {{{2
   deriving (Show, Eq)
 
 data Breakpoint = Breakpoint { -- {{{2
-    bkptNumber :: Int
+    bkptNumber :: B.BkptNumber
   , bkptType   :: BreakpointType
   } --deriving Show
-
-type ThreadId = Int
 
 data BreakpointType -- {{{2
   = BkptUser UserBreakpoint
@@ -109,8 +108,9 @@ data Status = Status { -- {{{2
   , statusExecution :: Execution
   } deriving Show
 
+type BreakpointNumber = Int
 data UserBreakpoint = UserBreakpoint { -- {{{2
-    breakpointNumber :: Int
+    breakpointNumber :: BreakpointNumber
   , breakpointRow    :: PRow
   , breakpointCondition :: [ThreadId]
   } deriving Show
@@ -153,8 +153,8 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
 
     handle (B.BreakpointHit _ _  ) ExStopped  = return id
 
-    handle (B.BreakpointHit _ bid) ExRunning =
-      let bkpt = $fromJust_s $ IM.lookup bid (stateBreakpoints state) in
+    handle (B.BreakpointHit _ bn) ExRunning =
+      let bkpt = $fromJust_s $ M.lookup bn (stateBreakpoints state) in
       case bkptType bkpt of
         BkptUser ub ->
           case runningThreads state of
@@ -223,29 +223,37 @@ handleCommand ctx backend fResponse command state = do
 
     handle (CmdAddBreakpoint _ _) ExRunning = failed "cannot set a breakpoint while the debugger is running"
 
-    handle (CmdAddBreakpoint prow tids) _ = 
-      case (p2e_row ctx prow) of
-        Nothing -> failed "invalid row number"
-        Just erow -> 
-          let threadIds = map R.threadId $ (R.diThreads . ctxDebugInfo) ctx in
-          if isJust tids && any (not . (`elem` threadIds)) (fromJust tids) 
-            then failed "invalid thread id"
-            else
-              let
-                tids' = case tids of
-                  Nothing -> threadIds
-                  Just x -> x
-                bnum = stateUserBreakpoints state + 1
-                efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
-                userBp = UserBreakpoint bnum prow tids'
-              in do
-                bkpt <- B.set_breakpoint backend (B.file_line_location efile erow)
+    handle (CmdAddBreakpoint prow selectedThreads) _ = 
+      let
+        allThreads = map R.threadId $ (R.diThreads . ctxDebugInfo) ctx
+        
+        tids = case selectedThreads of
+          [] -> allThreads
+          x -> x
+
+        addBreakpoints erows availableThreads errTxt =
+          case filter (not . (`elem` availableThreads)) tids of
+            [] ->
+              do
                 let
-                  bid = B.bkptNumber bkpt
-                  breakpoint = Breakpoint bid (BkptUser userBp)
-                  bkpts = IM.insert bid breakpoint (stateBreakpoints state)
-                _ <- respond (ResAddBreakpoint userBp)
-                return $ \state' -> state' {stateUserBreakpoints = bnum, stateBreakpoints = bkpts}
+                  efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
+                  ubn = M.size (stateUserBreakpoints state) + 1
+                  ub  = UserBreakpoint ubn prow tids
+                bkpts <- mapM (B.set_breakpoint backend . B.file_line_location efile) erows
+                let
+                  sbns = map B.bkptNumber bkpts
+                  sbs  = map (flip Breakpoint (BkptUser ub)) sbns
+                  bm   = M.fromList $ zip sbns sbs
+                return $ \state' -> state' {
+                    stateBreakpoints = (stateBreakpoints state') `M.union` bm
+                  , stateUserBreakpoints = M.insert ubn sbns (stateUserBreakpoints state')
+                  }
+            xs -> failed $ errTxt ++ ": " ++ show xs
+
+      in case (p2e_row ctx prow) of
+        NoMatch          -> failed "invalid row number"
+        NonCritical erow -> addBreakpoints [erow]       allThreads   "invalid thread ids"
+        Critical ts      -> addBreakpoints (map snd ts) (map fst ts) "unreachable breakpoint"
             
     -- CmdInterrupt {{{3
     handle CmdInterrupt ExRunning = do
@@ -298,7 +306,7 @@ handleCommand ctx backend fResponse command state = do
 
 -- utils {{{2
 runningThreads :: State -> [Thread] -- {{{3
-runningThreads = IM.elems . IM.filter ((Running==) . thStatus) . stateThreads
+runningThreads = M.elems . M.filter ((Running==) . thStatus) . stateThreads
 
 isStopped :: Thread -> Bool -- {{{3
 isStopped thread = case thStatus thread of
@@ -307,10 +315,10 @@ isStopped thread = case thStatus thread of
 
 -- state updates {{{1
 updateThread :: Int -> (Thread -> Thread) -> State -> State -- {{{2
-updateThread tid f state = state {stateThreads = IM.update (Just . f) tid (stateThreads state)}
+updateThread tid f state = state {stateThreads = M.update (Just . f) tid (stateThreads state)}
 
 mapThreads :: (Thread -> Thread) -> State -> State -- {{{2
-mapThreads f state = state {stateThreads = IM.map f (stateThreads state)}
+mapThreads f state = state {stateThreads = M.map f (stateThreads state)}
 
 setExecution :: Execution -> State -> State -- {{{2
 setExecution e state = state {stateExecution = e}
@@ -320,10 +328,10 @@ hide b state = state {stateHide = b}
 
 -- conversion {{{1
 state2status :: State -> Status -- {{{2
-state2status state = Status (IM.elems (stateThreads state)) (stateExecution state)
+state2status state = Status (M.elems (stateThreads state)) (stateExecution state)
 
 state2breakpoints :: State -> [UserBreakpoint] -- {{{2
-state2breakpoints state = catMaybes $ map extract $ IM.elems (stateBreakpoints state)
+state2breakpoints state = catMaybes $ map extract $ M.elems (stateBreakpoints state)
   where
     extract (Breakpoint _ (BkptUser ub)) = Just ub
     extract _ = Nothing
@@ -356,7 +364,7 @@ setupBreakpoints :: Context -> B.Context -> State -> IO State -- {{{2
 setupBreakpoints ctx backend state = do
   teb <- threadExecutionBreakpoints
   ccb <- criticalCallBreakpoints
-  let bbm = IM.fromList $ map (\b -> (bkptNumber b, b)) (teb ++ ccb)
+  let bbm = M.fromList $ map (\b -> (bkptNumber b, b)) (teb ++ ccb)
   return $ state {stateBreakpoints = bbm}
   where
     threads = (R.diThreads . ctxDebugInfo) ctx
@@ -382,8 +390,8 @@ setupBreakpoints ctx backend state = do
 
 initialState :: Context -> State -- {{{2
 initialState ctx =
-  let threads = IM.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) (R.threadStart t) Waiting Nothing)) $ R.diThreads $ ctxDebugInfo ctx in
-  State ExWaiting threads IM.empty 0 False
+  let threads = M.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) (R.threadStart t) Waiting Nothing)) $ R.diThreads $ ctxDebugInfo ctx in
+  State ExWaiting threads M.empty M.empty False
 
 -- queries {{{1
 t_code, p_code, e_code :: Context -> BS.ByteString -- {{{2
@@ -420,12 +428,12 @@ e2p_row ctx erow =
     prow <- t2p_row' ppm trow
     return prow
 
-p2e_row :: Context -> PRow -> Maybe ERow -- {{{2
+p2e_row :: Context -> PRow -> ERowMatch -- {{{2
 p2e_row ctx prow =
   let
     tfile = (R.fileName . R.diTcode . ctxDebugInfo) ctx
     lm = (R.diLocMap . ctxDebugInfo) ctx
     ppm = (R.diPpm . ctxDebugInfo) ctx
-  in do
-    trow <- p2t_row' ppm prow
-    t2e_row' lm tfile trow
+  in case p2t_row' ppm prow of
+    Nothing -> NoMatch
+    Just trow -> t2e_row' lm tfile trow

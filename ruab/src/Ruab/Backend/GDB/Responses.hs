@@ -7,8 +7,9 @@ import Data.List (find)
 import Ruab.Backend.GDB.Representation
 
 -- types {{{1
+type BkptNumber = Int
 data Breakpoint = Breakpoint { -- {{{2
-    bkptNumber           :: Int
+    bkptNumber           :: BkptNumber
   , bkptType             :: BreakpointType
   , bkptDisp             :: BreakpointDisp
   , bkptEnabled          :: Bool
@@ -60,7 +61,7 @@ data Stopped = Stopped { -- {{{2
 data StopReason -- {{{2
   = BreakpointHit {
       bkptHitDisp   :: BreakpointDisp
-    , bkptHitNumber :: Int
+    , bkptHitNumber :: BkptNumber
     }
   | EndSteppingRange
   deriving Show

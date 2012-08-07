@@ -6,6 +6,7 @@ module Ruab.Frontend
 ) where
 
 -- imports {{{1
+import Control.Arrow (first)
 import Data.List (intercalate, find)
 import Data.Maybe (fromJust, listToMaybe)
 import Graphics.UI.Gtk hiding (response)
@@ -16,7 +17,7 @@ import Prelude hiding (log, lines)
 import Ruab.Actor (new_actor, update)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread)
 import Ruab.Options (Options)
-import Ruab.Util (fromJust_s, abort)
+import Ruab.Util (fromJust_s)
 
 import qualified Ruab.Core as C
 import qualified Data.ByteString.Char8 as BS
@@ -78,7 +79,7 @@ data CommandPrefix -- {{{2
 
 data Command -- {{{2
   = CmdUnknown String
-  | CmdBreakAdd C.PRow (Maybe [C.ThreadId])
+  | CmdBreakAdd C.PRow [C.ThreadId]
   | CmdBreakList
   | CmdContinue
   | CmdHelp (Maybe CommandPrefix)
@@ -134,8 +135,8 @@ parseCommand text =
           let row' = (fromJust . mread) row in
           case sequence (map mread tids) of
             Nothing -> CmdHelp (Just CmdPrBreakAdd)
-            Just [] -> CmdBreakAdd row' Nothing
-            Just tids' -> CmdBreakAdd row' (Just tids')
+            Just [] -> CmdBreakAdd row' []
+            Just tids' -> CmdBreakAdd row' tids'
         _ -> CmdHelp (Just CmdPrBreakAdd)
 
       CmdPrBreakList -> noopt CmdPrBreakList CmdBreakList options
@@ -226,17 +227,21 @@ createNetwork ctx@(Context gui core) opt = do
 renderInfo :: Context -> [InfoInstance] -> IO () -- {{{2
 renderInfo (Context gui core) infos = do
   render (guiPcomp gui) infos
-  render (guiTcomp gui) (sync (C.p2t_row core) infos)
-  render (guiEcomp gui) (sync (C.p2e_row core) infos)
+  render (guiTcomp gui) (sync p2t infos)
+  render (guiEcomp gui) (sync p2e infos)
   where
     render comp infos' = postGUIAsync $ do
       setText (compInfo comp) (render_info infos')
       maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos'
 
-    sync f infos' = flip map infos' $ \(prow, x) ->
-      case f prow of
-        Nothing -> $abort $ "failed to map row: " ++ show prow
-        Just row' -> (row', x)
+    sync f = map (first ($fromJust_s . f))
+
+    p2t = C.p2t_row core
+
+    p2e prow = case C.p2e_row core prow of
+      C.NoMatch -> Nothing
+      C.NonCritical erow -> Just erow
+      C.Critical ts -> (Just . snd . head) ts
 
 log :: TextView -> Log -> IO () -- {{{2
 log tv (Log lt lines) = postGUIAsync $ do
@@ -316,22 +321,23 @@ handleCommand core fInfo fLog fCommand = handle
         case f srow of
           Nothing -> fLog $ Log LogError ["invalid row number"]
           Just prow -> 
-            let rows = [C.p2t_row core prow, C.p2e_row core prow] in
-            case sequence rows of
-              Nothing -> fLog $ Log LogError [
-                  "invalid row number: "
-                , "T: " ++ show (head rows)
-                , "P: " ++ show prow
-                , "E: " ++ show (last rows)
-                ]
-              Just [trow, erow] -> do
-                fLog $ Log LogOutput [
-                    "T: " ++ show trow
-                  , "P: " ++ show prow
-                  , "E: " ++ show erow
-                  ]
-                fInfo $ setHighlight prow
-              x -> $abort $ "unexpected value: " ++ show x
+            let
+              mtrow = C.p2t_row core prow
+              erows = C.p2e_row core prow
+
+              scroll etxt = case mtrow of
+                Nothing -> fLog $ Log LogError ["failed to map to t-row"]
+                Just trow -> do
+                  fLog $ Log LogOutput [
+                      "T: " ++ show trow
+                    , "P: " ++ show prow
+                    , "E: " ++ etxt
+                    ]
+                  fInfo $ setHighlight prow
+            in case erows of
+              C.NoMatch -> fLog $ Log LogError ["failed to map to e-rows"]
+              C.NonCritical erow -> scroll (show erow)
+              C.Critical ts -> scroll (show ts)
 
     handle CmdStart = fCommand C.CmdStart
 
