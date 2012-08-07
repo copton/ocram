@@ -13,7 +13,7 @@ import Test.HUnit ((@=?), Assertion)
 
 import qualified Data.ByteString.Char8 as BS
 
-tests :: Test -- {{{2
+tests :: Test -- {{{1
 tests = testGroup "Debug" [test_preproc_map]
 
 test_preproc_map :: Test -- {{{1

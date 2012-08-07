@@ -203,7 +203,7 @@ test_add_thread_functions = enumTestGroup "add_thread_functions" $ map (runTest 
   |])
   ]
 
-runTest :: (CallGraph -> CTranslUnit' -> CTranslUnit') -> (String, String) -> Assertion -- {{{2
+runTest :: (CallGraph -> CTranslUnit' -> CTranslUnit') -> (String, String) -> Assertion -- {{{1
 runTest f (code, expected) =
   let
     ast = enrich code :: CTranslUnit

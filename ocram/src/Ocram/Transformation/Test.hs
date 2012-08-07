@@ -9,7 +9,8 @@ module Ocram.Transformation.Test
 import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (analysis)
-import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
+import Ocram.Print (print_with_log)
+import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce, TLocMap)
 import Ocram.Text (show_errors)
 import Ocram.Transformation (transformation)
 import Test.Framework (Test, testGroup)
@@ -57,7 +58,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
+	|], Just [])
 -- setup - returning a pointer {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) int* block(int i);
@@ -93,7 +94,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
+	|], Nothing)
 -- setup - returning a void pointer {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void* block(int i);
@@ -129,7 +130,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
+	|], Nothing)
 -- local variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i);
@@ -168,7 +169,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
+	|], Nothing)
 -- function static variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i);
@@ -207,7 +208,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
+	|], Nothing)
 -- global variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i1, int i2);
@@ -252,7 +253,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
+	|], Nothing)
 -- loop {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int j);
@@ -307,7 +308,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				ec_stack_start.i = 0;
 				return;	
 		}
-	|])
+	|], Nothing)
 -- critical function {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -376,7 +377,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
-	|])
+	|], Nothing)
 -- critical function, chained return {{{2
 	,([paste|
 		__attribute__((tc_blocking)) int block(int b);
@@ -438,7 +439,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
         }
 		}
-	|])
+	|], Nothing)
 -- two threads {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -522,7 +523,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				}
 				return;	
 		}
-	|])
+	|], Nothing)
 -- reentrance {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
@@ -608,7 +609,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
-	|])
+	|], Nothing)
 -- return value {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) int block(int i);
@@ -649,7 +650,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-	|])
+	|], Nothing)
 -- multiple declarations {{{2
   , ([paste|
 		__attribute__((tc_blocking)) int block(int i);
@@ -691,7 +692,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-  |])
+  |], Nothing)
 -- multiple global declarations {{{2
   , ([paste|
     int i, k;
@@ -732,7 +733,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-  |])
+  |], Nothing)
 -- multiple declarations with initialization {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(int i);
@@ -773,7 +774,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
         ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
         return;
     }
-    |])
+    |], Nothing)
 -- multiple declarations with critical initialization {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(int i);
@@ -816,7 +817,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
         ec_stack_start.k = 23;
         return;
     }
-  |])
+  |], Nothing)
 -- cast operator {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(char* c);
@@ -855,7 +856,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       ec_label_start_1: ;
         return;
     }
-    |])
+    |], Nothing)
 -- returns {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(char* c);
@@ -926,7 +927,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
          }
        }
     }
-  |])
+  |], Nothing)
 -- struct {{{2
   , ([paste|
     struct S {
@@ -970,7 +971,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       ec_label_start_1: ;
         return;
     }
-    |])
+    |], Nothing)
 -- struct initialization -- TODO {{{2
 --   , ([paste|
 --     struct S {
@@ -1015,17 +1016,23 @@ test_integration = enumTestGroup "integration" $ map runTest [
 --       ec_label_start_1: ;
 --         return;
 --     }
---     |])
+--     |], Nothing)
 	]
 
-runTest :: (String, String) -> Assertion -- {{{1
-runTest (code, expected) =
+runTest :: (String, String, Maybe TLocMap) -> Assertion -- {{{1
+runTest (code, expectedCode, expectedLocMap) =
   let ast = enrich code in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
     Right (cg, _) ->
       let
-        result = reduce $ fmap nodeInfo $ (\(a, _, _)->a) $ transformation cg ast
-        expected' = (reduce $ (enrich expected :: CTranslUnit) :: String)
-      in
-        expected' @=? result
+        resultAst = (\(a, _, _)->a) $ transformation cg ast
+        resultLocMap = reduce $ snd $ print_with_log resultAst
+        resultCode = reduce $ fmap nodeInfo resultAst
+        expectedCode' = (reduce $ (enrich expectedCode :: CTranslUnit) :: String)
+      in do
+        expectedCode'  @=? resultCode
+        case expectedLocMap of
+          Nothing -> return ()
+          Just expectedLocMap' ->
+            expectedLocMap' @=? resultLocMap
