@@ -8,6 +8,7 @@ module Ocram.Print.Test
 -- import {{{1
 import Control.Arrow ((***))
 import Data.Generics (everything, mkQ, extQ)
+import Data.List (intercalate)
 import Ocram.Debug (ENodeInfo(..), tlocation)
 import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST (CTranslUnit, CTranslationUnit(..), annotation)
@@ -137,10 +138,10 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
       (4, 18, Just 0)
     , (5, 21, Just 0)
   ])
--- non-critical function
+-- non-critical function call {{{2
   ,([lpaste|
     int k;
-02: void f() {
+    void f() {
 03:   k = 23; 
     }
     __attribute__((tc_blocking)) void block(int i);
@@ -150,7 +151,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     }
   |], [lpaste|
     int k;
-02: void f()
+    void f()
     {
 04:     k = 23;
     }
@@ -180,10 +181,189 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         return;
     }
   |], [
-      (2,  2, Nothing)
-    , (3,  4, Nothing)
+      (3,  4, Nothing)
     , (7, 22, Just 0)
     , (8, 25, Just 0)
+  ])
+-- critical function call {{{2
+  ,([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+    void c(int i) {
+03:   block(i+1);
+    }
+    __attribute__((tc_run_thread)) void start() {
+06:   c(23);
+    }
+  |], [lpaste|
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_frame_block_t;
+    typedef struct {
+                void * ec_cont;
+                union {
+                    ec_frame_block_t block;
+                } ec_frames;
+                int i;
+            } ec_frame_c_t;
+    typedef struct {
+                union {
+                    ec_frame_c_t c;
+                } ec_frames;
+            } ec_frame_start_t;
+    ec_frame_start_t ec_stack_start;
+    void block(ec_frame_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+        ec_stack_start.ec_frames.c.i = 23;
+        ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
+26:     goto ec_label_c_0;
+    ec_label_start_1:
+        ;
+        return;
+    ec_label_c_0:
+        ;
+        ec_stack_start.ec_frames.c.ec_frames.block.i = ec_stack_start.ec_frames.c.i + 1;
+        ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+34:     block(&ec_stack_start.ec_frames.c.ec_frames.block);
+        return;
+    ec_label_c_1:
+        ;
+        goto * (ec_stack_start.ec_frames.c.ec_cont);
+    }
+  |], [
+      (6, 26, Just 0)
+    , (3, 34, Just 0)
+  ])
+-- re-entrance {{{2
+  ,([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+    void c(int i) {
+03:   block(i+1);
+    }
+    __attribute__((tc_run_thread)) void s1() {
+06:   c(23);
+    }
+    __attribute__((tc_run_thread)) void s2() {
+09:   c(42);
+    }
+  |], [lpaste|
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_frame_block_t;
+    typedef struct {
+                void * ec_cont;
+                union {
+                    ec_frame_block_t block;
+                } ec_frames;
+                int i;
+            } ec_frame_c_t;
+    typedef struct {
+                union {
+                    ec_frame_c_t c;
+                } ec_frames;
+            } ec_frame_s1_t;
+    typedef struct {
+                union {
+                    ec_frame_c_t c;
+                } ec_frames;
+            } ec_frame_s2_t;
+    ec_frame_s1_t ec_stack_s1;
+    ec_frame_s2_t ec_stack_s2;
+    void block(ec_frame_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+        ec_stack_s1.ec_frames.c.i = 23;
+        ec_stack_s1.ec_frames.c.ec_cont = &&ec_label_s1_1;
+32:     goto ec_label_c_0;
+    ec_label_s1_1:
+        ;
+        return;
+    ec_label_c_0:
+        ;
+        ec_stack_s1.ec_frames.c.ec_frames.block.i = ec_stack_s1.ec_frames.c.i + 1;
+        ec_stack_s1.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+40:     block(&ec_stack_s1.ec_frames.c.ec_frames.block);
+        return;
+    ec_label_c_1:
+        ;
+        goto * (ec_stack_s1.ec_frames.c.ec_cont);
+    }
+    void ec_thread_1(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+        ec_stack_s2.ec_frames.c.i = 42;
+        ec_stack_s2.ec_frames.c.ec_cont = &&ec_label_s2_1;
+54:     goto ec_label_c_0;
+    ec_label_s2_1:
+        ;
+        return;
+    ec_label_c_0:
+        ;
+        ec_stack_s2.ec_frames.c.ec_frames.block.i = ec_stack_s2.ec_frames.c.i + 1;
+        ec_stack_s2.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+62:     block(&ec_stack_s2.ec_frames.c.ec_frames.block);
+        return;
+    ec_label_c_1:
+        ;
+        goto * (ec_stack_s2.ec_frames.c.ec_cont);
+    }
+  |], [
+      (6, 32, Just 0)
+    , (3, 40, Just 0)
+    , (9, 54, Just 1)
+    , (3, 62, Just 1)
+  ])
+-- multiple statements in a row {{{2
+  ,([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void s1() {
+03:   block(23); block(42);
+    }
+  |], [lpaste|
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_frame_block_t;
+    typedef struct {
+                union {
+                    ec_frame_block_t block;
+                } ec_frames;
+            } ec_frame_s1_t;
+    ec_frame_s1_t ec_stack_s1;
+    void block(ec_frame_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+        ec_stack_s1.ec_frames.block.i = 23;
+        ec_stack_s1.ec_frames.block.ec_cont = &&ec_label_s1_1;
+19:     block(&ec_stack_s1.ec_frames.block);
+        return;
+    ec_label_s1_1:
+        ;
+        ec_stack_s1.ec_frames.block.i = 42;
+        ec_stack_s1.ec_frames.block.ec_cont = &&ec_label_s1_2;
+25:     block(&ec_stack_s1.ec_frames.block);
+        return;
+    ec_label_s1_2:
+        ;
+        return;
+    }
+  |], [
+      (3, 19, Just 0)
+    , (3, 25, Just 0)
   ])
   ]
 
@@ -195,11 +375,13 @@ runTest (inputCode, expectedCode, expectedLocMap) =
     Right (cg, _) ->
       let
         ast' = (\(a, _, _)->a) $ transformation cg ast
-        (resultCode, resultLocMap) = (BS.unpack *** reduce) (print_with_log ast')
+        (resultCode, resultLocMap) = print_with_log ast'
+        resultCode' = BS.unpack resultCode
+        resultLocMap' = reduce resultLocMap
       in do
-        expectedCode @=? resultCode
-        let locs = everything (++) (mkQ [] traceLocationExpr `extQ` traceLocationStat) ast'
-        assertEqual (show locs) expectedLocMap resultLocMap
+        expectedCode @=? resultCode'
+        let locs = intercalate "\n" $ map show $ everything (++) (mkQ [] traceLocationExpr `extQ` traceLocationStat) ast'
+        assertEqual (locs ++ "\n" ++ show resultLocMap) expectedLocMap resultLocMap'
 
   where
     traceLocationExpr :: CExpr' -> [String]

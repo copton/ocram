@@ -95,8 +95,8 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
           return $ CCompound x (concat items') y
         rewrite o = return o
 
-        transform o@(CBlockStmt (CExpr (Just call@(CCall (CVar iden _) params _)) _))
-          | is_critical cg calledFunction = callSequence calledFunction (annotation call) params Nothing
+        transform o@(CBlockStmt stat@(CExpr (Just call@(CCall (CVar iden _) params _)) _))
+          | is_critical cg calledFunction = callSequence calledFunction (annotation stat) params Nothing
           | otherwise = return [o]
           where calledFunction = symbol iden
 

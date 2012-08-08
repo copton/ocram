@@ -28,18 +28,11 @@ transformation cg ast =
     (ast', pal, ds)
 
 enableLocationTracing :: CTranslUnit' -> CTranslUnit' -- {{{1
-enableLocationTracing = everywhere (mkT tExtDecl `extT` tStat `extT` tExpr `extT` tDecl)
+enableLocationTracing = everywhere (mkT tStat `extT` tDecl)
   where
-    tExtDecl :: CExtDecl' -> CExtDecl' 
-    tExtDecl (CFDefExt fd) = CFDefExt (amap enableTrace fd)
-    tExtDecl x = x
-
     tStat :: CStat' -> CStat'
-    tStat = amap enableTrace
-
-    tExpr :: CExpr' -> CExpr'
-    tExpr o@(CCall _ _ _) = amap enableTrace o
-    tExpr o = o
+    tStat o@(CCompound _ _ _) = o
+    tStat s = amap enableTrace s
 
     tDecl :: CDecl' -> CDecl'
     -- Decls with initializers
