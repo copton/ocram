@@ -55,11 +55,11 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
       | otherwise = everywhere (mkT rewrite) fdef
       where
         rewrite :: CStat' -> CStat'
-        rewrite (CReturn Nothing _) = goto
-        rewrite (CReturn (Just cexpr) _) = CCompound [] (map CBlockStmt [assign cexpr, goto]) un
+        rewrite o@(CReturn Nothing _) = goto (annotation o)
+        rewrite o@(CReturn (Just cexpr) _) = CCompound [] (map CBlockStmt [assign cexpr, goto (annotation o)]) un
         rewrite o = o
-        assign e = CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just resVar)) e un)) un
-        goto = CGotoPtr (stackAccess callChain (Just contVar)) un
+        assign e = CExpr (Just (CAssign CAssignOp (stackAccess callChain (Just resVar)) e un)) (annotation e)
+        goto = CGotoPtr (stackAccess callChain (Just contVar))
 
     rewriteLocalVariableAccess :: CFunDef' -> CFunDef' -- {{{3
     rewriteLocalVariableAccess = everywhere (mkT rewrite)

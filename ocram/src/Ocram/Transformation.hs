@@ -7,6 +7,7 @@ module Ocram.Transformation
 -- imports {{{1
 import Data.Generics (everything, everywhere, mkT, mkQ, extT)
 import Language.C.Syntax.AST
+import Language.C.Data.Node (nodeInfo, isUndefNode)
 import Ocram.Analysis (CallGraph, blocking_functions)
 import Ocram.Debug (enrich_node_info, ENodeInfo(..), un)
 import Ocram.Ruab (VarMap)
@@ -21,7 +22,7 @@ import qualified Data.Set as Set
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
   let
-    ast' = (translate cg . normalize cg . enableLocationTracing . fmap enrich_node_info) ast
+    ast' = (translate cg . enableLocationTracing . normalize cg . fmap enrich_node_info) ast
     pal = extractPal cg ast'
     ds = extractVarMap ast'
   in
@@ -39,9 +40,9 @@ enableLocationTracing = everywhere (mkT tStat `extT` tDecl)
     tDecl o@(CDecl _ [(_, Just _, _)] _) = amap enableTrace o
     tDecl o = o
 
-
-    
-    enableTrace x = x {enTraceLocation = True}
+    enableTrace x
+      | (isUndefNode . nodeInfo) x = x
+      | otherwise = x {enTraceLocation = True}
 
 extractPal :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
 extractPal cg (CTranslUnit ds _) = CTranslUnit (map CDeclExt ds') un

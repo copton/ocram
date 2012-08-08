@@ -327,7 +327,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 -- multiple statements in a row {{{2
   ,([lpaste|
     __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void s1() {
+    __attribute__((tc_run_thread)) void start() {
 03:   block(23); block(42);
     }
   |], [lpaste|
@@ -338,8 +338,8 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
                 union {
                     ec_frame_block_t block;
                 } ec_frames;
-            } ec_frame_s1_t;
-    ec_frame_s1_t ec_stack_s1;
+            } ec_frame_start_t;
+    ec_frame_start_t ec_stack_start;
     void block(ec_frame_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -347,23 +347,106 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-        ec_stack_s1.ec_frames.block.i = 23;
-        ec_stack_s1.ec_frames.block.ec_cont = &&ec_label_s1_1;
-19:     block(&ec_stack_s1.ec_frames.block);
+        ec_stack_start.ec_frames.block.i = 23;
+        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+19:     block(&ec_stack_start.ec_frames.block);
         return;
-    ec_label_s1_1:
+    ec_label_start_1:
         ;
-        ec_stack_s1.ec_frames.block.i = 42;
-        ec_stack_s1.ec_frames.block.ec_cont = &&ec_label_s1_2;
-25:     block(&ec_stack_s1.ec_frames.block);
+        ec_stack_start.ec_frames.block.i = 42;
+        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_2;
+25:     block(&ec_stack_start.ec_frames.block);
         return;
-    ec_label_s1_2:
+    ec_label_start_2:
         ;
         return;
     }
   |], [
       (3, 19, Just 0)
     , (3, 25, Just 0)
+  ])
+-- return {{{2
+  ,([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+    int c(int i) {
+03:   if (i ==0) {
+04:     return block(23);
+      } else {
+06:     return block(42);
+      }
+    }
+    __attribute__((tc_run_thread)) void start() {
+10:   c(0);
+    }
+  |], [lpaste|
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_frame_block_t;
+    typedef struct {
+                void * ec_cont;
+                int ec_result;
+                union {
+                    ec_frame_block_t block;
+                } ec_frames;
+                void ec_crit_0_0;
+                void ec_crit_0_1;
+                int i;
+            } ec_frame_c_t;
+    typedef struct {
+                union {
+                    ec_frame_c_t c;
+                } ec_frames;
+            } ec_frame_start_t;
+    ec_frame_start_t ec_stack_start;
+    void block(ec_frame_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+        ec_stack_start.ec_frames.c.i = 0;
+        ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
+29:     goto ec_label_c_0;
+    ec_label_start_1:
+        ;
+        return;
+    ec_label_c_0:
+        ;
+35:     if (ec_stack_start.ec_frames.c.i == 0)
+        {
+            ec_stack_start.ec_frames.c.ec_frames.block.i = 23;
+            ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+            block(&ec_stack_start.ec_frames.c.ec_frames.block);
+            return;
+        ec_label_c_1:
+            ;
+            ec_stack_start.ec_frames.c.ec_crit_0_0 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
+            {
+                ec_stack_start.ec_frames.c.ec_result = ec_stack_start.ec_frames.c.ec_crit_0_0;
+46:             goto * (ec_stack_start.ec_frames.c.ec_cont);
+            }
+        }
+        else
+        {
+            ec_stack_start.ec_frames.c.ec_frames.block.i = 42;
+            ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_2;
+            block(&ec_stack_start.ec_frames.c.ec_frames.block);
+            return;
+        ec_label_c_2:
+            ;
+            ec_stack_start.ec_frames.c.ec_crit_0_1 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
+            {
+                ec_stack_start.ec_frames.c.ec_result = ec_stack_start.ec_frames.c.ec_crit_0_1;
+60:             goto * (ec_stack_start.ec_frames.c.ec_cont);
+            }
+        }
+    }
+  |], [
+      (10, 29, Just 0)
+    , ( 3, 35, Just 0)
+    , ( 4, 46, Just 0)
+    , ( 6, 60, Just 0)
   ])
   ]
 
