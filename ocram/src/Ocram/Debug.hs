@@ -28,7 +28,7 @@ instance CNode ENodeInfo where
   nodeInfo = enTnodeInfo
 
 instance Show ENodeInfo where
-  show _ = ""
+  show = show . enTnodeInfo
 
 un :: ENodeInfo -- {{{1
 un = enrich_node_info undefNode
@@ -45,7 +45,7 @@ tlocation eni =
     ni = enTnodeInfo eni
     pos = posOfNode ni
   in
-    TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
+    TLocation (posRow pos + 1) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
 
 create_debug_info :: Options -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> LocMap -> DebugInfo -- {{{1
 create_debug_info opt cg tcode pcode ecode vm lm =

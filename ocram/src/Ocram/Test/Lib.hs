@@ -33,6 +33,14 @@ paste = QuasiQuoter {
 	quoteDec = undefined 
 	}
 
+lpaste :: QuasiQuoter -- {{{1
+lpaste = QuasiQuoter { 
+	quoteExp = stringE . reverse . drop 2 . reverse . unlines . map (drop 4) . tail . lines,
+	quotePat = undefined,
+	quoteType = undefined,
+	quoteDec = undefined 
+	}
+
 enumTestGroup :: String -> [Assertion] -> Test -- {{{1
 enumTestGroup name assertions = testGroup name $ zipWith (testCase . show) [(1 :: Int)..] assertions
 

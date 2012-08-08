@@ -6,18 +6,24 @@ module Ocram.Transformation.Test
 ) where
 
 -- import {{{1
+import Control.Arrow ((***))
+import Data.Generics (everything, mkQ, extQ)
+import Ocram.Debug (ENodeInfo(..), tlocation)
 import Language.C.Data.Node (nodeInfo)
-import Language.C.Syntax.AST (CTranslUnit)
+import Language.C.Syntax.AST (CTranslUnit, CTranslationUnit(..), annotation)
 import Ocram.Analysis (analysis)
 import Ocram.Print (print_with_log)
-import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce, TLocMap)
+import Ocram.Test.Lib (enumTestGroup, paste, lpaste, enrich, reduce, TLocMap)
 import Ocram.Text (show_errors)
 import Ocram.Transformation (transformation)
+import Ocram.Transformation.Types (CExpr', CStat')
 import Test.Framework (Test, testGroup)
-import Test.HUnit ((@=?), Assertion, assertFailure)
+import Test.HUnit ((@=?), Assertion, assertFailure, assertEqual)
 
+import qualified Data.ByteString.Char8 as BS
 import qualified Ocram.Transformation.Normalize.Test as A
 import qualified Ocram.Transformation.Translate.Test as B
+
 
 tests :: Test -- {{{1
 tests = testGroup "Transformation" [A.tests, B.tests, test_integration]
@@ -25,40 +31,39 @@ tests = testGroup "Transformation" [A.tests, B.tests, test_integration]
 test_integration :: Test -- {{{1
 test_integration = enumTestGroup "integration" $ map runTest [
 -- setup {{{2
-	([paste|
-		__attribute__((tc_blocking)) void block(int i);
-		__attribute__((tc_run_thread)) void start() { 
-			block(23);
-		}
-	|],[paste|
-		typedef struct {
-				void* ec_cont;
-				int i;
-		} ec_frame_block_t;
-
-		typedef struct {
-				union {
-						ec_frame_block_t block;
-				} ec_frames;
-		} ec_frame_start_t;
-		
-		ec_frame_start_t ec_stack_start;
-
-		void block(ec_frame_block_t*);
-
-		void ec_thread_0(void* ec_cont)
-		{
-			if (ec_cont)
-				goto *ec_cont;
-
-				ec_stack_start.ec_frames.block.i = 23;
-				ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-				block(&ec_stack_start.ec_frames.block);
-				return;
-			ec_label_start_1: ;
-				return;	
-		}
-	|], Just [])
+	([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() { 
+03:   block(23);
+    }
+	|],[lpaste|
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_frame_block_t;
+    typedef struct {
+                union {
+                    ec_frame_block_t block;
+                } ec_frames;
+            } ec_frame_start_t;
+    ec_frame_start_t ec_stack_start;
+    void block(ec_frame_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+        ec_stack_start.ec_frames.block.i = 23;
+        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+19:     block(&ec_stack_start.ec_frames.block);
+        return;
+    ec_label_start_1:
+        ;
+        return;
+    }
+    |], Just [
+      (3, 19, Just 0)
+    ])
 -- setup - returning a pointer {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) int* block(int i);
@@ -1020,19 +1025,37 @@ test_integration = enumTestGroup "integration" $ map runTest [
 	]
 
 runTest :: (String, String, Maybe TLocMap) -> Assertion -- {{{1
-runTest (code, expectedCode, expectedLocMap) =
-  let ast = enrich code in
+runTest (inputCode, expectedCode, mtlocmap) =
+  let ast = enrich inputCode in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
     Right (cg, _) ->
-      let
-        resultAst = (\(a, _, _)->a) $ transformation cg ast
-        resultLocMap = reduce $ snd $ print_with_log resultAst
-        resultCode = reduce $ fmap nodeInfo resultAst
-        expectedCode' = (reduce $ (enrich expectedCode :: CTranslUnit) :: String)
-      in do
-        expectedCode'  @=? resultCode
-        case expectedLocMap of
-          Nothing -> return ()
-          Just expectedLocMap' ->
-            expectedLocMap' @=? resultLocMap
+      case mtlocmap of
+        Nothing ->
+          let
+            ast' = (\(a, _, _)->a) $ transformation cg ast
+            resultCode = reduce $ fmap nodeInfo ast'
+            expectedCode' = (reduce $ (enrich expectedCode :: CTranslUnit) :: String)
+          in
+            expectedCode' @=? resultCode
+        Just expectedLocMap ->
+          let
+            ast' = (\(a, _, _)->a) $ transformation cg ast
+            (resultCode, resultLocMap) = (BS.unpack *** reduce) (print_with_log ast')
+          in do
+            expectedCode @=? resultCode
+            let locs = everything (++) (mkQ [] traceLocationExpr `extQ` traceLocationStat) ast'
+            let dbg = (\(CTranslUnit xs _) -> map nodeInfo xs) ast
+            assertEqual (show locs ++ "\n" ++ show dbg) expectedLocMap resultLocMap
+
+  where
+    traceLocationExpr :: CExpr' -> [String]
+    traceLocationExpr expr 
+      | (enTraceLocation . annotation) expr = [show expr]
+      | otherwise = []
+
+    traceLocationStat :: CStat' -> [String]
+    traceLocationStat stmt
+      | (enTraceLocation . annotation) stmt = [show stmt]
+      | otherwise = []
+
