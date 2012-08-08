@@ -28,7 +28,7 @@ transformation cg ast =
     (ast', pal, ds)
 
 enableLocationTracing :: CTranslUnit' -> CTranslUnit' -- {{{1
-enableLocationTracing = everywhere (mkT tExtDecl `extT` tStat `extT` tExpr)
+enableLocationTracing = everywhere (mkT tExtDecl `extT` tStat `extT` tExpr `extT` tDecl)
   where
     tExtDecl :: CExtDecl' -> CExtDecl' 
     tExtDecl (CFDefExt fd) = CFDefExt (amap enableTrace fd)
@@ -41,6 +41,13 @@ enableLocationTracing = everywhere (mkT tExtDecl `extT` tStat `extT` tExpr)
     tExpr o@(CCall _ _ _) = amap enableTrace o
     tExpr o = o
 
+    tDecl :: CDecl' -> CDecl'
+    -- Decls with initializers
+    tDecl o@(CDecl _ [(_, Just _, _)] _) = amap enableTrace o
+    tDecl o = o
+
+
+    
     enableTrace x = x {enTraceLocation = True}
 
 extractPal :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
