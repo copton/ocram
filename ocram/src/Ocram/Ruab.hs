@@ -24,14 +24,20 @@ data ELocation = ELocation { -- {{{2
   , elocCol  :: Int
   } deriving Show
 
-data Location = Location { -- {{{2
-    locTloc           :: TLocation
-  , locEloc           :: ELocation
-  , locIsBlockingCall :: Bool
-  , locThreadId       :: Maybe Int
+data Breakpoint = Breakpoint { -- {{{2
+    bpTloc           :: TLocation
+  , bpEloc           :: ELocation
+  , bpThreadId       :: Maybe Int
   } deriving (Show)
 
-type LocMap = [Location] -- {{{2
+type Breakpoints = [Breakpoint] -- {{{2
+
+data BlockingCall = BlockingCall { -- {{{2
+    bcEloc     :: ELocation
+  , bcThreadId :: Int
+  }
+
+type BlockingCalls = [BlockingCall] -- {{{2
 
 type Variable = String -- {{{2
 
@@ -56,16 +62,16 @@ data Thread = Thread { -- {{{2
   } deriving Show
   
 data DebugInfo = DebugInfo { -- {{{2
-    diTcode   :: File
-  , diPcode   :: BS.ByteString
-  , diEcode   :: File
-  , diPpm     :: PreprocMap
-  , diLocMap  :: LocMap
-  , diVarMap  :: VarMap
-  , diThreads :: [Thread]
-  , diOsApi   :: [String]
+    diTcode     :: File
+  , diPcode     :: BS.ByteString
+  , diEcode     :: File
+  , diPpm       :: PreprocMap
+  , diBps       :: Breakpoints
+  , diBcs       :: BlockingCalls
+  , diVarMap    :: VarMap
+  , diThreads   :: [Thread]
+  , diOsApi     :: [String]
   }
-
 
 -- instances {{{1
 instance JSON TLocation where -- {{{2
@@ -80,12 +86,17 @@ instance JSON ELocation where -- {{{2
 
   showJSON (ELocation r c) = showJSON (r, c)
 
-instance JSON Location where -- {{{2
+instance JSON Breakpoint where -- {{{2
   readJSON val = do
-    (t, e, b, tid) <- readJSON val
-    return $ Location t e b (if tid == -1 then Nothing else Just tid)
+    (t, e, tid) <- readJSON val
+    return $ Breakpoint t e (if tid == -1 then Nothing else Just tid)
 
-  showJSON (Location t e b tid) = showJSON (t, e, b, maybe (-1) id tid)
+  showJSON (Breakpoint t e tid) = showJSON (t, e, maybe (-1) id tid)
+
+instance JSON BlockingCall where -- {{{2
+  readJSON val = readJSON val >>= return . uncurry BlockingCall
+
+  showJSON (BlockingCall e t) = showJSON (e, t)
 
 instance JSON PreprocMap where  -- {{{2
   showJSON (PreprocMap mtr mpr ma) = (JSObject . toJSObject) [
@@ -124,27 +135,29 @@ instance JSON Thread where -- {{{2
   readJSON x = readFail "Thread" x
 
 instance JSON DebugInfo where -- {{{2
-  showJSON (DebugInfo tcode pcode ecode ppm lm vm ts oa) = (JSObject . toJSObject) [
+  showJSON (DebugInfo tcode pcode ecode ppm bps bcs vm ts oa) = (JSObject . toJSObject) [
       ("tcode",   showJSON tcode)
     , ("pcode",   showJSON pcode)
     , ("ecode",   showJSON ecode)
     , ("ppm",     showJSON ppm)
-    , ("locmap",  showJSON lm)
-    , ("varmap",  showJSON vm)
+    , ("bps",     showJSON bps)
+    , ("bcs",     showJSON bcs)
+    , ("vs",      showJSON vm)
     , ("threads", showJSON ts)
     , ("osapi",   showJSON oa)
     ]
 
   readJSON (JSObject obj) = do
-    let [tcode, pcode, ecode, ppm, lm, vm, ts, oa] = map snd $ fromJSObject obj
+    let [tcode, pcode, ecode, ppm, bps, bcs, vm, ts, oa] = map snd $ fromJSObject obj
     [tcode', ecode'] <- mapM readJSON [tcode, ecode]
     pcode'           <- readJSON pcode
     ppm'             <- readJSON ppm
-    lm'              <- readJSON lm
+    bps'              <- readJSON bps
+    bcs'              <- readJSON bcs
     vm'              <- readJSON vm
     ts'              <- readJSON ts
     oa'              <- readJSON oa
-    return $ DebugInfo tcode' pcode' ecode' ppm' lm' vm' ts' oa'
+    return $ DebugInfo tcode' pcode' ecode' ppm' bps' bcs' vm' ts' oa'
 
   readJSON x = readFail "DebugInfo" x
 

@@ -36,27 +36,27 @@ p2t_row' ppm@(R.PreprocMap trows _ locs) prow = do
   guard (prow' == prow)
   return trow
 
-t2e_row' :: R.LocMap -> String -> TRow -> ERowMatch -- {{{1
-t2e_row' lm tfile row =
+t2e_row' :: R.Breakpoints -> String -> TRow -> ERowMatch -- {{{1
+t2e_row' bps tfile row =
   let
-    locs = filter ((row==) . R.tlocRow . R.locTloc) $
-           filter ((tfile==) . R.tlocFile . R.locTloc) $
-           lm
+    bps' = filter ((row==) . R.tlocRow . R.bpTloc) $
+           filter ((tfile==) . R.tlocFile . R.bpTloc) $
+           bps 
   in
-    case locs of
+    case bps' of
       []                             -> NoMatch
-      [R.Location _ eloc _ Nothing]  -> NonCritical $ R.elocRow eloc
-      [R.Location _ eloc _ (Just t)] -> Critical [(t, R.elocRow eloc)]
-      elocs                          -> Critical $ flip map elocs (\loc ->
+      [R.Breakpoint _ eloc Nothing]  -> NonCritical $ R.elocRow eloc
+      [R.Breakpoint _ eloc (Just t)] -> Critical [(t, R.elocRow eloc)]
+      _                              -> Critical $ flip map bps' (\bp ->
           (
-            ($fromJust_s . R.locThreadId) loc
-          , (R.elocRow . R.locEloc) loc
+            ($fromJust_s . R.bpThreadId) bp
+          , (R.elocRow . R.bpEloc) bp
           )
         )
 
-e2t_row' :: R.LocMap -> String -> ERow -> Maybe TRow -- {{{1
-e2t_row' lm tfile row =
-  fmap (R.tlocRow . R.locTloc) $
-  find ((row==) . R.elocRow . R.locEloc) $
-  filter ((tfile==) . R.tlocFile . R.locTloc) $
-  lm
+e2t_row' :: R.Breakpoints -> String -> ERow -> Maybe TRow -- {{{1
+e2t_row' bps tfile row =
+  fmap (R.tlocRow . R.bpTloc) $
+  find ((row==) . R.elocRow . R.bpEloc) $
+  filter ((tfile==) . R.tlocFile . R.bpTloc) $
+  bps

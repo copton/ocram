@@ -28,8 +28,8 @@ runCompiler argv = do
   (tcode, pcode, ast) <- exitOnError "parser" =<< parse opt
   (cg, fpr) <- exitOnError "analysis" $ analysis ast
   let (ast', pal, vm) = transformation cg ast
-  let (ecode, lm) = print_with_log ast'
-  let di = encode_debug_info $ create_debug_info opt cg tcode pcode ecode vm lm
+  let (ecode, lm, bl) = print_with_log ast'
+  let di = encode_debug_info $ create_debug_info opt cg tcode pcode ecode vm lm bl
   exitOnError "output" =<< generate_pal opt fpr pal
   exitOnError "output" =<< dump_ecode opt ecode
   exitOnError "output" =<< dump_debug_info opt di

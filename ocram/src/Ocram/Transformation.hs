@@ -33,16 +33,16 @@ enableLocationTracing = everywhere (mkT tStat `extT` tDecl)
   where
     tStat :: CStat' -> CStat'
     tStat o@(CCompound _ _ _) = o
-    tStat s = amap enableTrace s
+    tStat s = amap setBreakpoint s
 
     tDecl :: CDecl' -> CDecl'
     -- Decls with initializers
-    tDecl o@(CDecl _ [(_, Just _, _)] _) = amap enableTrace o
+    tDecl o@(CDecl _ [(_, Just _, _)] _) = amap setBreakpoint o
     tDecl o = o
 
-    enableTrace x
+    setBreakpoint x
       | (isUndefNode . nodeInfo) x = x
-      | otherwise = x {enTraceLocation = True}
+      | otherwise = x {enBreakpoint = True}
 
 extractPal :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
 extractPal cg (CTranslUnit ds _) = CTranslUnit (map CDeclExt ds') un

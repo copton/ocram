@@ -86,7 +86,7 @@ data Breakpoint = Breakpoint { -- {{{2
 data BreakpointType -- {{{2
   = BkptUser UserBreakpoint
   | BkptThreadExecution ThreadId
-  | BkptCriticalCall ThreadId ERow
+  | BkptBlockingCall ThreadId ERow
   --deriving Show
 
 data Thread = Thread { -- {{{2
@@ -177,7 +177,7 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
               thread {thStatus = Running, thProw = Nothing}
             )
 
-        BkptCriticalCall tid erow -> do
+        BkptBlockingCall tid erow -> do
           B.continue backend
           return $ hide True . updateThread tid (\thread ->
               thread {thStatus = Blocked, thProw = e2p_row ctx erow `mplus` Just (-2)}
@@ -363,12 +363,12 @@ setup opt = do
 setupBreakpoints :: Context -> B.Context -> State -> IO State -- {{{2
 setupBreakpoints ctx backend state = do
   teb <- threadExecutionBreakpoints
-  ccb <- criticalCallBreakpoints
+  ccb <- blockingCallBreakpoints
   let bbm = M.fromList $ map (\b -> (bkptNumber b, b)) (teb ++ ccb)
   return $ state {stateBreakpoints = bbm}
   where
     threads = (R.diThreads . ctxDebugInfo) ctx
-    blockingCalls = filter R.locIsBlockingCall $ (R.diLocMap . ctxDebugInfo) ctx
+    blockingCalls = (R.diBcs . ctxDebugInfo) ctx
     efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
     threadExecutionBreakpoints = forM threads (\thread ->
         let
@@ -378,14 +378,14 @@ setupBreakpoints ctx backend state = do
           breakpoint <- B.set_breakpoint backend location
           return $ Breakpoint (B.bkptNumber breakpoint) (BkptThreadExecution (R.threadId thread))
       )
-    criticalCallBreakpoints = forM blockingCalls (\loc ->
+    blockingCallBreakpoints = forM blockingCalls (\bc ->
         let
-          location = B.file_line_location efile ((R.elocRow . R.locEloc) loc)
-          tid = ($fromJust_s . R.locThreadId) loc
-          erow = (R.elocRow . R.locEloc) loc
+          erow = (R.elocRow . R.bcEloc) bc
+          location = B.file_line_location efile erow
+          tid = R.bcThreadId bc
         in do
           breakpoint <- B.set_breakpoint backend location
-          return $ Breakpoint (B.bkptNumber breakpoint) (BkptCriticalCall tid erow)
+          return $ Breakpoint (B.bkptNumber breakpoint) (BkptBlockingCall tid erow)
       )
 
 initialState :: Context -> State -- {{{2
@@ -405,7 +405,7 @@ e_file = R.fileName . R.diEcode . ctxDebugInfo
 
 possible_breakpoints :: Context -> [PRow] -- {{{2
 possible_breakpoints ctx =
-  S.toList $ S.fromList $ map ($fromJust_s . t2p_row ctx . R.tlocRow . R.locTloc) $ (R.diLocMap . ctxDebugInfo) ctx
+  S.toList $ S.fromList $ map ($fromJust_s . t2p_row ctx . R.tlocRow . R.bpTloc) $ (R.diBps . ctxDebugInfo) ctx
 
 
 os_api :: Context -> [String] -- {{{2
@@ -421,10 +421,10 @@ e2p_row :: Context -> ERow -> Maybe PRow -- {{{2
 e2p_row ctx erow =
   let
     tfile = (R.fileName . R.diTcode . ctxDebugInfo) ctx
-    lm = (R.diLocMap . ctxDebugInfo) ctx
+    bps = (R.diBps . ctxDebugInfo) ctx
     ppm = (R.diPpm . ctxDebugInfo) ctx
   in do
-    trow <- e2t_row' lm tfile erow
+    trow <- e2t_row' bps tfile erow
     prow <- t2p_row' ppm trow
     return prow
 
@@ -432,8 +432,8 @@ p2e_row :: Context -> PRow -> ERowMatch -- {{{2
 p2e_row ctx prow =
   let
     tfile = (R.fileName . R.diTcode . ctxDebugInfo) ctx
-    lm = (R.diLocMap . ctxDebugInfo) ctx
+    bps = (R.diBps . ctxDebugInfo) ctx
     ppm = (R.diPpm . ctxDebugInfo) ctx
   in case p2t_row' ppm prow of
     Nothing -> NoMatch
-    Just trow -> t2e_row' lm tfile trow
+    Just trow -> t2e_row' bps tfile trow

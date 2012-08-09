@@ -8,7 +8,7 @@ import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Debug (un, setThread, ENodeInfo(..))
+import Ocram.Debug (un, ENodeInfo(..))
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names
@@ -31,7 +31,7 @@ add_thread_functions cg ast@(CTranslUnit decls ni) =
         onlyDefs name = not (is_blocking cg name) && is_critical cg name
         functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
       in
-        fmap (setThread tid) fun
+        fmap (\eni -> eni {enThreadId = Just tid}) fun
 
 inlineCriticalFunction :: CallGraph -> CTranslUnit' -> Symbol -> (Bool, Symbol) -> [CBlockItem'] -- {{{2
 inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody
@@ -95,7 +95,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
           return $ CCompound x (concat items') y
         rewrite o = return o
 
-        transform o@(CBlockStmt stat@(CExpr (Just call@(CCall (CVar iden _) params _)) _))
+        transform o@(CBlockStmt stat@(CExpr (Just (CCall (CVar iden _) params _)) _))
           | is_critical cg calledFunction = callSequence calledFunction (annotation stat) params Nothing
           | otherwise = return [o]
           where calledFunction = symbol iden

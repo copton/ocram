@@ -41,60 +41,84 @@ module Ocram.Print
 ) where
 
 -- import {{{1
-import Control.Arrow (first)
+import Data.Maybe (fromMaybe)
+import Language.C.Data.Position (posRow, posColumn, posFile)
 import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
+import Language.C.Data.Node (posOfNode, lengthOfNode)
 import Text.PrettyPrint
-import Ocram.Debug (ENodeInfo(..), tlocation)
-import Ocram.Ruab (ELocation(ELocation), Location(Location), LocMap)
-import Ocram.Util (abort)
+import Ocram.Debug (ENodeInfo(..))
+import Ocram.Ruab (TLocation(..), ELocation(..), Breakpoint(..), Breakpoints, BlockingCall(..), BlockingCalls)
+import Ocram.Util (abort, fromJust_s)
+import Prelude hiding (log)
 
 import qualified Data.ByteString.Char8 as BS
 
-print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, LocMap) -- {{{1
-print_with_log tu = first BS.pack $ renderWithLog (pretty tu)
+import Debug.Trace (trace)
 
-marker :: ENodeInfo -> DocL LocMap -> DocL LocMap
+print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, Breakpoints, BlockingCalls) -- {{{1
+print_with_log tu =
+  let
+    (code, log) = renderWithLog (pretty tu)
+    (bps, bcs) = foldr split ([], []) log
+    split (Left x)  (bps', bcs') = (x:bps', bcs')
+    split (Right x) (bps', bcs') = (bps', x:bcs')
+  in
+    (BS.pack code, bps, bcs)
+
+type Log = [Either Breakpoint BlockingCall]
+
+marker :: ENodeInfo -> DocL Log -> DocL Log
 marker eni doc
-  | enTraceLocation eni = here logger doc
+  | enBreakpoint eni = here bpLogger doc
+  | enBlockingCall eni  = trace "YES" (here bcLogger doc)
   | otherwise = doc
   where
-    logger (Position r c) = [Location (tlocation eni) (ELocation r c ) (enBlockingCall eni) (enThreadId eni)]
+    bpLogger (Position r c) = [Left $ Breakpoint tlocation (ELocation r c ) (enThreadId eni)]
+
+    bcLogger (Position r c) = [Right $ BlockingCall (ELocation r c) (($fromJust_s . enThreadId) eni)]
+
+    tlocation =
+      let
+        ni = enTnodeInfo eni
+        pos = posOfNode ni
+      in
+        TLocation (posRow pos + 1) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
     
 class PrettyLog a where
-  pretty :: a -> DocL LocMap
-  prettyPrec :: Int -> a -> DocL LocMap
+  pretty :: a -> DocL Log
+  prettyPrec :: Int -> a -> DocL Log
 
   pretty = prettyPrec 0
   prettyPrec _ = pretty
 
 -- pretty print optional chunk
-maybeP :: (p -> DocL LocMap) -> Maybe p -> DocL LocMap
+maybeP :: (p -> DocL Log) -> Maybe p -> DocL Log
 maybeP = maybe empty
 
 -- pretty print when flag is true
-ifP :: Bool -> DocL LocMap -> DocL LocMap
+ifP :: Bool -> DocL Log -> DocL Log
 ifP flag doc = if flag then doc else empty
 
 -- pretty print _optional_ list, i.e. [] ~ Nothing and (x:xs) ~ Just (x:xs)
-mlistP :: ([p] -> DocL LocMap) -> [p] -> DocL LocMap
+mlistP :: ([p] -> DocL Log) -> [p] -> DocL Log
 mlistP pp xs = maybeP pp (if null xs then Nothing else Just xs)
 
 -- pretty print identifier
-identP :: Ident -> DocL LocMap
+identP :: Ident -> DocL Log
 identP = text . identToString
 
 -- pretty print attribute annotations
-attrlistP :: [CAttribute ENodeInfo] -> DocL LocMap
+attrlistP :: [CAttribute ENodeInfo] -> DocL Log
 attrlistP [] = empty
 attrlistP attrs = text "__attribute__" <> parens (parens (hcat . punctuate comma . map pretty $ attrs))
 
 -- analogous to showParen
-parenPrec :: Int -> Int -> DocL LocMap -> DocL LocMap
+parenPrec :: Int -> Int -> DocL Log -> DocL Log
 parenPrec prec prec2 t = if prec <= prec2 then t else parens t
 
 -- indent a chunk of code
-ii :: DocL LocMap -> DocL LocMap
+ii :: DocL Log -> DocL Log
 ii = nest 4
 
 -- PrettyLog instances
@@ -319,7 +343,7 @@ instance PrettyLog (CEnumeration ENodeInfo) where
 instance PrettyLog (CDeclarator ENodeInfo) where
     prettyPrec prec declr = prettyDeclr True prec declr
 
-prettyDeclr :: Bool -> Int -> CDeclarator ENodeInfo -> DocL LocMap
+prettyDeclr :: Bool -> Int -> CDeclarator ENodeInfo -> DocL Log
 prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
     ppDeclr prec (reverse derived_declrs) <+> prettyAsmName asmname <+> ifP show_attrs (attrlistP cattrs)
     where

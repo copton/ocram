@@ -10,7 +10,7 @@ import Language.C.Syntax.AST (CTranslUnit)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
-import Ocram.Ruab (tlocRow, elocRow, locTloc, locEloc, locThreadId, Location(..), TLocation(..), ELocation(..))
+import Ocram.Ruab (Breakpoint(..), TLocation(..), ELocation(..), BlockingCall(..))
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework (testGroup, Test)
 import Test.HUnit (Assertion)
@@ -56,9 +56,13 @@ instance TestData CTranslUnit String where
 	reduce = show . pretty
 	enrich = parse
 
-instance TestData Location (Int, Int, Maybe Int) where
-  reduce loc = ((tlocRow . locTloc) loc, (elocRow . locEloc) loc, locThreadId loc)
-  enrich (trow, erow, tid) = Location (TLocation trow 1 1 "test") (ELocation erow 1) False tid
+instance TestData Breakpoint TBreakpoint where
+  reduce bp = ((tlocRow . bpTloc) bp, (elocRow . bpEloc) bp, bpThreadId bp)
+  enrich (trow, erow, tid) = Breakpoint (TLocation trow 1 1 "test") (ELocation erow 1) tid
+
+instance TestData BlockingCall TBlockingCall where
+  reduce bc = ((elocRow . bcEloc) bc, bcThreadId bc)
+  enrich (erow, tid) = BlockingCall (ELocation erow 1) tid
 
 instance TestData Char Char where
 	reduce = id
@@ -77,11 +81,14 @@ instance (TestData a b) => TestData [a] [b] where
 	enrich = map enrich
 
 -- types {{{1
-type TCode = String
+type TCode              = String
 type TBlockingFunctions = [String]
-type TCallGraph = [(String, String)]
-type TStartFunctions = [String]
+type TCallGraph         = [(String, String)]
+type TStartFunctions    = [String]
 type TCriticalFunctions = [String]
-type TErrorCodes = [ErrorCode]
-type TCallChain = [String]
-type TLocMap = [(Int, Int, Maybe Int)]
+type TErrorCodes        = [ErrorCode]
+type TCallChain         = [String]
+type TBreakpoint        = (Int, Int, Maybe Int)
+type TBreakpoints       = [TBreakpoint]
+type TBlockingCall      = (Int, Int)
+type TBlockingCalls     = [TBlockingCall]

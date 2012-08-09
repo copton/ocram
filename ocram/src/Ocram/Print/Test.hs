@@ -6,20 +6,18 @@ module Ocram.Print.Test
 ) where
 
 -- import {{{1
-import Control.Arrow ((***))
 import Data.Generics (everything, mkQ, extQ)
 import Data.List (intercalate)
-import Ocram.Debug (ENodeInfo(..), tlocation)
-import Language.C.Data.Node (nodeInfo)
-import Language.C.Syntax.AST (CTranslUnit, CTranslationUnit(..), annotation)
+import Ocram.Debug (ENodeInfo(..))
+import Language.C.Syntax.AST (annotation)
 import Ocram.Analysis (analysis)
 import Ocram.Print (print_with_log)
-import Ocram.Test.Lib (enumTestGroup, paste, lpaste, enrich, reduce, TLocMap)
+import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TBreakpoints, TBlockingCalls)
 import Ocram.Text (show_errors)
 import Ocram.Transformation (transformation)
 import Ocram.Transformation.Types (CExpr', CStat')
 import Test.Framework (Test, testGroup)
-import Test.HUnit ((@=?), Assertion, assertFailure, assertEqual)
+import Test.HUnit (Assertion, assertFailure, assertEqual)
 
 import qualified Data.ByteString.Char8 as BS
 
@@ -61,6 +59,8 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     }
     |], [
       (3, 19, Just 0)
+    ], [
+      (19, 0)
     ])
 -- function static variable {{{2
   , ([lpaste|
@@ -98,6 +98,8 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
   |], [
       (3, 17, Just 0)
     , (4, 20, Just 0)
+  ], [
+      (20, 0)
   ])
 -- global variable {{{2
   , ([lpaste|
@@ -137,6 +139,8 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
   |], [
       (4, 18, Just 0)
     , (5, 21, Just 0)
+  ], [
+    (21, 0)
   ])
 -- non-critical function call {{{2
   ,([lpaste|
@@ -184,6 +188,8 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
       (3,  4, Nothing)
     , (7, 22, Just 0)
     , (8, 25, Just 0)
+  ], [
+    (25, 0)
   ])
 -- critical function call {{{2
   ,([lpaste|
@@ -237,6 +243,8 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
   |], [
       (6, 26, Just 0)
     , (3, 34, Just 0)
+  ], [
+    (34, 0)
   ])
 -- re-entrance {{{2
   ,([lpaste|
@@ -323,6 +331,9 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     , (3, 40, Just 0)
     , (9, 54, Just 1)
     , (3, 62, Just 1)
+  ], [
+      (40, 0)
+    , (62, 1)
   ])
 -- multiple statements in a row {{{2
   ,([lpaste|
@@ -364,6 +375,9 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
   |], [
       (3, 19, Just 0)
     , (3, 25, Just 0)
+  ], [
+      (19, 0)
+    , (25, 0)
   ])
 -- return {{{2
   ,([lpaste|
@@ -417,7 +431,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             ec_stack_start.ec_frames.c.ec_frames.block.i = 23;
             ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
-            block(&ec_stack_start.ec_frames.c.ec_frames.block);
+39:         block(&ec_stack_start.ec_frames.c.ec_frames.block);
             return;
         ec_label_c_1:
             ;
@@ -431,7 +445,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             ec_stack_start.ec_frames.c.ec_frames.block.i = 42;
             ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_2;
-            block(&ec_stack_start.ec_frames.c.ec_frames.block);
+53:         block(&ec_stack_start.ec_frames.c.ec_frames.block);
             return;
         ec_label_c_2:
             ;
@@ -447,32 +461,39 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     , ( 3, 35, Just 0)
     , ( 4, 46, Just 0)
     , ( 6, 60, Just 0)
+  ], [
+      (39, 0)
+    , (53, 0)
   ])
   ]
 
-runTest :: (String, String, TLocMap) -> Assertion -- {{{1
-runTest (inputCode, expectedCode, expectedLocMap) =
+runTest :: (String, String, TBreakpoints, TBlockingCalls) -> Assertion -- {{{1
+runTest (inputCode, expectedCode, expectedLocMap, expectedBlockList) =
   let ast = enrich inputCode in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
     Right (cg, _) ->
       let
-        ast' = (\(a, _, _)->a) $ transformation cg ast
-        (resultCode, resultLocMap) = print_with_log ast'
-        resultCode' = BS.unpack resultCode
-        resultLocMap' = reduce resultLocMap
+        (ast', _, _) = transformation cg ast
+        (resultCode, resultLocMap, resultBlockList) = print_with_log ast'
+        resultCode'      = BS.unpack resultCode
+        resultLocMap'    = reduce resultLocMap
+        resultBlockList' = reduce resultBlockList
       in do
-        expectedCode @=? resultCode'
-        let locs = intercalate "\n" $ map show $ everything (++) (mkQ [] traceLocationExpr `extQ` traceLocationStat) ast'
-        assertEqual (locs ++ "\n" ++ show resultLocMap) expectedLocMap resultLocMap'
+        let dbg = debug ast'
+        assertEqual "code"      expectedCode      resultCode'
+        assertEqual "locmap"    expectedLocMap    resultLocMap'
+        assertEqual ("blocklist: " ++ dbg)  expectedBlockList resultBlockList'
 
   where
+    debug ast = intercalate "\n" $ map show $ everything (++) (mkQ [] traceLocationExpr `extQ` traceLocationStat) ast
+
     traceLocationExpr :: CExpr' -> [String]
     traceLocationExpr expr 
-      | (enTraceLocation . annotation) expr = [show expr]
+      | (enBlockingCall . annotation) expr = [show expr]
       | otherwise = []
 
     traceLocationStat :: CStat' -> [String]
     traceLocationStat stmt
-      | (enTraceLocation . annotation) stmt = [show stmt]
+      | (enBlockingCall . annotation) stmt = [show stmt]
       | otherwise = []
