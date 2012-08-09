@@ -1,4 +1,4 @@
-module Ocram.Main (main) where
+module Ocram.Main (main, tests) where
 
 -- imports {{{1
 import Ocram.Analysis (analysis)
@@ -38,3 +38,9 @@ runCompiler argv = do
 exitOnError :: String -> Either [OcramError] a -> IO a -- {{{2
 exitOnError module_ (Left es) = hPutStrLn stderr (show_errors module_ es) >> exitWith (ExitFailure 1)
 exitOnError _ (Right x) = return x
+
+tests :: IO ()  -- {{{1
+tests = testsWith []
+
+testsWith :: [String] -> IO () -- {{{1
+testsWith args = runTests $ words "--hide-successes --plain  -j 3" ++ args

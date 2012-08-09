@@ -7,7 +7,7 @@ module Ruab.Frontend
 
 -- imports {{{1
 import Control.Arrow (first)
-import Data.List (intercalate, find)
+import Data.List (intercalate, find, isPrefixOf)
 import Data.Maybe (fromJust, listToMaybe)
 import Graphics.UI.Gtk hiding (response)
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
@@ -105,9 +105,9 @@ type Fire a = a -> IO () -- {{{2
 
 -- semantics {{{1
 instance Read CommandPrefix where -- {{{2
-  readsPrec _ command = case lookup command commands of
-    Nothing -> []
-    Just cmd -> [(cmd, "")]
+  readsPrec _ command = case filter ((command `isPrefixOf`) . fst) commands of
+    [(_, cmd)] -> [(cmd, "")]
+    _ -> []
 
 commands :: [(String, CommandPrefix)] -- {{{2
 commands = [
