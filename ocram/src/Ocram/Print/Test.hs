@@ -468,23 +468,23 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
   ]
 
 runTest :: (String, String, TBreakpoints, TBlockingCalls) -> Assertion -- {{{1
-runTest (inputCode, expectedCode, expectedLocMap, expectedBlockList) =
+runTest (inputCode, expectedCode, expectedBps, expectedBcs) =
   let ast = enrich inputCode in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
     Right (cg, _) ->
       let
         (ast', _, _) = transformation cg ast
-        (resultCode, resultLocMap, resultBlockList) = print_with_log ast'
-        resultCode'      = BS.unpack resultCode
-        resultLocMap'    = reduce resultLocMap
-        resultBlockList' = reduce resultBlockList
+        (resultCode, resultBps, resultBcs) = print_with_log ast'
+        resultCode' = BS.unpack resultCode
+        resultBps'  = reduce resultBps
+        resultBcs'  = reduce resultBcs
       in do
         let dbg = debug ast' -- needed for debugging the test cases
         _ <- return dbg      -- avoid "unused" warning
-        assertEqual "code"      expectedCode      resultCode'
-        assertEqual "locmap"    expectedLocMap    resultLocMap'
-        assertEqual "blocklist" expectedBlockList resultBlockList'
+        assertEqual "code"           expectedCode resultCode'
+        assertEqual "breakpoints"    expectedBps  resultBps'
+        assertEqual "blocking calls" expectedBcs  resultBcs'
 
   where
     debug ast = intercalate "\n" $ map show $ everything (++) (mkQ [] traceLocationExpr `extQ` traceLocationStat) ast

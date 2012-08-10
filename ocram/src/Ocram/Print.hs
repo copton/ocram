@@ -83,7 +83,7 @@ marker eni doc =
         ni = enTnodeInfo eni
         pos = posOfNode ni
       in
-        TLocation (posRow pos + 1) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
+        TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
     
 class PrettyLog a where
   pretty :: a -> DocL Log

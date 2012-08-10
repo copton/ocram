@@ -3,7 +3,7 @@ module Ocram.Test.Lib where
 
 -- imports {{{1
 import Data.ByteString.Char8 (pack)
-import Language.C.Data.Position (position)
+import Language.C.Data.Position (initPos)
 import Language.C.Parser (parseC)
 import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST (CTranslUnit)
@@ -23,7 +23,7 @@ parse code = case parseC code' pos of
 	Right ast -> ast
 	where
 		code' = pack code
-		pos = position 0 "<<test>>" 0 0
+		pos = initPos "<<test>>"
 
 paste :: QuasiQuoter -- {{{1
 paste = QuasiQuoter { 
