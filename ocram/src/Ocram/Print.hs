@@ -54,8 +54,6 @@ import Prelude hiding (log)
 
 import qualified Data.ByteString.Char8 as BS
 
-import Debug.Trace (trace)
-
 print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, Breakpoints, BlockingCalls) -- {{{1
 print_with_log tu =
   let
@@ -69,10 +67,12 @@ print_with_log tu =
 type Log = [Either Breakpoint BlockingCall]
 
 marker :: ENodeInfo -> DocL Log -> DocL Log
-marker eni doc
-  | enBreakpoint eni = here bpLogger doc
-  | enBlockingCall eni  = trace "YES" (here bcLogger doc)
-  | otherwise = doc
+marker eni doc =
+  let
+    doc' = if enBreakpoint eni then here bpLogger doc else doc
+    doc'' = if enBlockingCall eni then here bcLogger doc' else doc'
+  in
+    doc''
   where
     bpLogger (Position r c) = [Left $ Breakpoint tlocation (ELocation r c ) (enThreadId eni)]
 

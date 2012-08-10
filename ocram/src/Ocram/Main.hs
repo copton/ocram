@@ -21,7 +21,7 @@ main = do
     ("--test":rest) -> runTests rest
     _ -> runCompiler argv
 
-runCompiler :: [String] -> IO () -- {{{2
+runCompiler :: [String] -> IO () -- {{{1
 runCompiler argv = do
   prg <- getProgName
   opt <- exitOnError "options" $ options prg argv 

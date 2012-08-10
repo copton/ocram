@@ -480,10 +480,11 @@ runTest (inputCode, expectedCode, expectedLocMap, expectedBlockList) =
         resultLocMap'    = reduce resultLocMap
         resultBlockList' = reduce resultBlockList
       in do
-        let dbg = debug ast'
+        let dbg = debug ast' -- needed for debugging the test cases
+        _ <- return dbg      -- avoid "unused" warning
         assertEqual "code"      expectedCode      resultCode'
         assertEqual "locmap"    expectedLocMap    resultLocMap'
-        assertEqual ("blocklist: " ++ dbg)  expectedBlockList resultBlockList'
+        assertEqual "blocklist" expectedBlockList resultBlockList'
 
   where
     debug ast = intercalate "\n" $ map show $ everything (++) (mkQ [] traceLocationExpr `extQ` traceLocationStat) ast
