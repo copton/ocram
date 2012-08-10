@@ -22,17 +22,18 @@ import qualified Data.Set as Set
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
   let
-    ast' = (translate cg . enableLocationTracing . normalize cg . fmap enrich_node_info) ast
+    ast' = (translate cg . enableBreakpoints . normalize cg . fmap enrich_node_info) ast
     pal = extractPal cg ast'
     ds = extractVarMap ast'
   in
     (ast', pal, ds)
 
-enableLocationTracing :: CTranslUnit' -> CTranslUnit' -- {{{1
-enableLocationTracing = everywhere (mkT tStat `extT` tDecl)
+enableBreakpoints :: CTranslUnit' -> CTranslUnit' -- {{{1
+enableBreakpoints = everywhere (mkT tStat `extT` tDecl)
   where
     tStat :: CStat' -> CStat'
     tStat o@(CCompound _ _ _) = o
+    tStat o@(CExpr Nothing _) = o
     tStat s = amap setBreakpoint s
 
     tDecl :: CDecl' -> CDecl'

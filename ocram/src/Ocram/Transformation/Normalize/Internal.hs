@@ -43,45 +43,46 @@ desugar_control_structures tid (CFunDef x1 x2 x3 (CCompound y1 items y2) x4) =
   CFunDef x1 x2 x3 (CCompound y1 items' y2) x4
   where
     items' = evalState (everywhereM (mkM go) items) 0
+
     desugarWhile ids (CWhile cond block False ni) = -- while loop {{{2
       let
-        ((lblStart, lblEnd), (gotoStart, gotoEnd)) = createLabels ids ni
+        ((lblStart, lblEnd), (gotoStart, gotoEnd)) = createLabels ids
         body = replaceGotoContinue lblStart lblEnd $ extractBody block
-        cond' = CUnary CNegOp cond ni
-        if_ = CIf cond' gotoEnd Nothing ni
-        body' = map CBlockStmt [lblStart, if_] ++ body ++ map CBlockStmt [gotoStart, lblEnd]
+        cond' = CUnary CNegOp cond un
+        if_ = CIf cond' gotoEnd Nothing un
+        body' = annotate ni $ map CBlockStmt [lblStart, if_] ++ body ++ map CBlockStmt [gotoStart, lblEnd]
       in
-        CCompound [] body' ni
+        CCompound [] body' un
 
     desugarWhile ids (CWhile cond block True ni) = -- do loop {{{2
       let
-        ((lblStart, lblEnd), (gotoStart, _)) = createLabels ids ni
+        ((lblStart, lblEnd), (gotoStart, _)) = createLabels ids
         body = replaceGotoContinue lblStart lblEnd $ extractBody block
-        if_ = CIf cond gotoStart Nothing ni
-        body' = map CBlockStmt [lblStart] ++ body ++ map CBlockStmt [if_, lblEnd]
+        if_ = CIf cond gotoStart Nothing un
+        body' = annotate ni $ map CBlockStmt [lblStart] ++ body ++ map CBlockStmt [if_, lblEnd]
       in
-        CCompound [] body' ni
+        CCompound [] body' un
 
     desugarWhile _ o = $abort $ unexp o
 
     desugarFor ids (CFor init cond incr block ni) = -- for loop {{{2
       let
-        ((lblStart, lblEnd), (gotoStart, gotoEnd)) = createLabels ids ni
+        ((lblStart, lblEnd), (gotoStart, gotoEnd)) = createLabels ids
         body = replaceGotoContinue lblStart lblEnd $ extractBody block
-        exprStmt expr = CExpr (Just expr) ni
+        exprStmt expr = CExpr (Just expr) un
         init' = case init of
           Left Nothing -> Nothing
           Left (Just e) -> Just $ CBlockStmt $ exprStmt e
           Right d -> Just $ CBlockDecl $ d
         incr' = fmap exprStmt incr
-        if_ = fmap (\c -> CIf (CUnary CNegOp c ni) gotoEnd Nothing ni) cond
-        body' = 
+        if_ = fmap (\c -> CIf (CUnary CNegOp c un) gotoEnd Nothing un) cond
+        body' = annotate ni $
              init' ?: 
              map CBlockStmt (lblStart : if_ ?: []) 
           ++ body
           ++ map CBlockStmt (incr' ?: gotoStart : lblEnd : [])
       in
-        CCompound [] body' ni
+        CCompound [] body' un
 
     desugarFor _ o = $abort $ unexp o
 
@@ -97,11 +98,14 @@ desugar_control_structures tid (CFunDef x1 x2 x3 (CCompound y1 items y2) x4) =
 
     go o = return o
 
-    createLabels ids ni =
+    annotate ni (first:rest) = amap (const ni) first : rest
+    annotate _ _ = $abort "unexpected parameter"
+
+    createLabels ids =
       let
         identifiers = tmap (ident . ctrlbl tid) ids
-        labels = tmap (\i -> CLabel i (CExpr Nothing ni) [] ni) identifiers
-        gotos = tmap (\i -> CGoto i ni) identifiers
+        labels = tmap (\i -> CLabel i (CExpr Nothing un) [] un) identifiers
+        gotos = tmap (\i -> CGoto i un) identifiers
       in 
         (labels, gotos)
 

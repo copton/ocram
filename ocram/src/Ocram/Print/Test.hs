@@ -465,6 +465,75 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
       (39, 0)
     , (53, 0)
   ])
+-- while loops {{{2
+  ,([lpaste|
+      __attribute__((tc_blocking)) int block(int i);
+      void c(int i) {
+03:     while (block(i) != 0);
+      }
+      __attribute__((tc_run_thread)) void start() {
+06:     c(23);
+      }
+  |], [lpaste|
+    typedef struct {
+                void * ec_cont; int ec_result; int i;
+            } ec_frame_block_t;
+    typedef struct {
+                void * ec_cont;
+                union {
+                    ec_frame_block_t block;
+                } ec_frames;
+                int ec_crit_0_0;
+                int i;
+            } ec_frame_c_t;
+    typedef struct {
+                union {
+                    ec_frame_c_t c;
+                } ec_frames;
+            } ec_frame_start_t;
+    ec_frame_start_t ec_stack_start;
+    void block(ec_frame_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+        ec_stack_start.ec_frames.c.i = 23;
+        ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
+27:     goto ec_label_c_0;
+    ec_label_start_1:
+        ;
+        return;
+    ec_label_c_0:
+        ;
+        {
+34:     ec_ctrlbl_0_0:
+            ;
+            ec_stack_start.ec_frames.c.ec_frames.block.i = ec_stack_start.ec_frames.c.i;
+            ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+38:         block(&ec_stack_start.ec_frames.c.ec_frames.block);
+            return;
+        ec_label_c_1:
+            ;
+            ec_stack_start.ec_frames.c.ec_crit_0_0 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
+            if (!(ec_stack_start.ec_frames.c.ec_crit_0_0 != 0))
+            {
+                goto ec_ctrlbl_0_1;
+            }
+            ;
+            goto ec_ctrlbl_0_0;
+        ec_ctrlbl_0_1:
+            ;
+        }
+        goto * (ec_stack_start.ec_frames.c.ec_cont);
+    }
+  |], [
+      ( 6, 27, Just 0)
+    , ( 3, 34, Just 0)
+  ], [
+      (38, 0)
+  ])
   ]
 
 runTest :: (String, String, TBreakpoints, TBlockingCalls) -> Assertion -- {{{1
@@ -481,20 +550,19 @@ runTest (inputCode, expectedCode, expectedBps, expectedBcs) =
         resultBcs'  = reduce resultBcs
       in do
         let dbg = debug ast' -- needed for debugging the test cases
-        _ <- return dbg      -- avoid "unused" warning
         assertEqual "code"           expectedCode resultCode'
-        assertEqual "breakpoints"    expectedBps  resultBps'
+        assertEqual ("breakpoints: " ++ dbg)    expectedBps  resultBps'
         assertEqual "blocking calls" expectedBcs  resultBcs'
 
   where
-    debug ast = intercalate "\n" $ map show $ everything (++) (mkQ [] traceLocationExpr `extQ` traceLocationStat) ast
+    debug ast = intercalate "\n\n" $ map show $ everything (++) (mkQ [] traceExpr `extQ` traceStat) ast
 
-    traceLocationExpr :: CExpr' -> [String]
-    traceLocationExpr expr 
-      | (enBlockingCall . annotation) expr = [show expr]
+    traceExpr :: CExpr' -> [String]
+    traceExpr expr 
+      | (enBreakpoint . annotation) expr = [show expr]
       | otherwise = []
 
-    traceLocationStat :: CStat' -> [String]
-    traceLocationStat stmt
-      | (enBlockingCall . annotation) stmt = [show stmt]
+    traceStat :: CStat' -> [String]
+    traceStat stmt
+      | (enBreakpoint . annotation) stmt = [show stmt]
       | otherwise = []
