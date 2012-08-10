@@ -63,9 +63,10 @@ data InputState = InputState { -- {{{2
 
 data InputEvent -- {{{2
   = InputReturn
-  | InputUp
-  | InputDown 
-  | InputEscape
+  | InputHistory
+  | InputFuture 
+  | InputReset
+  | InputRemoveWord
 
 data CommandPrefix -- {{{2
   = CmdPrBreakAdd
@@ -342,10 +343,11 @@ handleCommand core fInfo fLog fCommand = handle
     handle CmdStart = fCommand C.CmdStart
 
 handleKeyEvent :: Fire InputEvent -> Event -> IO Bool -- {{{2
-handleKeyEvent fInput (Key _ _ _ [] _ _ _ _ "Return" _) = fInput InputReturn >> return True
-handleKeyEvent fInput (Key _ _ _ [] _ _ _ _ "Up"     _) = fInput InputUp     >> return True
-handleKeyEvent fInput (Key _ _ _ [] _ _ _ _ "Down"   _) = fInput InputDown   >> return True
-handleKeyEvent fInput (Key _ _ _ [] _ _ _ _ "Escape" _) = fInput InputEscape >> return True
+handleKeyEvent fInput (Key _ _ _ []        _ _ _ _ "Return" _) = fInput InputReturn     >> return True
+handleKeyEvent fInput (Key _ _ _ []        _ _ _ _ "Up"     _) = fInput InputHistory    >> return True
+handleKeyEvent fInput (Key _ _ _ []        _ _ _ _ "Down"   _) = fInput InputFuture     >> return True
+handleKeyEvent fInput (Key _ _ _ []        _ _ _ _ "Escape" _) = fInput InputReset      >> return True
+handleKeyEvent fInput (Key _ _ _ [Control] _ _ _ _ "w"      _) = fInput InputRemoveWord >> return True
 handleKeyEvent _ _ = return False
 
 handleInput :: Entry -> Fire Log -> Fire Command -> InputEvent -> InputState -> IO InputState -- {{{2
@@ -365,7 +367,7 @@ handleInput entry fLog fCommand event state = handle event
       else
         return state
     
-  handle InputUp = case inputHistory state of
+  handle InputHistory = case inputHistory state of
     [] -> return state
     (command:history) -> do
       entrySetText entry command
@@ -374,7 +376,7 @@ handleInput entry fLog fCommand event state = handle event
         , inputFuture = command : inputFuture state
         }
 
-  handle InputDown = case inputFuture state of
+  handle InputFuture = case inputFuture state of
     [] -> return state
     [current] -> do
       entrySetText entry ""
@@ -389,12 +391,17 @@ handleInput entry fLog fCommand event state = handle event
         , inputHistory = current : inputHistory state
         }
 
-  handle InputEscape = do
+  handle InputReset = do
     entrySetText entry ""
     return $ state {
         inputHistory = reverse (inputFuture state) ++ inputHistory state
       , inputFuture = []
       }
+
+  handle InputRemoveWord = do
+    text <- entryGetText entry
+    entrySetText entry $ (unwords . reverse . drop 1 . reverse . words) text
+    return state
 
 -- setup and shutdown {{{1
 loadGui :: IO GUI -- {{{2
