@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+
 module Ruab.Frontend.Infos where
 
 -- imports {{{1
@@ -9,16 +10,12 @@ data Info -- {{{1
   = InfThread Int
   | InfBreakpoint Int
   | InfHighlight
+  deriving Show
 
 orderInfo :: Info -> Int
 orderInfo (InfThread _) = 0
 orderInfo (InfBreakpoint _) = 1
 orderInfo InfHighlight = 2
-
-instance Show Info where
-  show (InfThread tid) = show tid
-  show (InfBreakpoint bid) = show bid
-  show InfHighlight = "#"
 
 infoIsThread :: Int -> Info -> Bool
 infoIsThread tid (InfThread tid') = tid == tid'

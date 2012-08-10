@@ -19,7 +19,7 @@ module Ruab.Core
 
 -- imports {{{1
 import Control.Applicative ((<*>), pure)
-import Control.Monad (forM, mplus, when)
+import Control.Monad (forM, when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.List (intercalate, find)
@@ -180,7 +180,7 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
         BkptBlockingCall tid erow -> do
           B.continue backend
           return $ hide True . updateThread tid (\thread ->
-              thread {thStatus = Blocked, thProw = e2p_row ctx erow `mplus` Just (-2)}
+              thread {thStatus = Blocked, thProw = Just $ $fromJust_s $ e2p_row ctx erow}
             )
 
 handleCommand :: Context -> B.Context -> Fire Response -> Command -> State -> IO State -- {{{2
@@ -227,12 +227,12 @@ handleCommand ctx backend fResponse command state = do
       let
         allThreads = map R.threadId $ (R.diThreads . ctxDebugInfo) ctx
         
-        tids = case selectedThreads of
-          [] -> allThreads
-          x -> x
-
         addBreakpoints erows availableThreads errTxt =
-          case filter (not . (`elem` availableThreads)) tids of
+          let
+            tids = case selectedThreads of
+              [] -> availableThreads
+              x  -> x
+          in case filter (not . (`elem` availableThreads)) tids of
             [] ->
               do
                 let
@@ -240,6 +240,7 @@ handleCommand ctx backend fResponse command state = do
                   ubn = M.size (stateUserBreakpoints state) + 1
                   ub  = UserBreakpoint ubn prow tids
                 bkpts <- mapM (B.set_breakpoint backend . B.file_line_location efile) erows
+                respond (ResAddBreakpoint ub)
                 let
                   sbns = map B.bkptNumber bkpts
                   sbs  = map (flip Breakpoint (BkptUser ub)) sbns
@@ -260,23 +261,23 @@ handleCommand ctx backend fResponse command state = do
       B.interrupt backend
       case runningThreads state of
         [] -> do
-          _ <- respond ResInterrupt 
+          respond ResInterrupt 
           return $ setExecution ExStopped
 
         [thread] -> do
           stack <- B.backtrace backend
-          _ <- respond ResInterrupt
+          respond ResInterrupt
           let 
             efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
             frame = $fromJust_s $ find ((efile==) . B.frameFile) (B.stackFrames stack)
           return $ setExecution ExStopped . updateThread (thId thread) (\t ->
-              t {thProw = (e2p_row ctx . B.frameLine) frame `mplus` Just (-1)}
+              t {thProw = Just $ $fromJust_s $ (e2p_row ctx . B.frameLine) frame}
             )
 
         x -> $abort $ "illegal state of threads: " ++ show x
 
     handle CmdInterrupt ExStopped = do
-      _ <- respond ResInterrupt
+      respond ResInterrupt
       return $ id
 
     handle CmdInterrupt ExWaiting = notRunning
@@ -287,18 +288,18 @@ handleCommand ctx backend fResponse command state = do
 
     handle CmdShutdown _ = do
       B.shutdown backend
-      _ <- respond ResShutdown
+      respond ResShutdown
       return $ setExecution ExShutdown
 
     -- CmdListBreakpoints {{{3
     handle CmdListBreakpoints ExShutdown = alreadyShutdown
 
     handle CmdListBreakpoints _ = do
-      _ <- respond $ ResListBreakpoints (state2breakpoints state)
+      respond $ ResListBreakpoints (state2breakpoints state)
       return id
     
     --utils {{{3
-    respond r = fResponse (command, Right r) >> return id
+    respond r = fResponse (command, Right r)
     failed e  = fResponse (command, Left e) >> return id
     alreadyRunning = failed "debugger is already running"
     alreadyShutdown = failed "debugger is already shut down"
