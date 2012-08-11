@@ -3,16 +3,21 @@
 module Ruab.Frontend.Infos where
 
 -- imports {{{1
+import Control.Arrow (first)
 import Data.List (groupBy, sortBy)
 import Ruab.Util (abort)
 
+import qualified Ruab.Core as C
+
+type BreakpointNumber = Int
+
 data Info -- {{{1
-  = InfThread Int
-  | InfBreakpoint Int
+  = InfThread C.ThreadId
+  | InfBreakpoint BreakpointNumber
   | InfHighlight
   deriving Show
 
-type InfoInstance = (Int, Info) -- {{{1
+type InfoInstance = (C.PRow, Info) -- {{{1
 
 -- setters {{{1
 clearHighlight :: [InfoInstance] -> [InfoInstance] -- {{{2
@@ -24,18 +29,30 @@ clearThread tid infos = filter (not . infoIsThread tid . snd) infos
 clearBreakpoint :: Int -> [InfoInstance] -> [InfoInstance] -- {{{2
 clearBreakpoint bid infos = filter (not . infoIsBreakpoint bid . snd) infos
 
-setHighlight :: Int -> [InfoInstance] -> [InfoInstance] -- {{{2
-setHighlight row infos = (row, InfHighlight) : clearHighlight infos
+setHighlight :: C.PRow -> [InfoInstance] -> [InfoInstance] -- {{{2
+setHighlight prow infos = (prow, InfHighlight) : clearHighlight infos
 
-setThread :: Int -> Int -> [InfoInstance] -> [InfoInstance] -- {{{2
-setThread row tid infos = (row, InfThread tid) : clearThread tid infos
+setThread :: C.PRow -> Int -> [InfoInstance] -> [InfoInstance] -- {{{2
+setThread prow tid infos = (prow, InfThread tid) : clearThread tid infos
 
-setBreakpoint :: Int -> Int -> [InfoInstance] -> [InfoInstance] -- {{{2
-setBreakpoint row 0 infos = (row, InfBreakpoint 0) : infos
-setBreakpoint row bid infos = (row, InfBreakpoint bid) : clearBreakpoint bid infos
+setBreakpoint :: C.PRow -> Int -> [InfoInstance] -> [InfoInstance] -- {{{2
+setBreakpoint prow 0 infos = (prow, InfBreakpoint 0) : infos
+setBreakpoint prow bid infos = (prow, InfBreakpoint bid) : clearBreakpoint bid infos
 
-render_info :: [InfoInstance] -> String -- {{{1
-render_info = renderAll . map renderRow . groupBy groupf . sortBy sortf
+class Row a where
+  getRow :: a -> Int
+
+instance Row C.TRow where
+  getRow = C.getTRow
+
+instance Row C.PRow where
+  getRow = C.getPRow
+
+instance Row C.ERow where
+  getRow = C.getERow
+
+render_info :: Row r => [(r, Info)] -> String -- {{{1
+render_info = renderAll . map renderRow . groupBy groupf . sortBy sortf . map (first getRow)
   where
     sortf (row, info) (row', info') =
       case row `compare` row' of
@@ -44,7 +61,6 @@ render_info = renderAll . map renderRow . groupBy groupf . sortBy sortf
 
     groupf i i' = fst i == fst i'
 
-    renderRow :: [InfoInstance] -> (Int, String)
     renderRow infos@((row, _):_) = (row, snd (foldl go (0, "") infos))
       where
         go (col, txt) (row', info) = if row /= row' then $abort "assertion failed" else

@@ -48,7 +48,7 @@ import Language.C.Data.Ident (Ident, identToString)
 import Language.C.Data.Node (posOfNode, lengthOfNode)
 import Text.PrettyPrint
 import Ocram.Debug (ENodeInfo(..))
-import Ocram.Ruab (TLocation(..), ELocation(..), Breakpoint(..), Breakpoints, BlockingCall(..), BlockingCalls)
+import Ocram.Ruab (TLocation(..), ELocation(..), Breakpoint(..), Breakpoints, BlockingCall(..), BlockingCalls, ERow(..), TRow(..))
 import Ocram.Util (abort, fromJust_s)
 import Prelude hiding (log)
 
@@ -74,16 +74,16 @@ marker eni doc =
   in
     doc''
   where
-    bpLogger (Position r c) = [Left $ Breakpoint tlocation (ELocation r c ) (enThreadId eni)]
+    bpLogger (Position r c) = [Left $ Breakpoint tlocation (ELocation (ERow r) c) (enThreadId eni)]
 
-    bcLogger (Position r c) = [Right $ BlockingCall tlocation (ELocation r c) (($fromJust_s . enThreadId) eni)]
+    bcLogger (Position r c) = [Right $ BlockingCall tlocation (ELocation (ERow r) c) (($fromJust_s . enThreadId) eni)]
 
     tlocation =
       let
         ni = enTnodeInfo eni
         pos = posOfNode ni
       in
-        TLocation (posRow pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
+        TLocation ((TRow . posRow) pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
     
 class PrettyLog a where
   pretty :: a -> DocL Log

@@ -10,7 +10,7 @@ import Language.C.Syntax.AST (CTranslUnit)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
-import Ocram.Ruab (Breakpoint(..), TLocation(..), ELocation(..), BlockingCall(..))
+import Ocram.Ruab (Breakpoint(..), TLocation(..), ELocation(..), BlockingCall(..), TRow(..), ERow(..))
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework (testGroup, Test)
 import Test.HUnit (Assertion)
@@ -57,12 +57,12 @@ instance TestData CTranslUnit String where
 	enrich = parse
 
 instance TestData Breakpoint TBreakpoint where
-  reduce bp = ((tlocRow . bpTloc) bp, (elocRow . bpEloc) bp, bpThreadId bp)
-  enrich (trow, erow, tid) = Breakpoint (TLocation trow 1 1 "test") (ELocation erow 1) tid
+  reduce bp = ((getTRow . tlocRow . bpTloc) bp, (getERow . elocRow . bpEloc) bp, bpThreadId bp)
+  enrich (trow, erow, tid) = Breakpoint (TLocation (TRow trow) 1 1 "test") (ELocation (ERow erow) 1) tid
 
 instance TestData BlockingCall TBlockingCall where
-  reduce bc = ((tlocRow . bcTloc) bc, (elocRow . bcEloc) bc, bcThreadId bc)
-  enrich (trow, erow, tid) = BlockingCall (TLocation trow 1 1 "test") (ELocation erow 1) tid
+  reduce bc = ((getTRow . tlocRow . bcTloc) bc, (getERow . elocRow . bcEloc) bc, bcThreadId bc)
+  enrich (trow, erow, tid) = BlockingCall (TLocation (TRow trow) 1 1 "test") (ELocation (ERow erow) 1) tid
 
 instance TestData Char Char where
 	reduce = id

@@ -2,8 +2,9 @@
 module Ocram.Debug.Test (tests) where
 
 -- imports {{{1
+import Control.Arrow ((***))
 import Ocram.Debug.Internal (preproc_map)
-import Ocram.Ruab (PreprocMap(..))
+import Ocram.Ruab (PreprocMap(..), TRow(..), PRow(..))
 import Ocram.Test.Lib (enumTestGroup, paste)
 import System.Exit (ExitCode(ExitSuccess))
 import System.IO (hPutStr, hClose)
@@ -50,6 +51,6 @@ test_preproc_map = enumTestGroup "preproc_map" $ map runTest [
     runTest (tcode, (maxTRow, maxPRow, mapping)) = do
       pcode <- cpp tcode
       let ppm = preproc_map (BS.pack tcode) pcode 
-      maxTRow @=? ppmMaxTRow ppm
-      maxPRow @=? ppmMaxPRow ppm
-      mapping @=? ppmMapping ppm
+      TRow maxTRow @=? ppmMaxTRow ppm
+      PRow maxPRow @=? ppmMaxPRow ppm
+      map (TRow *** PRow) mapping @=? ppmMapping ppm

@@ -15,7 +15,7 @@ import Graphics.UI.Gtk.Gdk.Events (Event(Key))
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
 import Ruab.Actor (new_actor, update)
-import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread)
+import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread, Row(getRow))
 import Ruab.Options (Options)
 import Ruab.Util (abort, fromJust_s)
 
@@ -132,12 +132,12 @@ parseCommand text =
     Nothing -> CmdUnknown command
     Just cmd -> case cmd of
       CmdPrBreakAdd -> case options of
-        (row@(mread -> Just (_ :: Int)):tids) ->
-          let row' = (fromJust . mread) row in
+        (prow@(mread -> Just (_ :: Int)):tids) ->
+          let prow' = (C.PRow . fromJust . mread) prow in
           case sequence (map mread tids) of
             Nothing -> CmdHelp (Just CmdPrBreakAdd)
-            Just [] -> CmdBreakAdd row' []
-            Just tids' -> CmdBreakAdd row' tids'
+            Just [] -> CmdBreakAdd prow' []
+            Just tids' -> CmdBreakAdd prow' tids'
         _ -> CmdHelp (Just CmdPrBreakAdd)
 
       CmdPrBreakList -> noopt CmdPrBreakList CmdBreakList options
@@ -159,7 +159,7 @@ parseCommand text =
           CmdScroll Pcode ((fromJust . mread) row)
 
         [rtype@((`elem`["t","p","e"]) -> True), row@(mread -> Just (_ :: Int))] ->
-          CmdScroll (read rtype)  ((fromJust . mread) row)
+          CmdScroll (read rtype) ((fromJust . mread) row)
 
         _ -> CmdHelp (Just CmdPrScroll)
 
@@ -233,7 +233,7 @@ renderInfo (Context gui core) infos = do
   where
     render comp infos' = postGUIAsync $ do
       setText (compInfo comp) (render_info infos')
-      maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos'
+      maybe (return ()) (scrollToRow comp . getRow . fst) $ find (infoIsHighlight . snd) infos'
 
     p2t = map (first ($fromJust_s . C.p2t_row core))
 
@@ -314,9 +314,9 @@ handleCommand core fInfo fLog fCommand = handle
     handle (CmdScroll rt srow) =
       let
         f = case rt of     
-          Tcode -> C.t2p_row core
-          Pcode -> Just
-          Ecode -> C.e2p_row core
+          Tcode -> C.t2p_row core . C.TRow
+          Pcode -> Just . C.PRow
+          Ecode -> C.e2p_row core . C.ERow
       in
         case f srow of
           Nothing -> fLog $ Log LogError ["invalid row number"]

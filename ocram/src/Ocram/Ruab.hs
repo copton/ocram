@@ -1,7 +1,9 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Ocram.Ruab where
 
 -- imports {{{1
 import Text.JSON
+import Control.Arrow ((***))
 
 import qualified Data.ByteString.Char8 as BS
 
@@ -12,22 +14,36 @@ decode_debug_info :: BS.ByteString -> Either String DebugInfo -- {{{1
 decode_debug_info string = (resultToEither . decodeStrict . BS.unpack) string
 
 -- types {{{1
+newtype TRow -- {{{2
+  = TRow {getTRow :: Int}
+  deriving (Eq, Show, Num, Ord)
+
+newtype PRow -- {{{2
+  = PRow {getPRow :: Int}
+  deriving (Eq, Show, Num, Ord)
+
+newtype ERow -- {{{2
+  = ERow {getERow :: Int}
+  deriving (Eq, Show, Num, Ord)
+
+type ThreadId = Int
+
 data TLocation = TLocation { -- {{{2
-    tlocRow  :: Int
+    tlocRow  :: TRow
   , tlocCol  :: Int
   , tlocLen  :: Int
   , tlocFile :: String
   } deriving Show
 
 data ELocation = ELocation { -- {{{2
-    elocRow  :: Int
+    elocRow  :: ERow
   , elocCol  :: Int
   } deriving Show
 
 data Breakpoint = Breakpoint { -- {{{2
     bpTloc           :: TLocation
   , bpEloc           :: ELocation
-  , bpThreadId       :: Maybe Int
+  , bpThreadId       :: Maybe ThreadId
   } deriving (Show)
 
 type Breakpoints = [Breakpoint] -- {{{2
@@ -35,7 +51,7 @@ type Breakpoints = [Breakpoint] -- {{{2
 data BlockingCall = BlockingCall { -- {{{2
     bcTloc     :: TLocation
   , bcEloc     :: ELocation
-  , bcThreadId :: Int
+  , bcThreadId :: ThreadId
   }
 
 type BlockingCalls = [BlockingCall] -- {{{2
@@ -45,9 +61,9 @@ type Variable = String -- {{{2
 type VarMap = [(Variable, Variable)] -- {{{2
 
 data PreprocMap = PreprocMap { -- {{{2
-    ppmMaxTRow :: Int
-  , ppmMaxPRow :: Int
-  , ppmMapping :: [(Int, Int)]
+    ppmMaxTRow :: TRow
+  , ppmMaxPRow :: PRow
+  , ppmMapping :: [(TRow, PRow)]
   }
 
 data File = File { -- {{{2
@@ -78,14 +94,16 @@ data DebugInfo = DebugInfo { -- {{{2
 instance JSON TLocation where -- {{{2
   readJSON val = do
     ([r,c,l], f) <- readJSON val
-    return $ TLocation r c l f
+    return $ TLocation (TRow r) c l f
 
-  showJSON (TLocation r c l f) = showJSON ([r, c, l], f)
+  showJSON (TLocation (TRow r) c l f) = showJSON ([r, c, l], f)
 
 instance JSON ELocation where -- {{{2
-  readJSON val = readJSON val >>= return . uncurry ELocation
+  readJSON val = do
+    (r, c) <- readJSON val
+    return $ ELocation (ERow r) c
 
-  showJSON (ELocation r c) = showJSON (r, c)
+  showJSON (ELocation (ERow r) c) = showJSON (r, c)
 
 instance JSON Breakpoint where -- {{{2
   readJSON val = do
@@ -102,16 +120,16 @@ instance JSON BlockingCall where -- {{{2
   showJSON (BlockingCall t e tid) = showJSON (t, e, tid)
 
 instance JSON PreprocMap where  -- {{{2
-  showJSON (PreprocMap mtr mpr ma) = (JSObject . toJSObject) [
+  showJSON (PreprocMap (TRow mtr) (PRow mpr) ma) = (JSObject . toJSObject) [
         ("maxrow",  showJSON (mtr, mpr))
-      , ("mapping", showJSON ma)
+      , ("mapping", showJSON (map (getTRow *** getPRow) ma))
     ]
 
   readJSON (JSObject obj) = do
     let [mr, ma] = map snd $ fromJSObject obj
     (mtr, mpr) <- readJSON mr
     ma' <- readJSON ma
-    return $ PreprocMap mtr mpr ma' 
+    return $ PreprocMap (TRow mtr) (PRow mpr) (map (TRow *** PRow) ma')
 
   readJSON x = readFail "PreprocMap" x
 

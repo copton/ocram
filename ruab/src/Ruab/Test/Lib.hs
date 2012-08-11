@@ -2,9 +2,10 @@
 module Ruab.Test.Lib where
 
 -- imports {{{1
+import Control.Arrow ((***))
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
-import Ocram.Ruab (PreprocMap(..))
+import Ocram.Ruab (PreprocMap(..), TRow(..), PRow(..))
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework (testGroup, Test)
 import Test.HUnit (Assertion)
@@ -25,7 +26,7 @@ class TestData d t where -- {{{1
 	enrich :: t -> d
 
 instance TestData PreprocMap TPreprocMap where -- {{{2
-  reduce (PreprocMap w x y) = (w, x, y)
-  enrich (w, x, y) = PreprocMap w x y
+  reduce (PreprocMap (TRow mtr) (PRow mpr) ma) = (mtr, mpr, map (getTRow *** getPRow) ma)
+  enrich (mtr, mpr, ma) = PreprocMap (TRow mtr) (PRow mpr) (map (TRow *** PRow) ma)
 
 type TPreprocMap = (Int, Int, [(Int, Int)])

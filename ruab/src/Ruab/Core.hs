@@ -6,8 +6,8 @@ module Ruab.Core
   , create_network
   , Command(..), Result(..), Response
   , Status(..)
-  , Thread(..), ThreadStatus(..), ThreadId
-  , PRow, TRow, ERow
+  , Thread(..), ThreadStatus(..), R.ThreadId
+  , R.PRow(..), R.TRow(..), R.ERow(..)
   , UserBreakpoint(..)
   , t_code, p_code, e_code
   , t_file, e_file
@@ -45,7 +45,7 @@ data Context = Context { -- {{{2
   }
 
 data Command -- {{{2
-  = CmdAddBreakpoint PRow [ThreadId]
+  = CmdAddBreakpoint R.PRow [R.ThreadId]
   | CmdContinue
   | CmdInterrupt
   | CmdListBreakpoints
@@ -65,7 +65,7 @@ type Response = (Command, Either String Result) -- {{{2
 
 data State = State { -- {{{2
     stateExecution       :: Execution
-  , stateThreads         :: M.Map ThreadId Thread
+  , stateThreads         :: M.Map R.ThreadId Thread
   , stateBreakpoints     :: M.Map B.BkptNumber Breakpoint
   , stateUserBreakpoints :: M.Map BreakpointNumber [B.BkptNumber]
   , stateHide            :: Bool
@@ -85,15 +85,15 @@ data Breakpoint = Breakpoint { -- {{{2
 
 data BreakpointType -- {{{2
   = BkptUser UserBreakpoint
-  | BkptThreadExecution ThreadId
-  | BkptBlockingCall ThreadId ERow
+  | BkptThreadExecution R.ThreadId
+  | BkptBlockingCall R.ThreadId R.ERow
   --deriving Show
 
 data Thread = Thread { -- {{{2
-    thId      :: Int
+    thId      :: R.ThreadId
   , thStart   :: String
   , thStatus  :: ThreadStatus
-  , thProw    :: Maybe PRow
+  , thProw    :: Maybe R.PRow
   } deriving (Show, Eq)
 
 data ThreadStatus -- {{{2
@@ -111,8 +111,8 @@ data Status = Status { -- {{{2
 type BreakpointNumber = Int
 data UserBreakpoint = UserBreakpoint { -- {{{2
     breakpointNumber :: BreakpointNumber
-  , breakpointRow    :: PRow
-  , breakpointCondition :: [ThreadId]
+  , breakpointRow    :: R.PRow
+  , breakpointCondition :: [R.ThreadId]
   } deriving Show
 
 -- event network {{{1
@@ -245,7 +245,7 @@ handleCommand ctx backend fResponse command state = do
                   efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
                   ubn = M.size (stateUserBreakpoints state) + 1
                   ub  = UserBreakpoint ubn prow tids
-                bkpts <- mapM (B.set_breakpoint backend . B.file_line_location efile) erows
+                bkpts <- mapM (B.set_breakpoint backend . B.file_line_location efile . R.getERow) erows
                 respond (ResAddBreakpoint ub)
                 let
                   sbns = map B.bkptNumber bkpts
@@ -277,7 +277,7 @@ handleCommand ctx backend fResponse command state = do
             efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
             frame = $fromJust_s $ find ((efile==) . B.frameFile) (B.stackFrames stack)
           return $ setExecution ExStopped . updateThread (thId thread) (\t ->
-              t {thProw = Just $ $fromJust_s $ (e2p_row ctx . B.frameLine) frame}
+              t {thProw = Just $ $fromJust_s $ (e2p_row ctx . R.ERow . B.frameLine) frame}
             )
 
         x -> $abort $ "illegal state of threads: " ++ show x
@@ -388,7 +388,7 @@ setupBreakpoints ctx backend state = do
     blockingCallBreakpoints = forM blockingCalls (\bc ->
         let
           erow = (R.elocRow . R.bcEloc) bc
-          location = B.file_line_location efile erow
+          location = B.file_line_location efile (R.getERow erow)
           tid = R.bcThreadId bc
         in do
           breakpoint <- B.set_breakpoint backend location
@@ -410,7 +410,7 @@ t_file, e_file :: Context -> String -- {{{2
 t_file = R.fileName . R.diTcode . ctxDebugInfo
 e_file = R.fileName . R.diEcode . ctxDebugInfo
 
-possible_breakpoints :: Context -> [PRow] -- {{{2
+possible_breakpoints :: Context -> [R.PRow] -- {{{2
 possible_breakpoints ctx =
   S.toList $ S.fromList $ map ($fromJust_s . t2p_row ctx . R.tlocRow . R.bpTloc) $ (R.diBps . ctxDebugInfo) ctx
 
@@ -418,13 +418,13 @@ possible_breakpoints ctx =
 os_api :: Context -> [String] -- {{{2
 os_api = R.diOsApi . ctxDebugInfo
 
-t2p_row :: Context -> TRow -> Maybe PRow -- {{{2
+t2p_row :: Context -> R.TRow -> Maybe R.PRow -- {{{2
 t2p_row ctx row = t2p_row' ((R.diPpm . ctxDebugInfo) ctx) row
 
-p2t_row :: Context -> PRow -> Maybe TRow -- {{{2
+p2t_row :: Context -> R.PRow -> Maybe R.TRow -- {{{2
 p2t_row ctx prow = p2t_row' ((R.diPpm . ctxDebugInfo) ctx) prow
 
-e2p_row :: Context -> ERow -> Maybe PRow -- {{{2
+e2p_row :: Context -> R.ERow -> Maybe R.PRow -- {{{2
 e2p_row ctx erow =
   let
     tfile = (R.fileName . R.diTcode . ctxDebugInfo) ctx
@@ -435,7 +435,7 @@ e2p_row ctx erow =
     prow <- t2p_row' ppm trow
     return prow
 
-p2e_row :: Context -> PRow -> ERowMatch -- {{{2
+p2e_row :: Context -> R.PRow -> ERowMatch -- {{{2
 p2e_row ctx prow =
   let
     tfile = (R.fileName . R.diTcode . ctxDebugInfo) ctx
