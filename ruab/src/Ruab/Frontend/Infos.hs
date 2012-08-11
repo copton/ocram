@@ -12,45 +12,29 @@ data Info -- {{{1
   | InfHighlight
   deriving Show
 
-orderInfo :: Info -> Int
-orderInfo (InfThread _) = 0
-orderInfo (InfBreakpoint _) = 1
-orderInfo InfHighlight = 2
+type InfoInstance = (Int, Info) -- {{{1
 
-infoIsThread :: Int -> Info -> Bool
-infoIsThread tid (InfThread tid') = tid == tid'
-infoIsThread _ _ = False
-
-infoIsBreakpoint :: Int -> Info -> Bool
-infoIsBreakpoint bid (InfBreakpoint bid') = bid == bid'
-infoIsBreakpoint _ _ = False
-
-infoIsHighlight :: Info -> Bool
-infoIsHighlight InfHighlight = True
-infoIsHighlight _ = False
-
-type InfoInstance = (Int, Info)
-
-clearHighlight :: [InfoInstance] -> [InfoInstance]
+-- setters {{{1
+clearHighlight :: [InfoInstance] -> [InfoInstance] -- {{{2
 clearHighlight = filter (not . infoIsHighlight . snd)
 
-clearThread :: Int -> [InfoInstance] -> [InfoInstance]
+clearThread :: Int -> [InfoInstance] -> [InfoInstance] -- {{{2
 clearThread tid infos = filter (not . infoIsThread tid . snd) infos
 
-clearBreakpoint :: Int -> [InfoInstance] -> [InfoInstance]
+clearBreakpoint :: Int -> [InfoInstance] -> [InfoInstance] -- {{{2
 clearBreakpoint bid infos = filter (not . infoIsBreakpoint bid . snd) infos
 
-setHighlight :: Int -> [InfoInstance] -> [InfoInstance]
+setHighlight :: Int -> [InfoInstance] -> [InfoInstance] -- {{{2
 setHighlight row infos = (row, InfHighlight) : clearHighlight infos
 
-setThread :: Int -> Int -> [InfoInstance] -> [InfoInstance]
+setThread :: Int -> Int -> [InfoInstance] -> [InfoInstance] -- {{{2
 setThread row tid infos = (row, InfThread tid) : clearThread tid infos
 
-setBreakpoint :: Int -> Int -> [InfoInstance] -> [InfoInstance]
+setBreakpoint :: Int -> Int -> [InfoInstance] -> [InfoInstance] -- {{{2
 setBreakpoint row 0 infos = (row, InfBreakpoint 0) : infos
 setBreakpoint row bid infos = (row, InfBreakpoint bid) : clearBreakpoint bid infos
 
-render_info :: [InfoInstance] -> String
+render_info :: [InfoInstance] -> String -- {{{1
 render_info = renderAll . map renderRow . groupBy groupf . sortBy sortf
   where
     sortf (row, info) (row', info') =
@@ -68,7 +52,7 @@ render_info = renderAll . map renderRow . groupBy groupf . sortBy sortf
             then (col, txt)
             else 
               let spacing = replicate (orderInfo info - col) ' ' in
-              (orderInfo info + 1, txt ++ spacing ++ show info)
+              (orderInfo info + 1, txt ++ spacing ++ render info)
     renderRow x = $abort $ "unexpected parameter: " ++ show x
 
     renderAll :: [(Int, String)] -> String
@@ -78,3 +62,26 @@ render_info = renderAll . map renderRow . groupBy groupf . sortBy sortf
         let spacing = replicate (row' - row) '\n' in
         (row' + 1, f . showString spacing . showString txt . showString "\n")
   
+render :: Info -> String -- {{{2
+render (InfThread tid) = show tid
+render (InfBreakpoint bid) = show bid
+render InfHighlight = "#"
+
+-- utils {{{1
+orderInfo :: Info -> Int -- {{{2
+orderInfo (InfThread _) = 0
+orderInfo (InfBreakpoint _) = 1
+orderInfo InfHighlight = 2
+
+infoIsThread :: Int -> Info -> Bool -- {{{2
+infoIsThread tid (InfThread tid') = tid == tid'
+infoIsThread _ _ = False
+
+infoIsBreakpoint :: Int -> Info -> Bool -- {{{2
+infoIsBreakpoint bid (InfBreakpoint bid') = bid == bid'
+infoIsBreakpoint _ _ = False
+
+infoIsHighlight :: Info -> Bool -- {{{2
+infoIsHighlight InfHighlight = True
+infoIsHighlight _ = False
+
