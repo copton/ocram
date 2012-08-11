@@ -18,7 +18,7 @@ module Ruab.Core
 ) where
 
 -- imports {{{1
-import Control.Applicative ((<*>), pure)
+import Control.Applicative ((<$>), (<*>), pure)
 import Control.Monad (forM, when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
@@ -38,10 +38,15 @@ import qualified Data.Set as S
 import qualified Ruab.Backend as B
 
 -- types {{{1
+type TtoE = M.Map R.TRow ERowMatch
+type EtoT = M.Map R.ERow R.TRow
+
 data Context = Context { -- {{{2
     ctxDebugInfo     :: R.DebugInfo
   , ctxTcode         :: BS.ByteString
   , ctxEcode         :: BS.ByteString
+  , ctxTtoE          :: TtoE
+  , ctxEtoT          :: EtoT
   }
 
 data Command -- {{{2
@@ -258,9 +263,9 @@ handleCommand ctx backend fResponse command state = do
             xs -> failed $ errTxt ++ ": " ++ show xs
 
       in case (p2e_row ctx prow) of
-        NoMatch          -> failed "invalid row number"
-        NonCritical erow -> addBreakpoints [erow]       allThreads   "invalid thread ids"
-        Critical ts      -> addBreakpoints (map snd ts) (map fst ts) "unreachable breakpoint"
+        Nothing                 -> failed "invalid row number"
+        Just (NonCritical erow) -> addBreakpoints [erow]       allThreads   "invalid thread ids"
+        Just (Critical ts)      -> addBreakpoints (map snd ts) (map fst ts) "unreachable breakpoint"
             
     -- CmdInterrupt {{{3
     handle CmdInterrupt ExRunning = do
@@ -347,7 +352,13 @@ setup :: Options -> IO Context -- {{{2
 setup opt = do
   di <- loadDebugInfo
   (tcode, ecode) <- loadFiles di
-  return $ Context di tcode ecode
+  let
+    tfile = (R.fileName . R.diTcode) di
+    bps = filter ((tfile==) . R.tlocFile . R.bpTloc) (R.diBps di)
+    bcs = R.diBcs di
+  print bps
+  print bcs
+  return $ Context di tcode ecode (t2emap bps bcs) (e2tmap bps bcs)
   where
     loadFiles di = do
       let files = [R.diTcode di, R.diEcode di]
@@ -366,6 +377,27 @@ setup opt = do
       | md5sum contents == R.fileChecksum file = Nothing
       | otherwise = Just $ failed $ R.fileName file
     failed file = "checksum for '" ++ file ++ "' differs"
+
+    t2emap bps bcs = foldr go M.empty $ fromBcs ++ fromBps
+      where
+        go :: (R.TRow, R.ERow, Maybe R.ThreadId) -> TtoE -> TtoE
+        go (trow, erow, tid) = M.alter (alter erow tid) trow
+        alter erow Nothing    Nothing                = Just $ NonCritical erow
+        alter erow Nothing    o@(Just (NonCritical erow'))
+          | erow == erow'                            = o
+          | otherwise                                = $abort $ "debug information is corrupt: " ++ show erow ++ "/" ++ show erow'
+        alter _    Nothing    (Just (Critical _))    = $abort "debug information is corrupt"
+        alter erow (Just tid) Nothing                = Just $ Critical [(tid, erow)]
+        alter _    (Just tid) (Just (NonCritical _)) = $abort "debug information is corrupt"
+        alter erow (Just tid) (Just (Critical xs))   = Just $ Critical ((tid, erow):xs)
+
+        fromBps = map ((,,) <$> R.tlocRow . R.bpTloc <*> R.elocRow . R.bpEloc <*> R.bpThreadId) bps
+        fromBcs = map ((,,) <$> R.tlocRow . R.bcTloc <*> R.elocRow . R.bcEloc <*> Just . R.bcThreadId) bcs
+
+    e2tmap bps bcs = M.fromList $ fromBcs ++ fromBps
+      where
+        fromBps = map ((,) <$> R.elocRow . R.bpEloc <*> R.tlocRow . R.bpTloc) bps
+        fromBcs = map ((,) <$> R.elocRow . R.bcEloc <*> R.tlocRow . R.bcTloc) bcs 
 
 setupBreakpoints :: Context -> B.Context -> State -> IO State -- {{{2
 setupBreakpoints ctx backend state = do
@@ -425,22 +457,11 @@ p2t_row :: Context -> R.PRow -> Maybe R.TRow -- {{{2
 p2t_row ctx prow = p2t_row' ((R.diPpm . ctxDebugInfo) ctx) prow
 
 e2p_row :: Context -> R.ERow -> Maybe R.PRow -- {{{2
-e2p_row ctx erow =
-  let
-    tfile = (R.fileName . R.diTcode . ctxDebugInfo) ctx
-    bps = (R.diBps . ctxDebugInfo) ctx
-    ppm = (R.diPpm . ctxDebugInfo) ctx
-  in do
-    trow <- e2t_row' bps tfile erow
-    prow <- t2p_row' ppm trow
-    return prow
+e2p_row ctx erow = do
+  trow <- M.lookup erow (ctxEtoT ctx)
+  t2p_row' ((R.diPpm . ctxDebugInfo) ctx) trow
 
-p2e_row :: Context -> R.PRow -> ERowMatch -- {{{2
+p2e_row :: Context -> R.PRow -> Maybe ERowMatch -- {{{2
 p2e_row ctx prow =
-  let
-    tfile = (R.fileName . R.diTcode . ctxDebugInfo) ctx
-    bps = (R.diBps . ctxDebugInfo) ctx
-    ppm = (R.diPpm . ctxDebugInfo) ctx
-  in case p2t_row' ppm prow of
-    Nothing -> NoMatch
-    Just trow -> t2e_row' bps tfile trow
+      p2t_row' ((R.diPpm . ctxDebugInfo) ctx) prow
+  >>= flip M.lookup (ctxTtoE ctx)

@@ -17,7 +17,7 @@ import Prelude hiding (log, lines)
 import Ruab.Actor (new_actor, update)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread, Row(getRow))
 import Ruab.Options (Options)
-import Ruab.Util (abort, fromJust_s)
+import Ruab.Util (fromJust_s)
 
 import qualified Ruab.Core as C
 import qualified Data.ByteString.Char8 as BS
@@ -238,10 +238,9 @@ renderInfo (Context gui core) infos = do
     p2t = map (first ($fromJust_s . C.p2t_row core))
 
     p2e = foldr go []
-    go (prow, inf) iis = case C.p2e_row core prow of
-      C.NoMatch -> $abort "this should not happen"
+    go (prow, inf) iis = case $fromJust_s $ C.p2e_row core prow of
       C.NonCritical erow -> (erow, inf) : iis
-      C.Critical ts -> map (\(_, erow) -> (erow, inf)) ts ++ iis
+      C.Critical ts      -> map (\(_, erow) -> (erow, inf)) ts ++ iis
 
 log :: TextView -> Log -> IO () -- {{{2
 log tv (Log lt lines) = postGUIAsync $ do
@@ -335,9 +334,9 @@ handleCommand core fInfo fLog fCommand = handle
                     ]
                   fInfo $ setHighlight prow
             in case erows of
-              C.NoMatch -> fLog $ Log LogError ["failed to map to e-rows"]
-              C.NonCritical erow -> scroll (show erow)
-              C.Critical ts -> scroll (show ts)
+              Nothing                   -> fLog $ Log LogError ["failed to map to e-rows"]
+              Just (C.NonCritical erow) -> scroll (show erow)
+              Just (C.Critical ts)      -> scroll (show ts)
 
     handle CmdStart = fCommand C.CmdStart
 

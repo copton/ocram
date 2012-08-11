@@ -16,15 +16,15 @@ decode_debug_info string = (resultToEither . decodeStrict . BS.unpack) string
 -- types {{{1
 newtype TRow -- {{{2
   = TRow {getTRow :: Int}
-  deriving (Eq, Show, Num, Ord)
+  deriving (Eq, Num, Ord)
 
 newtype PRow -- {{{2
   = PRow {getPRow :: Int}
-  deriving (Eq, Show, Num, Ord)
+  deriving (Eq, Num, Ord)
 
 newtype ERow -- {{{2
   = ERow {getERow :: Int}
-  deriving (Eq, Show, Num, Ord)
+  deriving (Eq, Num, Ord)
 
 type ThreadId = Int
 
@@ -52,7 +52,7 @@ data BlockingCall = BlockingCall { -- {{{2
     bcTloc     :: TLocation
   , bcEloc     :: ELocation
   , bcThreadId :: ThreadId
-  }
+  } deriving Show
 
 type BlockingCalls = [BlockingCall] -- {{{2
 
@@ -181,6 +181,15 @@ instance JSON DebugInfo where -- {{{2
     return $ DebugInfo tcode' pcode' ecode' ppm' bps' bcs' vm' ts' oa'
 
   readJSON x = readFail "DebugInfo" x
+
+instance Show TRow where -- {{{2
+  show (TRow x) = show x
+
+instance Show ERow where -- {{{2
+  show (ERow x) = show x
+
+instance Show PRow where -- {{{2
+  show (PRow x) = show x
 
 -- utils {{{2
 readFail :: String -> JSValue -> Result a
