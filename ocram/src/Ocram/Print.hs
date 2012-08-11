@@ -76,7 +76,7 @@ marker eni doc =
   where
     bpLogger (Position r c) = [Left $ Breakpoint tlocation (ELocation r c ) (enThreadId eni)]
 
-    bcLogger (Position r c) = [Right $ BlockingCall (ELocation r c) (($fromJust_s . enThreadId) eni)]
+    bcLogger (Position r c) = [Right $ BlockingCall tlocation (ELocation r c) (($fromJust_s . enThreadId) eni)]
 
     tlocation =
       let

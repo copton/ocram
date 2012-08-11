@@ -60,7 +60,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     |], [
       (3, 19, Just 0)
     ], [
-      (19, 0)
+      (3, 19, 0)
     ])
 -- function static variable {{{2
   , ([lpaste|
@@ -99,7 +99,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
       (3, 17, Just 0)
     , (4, 20, Just 0)
   ], [
-      (20, 0)
+      (4, 20, 0)
   ])
 -- global variable {{{2
   , ([lpaste|
@@ -140,7 +140,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
       (4, 18, Just 0)
     , (5, 21, Just 0)
   ], [
-    (21, 0)
+      (5, 21, 0)
   ])
 -- non-critical function call {{{2
   ,([lpaste|
@@ -189,7 +189,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     , (7, 22, Just 0)
     , (8, 25, Just 0)
   ], [
-    (25, 0)
+      (8, 25, 0)
   ])
 -- critical function call {{{2
   ,([lpaste|
@@ -244,7 +244,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
       (6, 26, Just 0)
     , (3, 34, Just 0)
   ], [
-    (34, 0)
+      (3, 34, 0)
   ])
 -- re-entrance {{{2
   ,([lpaste|
@@ -332,8 +332,8 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     , (9, 54, Just 1)
     , (3, 62, Just 1)
   ], [
-      (40, 0)
-    , (62, 1)
+      (3, 40, 0)
+    , (3, 62, 1)
   ])
 -- multiple statements in a row {{{2
   ,([lpaste|
@@ -376,8 +376,8 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
       (3, 19, Just 0)
     , (3, 25, Just 0)
   ], [
-      (19, 0)
-    , (25, 0)
+      (3, 19, 0)
+    , (3, 25, 0)
   ])
 -- return {{{2
   ,([lpaste|
@@ -462,8 +462,8 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     , ( 4, 46, Just 0)
     , ( 6, 60, Just 0)
   ], [
-      (39, 0)
-    , (53, 0)
+      (4, 39, 0)
+    , (6, 53, 0)
   ])
 -- while loops {{{2
   ,([lpaste|
@@ -532,7 +532,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
       ( 6, 27, Just 0)
     , ( 3, 34, Just 0)
   ], [
-      (38, 0)
+      (3, 38, 0)
   ])
   ]
 

@@ -33,7 +33,8 @@ data Breakpoint = Breakpoint { -- {{{2
 type Breakpoints = [Breakpoint] -- {{{2
 
 data BlockingCall = BlockingCall { -- {{{2
-    bcEloc     :: ELocation
+    bcTloc     :: TLocation
+  , bcEloc     :: ELocation
   , bcThreadId :: Int
   }
 
@@ -94,9 +95,11 @@ instance JSON Breakpoint where -- {{{2
   showJSON (Breakpoint t e tid) = showJSON (t, e, maybe (-1) id tid)
 
 instance JSON BlockingCall where -- {{{2
-  readJSON val = readJSON val >>= return . uncurry BlockingCall
+  readJSON val = do
+    (t, e, tid) <- readJSON val
+    return $ BlockingCall t e tid
 
-  showJSON (BlockingCall e t) = showJSON (e, t)
+  showJSON (BlockingCall t e tid) = showJSON (t, e, tid)
 
 instance JSON PreprocMap where  -- {{{2
   showJSON (PreprocMap mtr mpr ma) = (JSObject . toJSObject) [

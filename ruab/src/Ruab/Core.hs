@@ -177,11 +177,17 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
               thread {thStatus = Running, thProw = Nothing}
             )
 
-        BkptBlockingCall tid erow -> do
-          B.continue backend
-          return $ hide True . updateThread tid (\thread ->
-              thread {thStatus = Blocked, thProw = Just $ $fromJust_s $ e2p_row ctx erow}
-            )
+        BkptBlockingCall tid erow ->
+          let
+            prow = $fromJust_s $ do
+              bc <- find ((==erow) . R.elocRow . R.bcEloc) ((R.diBcs . ctxDebugInfo) ctx)
+              let trow = R.tlocRow . R.bcTloc $ bc
+              t2p_row ctx trow
+          in do
+            B.continue backend
+            return $ hide True . updateThread tid (\thread ->
+                thread {thStatus = Blocked, thProw = Just $ prow}
+              )
 
 handleCommand :: Context -> B.Context -> Fire Response -> Command -> State -> IO State -- {{{2
 handleCommand ctx backend fResponse command state = do

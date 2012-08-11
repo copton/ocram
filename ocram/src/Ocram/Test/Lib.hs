@@ -61,8 +61,8 @@ instance TestData Breakpoint TBreakpoint where
   enrich (trow, erow, tid) = Breakpoint (TLocation trow 1 1 "test") (ELocation erow 1) tid
 
 instance TestData BlockingCall TBlockingCall where
-  reduce bc = ((elocRow . bcEloc) bc, bcThreadId bc)
-  enrich (erow, tid) = BlockingCall (ELocation erow 1) tid
+  reduce bc = ((tlocRow . bcTloc) bc, (elocRow . bcEloc) bc, bcThreadId bc)
+  enrich (trow, erow, tid) = BlockingCall (TLocation trow 1 1 "test") (ELocation erow 1) tid
 
 instance TestData Char Char where
 	reduce = id
@@ -90,5 +90,5 @@ type TErrorCodes        = [ErrorCode]
 type TCallChain         = [String]
 type TBreakpoint        = (Int, Int, Maybe Int)
 type TBreakpoints       = [TBreakpoint]
-type TBlockingCall      = (Int, Int)
+type TBlockingCall      = (Int, Int, Int)
 type TBlockingCalls     = [TBlockingCall]
