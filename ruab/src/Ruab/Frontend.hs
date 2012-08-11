@@ -17,7 +17,7 @@ import Prelude hiding (log, lines)
 import Ruab.Actor (new_actor, update)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread)
 import Ruab.Options (Options)
-import Ruab.Util (fromJust_s)
+import Ruab.Util (abort, fromJust_s)
 
 import qualified Ruab.Core as C
 import qualified Data.ByteString.Char8 as BS
@@ -228,21 +228,20 @@ createNetwork ctx@(Context gui core) opt = do
 renderInfo :: Context -> [InfoInstance] -> IO () -- {{{2
 renderInfo (Context gui core) infos = do
   render (guiPcomp gui) infos
-  render (guiTcomp gui) (sync p2t infos)
-  render (guiEcomp gui) (sync p2e infos)
+  render (guiTcomp gui) (p2t infos)
+  render (guiEcomp gui) (p2e infos)
   where
     render comp infos' = postGUIAsync $ do
       setText (compInfo comp) (render_info infos')
       maybe (return ()) (scrollToRow comp . fst) $ find (infoIsHighlight . snd) infos'
 
-    sync f = map (first ($fromJust_s . f))
+    p2t = map (first ($fromJust_s . C.p2t_row core))
 
-    p2t = C.p2t_row core
-
-    p2e prow = case C.p2e_row core prow of
-      C.NoMatch -> Nothing
-      C.NonCritical erow -> Just erow
-      C.Critical ts -> (Just . snd . head) ts
+    p2e = foldr go []
+    go (prow, inf) iis = case C.p2e_row core prow of
+      C.NoMatch -> $abort "this should not happen"
+      C.NonCritical erow -> (erow, inf) : iis
+      C.Critical ts -> map (\(_, erow) -> (erow, inf)) ts ++ iis
 
 log :: TextView -> Log -> IO () -- {{{2
 log tv (Log lt lines) = postGUIAsync $ do
