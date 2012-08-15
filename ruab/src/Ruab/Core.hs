@@ -356,8 +356,6 @@ setup opt = do
     tfile = (R.fileName . R.diTcode) di
     bps = filter ((tfile==) . R.tlocFile . R.bpTloc) (R.diBps di)
     bcs = R.diBcs di
-  print bps
-  print bcs
   return $ Context di tcode ecode (t2emap bps bcs) (e2tmap bps bcs)
   where
     loadFiles di = do
@@ -384,8 +382,8 @@ setup opt = do
         go (trow, erow, tid) = M.alter (alter erow tid) trow
         alter erow Nothing    Nothing                = Just $ NonCritical erow
         alter erow Nothing    o@(Just (NonCritical erow'))
-          | erow == erow'                            = o
-          | otherwise                                = $abort $ "debug information is corrupt: " ++ show erow ++ "/" ++ show erow'
+          | erow <= erow'                            = o
+          | otherwise                                = Just $ NonCritical erow'
         alter _    Nothing    (Just (Critical _))    = $abort "debug information is corrupt"
         alter erow (Just tid) Nothing                = Just $ Critical [(tid, erow)]
         alter _    (Just tid) (Just (NonCritical _)) = $abort "debug information is corrupt"
