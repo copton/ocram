@@ -110,6 +110,7 @@ data AsyncClass -- {{{3
   | ACLibraryLoaded
   | ACThreadExited
   | ACThreadGroupExited
+  | ACBreakpointModified
   deriving (Show, Eq)
 
 data Result -- {{{3
@@ -225,6 +226,7 @@ p_asyncClass =
   <|> try (string "running"              >> return ACRunning)
   <|> try (string "thread-exited"        >> return ACThreadExited)
   <|> try (string "thread-group-exited"  >> return ACThreadGroupExited)
+  <|> try (string "breakpoint-modified"  >> return ACBreakpointModified)
   <|>     (string "library-loaded"       >> return ACLibraryLoaded)
 
 p_result :: Parser Result -- {{{3

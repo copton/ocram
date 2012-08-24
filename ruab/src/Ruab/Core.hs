@@ -163,12 +163,12 @@ handleStop :: Context -> B.Context -> B.Stopped -> State -> IO State -- {{{2
 handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateExecution state) <*> pure state
   where
     -- EndSteppingRange {{{3
-    handle (Just B.EndSteppingRange) ExShutdown = $abort "illegal state"
-    handle (Just B.EndSteppingRange) ExWaiting = $abort "illegal state"
-    handle (Just B.EndSteppingRange) ExStopped = return id
+    handle B.EndSteppingRange ExShutdown = $abort "illegal state"
+    handle B.EndSteppingRange ExWaiting = $abort "illegal state"
+    handle B.EndSteppingRange ExStopped = return id
 
-    handle (Just B.EndSteppingRange) (ExRunning Continue) = $abort "illegal state"
-    handle (Just B.EndSteppingRange) (ExRunning style) =
+    handle B.EndSteppingRange (ExRunning Continue) = $abort "illegal state"
+    handle B.EndSteppingRange (ExRunning style) =
       let
         efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
         frame = B.stoppedFrame stopped
@@ -189,11 +189,11 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
             return id
         
     -- BreakpointHit {{{3
-    handle (Just (B.BreakpointHit _ _  )) ExShutdown = $abort "illegal state"
-    handle (Just (B.BreakpointHit _ _  )) ExWaiting  = $abort "illegal state"
-    handle (Just (B.BreakpointHit _ _  )) ExStopped  = return id
+    handle (B.BreakpointHit _ _  ) ExShutdown = $abort "illegal state"
+    handle (B.BreakpointHit _ _  ) ExWaiting  = $abort "illegal state"
+    handle (B.BreakpointHit _ _  ) ExStopped  = return id
 
-    handle (Just (B.BreakpointHit _ bn)) (ExRunning style) =
+    handle (B.BreakpointHit _ bn) (ExRunning style) =
       let bkpt = $fromJust_s $ M.lookup bn (stateBreakpoints state) in
       case bkptType bkpt of
         BkptUser ub ->
@@ -229,11 +229,6 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
                 thread {thStatus = Blocked, thProw = Just $ prow}
               )
 
-    -- no reason {{{3
-    handle Nothing ExShutdown = $abort "illegal state"
-    handle Nothing ExWaiting  = $abort "illegal state"
-    handle Nothing ExStopped  = return id
-    handle Nothing (ExRunning style) = resume style backend >> return id
 
 handleCommand :: Context -> B.Context -> Fire Response -> Command -> State -> IO State -- {{{2
 handleCommand ctx backend fResponse command state = do
