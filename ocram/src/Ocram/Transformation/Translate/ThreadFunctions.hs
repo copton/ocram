@@ -82,7 +82,7 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
         transform o = [o]
 
         initialize cd@(CDecl _ [(_, Just(CInitExpr expr _), _)] _) =
-          [CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd) expr un)) un)]
+          [CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd) expr un)) (annotation cd))]
         initialize _ = []
 
         var cd = stackAccess callChain (Just (symbol cd))

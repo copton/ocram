@@ -9,4 +9,8 @@ import Ocram.Transformation.Translate.ThreadFunctions
 import Ocram.Transformation.Types (CTranslUnit')
 
 translate :: CallGraph -> CTranslUnit' -> CTranslUnit'
-translate cg = remove_critical_functions cg . add_thread_functions cg . add_blocking_function_decls . add_tstacks cg
+translate cg =
+    remove_critical_functions cg
+  . add_thread_functions cg
+  . add_blocking_function_decls
+  . add_tstacks cg

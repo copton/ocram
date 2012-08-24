@@ -4,7 +4,7 @@ where
 -- imports {{{1
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, dependency_list, start_functions, is_start, get_callees, is_blocking, is_critical)
-import Ocram.Debug (un)
+import Ocram.Debug (un, ENodeInfo(..))
 import Ocram.Query (is_blocking_function', return_type, local_variables, is_function_declaration)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Names
@@ -47,7 +47,7 @@ remove_critical_functions cg (CTranslUnit ds ni) = (CTranslUnit (foldr proc [] d
       | otherwise = o : cds
     proc o cds = o : cds
 
-add_tstacks :: CallGraph -> CTranslUnit' -> CTranslUnit'
+add_tstacks :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
 add_tstacks cg ast@(CTranslUnit decls ni) =
   CTranslUnit (decls ++ frames ++ stacks) ni
   where
@@ -70,8 +70,8 @@ add_tstacks cg ast@(CTranslUnit decls ni) =
         continuation
           | is_start cg name = Nothing
           | otherwise = Just $ CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un
-        localVariables = map removeInit $ Map.elems ($fromJust_s (local_variables ast name))
-        removeInit (CDecl x1 [(x2, _, x3)] x4) = CDecl x1 [(x2, Nothing, x3)] x4
+        localVariables = map removeInit . Map.elems . $fromJust_s . local_variables ast $ name
+        removeInit (CDecl x1 [(x2, _, x3)] x4) = CDecl x1 [(x2, Nothing, x3)] (x4 {enBreakpoint = False})
         removeInit _ = $abort "unexpected parameters"
 
     createNestedFramesUnion name =
