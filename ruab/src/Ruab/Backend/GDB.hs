@@ -6,7 +6,7 @@ module Ruab.Backend.GDB
   , setup, shutdown, run
   , G.Location, G.file_line_location, G.file_function_location
   , G.Breakpoint(..), G.Stack(..), G.Frame(..), G.Stopped(..), G.StopReason(..), G.BkptNumber
-  , set_breakpoint, continue, step, next, interrupt, backtrace
+  , set_breakpoint, remove_breakpoints, continue, step, next, interrupt, backtrace
   , G.Notification(..), G.NotificationClass(..), G.Stream(..), G.StreamClass(..), G.AsyncClass(..)
   , G.asConst
 ) where
@@ -51,31 +51,37 @@ set_breakpoint ctx loc = do
     return
     (convert G.response_break_insert resp)
 
-run :: G.Context -> IO ()
+remove_breakpoints :: G.Context -> [G.BkptNumber] -> IO () -- {{{1
+remove_breakpoints ctx bids = do
+  resp <- G.send_command ctx (G.break_delete bids)
+  when (G.respClass resp /= G.RCDone)
+    ($abort $ "unexpected response: " ++ show resp)
+
+run :: G.Context -> IO () -- {{{1
 run ctx = do
   resp <- G.send_command ctx (G.exec_run (Left True))
   when (G.respClass resp /= G.RCRunning) 
     ($abort $ "unexpected response: " ++ show resp)
 
-continue :: G.Context -> IO ()
+continue :: G.Context -> IO () -- {{{2
 continue ctx = do
   resp <- G.send_command ctx (G.exec_continue False (Left True))
   when (G.respClass resp /= G.RCRunning)
     ($abort $ "unexpected response: " ++ show resp)
 
-step :: G.Context -> IO ()
+step :: G.Context -> IO () -- {{{2
 step ctx = do
   resp <- G.send_command ctx G.exec_step
   when (G.respClass resp /= G.RCRunning)
     ($abort $ "unexpected response: " ++ show resp)
 
-next :: G.Context -> IO ()
+next :: G.Context -> IO () -- {{{2
 next ctx = do
   resp <- G.send_command ctx G.exec_next
   when (G.respClass resp /= G.RCRunning)
     ($abort $ "unexpected response: " ++ show resp)
 
-backtrace :: G.Context -> IO G.Stack
+backtrace :: G.Context -> IO G.Stack -- {{{2
 backtrace ctx = do
   resp <- G.send_command ctx (G.stack_list_frames Nothing)
   maybe

@@ -71,6 +71,7 @@ data InputEvent -- {{{2
 data CommandPrefix -- {{{2
   = CmdPrBreakAdd
   | CmdPrBreakList
+  | CmdPrBreakRemove
   | CmdPrContinue
   | CmdPrHelp
   | CmdPrInterrupt
@@ -84,6 +85,7 @@ data Command -- {{{2
   = CmdUnknown String
   | CmdBreakAdd C.PRow [C.ThreadId]
   | CmdBreakList
+  | CmdBreakRemove C.BreakpointNumber
   | CmdContinue
   | CmdHelp (Maybe CommandPrefix)
   | CmdInterrupt
@@ -118,6 +120,7 @@ commands :: [(String, CommandPrefix)] -- {{{2
 commands = [
     ("badd",      CmdPrBreakAdd)
   , ("blist",     CmdPrBreakList)
+  , ("bremove",   CmdPrBreakRemove)
   , ("continue",  CmdPrContinue)
   , ("help",      CmdPrHelp)
   , ("interrupt", CmdPrInterrupt)
@@ -147,6 +150,11 @@ parseCommand text =
         _ -> CmdHelp (Just CmdPrBreakAdd)
 
       CmdPrBreakList -> noopt CmdPrBreakList CmdBreakList options
+
+      CmdPrBreakRemove -> case options of
+        [bid@(mread -> Just (_ :: Int))] ->
+          CmdBreakRemove (fromJust . mread $ bid)
+        _ -> CmdHelp (Just CmdPrBreakRemove)
       
       CmdPrContinue -> noopt CmdPrContinue CmdContinue options
 
@@ -182,16 +190,17 @@ parseCommand text =
     mread x = listToMaybe [y | (y,"") <- reads x] 
 
 help :: CommandPrefix -> [String] -- {{{2
-help CmdPrBreakAdd  = ["badd prow [tid,...]: add a breakpoint, optionally filtered by thread id"]
-help CmdPrBreakList = ["blist: list all breakpoints"]
-help CmdPrContinue  = ["continue: continue execution"]
-help CmdPrHelp      = ["help: show the list of available commands"]
-help CmdPrInterrupt = ["interrupt: interrupt execution"]
-help CmdPrNext      = ["next: resume until the beginning of the next source line - not descending into functions."]
-help CmdPrQuit      = ["quit: quit ruab"]
-help CmdPrScroll    = ["scroll [t|p|e] row: scroll views to the given row. Default row type is p-code."]
-help CmdPrStep      = ["step: resume until the beginning of the next source line - descending into functions."]
-help CmdPrRun       = ["start: start execution"]
+help CmdPrBreakAdd    = ["badd prow [tid,...]: add a breakpoint, optionally filtered by thread id"]
+help CmdPrBreakList   = ["blist: list all breakpoints"]
+help CmdPrBreakRemove = ["bremove bid: remove the breakpoint with the given number"]
+help CmdPrContinue    = ["continue: continue execution"]
+help CmdPrHelp        = ["help: show the list of available commands"]
+help CmdPrInterrupt   = ["interrupt: interrupt execution"]
+help CmdPrNext        = ["next: resume until the beginning of the next source line - not descending into functions."]
+help CmdPrQuit        = ["quit: quit ruab"]
+help CmdPrScroll      = ["scroll [t|p|e] row: scroll views to the given row. Default row type is p-code."]
+help CmdPrStep        = ["step: resume until the beginning of the next source line - descending into functions."]
+help CmdPrRun         = ["start: start execution"]
 
 instance Read RowType where -- {{{2
   readsPrec _ rtype = case lookup rtype rowtypes of
@@ -275,6 +284,8 @@ handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
 
     handle C.ResResume = fLog $ Log LogOutput ["resumed"]
 
+    handle C.ResRemoveBreakpoint = fLog $ Log LogOutput ["breakpoint removed"]
+
     handle C.ResInterrupt = fLog $ Log LogOutput ["interrupted"]
 
     handle (C.ResListBreakpoints bps) = fLog $ Log LogOutput $ "breakpoints:" : map show bps
@@ -307,6 +318,8 @@ handleCommand core fInfo fLog fCommand = handle
     handle (CmdBreakAdd prow tids) = fCommand $ C.CmdAddBreakpoint prow tids
 
     handle CmdBreakList = fCommand $ C.CmdListBreakpoints
+
+    handle (CmdBreakRemove bid) = fCommand $ C.CmdRemoveBreakpoint bid
 
     handle CmdContinue = fCommand $ C.CmdResume C.Continue
     handle CmdNext     = fCommand $ C.CmdResume C.Next

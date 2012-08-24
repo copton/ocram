@@ -1,7 +1,6 @@
 module Ruab.Backend.GDB.Commands where
 
 -- imports {{{1
-import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Prelude hiding (reverse, all, lines)
 import Ruab.Backend.GDB.Representation hiding (Exec, Console)
@@ -229,9 +228,9 @@ add_token :: Token -> Command -> Command -- {{{2
 add_token token (MICommand _ x y z) = MICommand (Just token) x y z
 add_token token (CLICommand _ x) = CLICommand (Just token) x
 
-add_parameters :: [Parameter] -> Command -> Command -- {{{2
-add_parameters ps (MICommand x y z ps') = MICommand x y z (ps'++ps)
-add_parameters ps (CLICommand t s) = CLICommand t (s ++ intercalate " " ps)
+-- add_parameters :: [Parameter] -> Command -> Command -- {{{2
+-- add_parameters ps (MICommand x y z ps') = MICommand x y z (ps'++ps)
+-- add_parameters ps (CLICommand t s) = CLICommand t (s ++ intercalate " " ps)
 
 -- commands {{{1
 -- breakpoint commands {{{2
@@ -245,7 +244,7 @@ break_condition :: Int -> String -> Command -- {{{3
 break_condition number expr = cmd "break-condition" $ opt number : opt expr : []
 
 break_delete :: [Int] -> Command -- {{{3
-break_delete numbers = cmd "break-delete" $ map opt numbers
+break_delete numbers = cmd "break-delete" $ map optr numbers
 
 break_disable :: [Int] -> Command -- {{{3
 break_disable numbers = cmd "break-disable" $ map opt numbers
@@ -445,7 +444,7 @@ var_set_visualizer name visualizer = cmd "ver-set-visualizer" [opt name, opt vis
 
 -- data manipulation {{{2
 data_disassemble :: Either (String, String) (String, Int, Maybe Int) -> DisassemblyMode -> Command -- {{{3
-data_disassemble x mode = MICommand Nothing "data-disassemble" options [gdbShow mode]
+data_disassemble x mode = MICommand Nothing "data-disassemble" options [QuotedString . gdbShow $ mode]
   where
     options = case x of
       Left (start, end) -> opt' "-s" start : opt' "-e" end : []
@@ -591,10 +590,13 @@ cmd :: String -> [Option] -> Command -- {{{2
 cmd operation options = MICommand Nothing operation options []
 
 opt :: GdbShow a => a -> Option -- {{{2
-opt parameter = Option (gdbShow parameter) Nothing
+opt parameter = Option (QuotedString . gdbShow $ parameter) Nothing
+
+optr :: Show a => a -> Option -- {{{2
+optr parameter = Option (RawString . show $ parameter) Nothing
 
 opt' :: (GdbShow a, GdbShow b) => a -> b -> Option -- {{{2
-opt' name value = Option (gdbShow name) (Just (gdbShow value))
+opt' name value = Option (QuotedString . gdbShow $ name) (Just (QuotedString . gdbShow $ value))
 
 flagOpt :: String -> Bool -> Maybe Option -- {{{2
 flagOpt _ False = Nothing
@@ -602,7 +604,7 @@ flagOpt flag True = Just (opt flag)
 
 valueOpt :: GdbShow a => String -> Maybe a -> Maybe Option -- {{{2
 valueOpt _ Nothing = Nothing
-valueOpt flag param = Just (Option flag (fmap gdbShow param))
+valueOpt flag param = Just (Option (QuotedString flag) (fmap (QuotedString . gdbShow) param))
 
 maybTupleOpt :: GdbShow a => Maybe (a, a) -> [Option] -- {{{2
 maybTupleOpt Nothing = []

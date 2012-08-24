@@ -17,7 +17,11 @@ type Operation = String -- {{{3
 
 data Option = Option Parameter (Maybe Parameter) -- {{{3
 
-type Parameter = String -- {{{3
+data Parameter -- {{{3
+  -- the documentation does not specify this, but de-facto some parameters have
+  -- to be quoted and other must not
+  = RawString String
+  | QuotedString String
 
 -- rendering {{{2
 render_command :: Command -> String -- {{{3
@@ -38,14 +42,15 @@ r_operation :: Operation -> ShowS -- {{{3
 r_operation op = (op++)
 
 r_option :: Option -> ShowS -- {{{3
- -- the documentation specifies a "-" befor each option but some operations
+ -- the documentation specifies a "-" before each option but some operations
  -- such as file-exec-and-symbols are not happy with this :-/
 r_option (Option p p') =
     r_parameter p
   . maybe id (\x -> showString " " . r_parameter x) p'
 
 r_parameter :: Parameter -> ShowS -- {{{3
-r_parameter = shows
+r_parameter (RawString s)    = showString s
+r_parameter (QuotedString s) = shows s
 
 r_token :: Token -> ShowS -- {{{3
 r_token = shows
@@ -412,7 +417,11 @@ instance GetToken NotifyAsyncOutput where
 
 -- utils {{{1
 parameter_valid :: Parameter -> Bool -- {{{2
-parameter_valid param
+parameter_valid (RawString s) = validParam s
+parameter_valid (QuotedString s) = validParam s
+
+validParam :: String -> Bool
+validParam param 
   | null param = False
   | isCString param = isNothing $ find (not . isAscii) param
   | otherwise = isNothing $ find isSpecial param
@@ -425,4 +434,3 @@ parameter_valid param
     isSpecial '\n' = True
     isSpecial '"' = True
     isSpecial _ = False
-

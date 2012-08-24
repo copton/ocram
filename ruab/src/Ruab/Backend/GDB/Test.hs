@@ -17,10 +17,10 @@ test_render_command = enumTestGroup "render_command" $ map runTest [
       MICommand Nothing "break-info" [] []
     , "-break-info\n"
     ), (
-      MICommand (Just 23) "exec-arguments" [Option "-v" (Just "word")] []
+      MICommand (Just 23) "exec-arguments" [Option (qp "-v") (Just (qp "word"))] []
     , "23-exec-arguments \"-v\" \"word\"\n"
     ), (
-      MICommand (Just 42) "break-commands" [Option "1" Nothing, Option "print v" Nothing] []
+      MICommand (Just 42) "break-commands" [Option (qp "1") Nothing, Option (qp "print v") Nothing] []
       , "42-break-commands \"1\" \"print v\"\n"
     )
   ]
@@ -269,3 +269,7 @@ test_response_stack_list_frames = enumTestGroup "response_stack_list_frames" $ m
           response_stack_list_frames (respResults response)
       in 
         show (Just stack) @=? show stack'
+
+-- utils {{{1
+qp :: String -> Parameter
+qp = QuotedString

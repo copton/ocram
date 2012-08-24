@@ -8,7 +8,7 @@ module Ruab.Core
   , Status(..)
   , Thread(..), ThreadStatus(..), R.ThreadId
   , R.PRow(..), R.TRow(..), R.ERow(..)
-  , UserBreakpoint(..)
+  , UserBreakpoint(..), BreakpointNumber
   , t_code, p_code, e_code
   , t_file, e_file
   , possible_breakpoints
@@ -57,6 +57,7 @@ data Context = Context { -- {{{2
 data Command -- {{{2
   = CmdAddBreakpoint R.PRow [R.ThreadId]
   | CmdResume ResumeStyle
+  | CmdRemoveBreakpoint BreakpointNumber
   | CmdInterrupt
   | CmdListBreakpoints
   | CmdRun
@@ -72,6 +73,7 @@ data ResumeStyle
 data Result -- {{{2
   = ResAddBreakpoint UserBreakpoint
   | ResResume
+  | ResRemoveBreakpoint
   | ResInterrupt
   | ResListBreakpoints [UserBreakpoint]
   | ResShutdown
@@ -262,8 +264,22 @@ handleCommand ctx backend fResponse command state = do
 
     handle (CmdResume _) ExWaiting = notRunning
 
+    -- CmdRemoveBreakpoint {{{3
+    handle (CmdRemoveBreakpoint _) ExShutdown    = alreadyShutdown
+    handle (CmdRemoveBreakpoint _) (ExRunning _) = failed "cannot remove breakpoint while the debugger is running"
+    handle (CmdRemoveBreakpoint bid) _ =
+      case M.lookup bid (stateUserBreakpoints state) of
+        Nothing -> failed "unknown breakpoint id"
+        Just bids -> do
+          B.remove_breakpoints backend bids
+          respond ResRemoveBreakpoint
+          return (\state' -> state' {
+              stateBreakpoints = foldr M.delete (stateBreakpoints state) bids
+            , stateUserBreakpoints = M.delete bid (stateUserBreakpoints state)
+            })
+
     -- CmdAddBreakpoint {{{3
-    handle (CmdAddBreakpoint _ _) ExShutdown = alreadyShutdown
+    handle (CmdAddBreakpoint _ _) ExShutdown    = alreadyShutdown
 
     handle (CmdAddBreakpoint _ _) (ExRunning _) = failed "cannot set a breakpoint while the debugger is running"
 
