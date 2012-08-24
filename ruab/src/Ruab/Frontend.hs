@@ -7,7 +7,7 @@ module Ruab.Frontend
 
 -- imports {{{1
 import Control.Arrow (first)
-import Data.List (intercalate, find, isPrefixOf)
+import Data.List (intercalate, find, isPrefixOf, nub)
 import Data.Maybe (fromJust, listToMaybe)
 import Graphics.UI.Gtk hiding (response)
 import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
@@ -74,9 +74,11 @@ data CommandPrefix -- {{{2
   | CmdPrContinue
   | CmdPrHelp
   | CmdPrInterrupt
+  | CmdPrNext
   | CmdPrQuit
   | CmdPrScroll
-  | CmdPrStart
+  | CmdPrRun
+  | CmdPrStep
 
 data Command -- {{{2
   = CmdUnknown String
@@ -85,9 +87,11 @@ data Command -- {{{2
   | CmdContinue
   | CmdHelp (Maybe CommandPrefix)
   | CmdInterrupt
+  | CmdNext
   | CmdQuit
+  | CmdRun
   | CmdScroll RowType Int
-  | CmdStart
+  | CmdStep
 
 data RowType -- {{{2
   = Tcode | Pcode | Ecode
@@ -112,14 +116,16 @@ instance Read CommandPrefix where -- {{{2
 
 commands :: [(String, CommandPrefix)] -- {{{2
 commands = [
-    ("badd", CmdPrBreakAdd)
-  , ("blist", CmdPrBreakList)
-  , ("continue", CmdPrContinue)
-  , ("help", CmdPrHelp)
+    ("badd",      CmdPrBreakAdd)
+  , ("blist",     CmdPrBreakList)
+  , ("continue",  CmdPrContinue)
+  , ("help",      CmdPrHelp)
   , ("interrupt", CmdPrInterrupt)
-  , ("quit", CmdPrQuit)
-  , ("scroll", CmdPrScroll)
-  , ("start", CmdPrStart)
+  , ("next",      CmdPrNext)
+  , ("quit",      CmdPrQuit)
+  , ("run",       CmdPrRun)
+  , ("scroll",    CmdPrScroll)
+  , ("step",      CmdPrStep)
   ]
 
 instance Read Command where -- {{{2
@@ -137,7 +143,7 @@ parseCommand text =
           case sequence (map mread tids) of
             Nothing -> CmdHelp (Just CmdPrBreakAdd)
             Just [] -> CmdBreakAdd prow' []
-            Just tids' -> CmdBreakAdd prow' tids'
+            Just tids' -> CmdBreakAdd prow' (nub tids')
         _ -> CmdHelp (Just CmdPrBreakAdd)
 
       CmdPrBreakList -> noopt CmdPrBreakList CmdBreakList options
@@ -152,6 +158,8 @@ parseCommand text =
 
       CmdPrInterrupt -> noopt CmdPrInterrupt CmdInterrupt options
 
+      CmdPrNext -> noopt CmdPrNext CmdNext options
+
       CmdPrQuit -> noopt CmdPrQuit CmdQuit options
 
       CmdPrScroll -> case options of
@@ -163,7 +171,9 @@ parseCommand text =
 
         _ -> CmdHelp (Just CmdPrScroll)
 
-      CmdPrStart -> noopt CmdPrStart CmdStart options
+      CmdPrRun -> noopt CmdPrRun CmdRun options
+
+      CmdPrStep -> noopt CmdPrStep CmdStep options
 
   where
     noopt _   ev [] = ev
@@ -177,9 +187,11 @@ help CmdPrBreakList = ["blist: list all breakpoints"]
 help CmdPrContinue  = ["continue: continue execution"]
 help CmdPrHelp      = ["help: show the list of available commands"]
 help CmdPrInterrupt = ["interrupt: interrupt execution"]
+help CmdPrNext      = ["next: resume until the beginning of the next source line - not descending into functions."]
 help CmdPrQuit      = ["quit: quit ruab"]
 help CmdPrScroll    = ["scroll [t|p|e] row: scroll views to the given row. Default row type is p-code."]
-help CmdPrStart     = ["start: start execution"]
+help CmdPrStep      = ["step: resume until the beginning of the next source line - descending into functions."]
+help CmdPrRun       = ["start: start execution"]
 
 instance Read RowType where -- {{{2
   readsPrec _ rtype = case lookup rtype rowtypes of
@@ -238,7 +250,7 @@ renderInfo (Context gui core) infos = do
     p2t = map (first ($fromJust_s . C.p2t_row core))
 
     p2e = foldr go []
-    go (prow, inf) iis = case $fromJust_s $ C.p2e_row core prow of
+    go (prow, inf) iis = case $fromJust_s $ C.p2e_any_row core prow of
       C.NonCritical erow -> (erow, inf) : iis
       C.Critical ts      -> map (\(_, erow) -> (erow, inf)) ts ++ iis
 
@@ -261,7 +273,7 @@ handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
       fLog $ Log LogOutput ["breakpoint added", show bp]
       fInfo $ setBreakpoint (C.breakpointRow bp) (C.breakpointNumber bp)
 
-    handle C.ResContinue = fLog $ Log LogOutput ["continued"]
+    handle C.ResResume = fLog $ Log LogOutput ["resumed"]
 
     handle C.ResInterrupt = fLog $ Log LogOutput ["interrupted"]
 
@@ -296,7 +308,9 @@ handleCommand core fInfo fLog fCommand = handle
 
     handle CmdBreakList = fCommand $ C.CmdListBreakpoints
 
-    handle CmdContinue = fCommand C.CmdContinue
+    handle CmdContinue = fCommand $ C.CmdResume C.Continue
+    handle CmdNext     = fCommand $ C.CmdResume C.Next
+    handle CmdStep     = fCommand $ C.CmdResume C.Step
 
     handle CmdInterrupt = fCommand C.CmdInterrupt
 
@@ -315,14 +329,14 @@ handleCommand core fInfo fLog fCommand = handle
         f = case rt of     
           Tcode -> C.t2p_row core . C.TRow
           Pcode -> Just . C.PRow
-          Ecode -> C.e2p_row core . C.ERow
+          Ecode -> C.e2p_any_row core . C.ERow
       in
         case f srow of
           Nothing -> fLog $ Log LogError ["invalid row number"]
           Just prow -> 
             let
               mtrow = C.p2t_row core prow
-              erows = C.p2e_row core prow
+              erows = C.p2e_any_row core prow
 
               scroll etxt = case mtrow of
                 Nothing -> fLog $ Log LogError ["failed to map to t-row"]
@@ -338,7 +352,7 @@ handleCommand core fInfo fLog fCommand = handle
               Just (C.NonCritical erow) -> scroll (show erow)
               Just (C.Critical ts)      -> scroll (show ts)
 
-    handle CmdStart = fCommand C.CmdStart
+    handle CmdRun = fCommand C.CmdRun
 
 handleKeyEvent :: Fire InputEvent -> Event -> IO Bool -- {{{2
 handleKeyEvent fInput (Key _ _ _ []        _ _ _ _ "Return" _) = fInput InputReturn     >> return True

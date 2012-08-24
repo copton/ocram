@@ -8,6 +8,7 @@ import qualified Ocram.Ruab as R
 data ERowMatch -- {{{1
   = NonCritical R.ERow
   | Critical [(R.ThreadId, R.ERow)]
+  deriving Show
 
 t2p_row' :: R.PreprocMap -> R.TRow -> Maybe R.PRow -- {{{1
 t2p_row'(R.PreprocMap _ prows locs) trow = do

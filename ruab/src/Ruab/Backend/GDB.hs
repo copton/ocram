@@ -6,7 +6,7 @@ module Ruab.Backend.GDB
   , setup, shutdown, run
   , G.Location, G.file_line_location, G.file_function_location
   , G.Breakpoint(..), G.Stack(..), G.Frame(..), G.Stopped(..), G.StopReason(..), G.BkptNumber
-  , set_breakpoint, continue, interrupt, backtrace
+  , set_breakpoint, continue, step, next, interrupt, backtrace
   , G.Notification(..), G.NotificationClass(..), G.Stream(..), G.StreamClass(..), G.AsyncClass(..)
   , G.asConst
 ) where
@@ -60,6 +60,18 @@ run ctx = do
 continue :: G.Context -> IO ()
 continue ctx = do
   resp <- G.send_command ctx (G.exec_continue False (Left True))
+  when (G.respClass resp /= G.RCRunning)
+    ($abort $ "unexpected response: " ++ show resp)
+
+step :: G.Context -> IO ()
+step ctx = do
+  resp <- G.send_command ctx G.exec_step
+  when (G.respClass resp /= G.RCRunning)
+    ($abort $ "unexpected response: " ++ show resp)
+
+next :: G.Context -> IO ()
+next ctx = do
+  resp <- G.send_command ctx G.exec_next
   when (G.respClass resp /= G.RCRunning)
     ($abort $ "unexpected response: " ++ show resp)
 
