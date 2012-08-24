@@ -108,6 +108,8 @@ data AsyncClass -- {{{3
   | ACThreadCreated
   | ACRunning
   | ACLibraryLoaded
+  | ACThreadExited
+  | ACThreadGroupExited
   deriving (Show, Eq)
 
 data Result -- {{{3
@@ -221,6 +223,8 @@ p_asyncClass =
   <|> try (string "thread-group-started" >> return ACThreadGroupStarted)
   <|> try (string "thread-created"       >> return ACThreadCreated)
   <|> try (string "running"              >> return ACRunning)
+  <|> try (string "thread-exited"        >> return ACThreadExited)
+  <|> try (string "thread-group-exited"  >> return ACThreadGroupExited)
   <|>     (string "library-loaded"       >> return ACLibraryLoaded)
 
 p_result :: Parser Result -- {{{3
