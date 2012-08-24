@@ -39,7 +39,7 @@ setBreakpoint :: C.PRow -> Int -> [InfoInstance] -> [InfoInstance] -- {{{2
 setBreakpoint prow 0 infos = (prow, InfBreakpoint 0) : infos
 setBreakpoint prow bid infos = (prow, InfBreakpoint bid) : clearBreakpoint bid infos
 
-class Row a where
+class Row a where -- {{{2
   getRow :: a -> Int
 
 instance Row C.TRow where
