@@ -221,12 +221,17 @@ test_response_stopped = enumTestGroup "response_stopped" $ map runTest [
   ([paste|
 *stopped,reason="breakpoint-hit",disp="keep",bkptno="7",frame={addr="0x0000000000400e24",func="ec_thread_1",args=[{name="ec_cont",value="0x400ed5"}],file="ec.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c",line="433"},thread-id="1",stopped-threads="all",core="1"
 (gdb) 
-|], Stopped (BreakpointHit BreakpointKeep 7) (Frame Nothing "0x0000000000400e24" "ec_thread_1" (Just [Arg "ec_cont" "0x400ed5"]) "ec.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c") 433) 1 "all" 1)
-  , -- end stepping range
+|], Stopped (Just (BreakpointHit BreakpointKeep 7)) (Frame Nothing "0x0000000000400e24" "ec_thread_1" (Just [Arg "ec_cont" "0x400ed5"]) "ec.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c") 433) 1 "all" 1)
+  , -- end stepping range {{{3
   ([paste|
 *stopped,reason="end-stepping-range",frame={addr="0x00000000004017fa",func="main",args=[],file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="196"},thread-id="1",stopped-threads="all",core="1"
 (gdb) 
-|], Stopped EndSteppingRange (Frame Nothing "0x00000000004017fa" "main" (Just []) "pal.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c") 196) 1 "all" 1)
+|], Stopped (Just EndSteppingRange) (Frame Nothing "0x00000000004017fa" "main" (Just []) "pal.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c") 196) 1 "all" 1)
+  , -- no stop reason {{{3
+  ([paste|
+*stopped,frame={addr="0x00007ffff7a9d6b5",func="__find_specmb",args=[{name="s",value="0x7fffffffd930"},{name="format",value="0x40338e \"%d, %u\""},{name="ap",value="0x7fffffffdad0"}],file="printf-parse.h",line="99"},thread-id="1",stopped-threads="all",core="1"
+(gdb) 
+|], Stopped Nothing (Frame Nothing "0x00007ffff7a9d6b5" "__find_specmb" (Just [Arg "s" "0x7fffffffd930", Arg "format" "0x40338e \"%d, %u\"", Arg "ap" "0x7fffffffdad0"]) "printf-parse.h" Nothing 99) 1 "all" 1)
   ]
   where
     runTest :: (String, Stopped) -> Assertion -- {{{3

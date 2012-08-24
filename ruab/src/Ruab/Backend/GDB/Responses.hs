@@ -2,7 +2,7 @@ module Ruab.Backend.GDB.Responses where
 
 -- import {{{1
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (guard, msum, (<=<))
+import Control.Monad (guard, msum, mplus, (<=<))
 import Data.List (find)
 import Ruab.Backend.GDB.Representation
 
@@ -50,7 +50,7 @@ data Frame = Frame { -- {{{2
   } deriving Show
 
 data Stopped = Stopped { -- {{{2
-      stoppedReason   :: StopReason
+      stoppedReason   :: Maybe StopReason -- http://sourceware.org/bugzilla/show_bug.cgi?id=13587
     , stoppedFrame    :: Frame
     , stoppedThreadId :: Int
     , stoppedThreads  :: String
@@ -115,7 +115,16 @@ responseFrame (Result variable value) = do
 responseStopped :: [Result] -> Maybe Stopped -- {{{2
 responseStopped rs = do
   Stopped
-    <$> responseStopReason rs
+    <$> Just (responseStopReason rs)
+    <*> msum (map responseFrame rs)
+    <*> get rs tryRead "thread-id"
+    <*> get rs Just    "stopped-threads"
+    <*> get rs tryRead "core"
+
+responseStopped' :: [Result] -> Maybe Stopped -- {{{2
+responseStopped' rs = do
+  Stopped
+    <$> Just Nothing
     <*> msum (map responseFrame rs)
     <*> get rs tryRead "thread-id"
     <*> get rs Just    "stopped-threads"
@@ -158,7 +167,7 @@ response_break_insert [item] = responseBreakpoint item
 response_break_insert _      = Nothing
 
 response_stopped :: [Result] -> Maybe Stopped
-response_stopped items = responseStopped items
+response_stopped items = responseStopped items `mplus` responseStopped' items
   
 -- utils {{{1
 get :: [Result] -> (String -> Maybe a) -> (String -> Maybe a) -- {{{2
