@@ -534,6 +534,103 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
   ], [
       (3, 38, 0)
   ])
+-- declaration with initializer {{{2
+  ,([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+    int f();
+    __attribute__((tc_run_thread)) void start() {
+04:   int i = 0;
+05:   int k = f();
+06:   block(i+k); 
+    }
+  |], [lpaste|
+    int f();
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_frame_block_t;
+    typedef struct {
+                union {
+                    ec_frame_block_t block;
+                } ec_frames;
+                int i;
+                int k;
+            } ec_frame_start_t;
+    ec_frame_start_t ec_stack_start;
+    void block(ec_frame_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+20:     ec_stack_start.i = 0;
+21:     ec_stack_start.k = f();
+        ec_stack_start.ec_frames.block.i = ec_stack_start.i + ec_stack_start.k;
+        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+24:     block(&ec_stack_start.ec_frames.block);
+        return;
+    ec_label_start_1:
+        ;
+        return;
+    }
+  |], [
+      ( 4, 20, Just 0)
+    , ( 5, 21, Just 0)
+    , ( 6, 24, Just 0)
+  ], [
+      ( 6, 24, 0)
+  ])
+-- declaration with critical initializer {{{2
+  ,([lpaste|
+    __attribute__((tc_blocking)) int block();
+    __attribute__((tc_run_thread)) void start() {
+03:   int i = block();
+    }
+  |], [lpaste|
+    typedef struct {
+                void * ec_cont; int ec_result;
+            } ec_frame_block_t;
+    typedef struct {
+                union {
+                    ec_frame_block_t block;
+                } ec_frames;
+                int i;
+            } ec_frame_start_t;
+    ec_frame_start_t ec_stack_start;
+    void block(ec_frame_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+19:     block(&ec_stack_start.ec_frames.block);
+        return;
+    ec_label_start_1:
+        ;
+23:     ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
+        return;
+    }
+  |], [
+      ( 3, 23, Just 0)
+  ], [
+      ( 3, 19, 0)
+  ])
+-- declaration in non-critical function {{{2
+  ,([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+    int f() {
+03:   int i = 0;
+04:   return i;
+    }
+    __attribute__((tc_run_thread)) void start() {
+07:   block(f());
+    }
+  |], [lpaste|
+  |], [
+  ], [
+  ])
   ]
 
 runTest :: (String, String, TBreakpoints, TBlockingCalls) -> Assertion -- {{{1

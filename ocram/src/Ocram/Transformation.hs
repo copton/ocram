@@ -22,24 +22,29 @@ import qualified Data.Set as Set
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
   let
-    ast' = (translate cg . enableBreakpoints . normalize cg . fmap enrich_node_info) ast
+    ast' = translate cg . normalize cg . enableBreakpoints . fmap enrich_node_info $ ast
     pal = extractPal cg ast'
     ds = extractVarMap ast'
   in
     (ast', pal, ds)
 
 enableBreakpoints :: CTranslUnit' -> CTranslUnit' -- {{{1
-enableBreakpoints = everywhere (mkT tStat `extT` tDecl)
+enableBreakpoints = everywhere (mkT tStat `extT` tStaticDecl)
   where
     tStat :: CStat' -> CStat'
     tStat o@(CCompound _ _ _) = o
     tStat o@(CExpr Nothing _) = o
     tStat s = amap setBreakpoint s
 
-    tDecl :: CDecl' -> CDecl'
-    -- Decls with initializers
-    tDecl o@(CDecl _ [(_, Just _, _)] _) = amap setBreakpoint o
-    tDecl o = o
+    tStaticDecl :: CDecl' -> CDecl'
+    tStaticDecl o@(CDecl specs decls _)
+      | any isStatic specs && any isInitializer decls = amap setBreakpoint o
+      | otherwise = o
+      where
+        isStatic (CStorageSpec (CStatic _)) = True
+        isStatic _ = False
+        isInitializer (_, Just _, _) = True
+        isInitializer _ = False
 
     setBreakpoint x
       | (isUndefNode . nodeInfo) x = x

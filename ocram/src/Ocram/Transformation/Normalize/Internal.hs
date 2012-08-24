@@ -11,7 +11,7 @@ import Data.Data (Data)
 import Data.Generics (everything, mkQ, everywhere, everywhereBut, mkT, everywhereM, mkM)
 import Data.Monoid (Any(Any, getAny), mappend)
 import Language.C.Syntax.AST
-import Ocram.Debug (un, ENodeInfo)
+import Ocram.Debug (un, ENodeInfo(..))
 import Ocram.Query (return_type_fd, return_type)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names (ctrlbl, varCrit)
@@ -152,18 +152,19 @@ unlist_declarations = transformCompound tr
   tr (CBlockDecl decl) = map CBlockDecl (unlistDecl decl)
   tr o = [o]
 
-  unlistDecl (CDecl x [] z) = [CDecl x [] z] -- struct S { int i; };
-  unlistDecl (CDecl x ds z) = map (\y -> CDecl x [y] z) ds
+  unlistDecl (CDecl x [] ni) = [CDecl x [] ni] -- struct S { int i; };
+  unlistDecl (CDecl x ds ni) = map (\y -> CDecl x [y] ni) ds
 
 defer_critical_initialization :: Set.Set Symbol -> CFunDef' -> CFunDef' -- {{{1
 defer_critical_initialization cf = transformCompound tr
   where
-  tr o@(CBlockDecl (CDecl y1 [(Just declr, Just (CInitExpr cexpr _), y2)] y3))
+  tr o@(CBlockDecl (CDecl y1 [(Just declr, Just expr@(CInitExpr cexpr _), y2)] y3))
     | containsCriticalCall cf cexpr = [declare, initialize]
     | otherwise = [o]
     where
       declare = CBlockDecl (CDecl y1 [(Just declr, Nothing, y2)] y3)
-      initialize = CBlockStmt (CExpr (Just (CAssign CAssignOp (CVar (ident (symbol declr)) un) cexpr un)) un)
+      initialize = CBlockStmt (CExpr (Just (CAssign CAssignOp (CVar (ident (symbol declr)) un) cexpr un)) ni)
+      ni = (annotation expr) {enBreakpoint = True}
   tr o = [o]
 
 critical_statements :: Int -> Set.Set Symbol -> CTranslUnit' -> CFunDef' -> CFunDef' -- {{{1

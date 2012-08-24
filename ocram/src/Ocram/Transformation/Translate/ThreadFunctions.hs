@@ -81,8 +81,10 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
           | otherwise = [o]
         transform o = [o]
 
-        initialize cd@(CDecl _ [(_, Just(CInitExpr expr _), _)] _) =
-          [CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd) expr un)) (annotation cd))]
+        initialize cd@(CDecl _ [(_, Just (CInitExpr expr _), _)] _) =
+          [CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd) expr un)) ni)]
+            where
+              ni = (annotation expr) {enBreakpoint = True}
         initialize _ = []
 
         var cd = stackAccess callChain (Just (symbol cd))
@@ -100,8 +102,8 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
           | otherwise = return [o]
           where calledFunction = symbol iden
 
-        transform o@(CBlockStmt (CExpr (Just (CAssign CAssignOp lhs call@(CCall (CVar iden _) params _) _)) _))
-          | is_critical cg calledFunction = callSequence calledFunction (annotation call) params (Just lhs)
+        transform o@(CBlockStmt expr@(CExpr (Just (CAssign CAssignOp lhs (CCall (CVar iden _) params _) _)) _))
+          | is_critical cg calledFunction = callSequence calledFunction (annotation expr) params (Just lhs)
           | otherwise = return [o]
           where calledFunction = symbol iden 
 
