@@ -14,6 +14,7 @@ import Ocram.Ruab (Breakpoint(..), TLocation(..), ELocation(..), BlockingCall(..
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework (testGroup, Test)
 import Test.HUnit (Assertion)
+import Text.Printf (printf)
 import qualified Data.Set as Set
 import qualified Data.List as List
 
@@ -42,7 +43,7 @@ lpaste = QuasiQuoter {
 	}
 
 enumTestGroup :: String -> [Assertion] -> Test -- {{{1
-enumTestGroup name assertions = testGroup name $ zipWith (testCase . show) [(1 :: Int)..] assertions
+enumTestGroup name assertions = testGroup name $ zipWith (testCase . printf "%.2d") [(1 :: Int)..] assertions
 
 class TestData d t where -- {{{1
 	reduce :: d -> t
