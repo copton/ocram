@@ -47,8 +47,8 @@ import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
 import Language.C.Data.Node (posOfNode, lengthOfNode, isUndefNode)
 import Text.PrettyPrint
-import Ocram.Debug (ENodeInfo(..))
-import Ocram.Ruab (TLocation(..), ELocation(..), Breakpoint(..), Breakpoints, BlockingCall(..), BlockingCalls, ERow(..), TRow(..))
+import Ocram.Debug (ENodeInfo(..), Breakpoint(..), Breakpoints)
+import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), BlockingCalls, ERow(..), TRow(..))
 import Ocram.Util (abort, fromJust_s)
 import Prelude hiding (log)
 

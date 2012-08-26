@@ -6,6 +6,7 @@ import Text.JSON
 import Control.Arrow ((***))
 
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.Map as M
 
 encode_debug_info :: DebugInfo -> BS.ByteString -- {{{1
 encode_debug_info = BS.pack . encodeStrict
@@ -33,20 +34,15 @@ data TLocation = TLocation { -- {{{2
   , tlocCol  :: Int
   , tlocLen  :: Int
   , tlocFile :: String
-  } deriving Show
+  } deriving (Show, Ord, Eq)
 
 data ELocation = ELocation { -- {{{2
     elocRow  :: ERow
   , elocCol  :: Int
   } deriving Show
 
-data Breakpoint = Breakpoint { -- {{{2
-    bpTloc           :: TLocation
-  , bpEloc           :: ELocation
-  , bpThreadId       :: Maybe ThreadId
-  } deriving (Show)
-
-type Breakpoints = [Breakpoint] -- {{{2
+newtype LocMap -- {{{2
+  = LocMap { getLocMap :: M.Map (Maybe ThreadId, TLocation) [ELocation] }
 
 data BlockingCall = BlockingCall { -- {{{2
     bcTloc     :: TLocation
@@ -83,7 +79,7 @@ data DebugInfo = DebugInfo { -- {{{2
   , diPcode     :: BS.ByteString
   , diEcode     :: File
   , diPpm       :: PreprocMap
-  , diBps       :: Breakpoints
+  , diLm        :: LocMap
   , diBcs       :: BlockingCalls
   , diVarMap    :: VarMap
   , diThreads   :: [Thread]
@@ -105,13 +101,13 @@ instance JSON ELocation where -- {{{2
 
   showJSON (ELocation (ERow r) c) = showJSON (r, c)
 
-instance JSON Breakpoint where -- {{{2
+instance JSON LocMap where -- {{{2
   readJSON val = do
-    (t, e, tid) <- readJSON val
-    return $ Breakpoint t e (if tid == -1 then Nothing else Just tid)
+    entries <- readJSON val
+    return . LocMap . M.fromList $ entries
 
-  showJSON (Breakpoint t e tid) = showJSON (t, e, maybe (-1) id tid)
-
+  showJSON = showJSON . M.toList . getLocMap
+    
 instance JSON BlockingCall where -- {{{2
   readJSON val = do
     (t, e, tid) <- readJSON val
@@ -156,12 +152,12 @@ instance JSON Thread where -- {{{2
   readJSON x = readFail "Thread" x
 
 instance JSON DebugInfo where -- {{{2
-  showJSON (DebugInfo tcode pcode ecode ppm bps bcs vm ts oa) = (JSObject . toJSObject) [
+  showJSON (DebugInfo tcode pcode ecode ppm lm bcs vm ts oa) = (JSObject . toJSObject) [
       ("tcode",   showJSON tcode)
     , ("pcode",   showJSON pcode)
     , ("ecode",   showJSON ecode)
     , ("ppm",     showJSON ppm)
-    , ("bps",     showJSON bps)
+    , ("lm",      showJSON lm)
     , ("bcs",     showJSON bcs)
     , ("vs",      showJSON vm)
     , ("threads", showJSON ts)
@@ -169,16 +165,16 @@ instance JSON DebugInfo where -- {{{2
     ]
 
   readJSON (JSObject obj) = do
-    let [tcode, pcode, ecode, ppm, bps, bcs, vm, ts, oa] = map snd $ fromJSObject obj
+    let [tcode, pcode, ecode, ppm, lm, bcs, vm, ts, oa] = map snd $ fromJSObject obj
     [tcode', ecode'] <- mapM readJSON [tcode, ecode]
     pcode'           <- readJSON pcode
     ppm'             <- readJSON ppm
-    bps'              <- readJSON bps
-    bcs'              <- readJSON bcs
+    lm'              <- readJSON lm
+    bcs'             <- readJSON bcs
     vm'              <- readJSON vm
     ts'              <- readJSON ts
     oa'              <- readJSON oa
-    return $ DebugInfo tcode' pcode' ecode' ppm' bps' bcs' vm' ts' oa'
+    return $ DebugInfo tcode' pcode' ecode' ppm' lm' bcs' vm' ts' oa'
 
   readJSON x = readFail "DebugInfo" x
 

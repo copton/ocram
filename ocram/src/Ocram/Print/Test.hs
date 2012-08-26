@@ -6,16 +6,16 @@ module Ocram.Print.Test
 ) where
 
 -- import {{{1
-import Data.Generics (everything, mkQ, extQ)
-import Data.List (intercalate)
-import Ocram.Debug (ENodeInfo(..))
-import Language.C.Syntax.AST (annotation)
+--import Data.Generics (everything, mkQ, extQ)
+--import Data.List (intercalate)
+--import Ocram.Debug (ENodeInfo(..))
+--import Language.C.Syntax.AST (annotation)
 import Ocram.Analysis (analysis)
 import Ocram.Print (print_with_log)
 import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TBreakpoints, TBlockingCalls)
 import Ocram.Text (show_errors)
 import Ocram.Transformation (transformation)
-import Ocram.Transformation.Types (CExpr', CStat')
+--import Ocram.Transformation.Types (CExpr', CStat')
 import Test.Framework (Test, testGroup)
 import Test.HUnit (Assertion, assertFailure, assertEqual)
 
@@ -29,7 +29,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 -- setup {{{2
   ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() { 
+02: __attribute__((tc_run_thread)) void start() { 
 03:   block(23);
     }
   |],[lpaste|
@@ -49,23 +49,27 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-        ec_stack_start.ec_frames.block.i = 23;
-        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+17:     ec_stack_start.ec_frames.block.i = 23;
+18:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 19:     block(&ec_stack_start.ec_frames.block);
-        return;
+20:     return;
     ec_label_start_1:
         ;
-        return;
+23:     return;
     }
     |], [
-      (3, 19, Just 0)
+        (3, 17, Just 0)
+      , (3, 18, Just 0)
+      , (3, 19, Just 0)
+      , (3, 20, Just 0)
+      , (2, 23, Just 0)
     ], [
       (3, 19, 0)
     ])
 -- function static variable {{{2
   , ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+02: __attribute__((tc_run_thread)) void start() {
 03:   static int i = 0;
 04:   block(i);
     }
@@ -87,17 +91,21 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
             goto * ec_cont;
         }
 17:     static int i = 0;
-        ec_stack_start.ec_frames.block.i = i;
-        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+18:     ec_stack_start.ec_frames.block.i = i;
+19:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 20:     block(&ec_stack_start.ec_frames.block);
-        return;
+21:     return;
     ec_label_start_1:
         ;
-        return;
+24:     return;
     }
   |], [
       (3, 17, Just 0)
+    , (4, 18, Just 0)
+    , (4, 19, Just 0)
     , (4, 20, Just 0)
+    , (4, 21, Just 0)
+    , (2, 24, Just 0)
   ], [
       (4, 20, 0)
   ])
@@ -105,7 +113,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
   , ([lpaste|
     int k;
     __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+03: __attribute__((tc_run_thread)) void start() {
 04:   k = 23;
 05:   block(k);
     }
@@ -128,17 +136,21 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
             goto * ec_cont;
         }
 18:     k = 23;
-        ec_stack_start.ec_frames.block.i = k;
-        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+19:     ec_stack_start.ec_frames.block.i = k;
+20:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 21:     block(&ec_stack_start.ec_frames.block);
-        return;
+22:     return;
     ec_label_start_1:
         ;
-        return;
+25:     return;
     }
   |], [
       (4, 18, Just 0)
+    , (5, 19, Just 0)
+    , (5, 20, Just 0)
     , (5, 21, Just 0)
+    , (5, 22, Just 0)
+    , (3, 25, Just 0)
   ], [
       (5, 21, 0)
   ])
@@ -149,7 +161,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 03:   k = 23; 
     }
     __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+06: __attribute__((tc_run_thread)) void start() {
 07:   f();
 08:   block(k);
     }
@@ -176,28 +188,32 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
             goto * ec_cont;
         }
 22:     f();
-        ec_stack_start.ec_frames.block.i = k;
-        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+23:     ec_stack_start.ec_frames.block.i = k;
+24:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 25:     block(&ec_stack_start.ec_frames.block);
-        return;
+26:     return;
     ec_label_start_1:
         ;
-        return;
+29:     return;
     }
   |], [
       (3,  4, Nothing)
     , (7, 22, Just 0)
+    , (8, 23, Just 0)
+    , (8, 24, Just 0)
     , (8, 25, Just 0)
+    , (8, 26, Just 0)
+    , (6, 29, Just 0)
   ], [
       (8, 25, 0)
   ])
 -- critical function call {{{2
   ,([lpaste|
     __attribute__((tc_blocking)) void block(int i);
-    void c(int i) {
+02: void c(int i) {
 03:   block(i+1);
     }
-    __attribute__((tc_run_thread)) void start() {
+05: __attribute__((tc_run_thread)) void start() {
 06:   c(23);
     }
   |], [lpaste|
@@ -224,38 +240,45 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-        ec_stack_start.ec_frames.c.i = 23;
-        ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
+24:     ec_stack_start.ec_frames.c.i = 23;
+25:     ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
 26:     goto ec_label_c_0;
     ec_label_start_1:
         ;
-        return;
+28:     return;
     ec_label_c_0:
         ;
-        ec_stack_start.ec_frames.c.ec_frames.block.i = ec_stack_start.ec_frames.c.i + 1;
-        ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+32:     ec_stack_start.ec_frames.c.ec_frames.block.i = ec_stack_start.ec_frames.c.i + 1;
+33:     ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
 34:     block(&ec_stack_start.ec_frames.c.ec_frames.block);
-        return;
+35:     return;
     ec_label_c_1:
         ;
-        goto * (ec_stack_start.ec_frames.c.ec_cont);
+38:     goto * (ec_stack_start.ec_frames.c.ec_cont);
     }
   |], [
-      (6, 26, Just 0)
+      (6, 24, Just 0)
+    , (6, 25, Just 0)
+    , (6, 26, Just 0)
+    , (5, 29, Just 0)
+    , (3, 32, Just 0)
+    , (3, 33, Just 0)
     , (3, 34, Just 0)
+    , (3, 35, Just 0)
+    , (2, 38, Just 0)
   ], [
       (3, 34, 0)
   ])
 -- re-entrance {{{2
   ,([lpaste|
     __attribute__((tc_blocking)) void block(int i);
-    void c(int i) {
+02: void c(int i) {
 03:   block(i+1);
     }
-    __attribute__((tc_run_thread)) void s1() {
+05: __attribute__((tc_run_thread)) void s1() {
 06:   c(23);
     }
-    __attribute__((tc_run_thread)) void s2() {
+08: __attribute__((tc_run_thread)) void s2() {
 09:   c(42);
     }
   |], [lpaste|
@@ -288,21 +311,21 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-        ec_stack_s1.ec_frames.c.i = 23;
-        ec_stack_s1.ec_frames.c.ec_cont = &&ec_label_s1_1;
+30:     ec_stack_s1.ec_frames.c.i = 23;
+31:     ec_stack_s1.ec_frames.c.ec_cont = &&ec_label_s1_1;
 32:     goto ec_label_c_0;
     ec_label_s1_1:
         ;
-        return;
+35:     return;
     ec_label_c_0:
         ;
-        ec_stack_s1.ec_frames.c.ec_frames.block.i = ec_stack_s1.ec_frames.c.i + 1;
-        ec_stack_s1.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+38:     ec_stack_s1.ec_frames.c.ec_frames.block.i = ec_stack_s1.ec_frames.c.i + 1;
+39:     ec_stack_s1.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
 40:     block(&ec_stack_s1.ec_frames.c.ec_frames.block);
-        return;
+41:     return;
     ec_label_c_1:
         ;
-        goto * (ec_stack_s1.ec_frames.c.ec_cont);
+44:     goto * (ec_stack_s1.ec_frames.c.ec_cont);
     }
     void ec_thread_1(void * ec_cont)
     {
@@ -310,27 +333,41 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-        ec_stack_s2.ec_frames.c.i = 42;
-        ec_stack_s2.ec_frames.c.ec_cont = &&ec_label_s2_1;
+52:     ec_stack_s2.ec_frames.c.i = 42;
+53:     ec_stack_s2.ec_frames.c.ec_cont = &&ec_label_s2_1;
 54:     goto ec_label_c_0;
     ec_label_s2_1:
         ;
-        return;
+57:     return;
     ec_label_c_0:
         ;
-        ec_stack_s2.ec_frames.c.ec_frames.block.i = ec_stack_s2.ec_frames.c.i + 1;
-        ec_stack_s2.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+60:     ec_stack_s2.ec_frames.c.ec_frames.block.i = ec_stack_s2.ec_frames.c.i + 1;
+61:     ec_stack_s2.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
 62:     block(&ec_stack_s2.ec_frames.c.ec_frames.block);
-        return;
+63:     return;
     ec_label_c_1:
         ;
-        goto * (ec_stack_s2.ec_frames.c.ec_cont);
+66:     goto * (ec_stack_s2.ec_frames.c.ec_cont);
     }
   |], [
-      (6, 32, Just 0)
+      (6, 30, Just 0)
+    , (6, 31, Just 0)
+    , (6, 32, Just 0)
+    , (5, 35, Just 0)
+    , (3, 38, Just 0)
+    , (3, 39, Just 0)
     , (3, 40, Just 0)
+    , (3, 41, Just 0)
+    , (2, 44, Just 0)
+    , (9, 52, Just 1)
+    , (9, 53, Just 1)
     , (9, 54, Just 1)
+    , (8, 57, Just 1)
+    , (3, 60, Just 1)
+    , (3, 61, Just 1)
     , (3, 62, Just 1)
+    , (3, 63, Just 1)
+    , (2, 66, Just 1)
   ], [
       (3, 40, 0)
     , (3, 62, 1)
@@ -338,7 +375,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 -- multiple statements in a row {{{2
   ,([lpaste|
     __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+02: __attribute__((tc_run_thread)) void start() {
 03:   block(23); block(42);
     }
   |], [lpaste|
@@ -358,23 +395,30 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-        ec_stack_start.ec_frames.block.i = 23;
-        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+17:     ec_stack_start.ec_frames.block.i = 23;
+18:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 19:     block(&ec_stack_start.ec_frames.block);
-        return;
+20:     return;
     ec_label_start_1:
         ;
-        ec_stack_start.ec_frames.block.i = 42;
-        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_2;
+23:     ec_stack_start.ec_frames.block.i = 42;
+24:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_2;
 25:     block(&ec_stack_start.ec_frames.block);
-        return;
+26:     return;
     ec_label_start_2:
         ;
-        return;
+29:     return;
     }
   |], [
-      (3, 19, Just 0)
+      (3, 17, Just 0)
+    , (3, 18, Just 0)
+    , (3, 19, Just 0)
+    , (3, 20, Just 0)
+    , (3, 23, Just 0)
+    , (3, 24, Just 0)
     , (3, 25, Just 0)
+    , (3, 26, Just 0)
+    , (2, 29, Just 0)
   ], [
       (3, 19, 0)
     , (3, 25, 0)
@@ -389,7 +433,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 06:     return block(42);
       }
     }
-    __attribute__((tc_run_thread)) void start() {
+09: __attribute__((tc_run_thread)) void start() {
 10:   c(0);
     }
   |], [lpaste|
@@ -419,47 +463,62 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-        ec_stack_start.ec_frames.c.i = 0;
-        ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
+27:     ec_stack_start.ec_frames.c.i = 0;
+28:     ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
 29:     goto ec_label_c_0;
     ec_label_start_1:
         ;
-        return;
+32:     return;
     ec_label_c_0:
         ;
 35:     if (ec_stack_start.ec_frames.c.i == 0)
         {
-            ec_stack_start.ec_frames.c.ec_frames.block.i = 23;
-            ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+37:         ec_stack_start.ec_frames.c.ec_frames.block.i = 23;
+38:         ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
 39:         block(&ec_stack_start.ec_frames.c.ec_frames.block);
-            return;
+40:         return;
         ec_label_c_1:
             ;
-            ec_stack_start.ec_frames.c.ec_crit_0_0 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
+43:         ec_stack_start.ec_frames.c.ec_crit_0_0 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
             {
-                ec_stack_start.ec_frames.c.ec_result = ec_stack_start.ec_frames.c.ec_crit_0_0;
+45:             ec_stack_start.ec_frames.c.ec_result = ec_stack_start.ec_frames.c.ec_crit_0_0;
 46:             goto * (ec_stack_start.ec_frames.c.ec_cont);
             }
         }
         else
         {
-            ec_stack_start.ec_frames.c.ec_frames.block.i = 42;
-            ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_2;
+51:         ec_stack_start.ec_frames.c.ec_frames.block.i = 42;
+52:         ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_2;
 53:         block(&ec_stack_start.ec_frames.c.ec_frames.block);
-            return;
+54:         return;
         ec_label_c_2:
             ;
-            ec_stack_start.ec_frames.c.ec_crit_0_1 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
+57:         ec_stack_start.ec_frames.c.ec_crit_0_1 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
             {
-                ec_stack_start.ec_frames.c.ec_result = ec_stack_start.ec_frames.c.ec_crit_0_1;
+59:             ec_stack_start.ec_frames.c.ec_result = ec_stack_start.ec_frames.c.ec_crit_0_1;
 60:             goto * (ec_stack_start.ec_frames.c.ec_cont);
             }
         }
     }
   |], [
-      (10, 29, Just 0)
+      (10, 27, Just 0)
+    , (10, 28, Just 0)
+    , (10, 29, Just 0)
+    , ( 9, 32, Just 0)
     , ( 3, 35, Just 0)
+    , ( 4, 37, Just 0)
+    , ( 4, 38, Just 0)
+    , ( 4, 39, Just 0)
+    , ( 4, 40, Just 0)
+    , ( 4, 43, Just 0)
+    , ( 4, 45, Just 0)
     , ( 4, 46, Just 0)
+    , ( 6, 51, Just 0)
+    , ( 6, 52, Just 0)
+    , ( 6, 53, Just 0)
+    , ( 6, 54, Just 0)
+    , ( 6, 57, Just 0)
+    , ( 6, 59, Just 0)
     , ( 6, 60, Just 0)
   ], [
       (4, 39, 0)
@@ -468,10 +527,10 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 -- while loops {{{2
   ,([lpaste|
       __attribute__((tc_blocking)) int block(int i);
-      void c(int i) {
+02:   void c(int i) {
 03:     while (block(i) != 0);
       }
-      __attribute__((tc_run_thread)) void start() {
+05:   __attribute__((tc_run_thread)) void start() {
 06:     c(23);
       }
   |], [lpaste|
@@ -499,38 +558,49 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-        ec_stack_start.ec_frames.c.i = 23;
-        ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
+25:     ec_stack_start.ec_frames.c.i = 23;
+26:     ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
 27:     goto ec_label_c_0;
     ec_label_start_1:
         ;
-        return;
+30:     return;
     ec_label_c_0:
         ;
         {
-34:     ec_ctrlbl_0_0:
+        ec_ctrlbl_0_0:
             ;
-            ec_stack_start.ec_frames.c.ec_frames.block.i = ec_stack_start.ec_frames.c.i;
-            ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
+36:         ec_stack_start.ec_frames.c.ec_frames.block.i = ec_stack_start.ec_frames.c.i;
+37:         ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
 38:         block(&ec_stack_start.ec_frames.c.ec_frames.block);
-            return;
+39:         return;
         ec_label_c_1:
             ;
-            ec_stack_start.ec_frames.c.ec_crit_0_0 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
-            if (!(ec_stack_start.ec_frames.c.ec_crit_0_0 != 0))
+42:         ec_stack_start.ec_frames.c.ec_crit_0_0 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
+43:         if (!(ec_stack_start.ec_frames.c.ec_crit_0_0 != 0))
             {
-                goto ec_ctrlbl_0_1;
+45:             goto ec_ctrlbl_0_1;
             }
             ;
-            goto ec_ctrlbl_0_0;
+48:         goto ec_ctrlbl_0_0;
         ec_ctrlbl_0_1:
             ;
         }
-        goto * (ec_stack_start.ec_frames.c.ec_cont);
+52:     goto * (ec_stack_start.ec_frames.c.ec_cont);
     }
   |], [
-      ( 6, 27, Just 0)
-    , ( 3, 34, Just 0)
+      ( 6, 25, Just 0)
+    , ( 6, 26, Just 0)
+    , ( 6, 27, Just 0)
+    , ( 5, 30, Just 0)
+    , ( 3, 36, Just 0)
+    , ( 3, 37, Just 0)
+    , ( 3, 38, Just 0)
+    , ( 3, 39, Just 0)
+    , ( 3, 42, Just 0)
+    , ( 3, 43, Just 0)
+    , ( 3, 45, Just 0)
+    , ( 3, 48, Just 0)
+    , ( 2, 52, Just 0)
   ], [
       (3, 38, 0)
   ])
@@ -538,7 +608,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
   ,([lpaste|
     __attribute__((tc_blocking)) void block(int i);
     int f();
-    __attribute__((tc_run_thread)) void start() {
+03: __attribute__((tc_run_thread)) void start() {
 04:   int i = 0;
 05:   int k = f();
 06:   block(i+k); 
@@ -565,25 +635,29 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         }
 20:     ec_stack_start.i = 0;
 21:     ec_stack_start.k = f();
-        ec_stack_start.ec_frames.block.i = ec_stack_start.i + ec_stack_start.k;
-        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+22:     ec_stack_start.ec_frames.block.i = ec_stack_start.i + ec_stack_start.k;
+23:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 24:     block(&ec_stack_start.ec_frames.block);
-        return;
+25:     return;
     ec_label_start_1:
         ;
-        return;
+28:     return;
     }
   |], [
       ( 4, 20, Just 0)
     , ( 5, 21, Just 0)
+    , ( 6, 22, Just 0)
+    , ( 6, 23, Just 0)
     , ( 6, 24, Just 0)
+    , ( 6, 25, Just 0)
+    , ( 3, 28, Just 0)
   ], [
       ( 6, 24, 0)
   ])
 -- declaration with critical initializer {{{2
   ,([lpaste|
     __attribute__((tc_blocking)) int block();
-    __attribute__((tc_run_thread)) void start() {
+02: __attribute__((tc_run_thread)) void start() {
 03:   int i = block();
     }
   |], [lpaste|
@@ -604,16 +678,20 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-        ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+18:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
 19:     block(&ec_stack_start.ec_frames.block);
-        return;
+20:     return;
     ec_label_start_1:
         ;
 23:     ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
-        return;
+24:     return;
     }
   |], [
-      ( 3, 23, Just 0)
+      ( 3, 18, Just 0)
+    , ( 3, 19, Just 0)
+    , ( 3, 20, Just 0)
+    , ( 3, 23, Just 0)
+    , ( 2, 24, Just 0)
   ], [
       ( 3, 19, 0)
   ])
@@ -624,12 +702,49 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 03:   int i = 0;
 04:   return i;
     }
-    __attribute__((tc_run_thread)) void start() {
+06: __attribute__((tc_run_thread)) void start() {
 07:   block(f());
     }
   |], [lpaste|
+    int f()
+    {
+03:     int i = 0;
+04:     return i;
+    }
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_frame_block_t;
+    typedef struct {
+                union {
+                    ec_frame_block_t block;
+                } ec_frames;
+            } ec_frame_start_t;
+    ec_frame_start_t ec_stack_start;
+    void block(ec_frame_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+22:     ec_stack_start.ec_frames.block.i = f();
+23:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
+24:     block(&ec_stack_start.ec_frames.block);
+25:     return;
+    ec_label_start_1:
+        ;
+28:     return;
+    }
   |], [
+      ( 3,  3, Nothing)
+    , ( 4,  4, Nothing)
+    , ( 7, 22, Just 0)
+    , ( 7, 23, Just 0)
+    , ( 7, 24, Just 0)
+    , ( 7, 25, Just 0)
+    , ( 6, 28, Just 0)
   ], [
+      ( 7, 24, 0)
   ])
   ]
 
@@ -646,20 +761,20 @@ runTest (inputCode, expectedCode, expectedBps, expectedBcs) =
         resultBps'  = reduce resultBps
         resultBcs'  = reduce resultBcs
       in do
-        let dbg = debug ast' -- needed for debugging the test cases
+--        let dbg = debug ast' -- needed for debugging the test cases
         assertEqual "code"           expectedCode resultCode'
-        assertEqual ("breakpoints: " ++ dbg)    expectedBps  resultBps'
+        assertEqual "breakpoints: "  expectedBps  resultBps'
         assertEqual "blocking calls" expectedBcs  resultBcs'
 
-  where
-    debug ast = intercalate "\n\n" $ map show $ everything (++) (mkQ [] traceExpr `extQ` traceStat) ast
+--   where
+--     debug ast = intercalate "\n\n" $ map show $ everything (++) (mkQ [] traceExpr `extQ` traceStat) ast
 
-    traceExpr :: CExpr' -> [String]
-    traceExpr expr 
-      | (enBreakpoint . annotation) expr = [show expr]
-      | otherwise = []
+--     traceExpr :: CExpr' -> [String]
+--     traceExpr expr 
+--       | (enBreakpoint . annotation) expr = [show expr]
+--       | otherwise = []
 
-    traceStat :: CStat' -> [String]
-    traceStat stmt
-      | (enBreakpoint . annotation) stmt = [show stmt]
-      | otherwise = []
+--     traceStat :: CStat' -> [String]
+--     traceStat stmt
+--       | (enBreakpoint . annotation) stmt = [show stmt]
+--       | otherwise = []

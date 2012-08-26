@@ -4,7 +4,7 @@ where
 -- imports {{{1
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, dependency_list, start_functions, is_start, get_callees, is_blocking, is_critical)
-import Ocram.Debug (un, ENodeInfo(..))
+import Ocram.Debug (un)
 import Ocram.Query (is_blocking_function', return_type, local_variables, is_function_declaration)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Names
@@ -15,7 +15,7 @@ import Ocram.Util ((?:), fromJust_s, abort)
 import qualified Data.Map as Map
 
 add_blocking_function_decls :: CTranslUnit' -> CTranslUnit' -- {{{1
-add_blocking_function_decls (CTranslUnit ds ni) = CTranslUnit (ds ++ extraDs) ni
+add_blocking_function_decls (CTranslUnit ds x) = CTranslUnit (ds ++ extraDs) x
   where
     extraDs = foldr proc [] ds
     proc (CDeclExt cd) cds
@@ -25,15 +25,16 @@ add_blocking_function_decls (CTranslUnit ds ni) = CTranslUnit (ds ++ extraDs) ni
 
     createBlockingFunctionDeclr cd = decl
       where
-      decl = CDecl ts [(Just declr, Nothing, Nothing)] un
-      ts = [CTypeSpec (CVoidType un)]    
-      declr = CDeclr iden fdeclr Nothing [] un
+      ni = annotation cd
+      decl = CDecl ts [(Just declr, Nothing, Nothing)] ni
+      ts = [CTypeSpec (CVoidType ni)]    
+      declr = CDeclr iden fdeclr Nothing [] ni
       iden = Just (ident fName)
       fName = symbol cd
-      fdeclr = [CFunDeclr (Right ([param], False)) [] un]
-      param = CDecl ts' [(Just declr', Nothing, Nothing)] un
-      ts' = [CTypeSpec (CTypeDef (ident (frameType fName)) un)]
-      declr' = CDeclr Nothing [CPtrDeclr [] un] Nothing [] un
+      fdeclr = [CFunDeclr (Right ([param], False)) [] ni]
+      param = CDecl ts' [(Just declr', Nothing, Nothing)] ni
+      ts' = [CTypeSpec (CTypeDef (ident (frameType fName)) ni)]
+      declr' = CDeclr Nothing [CPtrDeclr [] ni] Nothing [] ni
 
 remove_critical_functions :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
 remove_critical_functions cg (CTranslUnit ds ni) = (CTranslUnit (foldr proc [] ds) ni)
@@ -71,7 +72,7 @@ add_tstacks cg ast@(CTranslUnit decls ni) =
           | is_start cg name = Nothing
           | otherwise = Just $ CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un
         localVariables = map removeInit . Map.elems . $fromJust_s . local_variables ast $ name
-        removeInit (CDecl x1 [(x2, _, x3)] x4) = CDecl x1 [(x2, Nothing, x3)] (x4 {enBreakpoint = False})
+        removeInit (CDecl x1 [(x2, _, x3)] x4) = CDecl x1 [(x2, Nothing, x3)] x4
         removeInit _ = $abort "unexpected parameters"
 
     createNestedFramesUnion name =
