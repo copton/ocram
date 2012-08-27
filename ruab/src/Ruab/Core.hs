@@ -39,7 +39,7 @@ import qualified Ruab.Backend as B
 
 -- types {{{1
 
-data ERowMatch
+data ERowMatch -- {{{2
   = NonCritical R.ERow
   | Critical (M.Map R.ThreadId R.ERow)
   deriving Show
