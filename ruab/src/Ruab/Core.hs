@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, TupleSections #-}
 module Ruab.Core
 -- exports {{{1
 (
@@ -14,18 +14,16 @@ module Ruab.Core
   , possible_breakpoints
   , os_api
   , t2p_row, p2t_row
-  , p2e_bp_row, e2p_bp_row
-  , p2e_bc_row, e2p_bc_row
-  , p2e_any_row, e2p_any_row
+  , p2e_row, e2p_row
   , ERowMatch(..)
 ) where
 
 -- imports {{{1
-import Control.Applicative ((<$>), (<*>), pure)
-import Control.Monad (forM, when, mplus)
+import Control.Applicative ((<*>), pure)
+import Control.Monad (forM, when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
-import Data.List (intercalate, find)
+import Data.List (intercalate, find, nub)
 import Data.Maybe (catMaybes, isJust)
 import Prelude hiding (catch)
 import Ruab.Actor (new_actor, update)
@@ -37,21 +35,21 @@ import System.IO (openFile, IOMode(ReadMode), hClose)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
 import qualified Ocram.Ruab as R
-import qualified Data.Set as S
 import qualified Ruab.Backend as B
 
 -- types {{{1
-type TtoE = M.Map R.TRow ERowMatch
-type EtoT = M.Map R.ERow R.TRow
+
+data ERowMatch
+  = NonCritical R.ERow
+  | Critical (M.Map R.ThreadId R.ERow)
+  deriving Show
 
 data Context = Context { -- {{{2
     ctxDebugInfo     :: R.DebugInfo
   , ctxTcode         :: BS.ByteString
   , ctxEcode         :: BS.ByteString
-  , ctxBpTtoE        :: TtoE
-  , ctxBcTtoE        :: TtoE
-  , ctxBpEtoT        :: EtoT
-  , ctxBcEtoT        :: EtoT
+  , ctxTtoE          :: M.Map R.TRow ERowMatch
+  , ctxEtoT          :: M.Map R.ERow R.TRow
   }
 
 data Command -- {{{2
@@ -173,7 +171,7 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
         efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
         frame = B.stoppedFrame stopped
         file = B.frameFile frame
-        prow = e2p_any_row ctx . R.ERow . B.frameLine $ frame
+        prow = e2p_row ctx . R.ERow . B.frameLine $ frame
       in
         if file == efile && isJust prow
           then case runningThreads state of
@@ -312,10 +310,10 @@ handleCommand ctx backend fResponse command state = do
                   }
             xs -> failed $ errTxt ++ ": " ++ show xs
 
-      in case (p2e_bp_row ctx prow) of
+      in case (p2e_row ctx prow) of
         Nothing                 -> failed "invalid row number"
-        Just (NonCritical erow) -> addBreakpoints [erow]       allThreads   "invalid thread ids"
-        Just (Critical ts)      -> addBreakpoints (map snd ts) (map fst ts) "unreachable breakpoint"
+        Just (NonCritical erow) -> addBreakpoints [erow]      allThreads "invalid thread ids"
+        Just (Critical m)       -> addBreakpoints (M.elems m) (M.keys m) "unreachable breakpoint"
             
     -- CmdInterrupt {{{3
     handle CmdInterrupt (ExRunning _) = do
@@ -332,7 +330,7 @@ handleCommand ctx backend fResponse command state = do
             efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
             frame = $fromJust_s $ find ((efile==) . B.frameFile) (B.stackFrames stack)
           return $ setExecution ExStopped . updateThread (thId thread) (\t ->
-              t {thProw = Just $ $fromJust_s $ (e2p_any_row ctx . R.ERow . B.frameLine) frame}
+              t {thProw = e2p_row ctx . R.ERow . B.frameLine $ frame}
             )
 
         x -> $abort $ "illegal state of threads: " ++ show x
@@ -409,9 +407,10 @@ setup opt = do
   (tcode, ecode) <- loadFiles di
   let
     tfile = (R.fileName . R.diTcode) di
-    bps = filter ((tfile==) . R.tlocFile . R.bpTloc) (R.diBps di)
-    bcs = R.diBcs di
-  return $ Context di tcode ecode (bpt2e bps) (bct2e bcs) (bpe2t bps) (bce2t bcs)
+    lm = R.getLocMap . R.diLm $ di
+    t2em = t2e tfile lm
+    e2tm = e2t tfile lm
+  return $ Context di tcode ecode t2em e2tm
   where
     loadFiles di = do
       let files = [R.diTcode di, R.diEcode di]
@@ -431,23 +430,37 @@ setup opt = do
       | otherwise = Just $ failed $ R.fileName file
     failed file = "checksum for '" ++ file ++ "' differs"
 
-    bpe2t = M.fromList . map ((,) <$> R.elocRow . R.bpEloc <*> R.tlocRow . R.bpTloc)
-    bce2t = M.fromList . map ((,) <$> R.elocRow . R.bcEloc <*> R.tlocRow . R.bcTloc)
-
-    bpt2e = foldr itert2e M.empty . map ((,,) <$> R.tlocRow . R.bpTloc <*> R.elocRow . R.bpEloc <*> R.bpThreadId)
-    bct2e = foldr itert2e M.empty . map ((,,) <$> R.tlocRow . R.bcTloc <*> R.elocRow . R.bcEloc <*> Just . R.bcThreadId)
-
-    itert2e :: (R.TRow, R.ERow, Maybe R.ThreadId) -> TtoE -> TtoE
-    itert2e (trow, erow, tid) = M.alter (alter erow tid) trow
+    t2e tfile = foldr go M.empty . M.toList
       where
-        alter erow' Nothing     Nothing                = Just $ NonCritical erow'
-        alter erow' Nothing     o@(Just (NonCritical erow''))
-          | erow' <= erow''                            = o
-          | otherwise                                  = Just $ NonCritical erow'
-        alter _     Nothing     (Just (Critical _))    = $abort "debug information is corrupt"
-        alter erow' (Just tid') Nothing                = Just $ Critical [(tid', erow')]
-        alter _     (Just _   ) (Just (NonCritical _)) = $abort "debug information is corrupt"
-        alter erow' (Just tid') (Just (Critical xs))   = Just $ Critical ((tid', erow'):xs)
+        go (key, elocs) m =
+          let
+            erow   = minimum . map R.elocRow $ elocs
+            tid    = fst . R.getLocKey $ key
+            trow   = R.tlocRow . snd . R.getLocKey $ key
+            tfile' = R.tlocFile . snd . R.getLocKey $ key
+          in if tfile == tfile'
+            then M.alter (alter erow tid) trow m
+            else m
+
+        alter erow Nothing    Nothing                    = Just $ NonCritical erow
+        alter erow Nothing    (Just (NonCritical erow')) = Just $ NonCritical $ min erow erow'
+        alter erow (Just tid) Nothing                    = Just $ Critical $ M.singleton tid erow
+        alter erow (Just tid) (Just (Critical m))        = Just $ Critical $ M.alter (alter' erow) tid m
+        alter _    Nothing    (Just (Critical _))        = $abort "debug information is corrupt"
+        alter _    (Just _  ) (Just (NonCritical _))     = $abort "debug information is corrupt"
+
+        alter' erow Nothing       = Just erow
+        alter' erow (Just erow')  = Just $ min erow erow'
+
+    e2t tfile = M.fromList . foldr go [] . M.toList
+      where
+        go (key, elocs) xs =
+          let
+            trow = R.tlocRow . snd . R.getLocKey $ key
+            tfile' = R.tlocFile . snd . R.getLocKey $ key
+          in if tfile == tfile'
+            then map ((, trow) . R.elocRow) elocs ++ xs
+            else xs
 
 setupBreakpoints :: Context -> B.Context -> State -> IO State -- {{{2
 setupBreakpoints ctx backend state = do
@@ -493,9 +506,7 @@ t_file = R.fileName . R.diTcode . ctxDebugInfo
 e_file = R.fileName . R.diEcode . ctxDebugInfo
 
 possible_breakpoints :: Context -> [R.PRow] -- {{{2
-possible_breakpoints ctx =
-  S.toList $ S.fromList $ map ($fromJust_s . t2p_row ctx . R.tlocRow . R.bpTloc) $ (R.diBps . ctxDebugInfo) ctx
-
+possible_breakpoints ctx = nub . map ($fromJust_s . t2p_row ctx) . M.keys . ctxTtoE $ ctx
 
 os_api :: Context -> [String] -- {{{2
 os_api = R.diOsApi . ctxDebugInfo
@@ -506,29 +517,12 @@ t2p_row ctx row = t2p_row' ((R.diPpm . ctxDebugInfo) ctx) row
 p2t_row :: Context -> R.PRow -> Maybe R.TRow -- {{{2
 p2t_row ctx prow = p2t_row' ((R.diPpm . ctxDebugInfo) ctx) prow
 
-e2p_bp_row :: Context -> R.ERow -> Maybe R.PRow -- {{{2
-e2p_bp_row ctx erow = do
-  trow <- M.lookup erow (ctxBpEtoT ctx)
+e2p_row :: Context -> R.ERow -> Maybe R.PRow -- {{{2
+e2p_row ctx erow = do
+  trow <- M.lookup erow (ctxEtoT ctx)
   t2p_row' ((R.diPpm . ctxDebugInfo) ctx) trow
 
-e2p_bc_row :: Context -> R.ERow -> Maybe R.PRow -- {{{2
-e2p_bc_row ctx erow = do
-  trow <- M.lookup erow (ctxBcEtoT ctx)
-  t2p_row' ((R.diPpm . ctxDebugInfo) ctx) trow
-
-e2p_any_row :: Context -> R.ERow -> Maybe R.PRow -- {{{2
-e2p_any_row ctx erow = e2p_bp_row ctx erow `mplus` e2p_bc_row ctx erow
-
-p2e_bp_row :: Context -> R.PRow -> Maybe ERowMatch -- {{{2
-p2e_bp_row ctx prow =
+p2e_row :: Context -> R.PRow -> Maybe ERowMatch -- {{{2
+p2e_row ctx prow =
       p2t_row' ((R.diPpm . ctxDebugInfo) ctx) prow
-  >>= flip M.lookup (ctxBpTtoE ctx)
-
-p2e_bc_row :: Context -> R.PRow -> Maybe ERowMatch -- {{{2
-p2e_bc_row ctx prow =
-      p2t_row' ((R.diPpm . ctxDebugInfo) ctx) prow
-  >>= flip M.lookup (ctxBcTtoE ctx)
-
-p2e_any_row :: Context -> R.PRow -> Maybe ERowMatch -- {{{2
-p2e_any_row ctx prow = p2e_bp_row ctx prow `mplus` p2e_bc_row ctx prow
-
+  >>= flip M.lookup (ctxTtoE ctx)

@@ -41,8 +41,12 @@ data ELocation = ELocation { -- {{{2
   , elocCol  :: Int
   } deriving Show
 
+newtype LocKey -- {{{2
+  = LocKey { getLocKey :: (Maybe ThreadId, TLocation) }
+  deriving (Ord, Eq)
+
 newtype LocMap -- {{{2
-  = LocMap { getLocMap :: M.Map (Maybe ThreadId, TLocation) [ELocation] }
+  = LocMap { getLocMap :: M.Map LocKey [ELocation] }
 
 data BlockingCall = BlockingCall { -- {{{2
     bcTloc     :: TLocation
@@ -100,6 +104,19 @@ instance JSON ELocation where -- {{{2
     return $ ELocation (ERow r) c
 
   showJSON (ELocation (ERow r) c) = showJSON (r, c)
+
+instance JSON LocKey where -- {{{2
+  readJSON val = do
+    (tid, tloc) <- readJSON val
+    let tid' = if tid == (-1) then Nothing else Just tid
+    return $ LocKey (tid', tloc)
+
+  showJSON (LocKey (tid, tloc)) = 
+    let
+      tid' = case tid of
+        Nothing -> (-1)
+        Just x  -> x
+    in showJSON (tid', tloc)
 
 instance JSON LocMap where -- {{{2
   readJSON val = do

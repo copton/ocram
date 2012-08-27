@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, ViewPatterns, ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell, ViewPatterns, ScopedTypeVariables, TupleSections #-}
 module Ruab.Frontend
 -- exports {{{1
 (
@@ -21,6 +21,7 @@ import Ruab.Util (fromJust_s)
 
 import qualified Ruab.Core as C
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.Map as M
 
 run :: Options -> IO () -- {{{1
 run opt = do
@@ -259,9 +260,9 @@ renderInfo (Context gui core) infos = do
     p2t = map (first ($fromJust_s . C.p2t_row core))
 
     p2e = foldr go []
-    go (prow, inf) iis = case $fromJust_s $ C.p2e_any_row core prow of
+    go (prow, inf) iis = case $fromJust_s $ C.p2e_row core prow of
       C.NonCritical erow -> (erow, inf) : iis
-      C.Critical ts      -> map (\(_, erow) -> (erow, inf)) ts ++ iis
+      C.Critical ts      -> map ((, inf)) (M.elems ts) ++ iis
 
 log :: TextView -> Log -> IO () -- {{{2
 log tv (Log lt lines) = postGUIAsync $ do
@@ -342,14 +343,14 @@ handleCommand core fInfo fLog fCommand = handle
         f = case rt of     
           Tcode -> C.t2p_row core . C.TRow
           Pcode -> Just . C.PRow
-          Ecode -> C.e2p_any_row core . C.ERow
+          Ecode -> C.e2p_row core . C.ERow
       in
         case f srow of
           Nothing -> fLog $ Log LogError ["invalid row number"]
           Just prow -> 
             let
               mtrow = C.p2t_row core prow
-              erows = C.p2e_any_row core prow
+              erows = C.p2e_row core prow
 
               scroll etxt = case mtrow of
                 Nothing -> fLog $ Log LogError ["failed to map to t-row"]
@@ -363,7 +364,7 @@ handleCommand core fInfo fLog fCommand = handle
             in case erows of
               Nothing                   -> fLog $ Log LogError ["failed to map to e-rows"]
               Just (C.NonCritical erow) -> scroll (show erow)
-              Just (C.Critical ts)      -> scroll (show ts)
+              Just (C.Critical ts)      -> scroll . show . M.toList $ ts
 
     handle CmdRun = fCommand C.CmdRun
 

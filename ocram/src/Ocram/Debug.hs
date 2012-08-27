@@ -55,6 +55,6 @@ create_debug_info opt cg tcode pcode ecode vm bps bcs =
     createThreadInfo tid sf = Thread tid sf (threadExecutionFunction tid) ($fromJust_s $ call_order cg sf)
 
     createLocMap = LocMap . foldr insert M.empty
-    insert bp = M.alter (alter (bpEloc bp)) (bpThreadId bp, bpTloc bp)
+    insert bp = M.alter (alter (bpEloc bp)) $ LocKey (bpThreadId bp, bpTloc bp)
     alter eloc Nothing = Just [eloc]
     alter eloc (Just elocs) = Just $ eloc : elocs
