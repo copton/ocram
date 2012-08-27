@@ -34,15 +34,15 @@ enableBreakpoints = everywhere (mkT tStat `extT` tInitDecl)
     tStat o@(CCompound _ _ _) = o
     tStat o@(CExpr Nothing _) = o
     tStat o@(CLabel _ _ _ _) = o
-    tStat s = amap setBreakpoint s
+    tStat s = amap traceLocation s
 
     tInitDecl :: CDecl' -> CDecl'
     tInitDecl (CDecl x1 decls x2) = CDecl x1 (map tr decls) x2
       where
-        tr (y1, Just y2, y3) = (y1, Just (amap setBreakpoint y2), y3)
+        tr (y1, Just y2, y3) = (y1, Just (amap traceLocation y2), y3)
         tr x                 = x
 
-    setBreakpoint x = x {enBreakpoint = True}
+    traceLocation x = x {enLocation = True}
 
 extractPal :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
 extractPal cg (CTranslUnit ds _) = CTranslUnit (map CDeclExt ds') un

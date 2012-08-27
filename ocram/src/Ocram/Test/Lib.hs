@@ -11,7 +11,7 @@ import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
 import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), TRow(..), ERow(..))
-import Ocram.Debug (Breakpoint(..))
+import Ocram.Debug (Location(..))
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework (testGroup, Test)
 import Test.HUnit (Assertion)
@@ -58,9 +58,9 @@ instance TestData CTranslUnit String where
 	reduce = show . pretty
 	enrich = parse
 
-instance TestData Breakpoint TBreakpoint where
+instance TestData Location TstLocation where
   reduce bp = ((getTRow . tlocRow . bpTloc) bp, (getERow . elocRow . bpEloc) bp, bpThreadId bp)
-  enrich (trow, erow, tid) = Breakpoint (TLocation (TRow trow) 1 1 "test") (ELocation (ERow erow) 1) tid
+  enrich (trow, erow, tid) = Location (TLocation (TRow trow) 1 1 "test") (ELocation (ERow erow) 1) tid
 
 instance TestData BlockingCall TBlockingCall where
   reduce bc = ((getTRow . tlocRow . bcTloc) bc, (getERow . elocRow . bcEloc) bc, bcThreadId bc)
@@ -90,7 +90,7 @@ type TStartFunctions    = [String]
 type TCriticalFunctions = [String]
 type TErrorCodes        = [ErrorCode]
 type TCallChain         = [String]
-type TBreakpoint        = (Int, Int, Maybe Int)
-type TBreakpoints       = [TBreakpoint]
+type TstLocation        = (Int, Int, Maybe Int)
+type TstLocations       = [TstLocation]
 type TBlockingCall      = (Int, Int, Int)
 type TBlockingCalls     = [TBlockingCall]

@@ -19,7 +19,7 @@ import qualified Data.Map as M
 data ENodeInfo = ENodeInfo { -- {{{1
     enTnodeInfo     :: NodeInfo
   , enThreadId      :: Maybe Int
-  , enBreakpoint    :: Bool
+  , enLocation      :: Bool
   , enBlockingCall  :: Bool
   } deriving (Data, Typeable, Show)
 
@@ -32,15 +32,15 @@ un = enrich_node_info undefNode
 enrich_node_info :: NodeInfo -> ENodeInfo -- {{{1
 enrich_node_info ni = ENodeInfo ni Nothing False False
 
-data Breakpoint = Breakpoint { -- {{{1
+data Location = Location { -- {{{1
     bpTloc           :: TLocation
   , bpEloc           :: ELocation
   , bpThreadId       :: Maybe ThreadId
   } deriving (Show)
 
-type Breakpoints = [Breakpoint] -- {{{1
+type Locations = [Location] -- {{{1
 
-create_debug_info :: Options -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> Breakpoints -> BlockingCalls -> DebugInfo -- {{{1
+create_debug_info :: Options -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> Locations -> BlockingCalls -> DebugInfo -- {{{1
 create_debug_info opt cg tcode pcode ecode vm bps bcs =
   let
     tfile = File (optInput opt) (md5sum tcode)

@@ -12,7 +12,7 @@ module Ocram.Print.Test
 --import Language.C.Syntax.AST (annotation)
 import Ocram.Analysis (analysis)
 import Ocram.Print (print_with_log)
-import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TBreakpoints, TBlockingCalls)
+import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TstLocations, TBlockingCalls)
 import Ocram.Text (show_errors)
 import Ocram.Transformation (transformation)
 --import Ocram.Transformation.Types (CExpr', CStat')
@@ -748,7 +748,7 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
   ])
   ]
 
-runTest :: (String, String, TBreakpoints, TBlockingCalls) -> Assertion -- {{{1
+runTest :: (String, String, TstLocations, TBlockingCalls) -> Assertion -- {{{1
 runTest (inputCode, expectedCode, expectedBps, expectedBcs) =
   let ast = enrich inputCode in
   case analysis ast of

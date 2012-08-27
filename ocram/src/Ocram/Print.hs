@@ -47,14 +47,14 @@ import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
 import Language.C.Data.Node (posOfNode, lengthOfNode, isUndefNode)
 import Text.PrettyPrint
-import Ocram.Debug (ENodeInfo(..), Breakpoint(..), Breakpoints)
+import Ocram.Debug (ENodeInfo(..), Location(..), Locations)
 import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), BlockingCalls, ERow(..), TRow(..))
 import Ocram.Util (abort, fromJust_s)
 import Prelude hiding (log)
 
 import qualified Data.ByteString.Char8 as BS
 
-print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, Breakpoints, BlockingCalls) -- {{{1
+print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, Locations, BlockingCalls) -- {{{1
 print_with_log tu =
   let
     (code, log) = renderWithLog (pretty tu)
@@ -64,19 +64,19 @@ print_with_log tu =
   in
     (BS.pack code, bps, bcs)
 
-type Log = [Either Breakpoint BlockingCall] -- {{{2
+type Log = [Either Location BlockingCall] -- {{{2
 
 marker :: ENodeInfo -> DocL Log -> DocL Log -- {{{2
 marker eni doc =
   let
-    doc' = if enBreakpoint eni then here bpLogger doc else doc
+    doc' = if enLocation eni then here bpLogger doc else doc
     doc'' = if enBlockingCall eni then here bcLogger doc' else doc'
   in
     if (isUndefNode . enTnodeInfo) eni
       then doc
       else doc''
   where
-    bpLogger (Position r c) = [Left $ Breakpoint tlocation (ELocation (ERow r) c) (enThreadId eni)]
+    bpLogger (Position r c) = [Left $ Location tlocation (ELocation (ERow r) c) (enThreadId eni)]
 
     bcLogger (Position r c) = [Right $ BlockingCall tlocation (ELocation (ERow r) c) (($fromJust_s . enThreadId) eni)]
 
