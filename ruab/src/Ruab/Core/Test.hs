@@ -80,14 +80,16 @@ data ExpectInput -- {{{3
   deriving Show
 
 data Expect -- {{{3
-  = ExpectResponse (Either String Result) (Maybe Command)
+  = ExpectStart Command
+  | ExpectResponse (Either String Result) (Maybe Command)
   | ExpectStatus [(Status -> Bool)] (Maybe Command)
   | Choice [Expect]
 
-type ExpectScript = (Maybe Command, [Expect]) -- {{{3
+type ExpectScript = [Expect] -- {{{3
 
 -- instances {{{2
 instance Show Expect where
+  show (ExpectStart x ) = "ExpectStart " ++ show x
   show (ExpectResponse x _) = "ExpectResponse " ++ show x
   show (ExpectStatus _ _) = "ExpectStatus"
   show (Choice es) = intercalate ", " $ map show es
@@ -100,65 +102,127 @@ deriving instance Eq Result
 
 test_integration :: Test -- {{{2
 test_integration = enumTestGroup "integration" $ map runTest [
-      ( -- start and quit {{{3
-        Just CmdRun, [
-        ExpectStatus [isWaiting] Nothing
+     -- start and quit {{{3
+      [ ExpectStart CmdRun
+      , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right ResRun) (Just CmdShutdown)
       , ExpectStatus [isRunning] Nothing
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
-      ])
-    , ( -- break point in critical function {{{3
-        Just (CmdAddBreakpoint (PRow 515) []), [
-        ExpectStatus [isWaiting] Nothing
+      ]
+     -- break point in critical function {{{3
+    , [ ExpectStart $ CmdAddBreakpoint (PRow 515) []
+      , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 515) [0, 1]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
       , ExpectStatus [isRunning] Nothing
       , ExpectStatus [isStopped, threadStopped 0 1 515] (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
-      ])
+      ]
+     -- break point with condition in critical function {{{3
+    , [ ExpectStart $ CmdAddBreakpoint (PRow 515) [1]
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 515) [1]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 1 1 515] (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+      ]
+    -- break point in non-critical function {{{3
+    , [ ExpectStart $ CmdAddBreakpoint (PRow 461) []
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 1 461] (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+      ]
+    -- "step" over critical function call {{{3
+    , [ ExpectStart $ CmdAddBreakpoint (PRow 430) []
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 430) [0]))) (Just (CmdAddBreakpoint (PRow 432) []))
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 2 (PRow 432) [0]))) (Just (CmdAddBreakpoint (PRow 445) []))
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 3 (PRow 445) [1]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 0 1 430] (Just CmdContinue)
+      , ExpectResponse (Right ResContinue) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 1 3 445] (Just CmdContinue)
+      , ExpectResponse (Right ResContinue) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 0 2 432] (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+      ]
+    -- "step" over critical function call with thread filter {{{3
+    -- due to the thread filter breakpoint 2 is not hit (in contrast to previous test without thread filter)
+    , [ ExpectStart $ CmdFilter [0]
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right ResFilter) Nothing
+      , ExpectStatus [isWaiting, withFilter [0]] (Just (CmdAddBreakpoint (PRow 430) []))
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 430) [0]))) (Just (CmdAddBreakpoint (PRow 432) []))
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 2 (PRow 432) [0]))) (Just (CmdAddBreakpoint (PRow 445) []))
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 3 (PRow 445) [1]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 0 1 430] (Just CmdContinue)
+      , ExpectResponse (Right ResContinue) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 0 2 432] (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+      ]
+
     -- end {{{3
   ]
   where
     -- utils {{{3
     isRunning, isWaiting, isShutdown, isStopped :: Status -> Bool
-    isRunning (Status _ ExRunning) = True
-    isRunning _ = False
-    isWaiting (Status _ ExWaiting) = True
-    isWaiting _ = False
-    isShutdown (Status _ ExShutdown) = True
-    isShutdown _ = False
-    isStopped (Status _ ExStopped) = True
-    isStopped _ = False
+    isRunning  = (ExRunning==) . statusExecution
+    isWaiting  = (ExWaiting==) . statusExecution
+    isShutdown = (ExShutdown==) . statusExecution
+    isStopped  = (ExStopped==) . statusExecution
 
     threadStopped :: Int -> Int -> Int -> Status -> Bool
-    threadStopped tid bid prow (Status threads _) =
-      case find ((tid==) . thId) threads of
+    threadStopped tid bid prow status =
+      case find ((tid==) . thId) (statusThreads status) of
         Nothing -> False
         Just thread -> thProw thread == Just (PRow prow) && thStatus thread == Stopped (Just bid)
 
+    withFilter :: [Int] -> Status -> Bool
+    withFilter tids = (tids==) . statusThreadFilter
+
     runTest :: ExpectScript -> Assertion -- {{{3
-    runTest (command, future) = do
+    runTest (ExpectStart command:future) = do
       let options = Options "test/debug.json" "test/ec.elf" Nothing False 
       core <- setup options
       actor <- new_actor (0 :: Int, future)
-      fCommand <- mfix(\fCommand' -> create_network core options (fResponse actor fCommand') (fStatus actor fCommand'))
-      when (isJust command) (fCommand (fromJust command))
+      fCommand <- mfix(\fCommand' ->
+          create_network
+            core options
+            (fire actor fCommand' (InputResponse . snd))
+            (fire actor fCommand' InputStatus)
+        )
+      fCommand command
       result <- wait actor
       case result of
         Left e -> throwIO e
         Right _ -> return ()
 
-    fResponse actor fCommand response = update actor $ step actor fCommand (InputResponse (snd response))
-    fStatus actor fCommand status = update actor $ step actor fCommand (InputStatus status)
+    runTest _ = assertFailure "illegal script. Expect scripts must start with ExpectStart"
+
+    fire actor fCommand mkInput x = update actor $ step actor fCommand (mkInput x)
 
     step _ _ input (count, []) = do
       assertFailure $ printf "%.2d: incomplete script. Next input: '%s'" count (show input)
       fail ""
 
     step actor fCommand input (count, (expected:rest)) = do
---      putStrLn $ printf "%.2d: %s" count (show input)
+      putStrLn $ printf "%.2d: %s" count (show input)
       cmd <- handle input expected
       when (isJust cmd) (fCommand (fromJust cmd))
       when (null rest) (quit actor)
@@ -182,6 +246,10 @@ test_integration = enumTestGroup "integration" $ map runTest [
     handle (InputResponse response) (ExpectResponse response' cmd) = do
       response' @=? response
       return cmd
+
+    handle _ (ExpectStart _) = do
+      assertFailure "illegal script. ExpectStart may only appear at the head of the expect script"
+      fail ""
 
     handle input expect = do
       assertFailure $ "unexpected input: " ++ show expect ++ " / " ++ show input

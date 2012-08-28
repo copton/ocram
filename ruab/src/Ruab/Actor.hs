@@ -1,7 +1,8 @@
 module Ruab.Actor
 -- exports {{{1
 (
-    new_actor
+    Actor, Quit, Update
+  , new_actor
   , update
  , quit, wait, kill
 ) where
@@ -12,38 +13,41 @@ import Control.Concurrent (forkIO, killThread, ThreadId, MVar, newEmptyMVar, tak
 import Control.Exception.Base (SomeException, catch)
 import Prelude hiding (catch)
 
-data Actor a = Actor {
+-- types -- {{{1
+data Actor a = Actor { -- {{{2
     actorThread :: ThreadId
   , actorInbox  :: TChan (Either () (Update a))
   , actorQuit   :: MVar (Quit a)
   }
 
-type Update a = a -> IO a
-type Quit a = Either SomeException a
+type Update a = a -> IO a -- {{{2
 
-new_actor :: a -> IO (Actor a)
+type Quit a = Either SomeException a -- {{{2
+
+new_actor :: a -> IO (Actor a) -- {{{1
 new_actor s0 = do
   inbox <- newTChanIO
   quitFlag <- newEmptyMVar
   thread <- forkIO $ actor quitFlag inbox s0
   return $ Actor thread inbox quitFlag
 
-send :: Actor a -> Either () (Update a) -> IO ()
-send a o = atomically $ writeTChan (actorInbox a) o
-
-update :: Actor a -> Update a -> IO ()
+update :: Actor a -> Update a -> IO () -- {{{1
 update a u = send a (Right u)
 
-quit :: Actor a -> IO ()
+quit :: Actor a -> IO () -- {{{1
 quit a = send a (Left ())
 
-wait :: Actor a -> IO (Quit a)
+wait :: Actor a -> IO (Quit a) -- {{{1
 wait = takeMVar . actorQuit
 
-kill :: Actor a -> IO ()
+kill :: Actor a -> IO () -- {{{1
 kill = killThread . actorThread
 
-actor :: MVar (Quit a) -> TChan (Either () (Update a)) -> a -> IO ()
+-- impl {{{1
+send :: Actor a -> Either () (Update a) -> IO () -- {{{2
+send a o = atomically $ writeTChan (actorInbox a) o
+
+actor :: MVar (Quit a) -> TChan (Either () (Update a)) -> a -> IO () -- {{{2
 actor quitFlag inbox s0 = loop s0 `catch` handle
   where
     loop s = do

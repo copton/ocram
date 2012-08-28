@@ -75,11 +75,12 @@ data CommandPrefix -- {{{2
   | CmdPrBreakList
   | CmdPrBreakRemove
   | CmdPrContinue
+  | CmdPrFilter
   | CmdPrHelp
   | CmdPrInterrupt
   | CmdPrQuit
-  | CmdPrScroll
   | CmdPrRun
+  | CmdPrScroll
 
 data Command -- {{{2
   = CmdUnknown String
@@ -87,6 +88,7 @@ data Command -- {{{2
   | CmdBreakList
   | CmdBreakRemove C.BreakpointNumber
   | CmdContinue
+  | CmdFilter [C.ThreadId]
   | CmdHelp (Maybe CommandPrefix)
   | CmdInterrupt
   | CmdQuit
@@ -145,6 +147,11 @@ parseCommand text =
             Just tids' -> CmdBreakAdd prow' (nub tids')
         _ -> CmdHelp (Just CmdPrBreakAdd)
 
+      CmdPrFilter ->
+        case sequence (map mread options) of
+          Nothing -> CmdHelp (Just CmdPrFilter)
+          Just ts -> CmdFilter ts
+
       CmdPrBreakList -> noopt CmdPrBreakList CmdBreakList options
 
       CmdPrBreakRemove -> case options of
@@ -182,12 +189,13 @@ parseCommand text =
     mread x = listToMaybe [y | (y,"") <- reads x] 
 
 help :: CommandPrefix -> [String] -- {{{2
-help CmdPrBreakAdd    = ["badd prow [tid,...]: add a breakpoint, optionally filtered by thread id"]
+help CmdPrBreakAdd    = ["badd prow [tid]: add a breakpoint, optionally filtered by thread id"]
 help CmdPrBreakList   = ["blist: list all breakpoints"]
 help CmdPrBreakRemove = ["bremove bid: remove the breakpoint with the given number"]
 help CmdPrContinue    = ["continue: continue execution"]
 help CmdPrHelp        = ["help: show the list of available commands"]
 help CmdPrInterrupt   = ["interrupt: interrupt execution"]
+help CmdPrFilter      = ["filter [tid]: ignore breakpoints of all threads that are not listed"]
 help CmdPrQuit        = ["quit: quit ruab"]
 help CmdPrScroll      = ["scroll [t|p|e] row: scroll views to the given row. Default row type is p-code."]
 help CmdPrRun         = ["start: start execution"]
@@ -284,6 +292,8 @@ handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
 
     handle C.ResRun = fLog $ Log LogOutput ["started"]
 
+    handle C.ResFilter = fLog $ Log LogOutput ["thread filter set"]
+
 handleStatus :: Context -> Fire InfoUpdate -> C.Status -> IO () -- {{{2
 handleStatus ctx fInfo status =
   let
@@ -298,7 +308,10 @@ handleStatus ctx fInfo status =
 
 renderStatus :: Context -> C.Status -> IO () -- {{{2
 renderStatus ctx status = postGUIAsync $
-  setText ((guiView . ctxGUI) ctx) $ intercalate "\n" $ (show . C.statusExecution) status : (map show $ C.statusThreads status)
+  setText ((guiView . ctxGUI) ctx) $ intercalate "\n" $
+      (show . C.statusExecution) status
+    : (show . C.statusThreadFilter) status
+    : (map show $ C.statusThreads status)
 
 handleCommand :: C.Context -> Fire InfoUpdate -> Fire Log -> Fire C.Command -> Command -> IO () -- {{{2
 handleCommand core fInfo fLog fCommand = handle
@@ -310,6 +323,8 @@ handleCommand core fInfo fLog fCommand = handle
     handle CmdBreakList = fCommand $ C.CmdListBreakpoints
 
     handle (CmdBreakRemove bid) = fCommand $ C.CmdRemoveBreakpoint bid
+
+    handle (CmdFilter tids) = fCommand $ C.CmdFilter tids
 
     handle CmdContinue = fCommand $ C.CmdContinue
 
