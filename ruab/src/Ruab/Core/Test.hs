@@ -18,6 +18,7 @@ import System.IO (hPutStr, hClose, hGetContents)
 import System.Process (createProcess, StdStream(CreatePipe), waitForProcess, proc, std_out, std_in)
 import Test.Framework (Test, testGroup)
 import Test.HUnit (Assertion, assertBool, (@?), (@=?), assertFailure)
+import Text.Printf (printf)
 import Text.Regex.Posix ((=~))
 
 tests :: Test -- {{{1
@@ -80,7 +81,7 @@ data ExpectInput -- {{{3
 
 data Expect -- {{{3
   = ExpectResponse (Either String Result) (Maybe Command)
-  | ExpectStatus (Status -> Bool) (Maybe Command)
+  | ExpectStatus [(Status -> Bool)] (Maybe Command)
   | Choice [Expect]
 
 type ExpectScript = (Maybe Command, [Expect]) -- {{{3
@@ -101,21 +102,21 @@ test_integration :: Test -- {{{2
 test_integration = enumTestGroup "integration" $ map runTest [
       ( -- start and quit {{{3
         Just CmdRun, [
-        ExpectStatus isWaiting Nothing
+        ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right ResRun) (Just CmdShutdown)
-      , ExpectStatus isRunning Nothing
+      , ExpectStatus [isRunning] Nothing
       , ExpectResponse (Right ResShutdown) Nothing
-      , ExpectStatus isShutdown Nothing
+      , ExpectStatus [isShutdown] Nothing
       ])
     , ( -- break point in critical function {{{3
         Just (CmdAddBreakpoint (PRow 515) []), [
-        ExpectStatus isWaiting Nothing
+        ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 515) [0, 1]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
-      , ExpectStatus isRunning Nothing
-      , ExpectStatus (and . sequence [isStopped, threadStopped 0 1 515]) (Just CmdShutdown)
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 0 1 515] (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
-      , ExpectStatus isShutdown Nothing
+      , ExpectStatus [isShutdown] Nothing
       ])
     -- end {{{3
   ]
@@ -141,7 +142,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
     runTest (command, future) = do
       let options = Options "test/debug.json" "test/ec.elf" Nothing False 
       core <- setup options
-      actor <- new_actor future
+      actor <- new_actor (0 :: Int, future)
       fCommand <- mfix(\fCommand' -> create_network core options (fResponse actor fCommand') (fStatus actor fCommand'))
       when (isJust command) (fCommand (fromJust command))
       result <- wait actor
@@ -152,16 +153,16 @@ test_integration = enumTestGroup "integration" $ map runTest [
     fResponse actor fCommand response = update actor $ step actor fCommand (InputResponse (snd response))
     fStatus actor fCommand status = update actor $ step actor fCommand (InputStatus status)
 
-    step _ _ input [] = do
-      assertFailure $ "incomplete script: " ++ show input
+    step _ _ input (count, []) = do
+      assertFailure $ printf "%.2d: incomplete script. Next input: '%s'" count (show input)
       fail ""
 
-    step actor fCommand input (expected:rest) = do
-      print input
+    step actor fCommand input (count, (expected:rest)) = do
+--      putStrLn $ printf "%.2d: %s" count (show input)
       cmd <- handle input expected
       when (isJust cmd) (fCommand (fromJust cmd))
       when (null rest) (quit actor)
-      return rest
+      return (count + 1, rest)
 
     handle :: ExpectInput -> Expect -> IO (Maybe Command)
     handle input (Choice alternatives) = do
@@ -174,8 +175,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
             assertFailure $ "no viable alternative found: " ++ show es
             fail ""
 
-    handle (InputStatus status) (ExpectStatus f cmd) = do
-      f status @? "unexpected status: " ++ show status
+    handle (InputStatus status) (ExpectStatus fs cmd) = do
+      (and . sequence fs) status @? "unexpected status: " ++ show status
       return cmd
 
     handle (InputResponse response) (ExpectResponse response' cmd) = do
