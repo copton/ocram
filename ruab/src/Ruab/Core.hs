@@ -4,7 +4,7 @@ module Ruab.Core
 (
     setup, Context
   , create_network
-  , Command(..), ResumeStyle(..), Result(..), Response
+  , Command(..), Result(..), Response
   , Status(..), Execution(..)
   , Thread(..), ThreadStatus(..), R.ThreadId
   , R.PRow(..), R.TRow(..), R.ERow(..)
@@ -24,7 +24,7 @@ import Control.Monad (forM, when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.List (intercalate, find, nub)
-import Data.Maybe (catMaybes, isJust)
+import Data.Maybe (catMaybes)
 import Prelude hiding (catch)
 import Ruab.Actor (new_actor, update)
 import Ruab.Core.Internal
@@ -54,7 +54,7 @@ data Context = Context { -- {{{2
 
 data Command -- {{{2
   = CmdAddBreakpoint R.PRow [R.ThreadId]
-  | CmdResume ResumeStyle
+  | CmdContinue
   | CmdRemoveBreakpoint BreakpointNumber
   | CmdInterrupt
   | CmdListBreakpoints
@@ -62,15 +62,9 @@ data Command -- {{{2
   | CmdShutdown
   -- deriving Show
 
-data ResumeStyle
-  = Continue
-  | Step
-  | Next
-  deriving (Show, Eq)
-
 data Result -- {{{2
   = ResAddBreakpoint UserBreakpoint
-  | ResResume
+  | ResContinue
   | ResRemoveBreakpoint
   | ResInterrupt
   | ResListBreakpoints [UserBreakpoint]
@@ -88,7 +82,7 @@ data State = State { -- {{{2
   }
 
 data Execution -- {{{2
-  = ExRunning ResumeStyle
+  = ExRunning
   | ExShutdown
   | ExStopped
   | ExWaiting
@@ -164,37 +158,14 @@ handleStop :: Context -> B.Context -> B.Stopped -> State -> IO State -- {{{2
 handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateExecution state) <*> pure state
   where
     -- EndSteppingRange {{{3
-    handle B.EndSteppingRange ExShutdown = $abort "illegal state"
-    handle B.EndSteppingRange ExWaiting = $abort "illegal state"
-    handle B.EndSteppingRange ExStopped = return id
-
-    handle B.EndSteppingRange (ExRunning Continue) = $abort "illegal state"
-    handle B.EndSteppingRange (ExRunning style) =
-      let
-        efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
-        frame = B.stoppedFrame stopped
-        file = B.frameFile frame
-        prow = e2p_row ctx . R.ERow . B.frameLine $ frame
-      in
-        if file == efile && isJust prow
-          then case runningThreads state of
-            [thread] -> return $
-              hide False .
-              setExecution ExStopped .
-              updateThread (thId thread) (\t ->
-                  t {thStatus = Stopped Nothing, thProw = prow}
-                )
-            x -> $abort $ "illegal state of threads: " ++ show x
-          else do
-            resume style backend
-            return id
+    handle B.EndSteppingRange _ = return id -- TODO
         
     -- BreakpointHit {{{3
     handle (B.BreakpointHit _ _  ) ExShutdown = $abort "illegal state"
     handle (B.BreakpointHit _ _  ) ExWaiting  = $abort "illegal state"
     handle (B.BreakpointHit _ _  ) ExStopped  = return id
 
-    handle (B.BreakpointHit _ bn) (ExRunning style) =
+    handle (B.BreakpointHit _ bn) ExRunning =
       let bkpt = $fromJust_s $ M.lookup bn (stateBreakpoints state) in
       case bkptType bkpt of
         BkptUser ub ->
@@ -208,12 +179,12 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
                       t {thStatus = Stopped (Just (breakpointNumber ub)), thProw = Just (breakpointRow ub)}
                     )
                 else do
-                  resume style backend
+                  B.continue backend
                   return id
             x -> $abort $ "illegal state of threads: " ++ show x
         
         BkptThreadExecution tid -> do
-          resume style backend
+          B.continue backend
           return $ hide True . updateThread tid (\thread ->
               thread {thStatus = Running, thProw = Nothing}
             )
@@ -225,7 +196,7 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
               let trow = R.tlocRow . R.bcTloc $ bc
               t2p_row ctx trow
           in do
-            resume style backend
+            B.continue backend
             return $ hide True . updateThread tid (\thread ->
                 thread {thStatus = Blocked, thProw = Just $ prow}
               )
@@ -240,35 +211,33 @@ handleCommand ctx backend fResponse command state = do
     handle CmdRun ExWaiting = do
       B.run backend
       _ <- respond ResRun
-      return $ setExecution (ExRunning Continue)
+      return $ setExecution ExRunning
 
     handle CmdRun ExStopped     = alreadyRunning
-    handle CmdRun (ExRunning _) = alreadyRunning
+    handle CmdRun ExRunning     = alreadyRunning
     handle CmdRun ExShutdown    = alreadyShutdown
 
-    -- CmdResume {{{3
-    handle (CmdResume style) ExStopped = do
-      resume style backend
-      _ <- respond ResResume
+    -- CmdContinue {{{3
+    handle CmdContinue ExRunning = fail "already running"
+    handle CmdContinue ExShutdown = alreadyShutdown
+    handle CmdContinue ExWaiting = notRunning
+
+    handle CmdContinue ExStopped = do
+      B.continue backend
+      _ <- respond ResContinue
       return $
-        setExecution (ExRunning style) .
+        setExecution ExRunning .
         mapThreads (\thread ->
             if isStopped thread
               then thread {thStatus = Running, thProw = Nothing}
               else thread
           )
 
-    handle (CmdResume _) (ExRunning _) = do
-      _ <- respond ResResume
-      return id
-
-    handle (CmdResume _) ExShutdown = alreadyShutdown
-
-    handle (CmdResume _) ExWaiting = notRunning
 
     -- CmdRemoveBreakpoint {{{3
-    handle (CmdRemoveBreakpoint _) ExShutdown    = alreadyShutdown
-    handle (CmdRemoveBreakpoint _) (ExRunning _) = failed "cannot remove breakpoint while the debugger is running"
+    handle (CmdRemoveBreakpoint _) ExShutdown = alreadyShutdown
+    handle (CmdRemoveBreakpoint _) ExRunning  = failed "cannot remove breakpoint while the debugger is running"
+
     handle (CmdRemoveBreakpoint bid) _ =
       case M.lookup bid (stateUserBreakpoints state) of
         Nothing -> failed "unknown breakpoint id"
@@ -281,9 +250,8 @@ handleCommand ctx backend fResponse command state = do
             })
 
     -- CmdAddBreakpoint {{{3
-    handle (CmdAddBreakpoint _ _) ExShutdown    = alreadyShutdown
-
-    handle (CmdAddBreakpoint _ _) (ExRunning _) = failed "cannot set a breakpoint while the debugger is running"
+    handle (CmdAddBreakpoint _ _) ExShutdown = alreadyShutdown
+    handle (CmdAddBreakpoint _ _) ExRunning  = failed "cannot set a breakpoint while the debugger is running"
 
     handle (CmdAddBreakpoint prow selectedThreads) _ = 
       let
@@ -319,7 +287,7 @@ handleCommand ctx backend fResponse command state = do
         Just (Critical m)       -> addBreakpoints (M.elems m) (M.keys m) "unreachable breakpoint"
             
     -- CmdInterrupt {{{3
-    handle CmdInterrupt (ExRunning _) = do
+    handle CmdInterrupt ExRunning = do
       B.interrupt backend
       case runningThreads state of
         [] -> do
@@ -376,10 +344,6 @@ isStopped thread = case thStatus thread of
   Stopped _ -> True
   _ -> False
 
-resume :: ResumeStyle -> B.Context -> IO () -- {{{3
-resume Continue = B.continue 
-resume Step     = B.step
-resume Next     = B.next
 
 -- state updates {{{1
 updateThread :: Int -> (Thread -> Thread) -> State -> State -- {{{2

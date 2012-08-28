@@ -123,7 +123,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
   where
     -- utils {{{3
     isRunning, isWaiting, isShutdown, isStopped :: Status -> Bool
-    isRunning (Status _ (ExRunning _)) = True
+    isRunning (Status _ ExRunning) = True
     isRunning _ = False
     isWaiting (Status _ ExWaiting) = True
     isWaiting _ = False

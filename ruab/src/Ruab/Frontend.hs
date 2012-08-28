@@ -77,11 +77,9 @@ data CommandPrefix -- {{{2
   | CmdPrContinue
   | CmdPrHelp
   | CmdPrInterrupt
-  | CmdPrNext
   | CmdPrQuit
   | CmdPrScroll
   | CmdPrRun
-  | CmdPrStep
 
 data Command -- {{{2
   = CmdUnknown String
@@ -91,11 +89,9 @@ data Command -- {{{2
   | CmdContinue
   | CmdHelp (Maybe CommandPrefix)
   | CmdInterrupt
-  | CmdNext
   | CmdQuit
   | CmdRun
   | CmdScroll RowType Int
-  | CmdStep
 
 data RowType -- {{{2
   = Tcode | Pcode | Ecode
@@ -126,11 +122,9 @@ commands = [
   , ("continue",  CmdPrContinue)
   , ("help",      CmdPrHelp)
   , ("interrupt", CmdPrInterrupt)
-  , ("next",      CmdPrNext)
   , ("quit",      CmdPrQuit)
   , ("run",       CmdPrRun)
   , ("scroll",    CmdPrScroll)
-  , ("step",      CmdPrStep)
   ]
 
 instance Read Command where -- {{{2
@@ -168,8 +162,6 @@ parseCommand text =
 
       CmdPrInterrupt -> noopt CmdPrInterrupt CmdInterrupt options
 
-      CmdPrNext -> noopt CmdPrNext CmdNext options
-
       CmdPrQuit -> noopt CmdPrQuit CmdQuit options
 
       CmdPrScroll -> case options of
@@ -182,8 +174,6 @@ parseCommand text =
         _ -> CmdHelp (Just CmdPrScroll)
 
       CmdPrRun -> noopt CmdPrRun CmdRun options
-
-      CmdPrStep -> noopt CmdPrStep CmdStep options
 
   where
     noopt _   ev [] = ev
@@ -198,10 +188,8 @@ help CmdPrBreakRemove = ["bremove bid: remove the breakpoint with the given numb
 help CmdPrContinue    = ["continue: continue execution"]
 help CmdPrHelp        = ["help: show the list of available commands"]
 help CmdPrInterrupt   = ["interrupt: interrupt execution"]
-help CmdPrNext        = ["next: resume until the beginning of the next source line - not descending into functions."]
 help CmdPrQuit        = ["quit: quit ruab"]
 help CmdPrScroll      = ["scroll [t|p|e] row: scroll views to the given row. Default row type is p-code."]
-help CmdPrStep        = ["step: resume until the beginning of the next source line - descending into functions."]
 help CmdPrRun         = ["start: start execution"]
 
 instance Read RowType where -- {{{2
@@ -284,7 +272,7 @@ handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
       fLog $ Log LogOutput ["breakpoint added", show bp]
       fInfo $ setBreakpoint (C.breakpointRow bp) (C.breakpointNumber bp)
 
-    handle C.ResResume = fLog $ Log LogOutput ["resumed"]
+    handle C.ResContinue = fLog $ Log LogOutput ["resumed"]
 
     handle C.ResRemoveBreakpoint = fLog $ Log LogOutput ["breakpoint removed"]
 
@@ -323,9 +311,7 @@ handleCommand core fInfo fLog fCommand = handle
 
     handle (CmdBreakRemove bid) = fCommand $ C.CmdRemoveBreakpoint bid
 
-    handle CmdContinue = fCommand $ C.CmdResume C.Continue
-    handle CmdNext     = fCommand $ C.CmdResume C.Next
-    handle CmdStep     = fCommand $ C.CmdResume C.Step
+    handle CmdContinue = fCommand $ C.CmdContinue
 
     handle CmdInterrupt = fCommand C.CmdInterrupt
 
