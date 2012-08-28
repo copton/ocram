@@ -173,6 +173,7 @@ critical_statements tid cf ast (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalS
       return $ CCompound y1 (concat items') y2
     trBlock x = $abort $ unexp x
 
+    -- transformations {{{2
     -- critical calls in return statement -- {{{3
     trBlockItem o@(CBlockStmt (CReturn (Just cexpr) ni))
       | containsCriticalCall cf cexpr = do
