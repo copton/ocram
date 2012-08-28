@@ -5,7 +5,7 @@ module Ruab.Core
     setup, Context
   , create_network
   , Command(..), ResumeStyle(..), Result(..), Response
-  , Status(..)
+  , Status(..), Execution(..)
   , Thread(..), ThreadStatus(..), R.ThreadId
   , R.PRow(..), R.TRow(..), R.ERow(..)
   , UserBreakpoint(..), BreakpointNumber
@@ -75,7 +75,7 @@ data Result -- {{{2
   | ResInterrupt
   | ResListBreakpoints [UserBreakpoint]
   | ResShutdown
-  | ResStart
+  | ResRun
 
 type Response = (Command, Either String Result) -- {{{2
 
@@ -122,7 +122,7 @@ data ThreadStatus -- {{{2
 data Status = Status { -- {{{2
     statusThreads :: [Thread]
   , statusExecution :: Execution
-  } deriving Show
+  } deriving (Show, Eq)
 
 type BreakpointNumber = Int
 data UserBreakpoint = UserBreakpoint { -- {{{2
@@ -141,7 +141,10 @@ create_network ctx opt fResponse fStatus = do
   let
     fCore f = update aCore $ \state -> do
       state' <- f state
-      when (not (stateHide state')) (fStatus $ state2status state')
+      let
+        status  = state2status state
+        status' = state2status state'
+      when (not (stateHide state') && status /= status') (fStatus status')
       return state'
 
   backend <- mfix (\backend' -> B.setup opt (B.Callback display (fCore . handleStop ctx backend') display))
@@ -236,7 +239,7 @@ handleCommand ctx backend fResponse command state = do
     -- CmdRun {{{3
     handle CmdRun ExWaiting = do
       B.run backend
-      _ <- respond ResStart
+      _ <- respond ResRun
       return $ setExecution (ExRunning Continue)
 
     handle CmdRun ExStopped     = alreadyRunning

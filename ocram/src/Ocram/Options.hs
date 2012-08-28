@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Options 
 -- export {{{1
 (
@@ -8,7 +9,10 @@ module Ocram.Options
 import Data.List (intercalate)
 import Data.Maybe (isJust)
 import Ocram.Text (new_error, OcramError)
+import Ocram.Util (fromJust_s)
+import Prelude hiding (abs)
 import System.Console.GetOpt
+import System.Path (absNormPath)
 
 data Options = Options { -- {{{1
     optInput :: FilePath
@@ -21,11 +25,10 @@ data Options = Options { -- {{{1
 }
 
 
--- options :: String -> [String] -> Either String Options {{{1
-options :: String -> [String] -> Either [OcramError] Options
-options prg argv =
+options :: String -> FilePath -> [String] -> Either [OcramError] Options -- {{{1
+options prg cwd argv =
   let use = usage prg in
-  case getOpt Permute availableOptions argv of
+  case getOpt Permute (availableOptions cwd) argv of
     (o,[],[]) -> 
       let opts = foldl (flip id) defaultOptions o in
       if optHelp opts then
@@ -45,18 +48,19 @@ err :: String -> String -> String
 err use msg = "Error in command line options\n" ++ msg ++ "\n" ++ use
 
 usage :: String -> String
-usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") availableOptions
+usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") (availableOptions "")
 
-availableOptions :: [OptDescr (Options -> Options)]
-availableOptions = [
-    Option "i" ["input"] (ReqArg (\x opts -> opts {optInput = x}) "input") "input tc file (required)"
-  , Option "o" ["output"] (ReqArg (\x opts -> opts {optOutput = x}) "output") "output ec file (required)"
+availableOptions :: FilePath -> [OptDescr (Options -> Options)]
+availableOptions cwd = [
+    Option "i" ["input"] (ReqArg (\x opts -> opts {optInput = abs x}) "input") "input tc file (required)"
+  , Option "o" ["output"] (ReqArg (\x opts -> opts {optOutput = abs x}) "output") "output ec file (required)"
   , Option "c" ["preprocessor"] (ReqArg (\x opts -> opts {optPreprocessor = x}) "preprocessor") "external program which performs the pre-processing of the input C file (required)"
   , Option "g" ["generator"] (ReqArg (\x opts -> opts {optPalGenerator = Just x}) "generator") "external program which generates the PAL implementation (optional)"
-  , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalFile = Just x}) "pal") "file path for the PAL generator program (mandatory if generator is specified)"
-  , Option "d" ["debug"] (ReqArg (\x opts -> opts {optDebugFile = Just x}) "debug") "file path for the debugging information (optional)"
+  , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalFile = Just (abs x)}) "pal") "file path for the PAL generator program (mandatory if generator is specified)"
+  , Option "d" ["debug"] (ReqArg (\x opts -> opts {optDebugFile = Just (abs x)}) "debug") "file path for the debugging information (optional)"
   , Option "h" ["help"] (NoArg (\opts -> opts {optHelp = True}))  "print help and quit"
   ]
+    where abs = $fromJust_s . absNormPath cwd
 
 defaultOptions :: Options
 defaultOptions = Options { 

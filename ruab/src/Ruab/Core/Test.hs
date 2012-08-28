@@ -6,15 +6,13 @@ module Ruab.Core.Test (tests) where
 import Control.Exception.Base (throwIO, try, SomeException)
 import Control.Monad.Fix (mfix)
 import Control.Monad (forM_, when)
-import Data.List (intercalate)
+import Data.List (intercalate, find)
 import Data.Maybe (fromJust, isJust)
-import Ocram.Ruab (TRow(..), PRow(..))
 import Ruab.Actor (new_actor, update, wait, quit)
 import Ruab.Core.Internal (t2p_row', p2t_row')
-import Ruab.Core (Result(..), Status(..), Command(..), setup, create_network, UserBreakpoint(..))
+import Ruab.Core
 import Ruab.Options (Options(..))
 import Ruab.Test.Lib (enumTestGroup, paste, TestData(..), enrich, TPreprocMap)
-import System.Directory (setCurrentDirectory)
 import System.Exit (ExitCode(ExitSuccess))
 import System.IO (hPutStr, hClose, hGetContents)
 import System.Process (createProcess, StdStream(CreatePipe), waitForProcess, proc, std_out, std_in)
@@ -74,22 +72,25 @@ test_tp_row_mapping = enumTestGroup "t/p row mapping" $ map runTest [
             trow @=? fromJust trow'
 
 -- test integration {{{1
-data ExpectInput
-  = ExpectResponse (Either String Result)
-  | ExpectStatus Status
+-- types {{{2
+data ExpectInput -- {{{3
+  = InputResponse (Either String Result)
+  | InputStatus Status
   deriving Show
 
-data Expect -- {{{2
-  = NextResponse (Either String Result) (Maybe Command)
-  | NextStatus (Status -> Bool) (Maybe Command)
+data Expect -- {{{3
+  = ExpectResponse (Either String Result) (Maybe Command)
+  | ExpectStatus (Status -> Bool) (Maybe Command)
   | Choice [Expect]
 
+type ExpectScript = (Maybe Command, [Expect]) -- {{{3
+
+-- instances {{{2
 instance Show Expect where
-  show (NextResponse x _) = "NextResponse " ++ show x
-  show (NextStatus _ _) = "NextStatus"
+  show (ExpectResponse x _) = "ExpectResponse " ++ show x
+  show (ExpectStatus _ _) = "ExpectStatus"
   show (Choice es) = intercalate ", " $ map show es
 
-type ExpectScript = (Maybe Command, [Expect]) -- {{{2
 
 deriving instance Show Result
 deriving instance Show Command
@@ -98,20 +99,47 @@ deriving instance Eq Result
 
 test_integration :: Test -- {{{2
 test_integration = enumTestGroup "integration" $ map runTest [
-    (Just CmdRun, [
-        NextStatus (const True) Nothing
-      , NextStatus (const True) Nothing
-      , NextResponse (Right ResStart) (Just CmdShutdown)
-      , NextStatus (const True) Nothing
-      , NextResponse (Right ResShutdown) Nothing
-      , NextStatus (const True) Nothing
+      ( -- start and quit {{{3
+        Just CmdRun, [
+        ExpectStatus isWaiting Nothing
+      , ExpectResponse (Right ResRun) (Just CmdShutdown)
+      , ExpectStatus isRunning Nothing
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus isShutdown Nothing
       ])
+    , ( -- break point in critical function {{{3
+        Just (CmdAddBreakpoint (PRow 515) []), [
+        ExpectStatus isWaiting Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 515) [0, 1]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus isRunning Nothing
+      , ExpectStatus (and . sequence [isStopped, threadStopped 0 1 515]) (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus isShutdown Nothing
+      ])
+    -- end {{{3
   ]
   where
-    runTest :: ExpectScript -> Assertion -- {{{2
+    -- utils {{{3
+    isRunning, isWaiting, isShutdown, isStopped :: Status -> Bool
+    isRunning (Status _ (ExRunning _)) = True
+    isRunning _ = False
+    isWaiting (Status _ ExWaiting) = True
+    isWaiting _ = False
+    isShutdown (Status _ ExShutdown) = True
+    isShutdown _ = False
+    isStopped (Status _ ExStopped) = True
+    isStopped _ = False
+
+    threadStopped :: Int -> Int -> Int -> Status -> Bool
+    threadStopped tid bid prow (Status threads _) =
+      case find ((tid==) . thId) threads of
+        Nothing -> False
+        Just thread -> thProw thread == Just (PRow prow) && thStatus thread == Stopped (Just bid)
+
+    runTest :: ExpectScript -> Assertion -- {{{3
     runTest (command, future) = do
-      setCurrentDirectory "test"
-      let options = Options "debug.json" "ec.elf" Nothing False 
+      let options = Options "test/debug.json" "test/ec.elf" Nothing False 
       core <- setup options
       actor <- new_actor future
       fCommand <- mfix(\fCommand' -> create_network core options (fResponse actor fCommand') (fStatus actor fCommand'))
@@ -121,17 +149,16 @@ test_integration = enumTestGroup "integration" $ map runTest [
         Left e -> throwIO e
         Right _ -> return ()
 
-    fResponse actor fCommand response = update actor $ step actor fCommand (ExpectResponse (snd response))
-    fStatus actor fCommand status = update actor $ step actor fCommand (ExpectStatus status)
+    fResponse actor fCommand response = update actor $ step actor fCommand (InputResponse (snd response))
+    fStatus actor fCommand status = update actor $ step actor fCommand (InputStatus status)
 
     step _ _ input [] = do
       assertFailure $ "incomplete script: " ++ show input
       fail ""
 
     step actor fCommand input (expected:rest) = do
---      print $ "<- " ++ show input
+      print input
       cmd <- handle input expected
---      print $ "-> " ++ show cmd
       when (isJust cmd) (fCommand (fromJust cmd))
       when (null rest) (quit actor)
       return rest
@@ -147,14 +174,14 @@ test_integration = enumTestGroup "integration" $ map runTest [
             assertFailure $ "no viable alternative found: " ++ show es
             fail ""
 
-    handle (ExpectStatus status) (NextStatus f cmd) = do
-      f status @? "unexpected status"
+    handle (InputStatus status) (ExpectStatus f cmd) = do
+      f status @? "unexpected status: " ++ show status
       return cmd
 
-    handle (ExpectResponse response) (NextResponse response' cmd) = do
-      response @=? response'
+    handle (InputResponse response) (ExpectResponse response' cmd) = do
+      response' @=? response
       return cmd
 
-    handle expect input = do
+    handle input expect = do
       assertFailure $ "unexpected input: " ++ show expect ++ " / " ++ show input
       fail ""

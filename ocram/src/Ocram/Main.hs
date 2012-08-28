@@ -10,6 +10,7 @@ import Ocram.Ruab (encode_debug_info)
 import Ocram.Text (OcramError, show_errors)
 import Ocram.Test (runTests)
 import Ocram.Transformation (transformation)
+import System.Directory (getCurrentDirectory)
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
@@ -24,7 +25,8 @@ main = do
 runCompiler :: [String] -> IO () -- {{{1
 runCompiler argv = do
   prg <- getProgName
-  opt <- exitOnError "options" $ options prg argv 
+  cwd <- getCurrentDirectory
+  opt <- exitOnError "options" $ options prg cwd argv 
   (tcode, pcode, ast) <- exitOnError "parser" =<< parse opt
   (cg, fpr) <- exitOnError "analysis" $ analysis ast
   let (ast', pal, vm) = transformation cg ast

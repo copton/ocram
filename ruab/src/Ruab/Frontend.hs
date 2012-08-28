@@ -18,6 +18,7 @@ import Ruab.Actor (new_actor, update)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread, Row(getRow))
 import Ruab.Options (Options)
 import Ruab.Util (fromJust_s)
+import System.FilePath (takeFileName)
 
 import qualified Ruab.Core as C
 import qualified Data.ByteString.Char8 as BS
@@ -293,7 +294,7 @@ handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
 
     handle C.ResShutdown = mainQuit
 
-    handle C.ResStart = fLog $ Log LogOutput ["started"]
+    handle C.ResRun = fLog $ Log LogOutput ["started"]
 
 handleStatus :: Context -> Fire InfoUpdate -> C.Status -> IO () -- {{{2
 handleStatus ctx fInfo status =
@@ -452,7 +453,7 @@ setupGui :: Context -> IO () -- {{{2
 setupGui (Context gui core) = do
   setupComponent (guiTcomp gui)
     (C.t_code core)
-    ("(T-code) " ++ C.t_file core)
+    ("(T-code) " ++ takeFileName (C.t_file core))
 
   setupComponent (guiPcomp gui)
     (C.p_code core)
@@ -460,7 +461,7 @@ setupGui (Context gui core) = do
 
   setupComponent (guiEcomp gui)
     (C.e_code core)
-    ("(E-code) " ++ C.e_file core)
+    ("(E-code) " ++ takeFileName (C.e_file core))
 
   setupText (guiView gui) (BS.pack "")
   setupText (guiLog gui) (BS.pack "")

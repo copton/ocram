@@ -37,6 +37,7 @@ Executable ocram
     directory == 1.1.*,
     nano-md5 == 0.1.*,
     json == 0.5.*,
+    MissingH == 1.1.*,
     HUnit == 1.2.*,
     test-framework == 0.6.*,
     test-framework-hunit == 0.2.*
