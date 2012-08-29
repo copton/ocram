@@ -6,7 +6,7 @@ module Ruab.Backend.GDB
   , setup, shutdown, run
   , G.Location, G.file_line_location, G.file_function_location
   , G.Breakpoint(..), G.Stack(..), G.Frame(..), G.Stopped(..), G.StopReason(..), G.BkptNumber
-  , set_breakpoint, remove_breakpoints, continue, step, next, interrupt, backtrace
+  , set_breakpoint, remove_breakpoints, continue, step, next, interrupt, backtrace, evaluate_expression
   , G.Notification(..), G.NotificationClass(..), G.Stream(..), G.StreamClass(..), G.AsyncClass(..)
   , G.asConst
 ) where
@@ -56,6 +56,22 @@ remove_breakpoints ctx bids = do
   resp <- G.send_command ctx (G.break_delete bids)
   when (G.respClass resp /= G.RCDone)
     ($abort $ "unexpected response: " ++ show resp)
+
+evaluate_expression :: G.Context -> String -> IO (Either String String)
+evaluate_expression ctx expr = do
+  resp <- G.send_command ctx (G.data_evaluate_expression expr)
+  case G.respClass resp of
+    G.RCDone -> maybe
+      ($abort ("unexpected response: " ++ show resp))
+      (return . Right)
+      (convert G.response_data_evaluate_expression resp)
+    
+    G.RCError -> maybe
+      ($abort ("unexpected response: " ++ show resp))
+      (return . Left)
+      (convert G.response_error resp)
+
+    _ -> $abort $ "unexpected response: " ++ show resp
 
 run :: G.Context -> IO () -- {{{1
 run ctx = do

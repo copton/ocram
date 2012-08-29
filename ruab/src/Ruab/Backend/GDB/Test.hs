@@ -9,7 +9,15 @@ import Test.Framework (Test, testGroup)
 import Test.HUnit ((@=?), Assertion)
 
 tests :: Test -- {{{1
-tests = testGroup "GDB" [test_render_command, test_parse_output, test_response_break_insert, test_response_stopped, test_response_stack_list_frames]
+tests = testGroup "GDB" [
+        test_render_command
+      , test_parse_output
+      , test_response_break_insert
+      , test_response_stopped
+      , test_response_stack_list_frames
+      , test_response_evaluate_expression
+      , test_response_error
+      ]
 
 test_render_command:: Test -- {{{2
 test_render_command = enumTestGroup "render_command" $ map runTest [
@@ -269,6 +277,42 @@ test_response_stack_list_frames = enumTestGroup "response_stack_list_frames" $ m
           response_stack_list_frames (respResults response)
       in 
         show (Just stack) @=? show stack'
+
+test_response_evaluate_expression :: Test -- {{{2
+test_response_evaluate_expression = enumTestGroup "response_evaluate_expression" $ map runTest [
+    -- example {{{3
+    ([paste|
+^done,value="24"
+(gdb) 
+|], "24")
+  ]
+  where
+    runTest :: (String, String) -> Assertion -- {{{3
+    runTest (str, expr) =
+      let
+        output = parse_output (tail str)
+        (Just response) = output_response output
+      in do
+        RCDone @=? respClass response
+        Just expr @=? (response_data_evaluate_expression . respResults) response
+
+test_response_error :: Test -- {{{2
+test_response_error = enumTestGroup "response_error" $ map runTest [
+    -- example {{{3
+    ([paste|
+^error,msg="No symbol \"j\" in current context."
+(gdb) 
+|], "No symbol \"j\" in current context.")
+  ]
+  where
+    runTest :: (String, String) -> Assertion -- {{{3
+    runTest (str, err) =
+      let
+        output = parse_output (tail str)
+        (Just response) = output_response output
+      in do
+        RCError @=? respClass response
+        Just err @=? (response_error . respResults) response
 
 -- utils {{{1
 qp :: String -> Parameter
