@@ -1,6 +1,11 @@
 module Ruab.Core.Internal where
 
 import Control.Monad (guard)
+import Language.C.Parser (execParser_, expressionP)
+import Language.C.Data.InputStream (inputStreamFromString)
+import Language.C.Data.Position (initPos)
+import Language.C.Syntax.AST (CExpr)
+import Language.C.Pretty (pretty)
 
 import qualified Ocram.Ruab as R
 
@@ -21,3 +26,19 @@ p2t_row' ppm@(R.PreprocMap trows _ locs) prow = do
   prow' <- t2p_row' ppm trow
   guard (prow' == prow)
   return trow
+
+t2e_expr :: String -> Either String String  -- {{{1
+t2e_expr str = do
+  ast <- parseExpression str
+  (return . printExpression . t2eExpr) ast
+
+parseExpression :: String -> Either String CExpr -- {{{2
+parseExpression expr = case execParser_ expressionP (inputStreamFromString expr) (initPos "<<user>>") of
+  Left e -> Left (show e)
+  Right x -> Right x
+
+t2eExpr :: CExpr -> CExpr -- {{{2
+t2eExpr = undefined
+
+printExpression :: CExpr -> String -- {{{2
+printExpression = show . pretty

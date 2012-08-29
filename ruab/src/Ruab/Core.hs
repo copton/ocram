@@ -55,6 +55,7 @@ data Context = Context { -- {{{2
 data Command -- {{{2
   = CmdAddBreakpoint R.PRow [R.ThreadId]
   | CmdContinue
+  | CmdEvaluate String
   | CmdFilter [R.ThreadId]
   | CmdRemoveBreakpoint BreakpointNumber
   | CmdInterrupt
@@ -67,6 +68,7 @@ data Result -- {{{2
   = ResAddBreakpoint UserBreakpoint
   | ResContinue
   | ResRemoveBreakpoint
+  | ResEvaluate String
   | ResFilter
   | ResInterrupt
   | ResListBreakpoints [UserBreakpoint]
@@ -341,6 +343,18 @@ handleCommand ctx backend fResponse command state = do
           [] -> (M.keys . stateThreads) state
           ts -> ts
       in return (Just ResFilter, \state' -> state' {stateThreadFilter = threads'})
+
+    -- CmdEvaluate {{{3
+    handle (CmdEvaluate _) ExShutdown = alreadyShutdown
+    handle (CmdEvaluate _) ExRunning = failed "cannot evaluate expressions while the debugger is running"
+    handle (CmdEvaluate _) ExWaiting = notRunning
+    handle (CmdEvaluate texpr) ExStopped = case t2e_expr texpr of
+      Left err -> failed err
+      Right eexpr -> do
+        res <- B.evaluate_expression backend eexpr
+        case res of
+          Left err -> failed err
+          Right value -> return (Just (ResEvaluate value), id)
     
     --utils {{{3
     failed e  = fResponse (command, Left e) >> return (Nothing, id)

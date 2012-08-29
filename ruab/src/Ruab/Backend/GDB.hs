@@ -57,7 +57,7 @@ remove_breakpoints ctx bids = do
   when (G.respClass resp /= G.RCDone)
     ($abort $ "unexpected response: " ++ show resp)
 
-evaluate_expression :: G.Context -> String -> IO (Either String String)
+evaluate_expression :: G.Context -> String -> IO (Either String String) -- {{{1
 evaluate_expression ctx expr = do
   resp <- G.send_command ctx (G.data_evaluate_expression expr)
   case G.respClass resp of
