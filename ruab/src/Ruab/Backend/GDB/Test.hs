@@ -17,10 +17,10 @@ test_render_command = enumTestGroup "render_command" $ map runTest [
       MICommand Nothing "break-info" [] []
     , "-break-info\n"
     ), (
-      MICommand (Just 23) "exec-arguments" [Option "-v" (Just "word")] []
+      MICommand (Just 23) "exec-arguments" [Option (qp "-v") (Just (qp "word"))] []
     , "23-exec-arguments \"-v\" \"word\"\n"
     ), (
-      MICommand (Just 42) "break-commands" [Option "1" Nothing, Option "print v" Nothing] []
+      MICommand (Just 42) "break-commands" [Option (qp "1") Nothing, Option (qp "print v") Nothing] []
       , "42-break-commands \"1\" \"print v\"\n"
     )
   ]
@@ -222,13 +222,13 @@ test_response_stopped = enumTestGroup "response_stopped" $ map runTest [
 *stopped,reason="breakpoint-hit",disp="keep",bkptno="7",frame={addr="0x0000000000400e24",func="ec_thread_1",args=[{name="ec_cont",value="0x400ed5"}],file="ec.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c",line="433"},thread-id="1",stopped-threads="all",core="1"
 (gdb) 
 |], Stopped (BreakpointHit BreakpointKeep 7) (Frame Nothing "0x0000000000400e24" "ec_thread_1" (Just [Arg "ec_cont" "0x400ed5"]) "ec.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/ec.c") 433) 1 "all" 1)
-  , -- end stepping range
+  , -- end stepping range {{{3
   ([paste|
 *stopped,reason="end-stepping-range",frame={addr="0x00000000004017fa",func="main",args=[],file="pal.c",fullname="/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c",line="196"},thread-id="1",stopped-threads="all",core="1"
 (gdb) 
 |], Stopped EndSteppingRange (Frame Nothing "0x00000000004017fa" "main" (Just []) "pal.c" (Just "/home/alex/scm/ocram/applications/simulation_os/collect-and-forward/pal.c") 196) 1 "all" 1)
   ]
-  where
+    where
     runTest :: (String, Stopped) -> Assertion -- {{{3
     runTest (str, stp) =
       let
@@ -269,3 +269,7 @@ test_response_stack_list_frames = enumTestGroup "response_stack_list_frames" $ m
           response_stack_list_frames (respResults response)
       in 
         show (Just stack) @=? show stack'
+
+-- utils {{{1
+qp :: String -> Parameter
+qp = QuotedString

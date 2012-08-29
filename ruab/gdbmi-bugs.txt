@@ -4,6 +4,10 @@ extra white space at "(gdb) "
 
 gdb-exit should answer with "(gdb)"
 
+some options require double-quotes and others (like break-delete) do not.
+
+some stop notifications have no stopped reason
+
 27.4.1
 not all options start with a dash
 
@@ -15,6 +19,9 @@ out-of-band records may follow result record (bug 7708)
 
 27.10
 result of break-insert de facto has a 'original-location' value, missing in docu
+
+27.15
+exec-step sometimes reports "done" instead of "running"
 
 27.17
 why is 'mode' a parameter and not an option?

@@ -8,7 +8,7 @@ module Ocram.Transformation.Normalize.ShortCircuiting
 import Control.Monad.State (State, evalState, get, gets, put)
 import Data.Generics (everywhereM, mkM)
 import Language.C.Syntax.AST
-import Ocram.Debug (un)
+import Ocram.Debug (ENodeInfo)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Types
 import Ocram.Transformation.Util (ident)
@@ -55,14 +55,14 @@ data Substitution a =  -- {{{2
   }
 
 traverse :: Int -> CExpr' -> State Context (Substitution CExpr') -- {{{2
-traverse tid (CComma exprs ni) = do
+traverse tid (CComma exprs ni) = do -- {{{3
   ss <- mapM (traverse tid) exprs
   let expr = CComma (map subExpr ss) ni
   let items = concatMap subItems ss
   let crit = or $ map subCritical ss
   return $ Substitution expr items crit
 
-traverse tid (CAssign op lhs rhs ni) = do
+traverse tid (CAssign op lhs rhs ni) = do -- {{{3
   lhs' <- traverse tid lhs
   rhs' <- traverse tid rhs
   let expr = CAssign op (subExpr lhs') (subExpr rhs') ni
@@ -70,7 +70,7 @@ traverse tid (CAssign op lhs rhs ni) = do
   let crit = subCritical lhs' || subCritical rhs'
   return $ Substitution expr items crit
 
-traverse tid (CCond cond Nothing else_ ni) = do
+traverse tid (CCond cond Nothing else_ ni) = do -- {{{3
   cond' <- traverse tid cond
   else_' <- traverse tid else_
   let expr = CCond (subExpr cond') Nothing (subExpr else_') ni
@@ -78,7 +78,7 @@ traverse tid (CCond cond Nothing else_ ni) = do
   let crit = subCritical cond' || subCritical else_'
   return $ Substitution expr items crit
 
-traverse tid (CCond cond (Just then_) else_ ni) = do
+traverse tid (CCond cond (Just then_) else_ ni) = do -- {{{3
   cond' <- traverse tid cond
   then_' <- traverse tid then_
   else_' <- traverse tid else_ 
@@ -87,14 +87,14 @@ traverse tid (CCond cond (Just then_) else_ ni) = do
   let crit = subCritical cond' || subCritical then_' || subCritical else_'
   return $ Substitution expr items crit
 
-traverse tid (CBinary op lhs rhs ni)
+traverse tid (CBinary op lhs rhs ni) -- {{{3
   | isLogicalOp op = do
       lhs' <- traverse tid lhs
       rhs' <- traverse tid rhs
       if subCritical lhs' || subCritical rhs'
         then do
           idx <- next
-          return $ substitute tid idx op lhs' rhs'
+          return $ substitute tid idx op ni lhs' rhs'
         else
           let
             expr = CBinary op (subExpr lhs') (subExpr rhs') ni
@@ -110,33 +110,33 @@ traverse tid (CBinary op lhs rhs ni)
       let crit = subCritical lhs' || subCritical rhs'
       return $ Substitution expr items crit
 
-traverse tid  (CCast decl expr ni) = do
+traverse tid  (CCast decl expr ni) = do -- {{{3
   expr' <- traverse tid expr
   return $ Substitution (CCast decl (subExpr expr') ni) (subItems expr') (subCritical expr')
 
-traverse tid (CUnary op expr ni) = do
+traverse tid (CUnary op expr ni) = do -- {{{3
   expr' <- traverse tid expr
   return $ Substitution (CUnary op (subExpr expr') ni) (subItems expr') (subCritical expr')
 
-traverse tid (CSizeofExpr expr ni) = do
+traverse tid (CSizeofExpr expr ni) = do -- {{{3
   expr' <- traverse tid expr
   return $ Substitution (CSizeofExpr (subExpr expr') ni) (subItems expr') (subCritical expr')
   
-traverse _ o@(CSizeofType _ _) = return $ Substitution o [] False
+traverse _ o@(CSizeofType _ _) = return $ Substitution o [] False -- {{{3
 
-traverse tid (CAlignofExpr expr ni) = do
+traverse tid (CAlignofExpr expr ni) = do -- {{{3
   expr' <- traverse tid expr
   return $ Substitution (CAlignofExpr (subExpr expr') ni) (subItems expr') (subCritical expr')
 
-traverse tid (CComplexReal expr ni) = do
+traverse tid (CComplexReal expr ni) = do -- {{{3
   expr' <- traverse tid expr
   return $ Substitution (CComplexReal (subExpr expr') ni) (subItems expr') (subCritical expr')
 
-traverse tid (CComplexImag expr ni) = do
+traverse tid (CComplexImag expr ni) = do -- {{{3
   expr' <- traverse tid expr
   return $ Substitution (CComplexImag (subExpr expr') ni) (subItems expr') (subCritical expr')
 
-traverse tid (CIndex expr1 expr2 ni) = do
+traverse tid (CIndex expr1 expr2 ni) = do -- {{{3
   expr1' <- traverse tid expr1
   expr2' <- traverse tid expr2
   let expr = CIndex (subExpr expr1') (subExpr expr2') ni
@@ -144,7 +144,7 @@ traverse tid (CIndex expr1 expr2 ni) = do
   let crit = subCritical expr1' || subCritical expr2'
   return $ Substitution expr items crit
   
-traverse tid (CCall v@(CVar iden _) params ni) = do -- {{{2
+traverse tid (CCall v@(CVar iden _) params ni) = do -- {{{3
   ss <- mapM (traverse tid) params
   cf <- gets fst
   let expr = CCall v (map subExpr ss) ni
@@ -152,7 +152,7 @@ traverse tid (CCall v@(CVar iden _) params ni) = do -- {{{2
   let crit = if Set.member (symbol iden) cf then True else or (map subCritical ss)
   return $ Substitution expr items crit
 
-traverse tid (CCall fun params ni) = do
+traverse tid (CCall fun params ni) = do -- {{{3
   subFun <- traverse tid fun
   subPar <- mapM (traverse tid) params
   let expr = CCall (subExpr subFun) (map subExpr subPar) ni
@@ -160,15 +160,15 @@ traverse tid (CCall fun params ni) = do
   let crit = (subCritical subFun) || or (map subCritical subPar)
   return $ Substitution expr items crit
 
-traverse tid (CMember expr iden flag ni) = do
+traverse tid (CMember expr iden flag ni) = do -- {{{3
   expr' <- traverse tid expr
   return $ Substitution (CMember (subExpr expr') iden flag ni) (subItems expr') (subCritical expr')
   
-traverse _ o@(CVar _ _) = return $ Substitution o [] False
+traverse _ o@(CVar _ _) = return $ Substitution o [] False -- {{{3
 
-traverse _ o@(CConst _ ) = return $ Substitution o [] False
+traverse _ o@(CConst _ ) = return $ Substitution o [] False -- {{{3
 
-traverse tid (CCompoundLit decl initlst ni) = do
+traverse tid (CCompoundLit decl initlst ni) = do -- {{{3
   initlst' <- mapM go initlst
   let expr = CCompoundLit decl (map subExpr initlst') ni
   let crit = or (map subCritical initlst')
@@ -202,20 +202,20 @@ traverse tid (CCompoundLit decl initlst ni) = do
       let crit = or (map subCritical is')
       return $ Substitution expr items crit
 
-traverse _ o = $abort $ unexp o
+traverse _ o = $abort $ unexp o -- {{{3
  
-substitute :: Int -> Int -> CBinaryOp -> Substitution CExpr' -> Substitution CExpr' -> Substitution CExpr' -- {{{2
-substitute tid idx op lhs rhs =
+substitute :: Int -> Int -> CBinaryOp -> ENodeInfo -> Substitution CExpr' -> Substitution CExpr' -> Substitution CExpr' -- {{{2
+substitute tid idx op ni lhs rhs =
   let
     iden = ident (varBool tid idx)
-    decl = CBlockDecl $ CDecl [CTypeSpec (CIntType un)] [(Just (CDeclr (Just iden) [] Nothing [] un) , Nothing, Nothing)] un
-    var = CVar iden un
-    [lhs_assign, rhs_assign] = map (CBlockStmt . (\x -> CExpr (Just x) un) . (\x -> CAssign CAssignOp var ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
+    decl = CBlockDecl $ CDecl [CTypeSpec (CIntType ni)] [(Just (CDeclr (Just iden) [] Nothing [] ni) , Nothing, Nothing)] ni
+    var = CVar iden ni
+    [lhs_assign, rhs_assign] = map (CBlockStmt . (\x -> CExpr (Just x) (annotation x)) . (\x -> CAssign CAssignOp var ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
     cond = case op of
       CLorOp -> neg var
       CLndOp -> var
       o -> $abort $ unexp' o
-    if_ = CBlockStmt $ CIf cond (CCompound [] (subItems rhs ++ [rhs_assign]) un) Nothing un
+    if_ = CBlockStmt $ CIf cond (CCompound [] (subItems rhs ++ [rhs_assign]) ni) Nothing ni
     items = subItems lhs ++ [decl, lhs_assign, if_]
   in
     Substitution var items True

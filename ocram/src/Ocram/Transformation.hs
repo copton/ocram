@@ -21,27 +21,28 @@ import qualified Data.Set as Set
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
   let
-    ast' = (translate cg . normalize cg . enableLocationTracing . fmap enrich_node_info) ast
+    ast' = enableBreakpoints . translate cg . normalize cg . fmap enrich_node_info $ ast
     pal = extractPal cg ast'
     ds = extractVarMap ast'
   in
     (ast', pal, ds)
 
-enableLocationTracing :: CTranslUnit' -> CTranslUnit' -- {{{1
-enableLocationTracing = everywhere (mkT tExtDecl `extT` tStat `extT` tExpr)
+enableBreakpoints :: CTranslUnit' -> CTranslUnit' -- {{{1
+enableBreakpoints = everywhere (mkT tStat `extT` tInitDecl)
   where
-    tExtDecl :: CExtDecl' -> CExtDecl' 
-    tExtDecl (CFDefExt fd) = CFDefExt (amap enableTrace fd)
-    tExtDecl x = x
-
     tStat :: CStat' -> CStat'
-    tStat = amap enableTrace
+    tStat o@(CCompound _ _ _) = o
+    tStat o@(CExpr Nothing _) = o
+    tStat o@(CLabel _ _ _ _) = o
+    tStat s = amap traceLocation s
 
-    tExpr :: CExpr' -> CExpr'
-    tExpr o@(CCall _ _ _) = amap enableTrace o
-    tExpr o = o
+    tInitDecl :: CDecl' -> CDecl'
+    tInitDecl (CDecl x1 decls x2) = CDecl x1 (map tr decls) x2
+      where
+        tr (y1, Just y2, y3) = (y1, Just (amap traceLocation y2), y3)
+        tr x                 = x
 
-    enableTrace x = x {enTraceLocation = True}
+    traceLocation x = x {enLocation = True}
 
 extractPal :: CallGraph -> CTranslUnit' -> CTranslUnit' -- {{{1
 extractPal cg (CTranslUnit ds _) = CTranslUnit (map CDeclExt ds') un

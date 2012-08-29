@@ -65,7 +65,7 @@ setup :: Maybe FilePath -> Callback -> IO Context -- {{{1
 setup logfile callback = do
   (commandR,  commandW)  <- createPipe >>= asHandles
   (outputR, outputW) <- createPipe >>= asHandles
-  phandle <- runProcess "setsid" ["gdb", "--interpreter", "mi"] -- avoid receiving SIGINTs when issuing -exec-interrupt
+  phandle <- runProcess "setsid" (words "schroot -c quantal -p -- gdb --interpreter mi") -- avoid receiving SIGINTs when issuing -exec-interrupt
                  Nothing Nothing
                  (Just commandR)
                  (Just outputW)
