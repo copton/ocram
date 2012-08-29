@@ -60,7 +60,7 @@ data BlockingCall = BlockingCall { -- {{{2
 type BlockingCalls = [BlockingCall] -- {{{2
 
 data Variable = Variable { -- {{{2
-    varThread    :: Maybe ThreadId
+    varThread    :: ThreadId
   , varFunction  :: String
   , varSymbol    :: String
   } deriving (Ord, Eq)
@@ -131,9 +131,9 @@ instance JSON LocMap where -- {{{2
 instance JSON Variable where -- {{{2
   readJSON val = do
     (tid, func, sym) <- readJSON val
-    return $ Variable (decodeTid tid) func sym
+    return $ Variable tid func sym
 
-  showJSON (Variable tid func sym) = showJSON (encodeTid tid, func, sym)
+  showJSON (Variable tid func sym) = showJSON (tid, func, sym)
 
 instance JSON Substitution where
   readJSON = undefined

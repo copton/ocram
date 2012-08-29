@@ -31,18 +31,19 @@ p2t_row' ppm@(R.PreprocMap trows _ locs) prow = do
   return trow
 
 t2e_expr :: [String] -> R.VarMap -> R.ThreadId -> String -> String -> Either String String  -- {{{1
-t2e_expr cf vm tid fname str =  do
-  let tid' = if fname `elem` cf then Just tid else Nothing
-  texpr <- parseExpression str
-  eexpr <- maybe (Left "failed to convert expression") Right (t2eExpr vm tid' fname texpr)
-  (return . printExpression) eexpr
+t2e_expr cf vm tid fname tstr
+  | fname `elem` cf = do
+      texpr <- parseExpression tstr
+      eexpr <- maybe (Left "failed to convert expression") Right (t2eExpr vm tid fname texpr)
+      (return . printExpression) eexpr
+  | otherwise = return tstr
 
 parseExpression :: String -> Either String CExpr -- {{{2
 parseExpression expr = case execParser_ expressionP (inputStreamFromString expr) nopos of
   Left e -> Left (show e)
   Right x -> Right x
 
-t2eExpr :: R.VarMap -> Maybe R.ThreadId -> String -> CExpr -> Maybe CExpr -- {{{2
+t2eExpr :: R.VarMap -> R.ThreadId -> String -> CExpr -> Maybe CExpr -- {{{2
 t2eExpr vm tid fname = everywhereM (mkM trans)
   where
   trans :: CExpr -> Maybe CExpr
