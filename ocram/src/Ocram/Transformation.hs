@@ -9,7 +9,7 @@ import Data.Generics (everything, everywhere, mkT, mkQ, extT)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, blocking_functions)
 import Ocram.Debug (enrich_node_info, ENodeInfo(..), un)
-import Ocram.Ruab (VarMap)
+import Ocram.Ruab (VarMap(..))
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Normalize (normalize)
 import Ocram.Transformation.Translate (translate)
@@ -17,6 +17,7 @@ import Ocram.Transformation.Types
 import Ocram.Transformation.Names (frameType)
 
 import qualified Data.Set as Set
+import qualified Data.Map as M
 
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
@@ -57,4 +58,4 @@ extractPal cg (CTranslUnit ds _) = CTranslUnit (map CDeclExt ds') un
   query _ = []
 
 extractVarMap :: CTranslUnit' -> VarMap -- {{{1
-extractVarMap _ = []
+extractVarMap _ = VarMap M.empty

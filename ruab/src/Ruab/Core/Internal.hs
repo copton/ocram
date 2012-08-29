@@ -1,13 +1,16 @@
 module Ruab.Core.Internal where
 
 import Control.Monad (guard)
+import Data.Generics (everywhereM, mkM)
 import Language.C.Parser (execParser_, expressionP)
 import Language.C.Data.InputStream (inputStreamFromString)
-import Language.C.Data.Position (initPos)
-import Language.C.Syntax.AST (CExpr)
+import Language.C.Data.Position (nopos)
+import Language.C.Data.Ident (identToString)
+import Language.C.Syntax.AST (CExpr, CExpression(CVar))
 import Language.C.Pretty (pretty)
 
 import qualified Ocram.Ruab as R
+import qualified Data.Map as M
 
 t2p_row' :: R.PreprocMap -> R.TRow -> Maybe R.PRow -- {{{1
 t2p_row'(R.PreprocMap _ prows locs) trow = do
@@ -27,18 +30,27 @@ p2t_row' ppm@(R.PreprocMap trows _ locs) prow = do
   guard (prow' == prow)
   return trow
 
-t2e_expr :: String -> Either String String  -- {{{1
-t2e_expr str = do
-  ast <- parseExpression str
-  (return . printExpression . t2eExpr) ast
+t2e_expr :: [String] -> R.VarMap -> R.ThreadId -> String -> String -> Either String String  -- {{{1
+t2e_expr cf vm tid fname str =  do
+  let tid' = if fname `elem` cf then Just tid else Nothing
+  texpr <- parseExpression str
+  eexpr <- maybe (Left "failed to convert expression") Right (t2eExpr vm tid' fname texpr)
+  (return . printExpression) eexpr
 
 parseExpression :: String -> Either String CExpr -- {{{2
-parseExpression expr = case execParser_ expressionP (inputStreamFromString expr) (initPos "<<user>>") of
+parseExpression expr = case execParser_ expressionP (inputStreamFromString expr) nopos of
   Left e -> Left (show e)
   Right x -> Right x
 
-t2eExpr :: CExpr -> CExpr -- {{{2
-t2eExpr = undefined
+t2eExpr :: R.VarMap -> Maybe R.ThreadId -> String -> CExpr -> Maybe CExpr -- {{{2
+t2eExpr vm tid fname = everywhereM (mkM trans)
+  where
+  trans :: CExpr -> Maybe CExpr
+  trans (CVar ident _) = 
+    let var = R.Variable tid fname (identToString ident) in
+    fmap R.getSubstitution $ M.lookup var $ R.getVarMap vm
+
+  trans o = Just o
 
 printExpression :: CExpr -> String -- {{{2
 printExpression = show . pretty

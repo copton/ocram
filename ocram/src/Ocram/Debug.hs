@@ -6,7 +6,7 @@ import Data.Data (Data)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Typeable (Typeable)
 import Language.C.Data.Node (CNode(nodeInfo), NodeInfo, undefNode)
-import Ocram.Analysis (CallGraph, start_functions, blocking_functions, call_order)
+import Ocram.Analysis (CallGraph, start_functions, blocking_functions, call_order, critical_functions)
 import Ocram.Options (Options(optInput, optOutput))
 import Ocram.Debug.Internal
 import Ocram.Ruab
@@ -49,12 +49,13 @@ create_debug_info opt cg tcode pcode ecode vm bps bcs =
     ppm = preproc_map tcode pcode
     oa = blocking_functions cg
     lm = createLocMap bps
+    cf = critical_functions cg
   in
-    DebugInfo tfile pcode efile ppm lm bcs vm ts oa
+    DebugInfo tfile pcode efile ppm lm bcs vm ts oa cf
   where
     createThreadInfo tid sf = Thread tid sf (threadExecutionFunction tid) ($fromJust_s $ call_order cg sf)
 
     createLocMap = LocMap . foldr insert M.empty
-    insert bp = M.alter (alter (bpEloc bp)) $ LocKey (bpThreadId bp, bpTloc bp)
+    insert bp = M.alter (alter (bpEloc bp)) $ LocKey (bpThreadId bp) (bpTloc bp)
     alter eloc Nothing = Just [eloc]
     alter eloc (Just elocs) = Just $ eloc : elocs

@@ -5,9 +5,8 @@ module Ocram.Transformation.Util
 ) where
 
 -- imports {{{1
-import Language.C.Data.Ident (Ident(Ident))
-import Language.C.Data.Node (undefNode)
+import Language.C.Data.Ident (internalIdent, Ident)
 
 ident :: String -> Ident -- {{{1
-ident s = Ident s 0 undefNode
-
+ident = internalIdent 
+--ident s = Ident s 0 undefNode

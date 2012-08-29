@@ -3,7 +3,9 @@ module Ocram.Ruab where
 
 -- imports {{{1
 import Text.JSON
+import Control.Applicative ((<$>))
 import Control.Arrow ((***))
+import Language.C.Syntax.AST
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
@@ -41,9 +43,10 @@ data ELocation = ELocation { -- {{{2
   , elocCol  :: Int
   } deriving Show
 
-newtype LocKey -- {{{2
-  = LocKey { getLocKey :: (Maybe ThreadId, TLocation) }
-  deriving (Ord, Eq)
+data LocKey = LocKey { -- {{{2
+    locKeyThread :: Maybe ThreadId
+  , locKeyTloc   :: TLocation
+  } deriving (Eq, Ord)
 
 newtype LocMap -- {{{2
   = LocMap { getLocMap :: M.Map LocKey [ELocation] }
@@ -56,9 +59,16 @@ data BlockingCall = BlockingCall { -- {{{2
 
 type BlockingCalls = [BlockingCall] -- {{{2
 
-type Variable = String -- {{{2
+data Variable = Variable { -- {{{2
+    varThread    :: Maybe ThreadId
+  , varFunction  :: String
+  , varSymbol    :: String
+  } deriving (Ord, Eq)
 
-type VarMap = [(Variable, Variable)] -- {{{2
+newtype Substitution = Substitution { getSubstitution :: CExpr }
+
+newtype VarMap
+  = VarMap { getVarMap :: M.Map Variable Substitution }
 
 data PreprocMap = PreprocMap { -- {{{2
     ppmMaxTRow :: TRow
@@ -85,9 +95,10 @@ data DebugInfo = DebugInfo { -- {{{2
   , diPpm       :: PreprocMap
   , diLm        :: LocMap
   , diBcs       :: BlockingCalls
-  , diVarMap    :: VarMap
+  , diVm        :: VarMap
   , diThreads   :: [Thread]
   , diOsApi     :: [String]
+  , diCf        :: [String]
   }
 
 -- instances {{{1
@@ -108,23 +119,31 @@ instance JSON ELocation where -- {{{2
 instance JSON LocKey where -- {{{2
   readJSON val = do
     (tid, tloc) <- readJSON val
-    let tid' = if tid == (-1) then Nothing else Just tid
-    return $ LocKey (tid', tloc)
+    return $ LocKey (decodeTid tid) tloc
 
-  showJSON (LocKey (tid, tloc)) = 
-    let
-      tid' = case tid of
-        Nothing -> (-1)
-        Just x  -> x
-    in showJSON (tid', tloc)
+  showJSON (LocKey tid tloc) = showJSON (encodeTid tid, tloc)
 
 instance JSON LocMap where -- {{{2
-  readJSON val = do
-    entries <- readJSON val
-    return . LocMap . M.fromList $ entries
+  readJSON val = (LocMap . M.fromList) <$> readJSON val
 
   showJSON = showJSON . M.toList . getLocMap
+
+instance JSON Variable where -- {{{2
+  readJSON val = do
+    (tid, func, sym) <- readJSON val
+    return $ Variable (decodeTid tid) func sym
+
+  showJSON (Variable tid func sym) = showJSON (encodeTid tid, func, sym)
+
+instance JSON Substitution where
+  readJSON = undefined
+  showJSON = undefined
     
+instance JSON VarMap where
+  readJSON val = VarMap . M.fromList <$> readJSON val
+  
+  showJSON = showJSON . M.toList . getVarMap
+
 instance JSON BlockingCall where -- {{{2
   readJSON val = do
     (t, e, tid) <- readJSON val
@@ -169,7 +188,7 @@ instance JSON Thread where -- {{{2
   readJSON x = readFail "Thread" x
 
 instance JSON DebugInfo where -- {{{2
-  showJSON (DebugInfo tcode pcode ecode ppm lm bcs vm ts oa) = (JSObject . toJSObject) [
+  showJSON (DebugInfo tcode pcode ecode ppm lm bcs vm ts oa cf) = (JSObject . toJSObject) [
       ("tcode",   showJSON tcode)
     , ("pcode",   showJSON pcode)
     , ("ecode",   showJSON ecode)
@@ -179,10 +198,11 @@ instance JSON DebugInfo where -- {{{2
     , ("vs",      showJSON vm)
     , ("threads", showJSON ts)
     , ("osapi",   showJSON oa)
+    , ("cf",      showJSON cf)
     ]
 
   readJSON (JSObject obj) = do
-    let [tcode, pcode, ecode, ppm, lm, bcs, vm, ts, oa] = map snd $ fromJSObject obj
+    let [tcode, pcode, ecode, ppm, lm, bcs, vm, ts, oa, cf] = map snd $ fromJSObject obj
     [tcode', ecode'] <- mapM readJSON [tcode, ecode]
     pcode'           <- readJSON pcode
     ppm'             <- readJSON ppm
@@ -191,7 +211,8 @@ instance JSON DebugInfo where -- {{{2
     vm'              <- readJSON vm
     ts'              <- readJSON ts
     oa'              <- readJSON oa
-    return $ DebugInfo tcode' pcode' ecode' ppm' lm' bcs' vm' ts' oa'
+    cf'              <- readJSON cf
+    return $ DebugInfo tcode' pcode' ecode' ppm' lm' bcs' vm' ts' oa' cf'
 
   readJSON x = readFail "DebugInfo" x
 
@@ -207,3 +228,11 @@ instance Show PRow where -- {{{2
 -- utils {{{2
 readFail :: String -> JSValue -> Result a
 readFail type_ x = Error $ "unexpected JSON value for " ++ type_ ++ " type: '" ++ show x ++ "'"
+
+encodeTid :: Maybe ThreadId -> Int
+encodeTid Nothing = -1
+encodeTid (Just tid) = tid
+
+decodeTid :: Int -> Maybe ThreadId
+decodeTid (-1) = Nothing
+decodeTid tid = Just tid
