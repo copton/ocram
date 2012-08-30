@@ -176,7 +176,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-    -- print local variable of non-critical function
+    -- print local variable of non-critical function {{{3
     , [ ExpectStart $ CmdAddBreakpoint (PRow 461) []
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
@@ -188,6 +188,17 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectStatus [isRunning] Nothing
       , ExpectStatus [isStopped, threadStopped 2 1 461] (Just (CmdEvaluate "i"))
       , ExpectResponse (Right (ResEvaluate "0")) (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+      ]
+    -- print non-existent local variable of non-critical function {{{3
+    , [ ExpectStart $ CmdAddBreakpoint (PRow 461) []
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 1 461] (Just (CmdEvaluate "j"))
+      , ExpectResponse (Left "No symbol \"j\" in current context.") (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
@@ -237,7 +248,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       fail ""
 
     step actor fCommand input (count, (expected:rest)) = do
-      putStrLn $ printf "%.2d: %s" count (show input)
+--       putStrLn $ printf "%.2d: %s" count (show input)
       cmd <- handle input expected
       when (isJust cmd) (fCommand (fromJust cmd))
       when (null rest) (quit actor)

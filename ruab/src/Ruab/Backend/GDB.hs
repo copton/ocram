@@ -69,7 +69,7 @@ evaluate_expression ctx expr = do
     G.RCError -> maybe
       ($abort ("unexpected response: " ++ show resp))
       (return . Left)
-      (convert G.response_error resp)
+      ((G.response_error . G.respResults) resp)
 
     _ -> $abort $ "unexpected response: " ++ show resp
 
