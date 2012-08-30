@@ -3,12 +3,12 @@
 module Ruab.Core.Test (tests) where
 
 -- imports {{{1
-import Control.Exception.Base (throwIO, try, SomeException)
+import Control.Exception.Base (try, SomeException)
 import Control.Monad.Fix (mfix)
 import Control.Monad (forM_, when)
 import Data.List (intercalate, find)
 import Data.Maybe (fromJust, isJust)
-import Ruab.Actor (new_actor, update, wait, quit)
+import Ruab.Actor (new_actor, update, quit, monitor)
 import Ruab.Core.Internal (t2p_row', p2t_row')
 import Ruab.Core
 import Ruab.Options (Options(..))
@@ -234,10 +234,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
             (fire actor fCommand' InputStatus)
         )
       fCommand command
-      result <- wait actor
-      case result of
-        Left e -> throwIO e
-        Right _ -> return ()
+      monitor actor
 
     runTest _ = assertFailure "illegal script. Expect scripts must start with ExpectStart"
 

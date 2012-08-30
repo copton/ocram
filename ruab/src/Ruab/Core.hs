@@ -26,7 +26,7 @@ import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.List (intercalate, find, nub)
 import Data.Maybe (catMaybes, fromJust, isJust)
 import Prelude hiding (catch)
-import Ruab.Actor (new_actor, update)
+import Ruab.Actor (new_actor, update, monitor_async)
 import Ruab.Core.Internal
 import Ruab.Options (Options(optDebugFile))
 import Ruab.Util (fromJust_s, abort, head_s)
@@ -142,6 +142,7 @@ create_network :: Context -> Options -> Fire Response -> Fire Status -> IO (Fire
 create_network ctx opt fResponse fStatus = do
   let s0 = initialState ctx
   aCore <- new_actor s0
+  monitor_async aCore
   let
     fCore f = update aCore $ \state -> do
       state' <- f state

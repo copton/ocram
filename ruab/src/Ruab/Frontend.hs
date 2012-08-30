@@ -14,7 +14,7 @@ import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Graphics.UI.Gtk.Gdk.Events (Event(Key))
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
-import Ruab.Actor (new_actor, update)
+import Ruab.Actor (new_actor, monitor_async, update)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread, Row(getRow))
 import Ruab.Options (Options)
 import Ruab.Util (fromJust_s)
@@ -229,6 +229,7 @@ createNetwork :: Context -> Options -> IO () -- {{{2
 createNetwork ctx@(Context gui core) opt = do
   let infos = foldr (flip setBreakpoint 0) [] $ C.possible_breakpoints core
   aInfo <- new_actor infos
+  monitor_async aInfo
   let
     fInfo u = update aInfo (\s -> do
         let s' = u s
@@ -243,6 +244,7 @@ createNetwork ctx@(Context gui core) opt = do
   let fCommand  = handleCommand core fInfo fLog fCore
 
   aInput <- new_actor (InputState [] [])
+  monitor_async aInput
   let fInput = update aInput . handleInput (guiInput gui) fLog fCommand
 
   _ <- onDestroy (guiWin gui) (fCommand CmdQuit)
