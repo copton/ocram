@@ -5,7 +5,6 @@ module Ocram.Ruab where
 import Text.JSON
 import Control.Applicative ((<$>))
 import Control.Arrow ((***))
-import Language.C.Syntax.AST
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
@@ -65,10 +64,8 @@ data Variable = Variable { -- {{{2
   , varSymbol    :: String
   } deriving (Ord, Eq)
 
-newtype Substitution = Substitution { getSubstitution :: CExpr }
-
-newtype VarMap
-  = VarMap { getVarMap :: M.Map Variable Substitution }
+newtype VarMap -- {{{2
+  = VarMap { getVarMap :: M.Map Variable String}
 
 data PreprocMap = PreprocMap { -- {{{2
     ppmMaxTRow :: TRow
@@ -135,11 +132,8 @@ instance JSON Variable where -- {{{2
 
   showJSON (Variable tid func sym) = showJSON (tid, func, sym)
 
-instance JSON Substitution where
-  readJSON = undefined
-  showJSON = undefined
     
-instance JSON VarMap where
+instance JSON VarMap where -- {{{2
   readJSON val = VarMap . M.fromList <$> readJSON val
   
   showJSON = showJSON . M.toList . getVarMap

@@ -2,12 +2,13 @@ module Ruab.Core.Internal where
 
 import Control.Monad (guard)
 import Data.Generics (everywhereM, mkM)
-import Language.C.Parser (execParser_, expressionP)
+import Langauge.C.Data.Node (undefNode)
+import Language.C.Data.Ident (identToString, internalIdent)
 import Language.C.Data.InputStream (inputStreamFromString)
 import Language.C.Data.Position (nopos)
-import Language.C.Data.Ident (identToString)
-import Language.C.Syntax.AST (CExpr, CExpression(CVar))
+import Language.C.Parser (execParser_, expressionP)
 import Language.C.Pretty (pretty)
+import Language.C.Syntax.AST (CExpr, CExpression(CVar))
 
 import qualified Ocram.Ruab as R
 import qualified Data.Map as M
@@ -49,9 +50,11 @@ t2eExpr vm tid fname = everywhereM (mkM trans)
   trans :: CExpr -> Maybe CExpr
   trans (CVar ident _) = 
     let var = R.Variable tid fname (identToString ident) in
-    fmap R.getSubstitution $ M.lookup var $ R.getVarMap vm
+    fmap (buildCVar . R.getSubstitution) $ M.lookup var $ R.getVarMap vm
 
   trans o = Just o
+
+  buildCVar symbol = CVar (internalIdent symbol) undefNode
 
 printExpression :: CExpr -> String -- {{{2
 printExpression = show . pretty
