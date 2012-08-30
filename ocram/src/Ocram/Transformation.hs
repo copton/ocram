@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell, TupleSections #-}
 module Ocram.Transformation
 -- exports {{{1
 (
@@ -8,13 +9,14 @@ module Ocram.Transformation
 import Data.Generics (everything, everywhere, mkT, mkQ, extT)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, blocking_functions)
-import Ocram.Debug (enrich_node_info, ENodeInfo(..), un)
-import Ocram.Ruab (VarMap(..))
+import Ocram.Debug (enrich_node_info, ENodeInfo(..), un, Substitution(..))
+import Ocram.Ruab (VarMap(..), Variable(..), ThreadId)
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Normalize (normalize)
 import Ocram.Transformation.Translate (translate)
 import Ocram.Transformation.Types
 import Ocram.Transformation.Names (frameType)
+import Ocram.Util (fromJust_s)
 
 import qualified Data.Set as Set
 import qualified Data.Map as M
@@ -58,4 +60,15 @@ extractPal cg (CTranslUnit ds _) = CTranslUnit (map CDeclExt ds') un
   query _ = []
 
 extractVarMap :: CTranslUnit' -> VarMap -- {{{1
-extractVarMap _ = VarMap M.empty
+extractVarMap ast = 
+  let subst = everything (++) (mkQ [] stat) ast in
+  (VarMap . M.fromList . map entry) subst
+  where
+    entry (tid, Substitution tv ev func) = (Variable tid func tv, ev)
+    stat :: CStat' -> [(ThreadId, Substitution)]
+    stat (CCompound _ _ ni) = case enSubst ni of
+      [] -> []
+      subst -> 
+        let tid = $fromJust_s (enThreadId ni) in
+        map (tid,) subst
+    stat _ = []

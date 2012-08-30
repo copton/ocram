@@ -189,7 +189,7 @@ instance JSON DebugInfo where -- {{{2
     , ("ppm",     showJSON ppm)
     , ("lm",      showJSON lm)
     , ("bcs",     showJSON bcs)
-    , ("vs",      showJSON vm)
+    , ("vm",      showJSON vm)
     , ("threads", showJSON ts)
     , ("osapi",   showJSON oa)
     , ("cf",      showJSON cf)

@@ -3,12 +3,16 @@ module Ocram.Transformation.Translate.ThreadFunctions
 where
 
 -- imports {{{1
+import Control.Arrow ((***))
+import Control.Applicative ((<$>), (<*>))
 import Control.Monad.State (runState, get, put)
 import Data.Generics (everywhereM, everywhere, mkT, mkM)
-import Data.Maybe (maybeToList, mapMaybe)
+import Data.Maybe (maybeToList, catMaybes)
+import Language.C.Data.Node (nodeInfo)
+import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
-import Ocram.Debug (un, ENodeInfo(..))
+import Ocram.Debug (un, ENodeInfo(..), Substitution(..))
 import Ocram.Query (function_definition, function_parameters, local_variables_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names
@@ -52,13 +56,24 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
     rewriteLocalVariableDecls :: CFunDef' -> CFunDef' -- {{{3
     rewriteLocalVariableDecls = everywhere (mkT rewrite)
       where
-        rewrite (CCompound x items y) = CCompound x (mapMaybe transform items) y
+        rewrite (CCompound x items ni) =
+          let (subst, items') = ((concat *** catMaybes) . unzip . map transform) items in
+          CCompound x items' (ni {enSubst = subst})
+
         rewrite o = o
 
-        transform o@(CBlockDecl cd)
-          | Map.member (symbol cd) localVariables = initialize cd
-          | otherwise = Just o
-        transform o = Just o
+        transform (CBlockDecl cd)
+          | Map.member (symbol cd) localVariables =
+              ((,) <$> fmap renameTvar . enSubst . annotation <*> initialize . disableSubst) cd
+          | otherwise =
+              ((,) <$> enSubst . annotation <*> Just . CBlockDecl . disableSubst) cd
+          where
+            disableSubst = fmap (\ni -> ni {enSubst = []})
+            renameTvar subst =
+              let expr = stackAccess callChain (Just (substTVar subst)) un in
+              subst {substTVar = (show . pretty . fmap nodeInfo) expr}
+
+        transform o = ([], Just o)
 
         initialize cd@(CDecl _ [(_, Just (CInitExpr expr _), _)] _) = Just $
           CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd ni) expr ni)) ni)

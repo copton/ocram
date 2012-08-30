@@ -17,19 +17,20 @@ import Ocram.Util (fromJust_s)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
 
-data Substitution = Substitution {
-    substTVar :: Symbol
-  , substEVar :: Symbol
-  , substFunc :: Symbol
-  } deriving (Data, Typeable, Show)
-
 data ENodeInfo = ENodeInfo { -- {{{1
     enTnodeInfo     :: NodeInfo
   , enThreadId      :: Maybe Int
   , enLocation      :: Bool
   , enBlockingCall  :: Bool
-  , enSubst         :: Maybe Substitution
+  , enSubst         :: [Substitution]
   } deriving (Data, Typeable, Show)
+
+data Substitution = Substitution { -- {{{2
+    substTVar :: Symbol
+  , substEVar :: Symbol
+  , substFunc :: Symbol
+  } deriving (Data, Typeable, Show)
+
 
 instance CNode ENodeInfo where
   nodeInfo = enTnodeInfo
@@ -38,7 +39,7 @@ un :: ENodeInfo -- {{{1
 un = enrich_node_info undefNode
 
 enrich_node_info :: NodeInfo -> ENodeInfo -- {{{1
-enrich_node_info ni = ENodeInfo ni Nothing False False Nothing
+enrich_node_info ni = ENodeInfo ni Nothing False False []
 
 data Location = Location { -- {{{1
     bpTloc           :: TLocation

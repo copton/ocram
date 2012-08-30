@@ -88,7 +88,7 @@ renameDecl (CDecl x1 [(Just dr, y1, y2)] ni) = do
   (MyState ids fname) <- get
   let ids' = newIdentifier ids (symbol dr)
   let dr' = renameDeclr ids' dr
-  let ni' = ni {enSubst = Just $ Substitution (symbol dr) (symbol dr') fname}
+  let ni' = ni {enSubst = [Substitution (symbol dr) (symbol dr') fname]}
   put (MyState ids' fname)
   return $ CDecl x1 [(Just dr', y1, y2)] ni'
 
