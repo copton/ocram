@@ -24,6 +24,7 @@ import Control.Monad (forM, when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.List (intercalate, find, nub)
+import Data.Ix (inRange)
 import Data.Maybe (catMaybes, fromJust, isJust)
 import Prelude hiding (catch)
 import Ruab.Actor (new_actor, update, monitor_async)
@@ -357,11 +358,16 @@ handleCommand ctx backend fResponse command state = do
       case (M.elems . M.filter (isStopped . thStatus) . stateThreads) state of
         [thread] -> do
           stack <- B.backtrace backend
-          let
-            fname = (B.frameFunc . $head_s . B.stackFrames) stack
-            vm    = (R.diVm . ctxDebugInfo) ctx
-            cf    = (R.diCf . ctxDebugInfo) ctx
-          case t2e_expr cf vm (thId thread) fname texpr of
+          let 
+            di           = ctxDebugInfo ctx
+            erow         = (R.ERow . B.frameLine . $head_s . B.stackFrames) stack
+            inRange' (R.TRow x, R.TRow y) (R.TRow z) = (x, y) `inRange` z
+            (Just fname) = do
+              prow <- e2p_row ctx erow
+              trow <- p2t_row ctx prow
+              entry <- find ((`inRange'` trow) . fst) ((R.getFunMap . R.diFm) di)
+              return (snd entry)
+          case t2e_expr (R.diCf di) (R.diVm di) (thId thread) fname texpr of
             Left err -> failed err
             Right eexpr -> do
               res <- B.evaluate_expression backend eexpr

@@ -74,8 +74,8 @@ test_fun_map = enumTestGroup "fun_map" $ map runTest [
 
       }
     |], [
-      ("bar", 5, 7)
-    , ("foo", 2, 4)
+      ("foo", 2, 4)
+    , ("bar", 5, 7)
     ])
   ]
   where

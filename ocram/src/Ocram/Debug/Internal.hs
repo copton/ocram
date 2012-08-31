@@ -11,7 +11,6 @@ import Ocram.Util (abort)
 import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.Map as M
 
 preproc_map :: BS.ByteString -> BS.ByteString -> PreprocMap -- {{{1
 preproc_map tcode pcode
@@ -38,7 +37,7 @@ preproc_map tcode pcode
       x -> $abort $ "unexpected parameter:" ++ show x
 
 fun_map :: CTranslUnit -> FunMap -- {{{1
-fun_map (CTranslUnit ds _) = (FunMap . M.fromList . mapMaybe extend) ds
+fun_map (CTranslUnit ds _) = (FunMap . mapMaybe extend) ds
   where
     extend (CFDefExt fd) = 
       let
@@ -46,6 +45,6 @@ fun_map (CTranslUnit ds _) = (FunMap . M.fromList . mapMaybe extend) ds
         start = (TRow . posRow . posOfNode) ni
         end = (TRow . posRow . fst . getLastTokenPos) ni
       in
-        Just (symbol fd, (start, end))
+        Just ((start, end), symbol fd)
      
     extend _ = Nothing

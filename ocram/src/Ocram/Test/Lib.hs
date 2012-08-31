@@ -74,10 +74,10 @@ instance TestData VarMap TVarMap where
     where tr (tid, fun, tvar, evar) = (Variable tid fun tvar, evar)
 
 instance TestData FunMap TFunMap where
-  reduce = map tr . M.toList . getFunMap
-    where tr (fun, (start, end)) = (fun, getTRow start, getTRow end)
-  enrich = FunMap . M.fromList . map tr
-    where tr (fun, start, end) = (fun, (TRow start, TRow end))
+  reduce = map tr . getFunMap
+    where tr ((start, end), fun) = (fun, getTRow start, getTRow end)
+  enrich = FunMap . map tr
+    where tr (fun, start, end) = ((TRow start, TRow end), fun)
 
 instance TestData Char Char where
 	reduce = id

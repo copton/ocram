@@ -202,6 +202,21 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
+    -- print local variable of critical function {{{3
+    , [ ExpectStart $ CmdAddBreakpoint (PRow 431) []
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 431) [0]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 0 1 431] (Just (CmdEvaluate "now"))
+      , ExpectResponse (Right (ResEvaluate "0")) (Just CmdContinue)
+      , ExpectResponse (Right ResContinue) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 0 1 431] (Just (CmdEvaluate "now"))
+      , ExpectResponse (Right (ResEvaluate "50")) (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+      ]
 
     -- end {{{3
   ]

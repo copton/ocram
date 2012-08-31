@@ -50,7 +50,7 @@ t2eExpr vm tid fname = everywhereM (mkM trans)
   trans :: CExpr -> Maybe CExpr
   trans (CVar ident _) = 
     let var = R.Variable tid fname (identToString ident) in
-    fmap (buildCVar . R.getSubstitution) $ M.lookup var $ R.getVarMap vm
+    (fmap buildCVar . M.lookup var . R.getVarMap) vm
 
   trans o = Just o
 

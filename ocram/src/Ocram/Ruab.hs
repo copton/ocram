@@ -68,7 +68,7 @@ newtype VarMap -- {{{2
   = VarMap { getVarMap :: M.Map Variable String}
 
 newtype FunMap -- {{{2
-  = FunMap { getFunMap :: M.Map String (TRow, TRow)}
+  = FunMap { getFunMap :: [((TRow, TRow), String)] }
 
 data PreprocMap = PreprocMap { -- {{{2
     ppmMaxTRow :: TRow
@@ -161,9 +161,12 @@ instance JSON BlockingCall where -- {{{2
   showJSON (BlockingCall t e tid) = showJSON (t, e, tid)
 
 instance JSON FunMap where -- {{{2
-  readJSON val = FunMap . M.fromList <$> readJSON val
+  readJSON val = do
+    entries <- readJSON val
+    entries' <- mapM readJSON entries
+    return $ FunMap $ map (\(s, e, f) -> ((s, e), f)) entries'
 
-  showJSON = showJSON . M.toList . getFunMap
+  showJSON (FunMap entries) = showJSON . map (showJSON . (\((s,e),f) -> (s,e,f))) $ entries
 
 instance JSON PreprocMap where  -- {{{2
   showJSON (PreprocMap (TRow mtr) (PRow mpr) ma) = (JSObject . toJSObject) [
