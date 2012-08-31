@@ -377,9 +377,9 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
 	|], [
-      (0, "start", "s1", "ec_stack_start.s1")
+      (0, "critical", "c", "ec_stack_start.ec_frames.critical.c")
+    , (0, "start", "s1", "ec_stack_start.s1")
     , (0, "start", "s2", "ec_stack_start.s2")
-    , (0, "critical", "c", "ec_stack_start.ec_frames.critical.c")
   ])
 -- critical function, chained return {{{2
 	,([paste|

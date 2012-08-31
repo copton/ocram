@@ -12,7 +12,7 @@ import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST
 import Ocram.Analysis (start_functions, call_chain, call_order, is_blocking, is_critical, CallGraph)
 import Ocram.Debug (un, ENodeInfo(..), Substitution(..))
-import Ocram.Query (function_definition, function_parameters, local_variables_fd)
+import Ocram.Query (function_definition, function_parameters, local_variables_fd, function_parameters_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names
 import Ocram.Transformation.Util (ident)
@@ -60,8 +60,11 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
     extractBody _ = $abort "unexpected parameters"
 
     rewriteLocalVariableDecls :: CFunDef' -> Writer [Substitution] CFunDef' -- {{{3
-    rewriteLocalVariableDecls = everywhereM (mkM rewrite)
+    rewriteLocalVariableDecls fd' = do
+        tell $ map substParam (function_parameters_fd fd')
+        everywhereM (mkM rewrite) fd'
       where
+        substParam cd = renameEvar $ Substitution (symbol cd) (symbol cd) (symbol fd)
         rewrite :: CStat' -> Writer [Substitution] CStat'
         rewrite (CCompound x items ni) = do
           items' <- mapM transform items
@@ -79,11 +82,12 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
               return $ (Just . CBlockDecl . disableSubst) cd
           where
             disableSubst = fmap (\ni -> ni {enSubst = []})
-            renameEvar subst =
-              let expr = stackAccess callChain (Just (substEVar subst)) un in
-              subst {substEVar = (show . pretty . fmap nodeInfo) expr}
 
         transform o = (return . Just) o
+
+        renameEvar subst =
+          let expr = stackAccess callChain (Just (substEVar subst)) un in
+          subst {substEVar = (show . pretty . fmap nodeInfo) expr}
 
         initialize cd@(CDecl _ [(_, Just (CInitExpr expr _), _)] _) = Just $
           CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd ni) expr ni)) ni)
