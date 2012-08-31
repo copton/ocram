@@ -6,9 +6,11 @@ module Ocram.Transformation.Normalize.Test
 ) where
 
 -- imports {{{1
+import Control.Applicative ((<$>), (<*>))
+import Data.Generics (everything, mkQ)
 import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Debug (enrich_node_info)
+import Ocram.Debug (enrich_node_info, ENodeInfo(..), Substitution(..))
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
 import Ocram.Transformation.Normalize.Internal
@@ -16,7 +18,7 @@ import Ocram.Transformation.Normalize.ShortCircuiting
 import Ocram.Transformation.Normalize.UniqueIdentifiers
 import Ocram.Transformation.Types
 import Test.Framework (Test, testGroup)
-import Test.HUnit ((@=?), Assertion)
+import Test.HUnit ((@=?), Assertion, assertBool)
 
 import qualified Data.Set as Set
 
@@ -619,8 +621,22 @@ test_unlist_declarations = enumTestGroup "unlist_declarations" $ map (runTest un
   ]
 
 test_unique_identifiers :: Test -- {{{1
-test_unique_identifiers = enumTestGroup "unique_identifiers" $ map (runTest unique_identifiers) [
-    -- nested scope {{{2
+test_unique_identifiers = enumTestGroup "unique_identifiers" $ map runTest'' [
+    -- nothing to do {{{2
+  ([paste|
+    void foo() {
+      int i;
+      i++;
+    }
+  |], [paste|
+    void foo() {
+      int i;
+      i++;
+    }
+  |], [
+    ("i", "i")
+  ])
+  , -- nested scope {{{2
   ([paste|
     void foo() {
       int i;
@@ -639,8 +655,29 @@ test_unique_identifiers = enumTestGroup "unique_identifiers" $ map (runTest uniq
       }
       ++i;
     }
-  |])
+  |], [
+      ("i", "i")
+    , ("i", "ec_shadow_i_0")
+  ])
   ]
+  where
+    runTest'' :: (String, String, [(Symbol, Symbol)]) -> Assertion  -- {{{2
+    runTest'' (inputCode, expectedCode, expectedVarmap) =
+      let
+        (CTranslUnit [CFDefExt fd] ni) = fmap enrich_node_info $ enrich inputCode
+        fd' = unique_identifiers fd
+        resultCode = (reduce . fmap nodeInfo) (CTranslUnit [CFDefExt fd'] ni)
+        expectedCode' = reduce $ (enrich expectedCode :: CTranslUnit) :: String
+        subst = everything (++) (mkQ [] extract) fd'
+        fname = symbol fd
+        resultVarmap = map ((,) <$> substTVar <*> substEVar) subst
+      in do
+        assertBool "wrong function name" $ and $ map ((fname==) . substFunc) subst
+        expectedCode' @=? resultCode
+        expectedVarmap @=? resultVarmap
+      where
+        extract :: CDecl' -> [Substitution]
+        extract (CDecl _ _ ni) = enSubst ni
 
 test_critical_statemtents :: Test -- {{{1
 test_critical_statemtents = enumTestGroup "critical_statements" $ map runTest'' [

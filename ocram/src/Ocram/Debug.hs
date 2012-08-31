@@ -25,15 +25,15 @@ data ENodeInfo = ENodeInfo { -- {{{1
   , enSubst         :: [Substitution]
   } deriving (Data, Typeable, Show)
 
-data Substitution = Substitution { -- {{{2
+instance CNode ENodeInfo where
+  nodeInfo = enTnodeInfo
+
+data Substitution = Substitution { -- {{{1
     substTVar :: Symbol
   , substEVar :: Symbol
   , substFunc :: Symbol
   } deriving (Data, Typeable, Show)
 
-
-instance CNode ENodeInfo where
-  nodeInfo = enTnodeInfo
 
 un :: ENodeInfo -- {{{1
 un = enrich_node_info undefNode
