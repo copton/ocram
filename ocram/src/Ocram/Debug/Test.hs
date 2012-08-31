@@ -3,9 +3,10 @@ module Ocram.Debug.Test (tests) where
 
 -- imports {{{1
 import Control.Arrow ((***))
-import Ocram.Debug.Internal (preproc_map)
+import Language.C.Syntax.AST (CTranslUnit)
+import Ocram.Debug.Internal (preproc_map, fun_map)
 import Ocram.Ruab (PreprocMap(..), TRow(..), PRow(..))
-import Ocram.Test.Lib (enumTestGroup, paste)
+import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce, TFunMap)
 import System.Exit (ExitCode(ExitSuccess))
 import System.IO (hPutStr, hClose)
 import System.Process (createProcess, StdStream(CreatePipe), waitForProcess, proc, std_out, std_in)
@@ -15,7 +16,7 @@ import Test.HUnit ((@=?), Assertion)
 import qualified Data.ByteString.Char8 as BS
 
 tests :: Test -- {{{1
-tests = testGroup "Debug" [test_preproc_map]
+tests = testGroup "Debug" [test_preproc_map, test_fun_map]
 
 test_preproc_map :: Test -- {{{1
 test_preproc_map = enumTestGroup "preproc_map" $ map runTest [
@@ -54,3 +55,34 @@ test_preproc_map = enumTestGroup "preproc_map" $ map runTest [
       TRow maxTRow @=? ppmMaxTRow ppm
       PRow maxPRow @=? ppmMaxPRow ppm
       map (TRow *** PRow) mapping @=? ppmMapping ppm
+
+test_fun_map :: Test -- {{{1
+test_fun_map = enumTestGroup "fun_map" $ map runTest [
+    ([paste|
+      void foo() {
+
+      }
+    |], [
+      ("foo", 2, 4)
+    ])
+  ,
+    ([paste|
+      void foo() {
+
+      }
+      void bar() {
+
+      }
+    |], [
+      ("bar", 5, 7)
+    , ("foo", 2, 4)
+    ])
+  ]
+  where
+    runTest :: (String, TFunMap) -> Assertion
+    runTest (inputCode, expectedFunMap) =
+      let
+        ast = enrich inputCode :: CTranslUnit
+        resultFunMap = reduce $ fun_map ast
+      in
+        expectedFunMap @=? resultFunMap

@@ -10,7 +10,7 @@ import Language.C.Syntax.AST (CTranslUnit)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
-import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), TRow(..), ERow(..), VarMap(..), Variable(..))
+import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), TRow(..), ERow(..), VarMap(..), Variable(..), FunMap(..))
 import Ocram.Debug (Location(..))
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework (testGroup, Test)
@@ -73,6 +73,12 @@ instance TestData VarMap TVarMap where
   enrich = VarMap . M.fromList . map tr
     where tr (tid, fun, tvar, evar) = (Variable tid fun tvar, evar)
 
+instance TestData FunMap TFunMap where
+  reduce = map tr . M.toList . getFunMap
+    where tr (fun, (start, end)) = (fun, getTRow start, getTRow end)
+  enrich = FunMap . M.fromList . map tr
+    where tr (fun, start, end) = (fun, (TRow start, TRow end))
+
 instance TestData Char Char where
 	reduce = id
 	enrich = id
@@ -103,3 +109,5 @@ type TBlockingCall      = (Int, Int, Int)
 type TBlockingCalls     = [TBlockingCall]
 type TVarMapEntry       = (Int, String, String, String)
 type TVarMap            = [TVarMapEntry]
+type TFunMapEntry       = (String, Int, Int)
+type TFunMap            = [TFunMapEntry]

@@ -2,7 +2,7 @@ module Ruab.Core.Internal where
 
 import Control.Monad (guard)
 import Data.Generics (everywhereM, mkM)
-import Langauge.C.Data.Node (undefNode)
+import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (identToString, internalIdent)
 import Language.C.Data.InputStream (inputStreamFromString)
 import Language.C.Data.Position (nopos)

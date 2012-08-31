@@ -67,6 +67,9 @@ data Variable = Variable { -- {{{2
 newtype VarMap -- {{{2
   = VarMap { getVarMap :: M.Map Variable String}
 
+newtype FunMap -- {{{2
+  = FunMap { getFunMap :: M.Map String (TRow, TRow)}
+
 data PreprocMap = PreprocMap { -- {{{2
     ppmMaxTRow :: TRow
   , ppmMaxPRow :: PRow
@@ -93,25 +96,38 @@ data DebugInfo = DebugInfo { -- {{{2
   , diLm        :: LocMap
   , diBcs       :: BlockingCalls
   , diVm        :: VarMap
+  , diFm        :: FunMap
   , diThreads   :: [Thread]
   , diOsApi     :: [String]
   , diCf        :: [String]
   }
 
 -- instances {{{1
+instance JSON TRow where -- {{{2
+  readJSON val = TRow <$> readJSON val
+  showJSON = showJSON . getTRow
+
+instance JSON PRow where -- {{{2
+  readJSON val = PRow <$> readJSON val
+  showJSON = showJSON . getPRow
+
+instance JSON ERow where -- {{{2
+  readJSON val = ERow <$> readJSON val
+  showJSON = showJSON . getERow
+
 instance JSON TLocation where -- {{{2
   readJSON val = do
-    ([r,c,l], f) <- readJSON val
-    return $ TLocation (TRow r) c l f
+    (r, c, l, f) <- readJSON val
+    return $ TLocation r c l f
 
-  showJSON (TLocation (TRow r) c l f) = showJSON ([r, c, l], f)
+  showJSON (TLocation r c l f) = showJSON (r, c, l, f)
 
 instance JSON ELocation where -- {{{2
   readJSON val = do
     (r, c) <- readJSON val
-    return $ ELocation (ERow r) c
+    return $ ELocation r c
 
-  showJSON (ELocation (ERow r) c) = showJSON (r, c)
+  showJSON (ELocation r c) = showJSON (r, c)
 
 instance JSON LocKey where -- {{{2
   readJSON val = do
@@ -131,7 +147,6 @@ instance JSON Variable where -- {{{2
     return $ Variable tid func sym
 
   showJSON (Variable tid func sym) = showJSON (tid, func, sym)
-
     
 instance JSON VarMap where -- {{{2
   readJSON val = VarMap . M.fromList <$> readJSON val
@@ -144,6 +159,11 @@ instance JSON BlockingCall where -- {{{2
     return $ BlockingCall t e tid
 
   showJSON (BlockingCall t e tid) = showJSON (t, e, tid)
+
+instance JSON FunMap where -- {{{2
+  readJSON val = FunMap . M.fromList <$> readJSON val
+
+  showJSON = showJSON . M.toList . getFunMap
 
 instance JSON PreprocMap where  -- {{{2
   showJSON (PreprocMap (TRow mtr) (PRow mpr) ma) = (JSObject . toJSObject) [
@@ -182,7 +202,7 @@ instance JSON Thread where -- {{{2
   readJSON x = readFail "Thread" x
 
 instance JSON DebugInfo where -- {{{2
-  showJSON (DebugInfo tcode pcode ecode ppm lm bcs vm ts oa cf) = (JSObject . toJSObject) [
+  showJSON (DebugInfo tcode pcode ecode ppm lm bcs vm fm ts oa cf) = (JSObject . toJSObject) [
       ("tcode",   showJSON tcode)
     , ("pcode",   showJSON pcode)
     , ("ecode",   showJSON ecode)
@@ -190,23 +210,25 @@ instance JSON DebugInfo where -- {{{2
     , ("lm",      showJSON lm)
     , ("bcs",     showJSON bcs)
     , ("vm",      showJSON vm)
+    , ("fm",      showJSON fm)
     , ("threads", showJSON ts)
     , ("osapi",   showJSON oa)
     , ("cf",      showJSON cf)
     ]
 
   readJSON (JSObject obj) = do
-    let [tcode, pcode, ecode, ppm, lm, bcs, vm, ts, oa, cf] = map snd $ fromJSObject obj
+    let [tcode, pcode, ecode, ppm, lm, bcs, vm, fm, ts, oa, cf] = map snd $ fromJSObject obj
     [tcode', ecode'] <- mapM readJSON [tcode, ecode]
     pcode'           <- readJSON pcode
     ppm'             <- readJSON ppm
     lm'              <- readJSON lm
     bcs'             <- readJSON bcs
     vm'              <- readJSON vm
+    fm'              <- readJSON fm
     ts'              <- readJSON ts
     oa'              <- readJSON oa
     cf'              <- readJSON cf
-    return $ DebugInfo tcode' pcode' ecode' ppm' lm' bcs' vm' ts' oa' cf'
+    return $ DebugInfo tcode' pcode' ecode' ppm' lm' bcs' vm' fm' ts' oa' cf'
 
   readJSON x = readFail "DebugInfo" x
 

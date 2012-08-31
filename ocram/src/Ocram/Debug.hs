@@ -6,6 +6,7 @@ import Data.Data (Data)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Typeable (Typeable)
 import Language.C.Data.Node (CNode(nodeInfo), NodeInfo, undefNode)
+import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (CallGraph, start_functions, blocking_functions, call_order, critical_functions)
 import Ocram.Options (Options(optInput, optOutput))
 import Ocram.Debug.Internal
@@ -49,8 +50,8 @@ data Location = Location { -- {{{1
 
 type Locations = [Location] -- {{{1
 
-create_debug_info :: Options -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> Locations -> BlockingCalls -> DebugInfo -- {{{1
-create_debug_info opt cg tcode pcode ecode vm bps bcs =
+create_debug_info :: Options -> CTranslUnit -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> Locations -> BlockingCalls -> DebugInfo -- {{{1
+create_debug_info opt ast cg tcode pcode ecode vm bps bcs =
   let
     tfile = File (optInput opt) (md5sum tcode)
     efile = File (optOutput opt) (md5sum ecode)
@@ -59,8 +60,9 @@ create_debug_info opt cg tcode pcode ecode vm bps bcs =
     oa = blocking_functions cg
     lm = createLocMap bps
     cf = critical_functions cg
+    fm = fun_map ast
   in
-    DebugInfo tfile pcode efile ppm lm bcs vm ts oa cf
+    DebugInfo tfile pcode efile ppm lm bcs vm fm ts oa cf
   where
     createThreadInfo tid sf = Thread tid sf (threadExecutionFunction tid) ($fromJust_s $ call_order cg sf)
 
