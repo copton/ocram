@@ -659,6 +659,20 @@ test_unique_identifiers = enumTestGroup "unique_identifiers" $ map runTest'' [
       ("i", "i")
     , ("i", "ec_shadow_i_0")
   ])
+  , -- with initializer {{{2
+  ([paste|
+    void foo() {
+      int i = 23;
+      i++;
+    }
+  |], [paste|
+    void foo() {
+      int i = 23;
+      i++;
+    }
+  |], [
+    ("i", "i")
+  ])
   ]
   where
     runTest'' :: (String, String, [(Symbol, Symbol)]) -> Assertion  -- {{{2

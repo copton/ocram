@@ -10,7 +10,7 @@ import Data.Generics (everything, everywhere, mkT, mkQ, extT)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, blocking_functions)
 import Ocram.Debug (enrich_node_info, ENodeInfo(..), un, Substitution(..))
-import Ocram.Ruab (VarMap(..), Variable(..), ThreadId)
+import Ocram.Ruab (VarMap(..), Variable(..))
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Normalize (normalize)
 import Ocram.Transformation.Translate (translate)
@@ -60,15 +60,13 @@ extractPal cg (CTranslUnit ds _) = CTranslUnit (map CDeclExt ds') un
   query _ = []
 
 extractVarMap :: CTranslUnit' -> VarMap -- {{{1
-extractVarMap ast = 
-  let subst = everything (++) (mkQ [] stat) ast in
-  (VarMap . M.fromList . map entry) subst
+extractVarMap (CTranslUnit ds _) = (VarMap . M.fromList . concatMap collect) ds
   where
-    entry (tid, Substitution tv ev func) = (Variable tid func tv, ev)
-    stat :: CStat' -> [(ThreadId, Substitution)]
-    stat (CCompound _ _ ni) = case enSubst ni of
+    collect (CFDefExt fd) = case (enSubst . annotation) fd of
       [] -> []
-      subst -> 
-        let tid = $fromJust_s (enThreadId ni) in
-        map (tid,) subst
-    stat _ = []
+      subst ->
+        let tid = ($fromJust_s . enThreadId . annotation) fd in
+        map (entry . (tid,)) subst
+    collect _ = []
+  
+    entry (tid, Substitution tv ev func) = (Variable tid func tv, ev)

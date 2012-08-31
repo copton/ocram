@@ -3,9 +3,8 @@ module Ocram.Transformation.Translate.ThreadFunctions
 where
 
 -- imports {{{1
-import Control.Arrow ((***))
-import Control.Applicative ((<$>), (<*>))
 import Control.Monad.State (runState, get, put)
+import Control.Monad.Writer (Writer, runWriter, tell)
 import Data.Generics (everywhereM, everywhere, mkT, mkM)
 import Data.Maybe (maybeToList, catMaybes)
 import Language.C.Data.Node (nodeInfo)
@@ -30,15 +29,17 @@ add_thread_functions cg ast@(CTranslUnit decls ni) =
 
     create (tid, startFunction) =
       let
-        fun = CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (threadExecutionFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) un
+        fun = CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ident (threadExecutionFunction tid))) [CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ident contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un] Nothing [] un) [] (CCompound [] (intro : concat functions) un) substni
         intro = CBlockStmt (CIf (CVar (ident contVar) un) (CGotoPtr (CVar (ident contVar) un) un) Nothing un)
         onlyDefs name = not (is_blocking cg name) && is_critical cg name
-        functions = map (inlineCriticalFunction cg ast startFunction) $ zip (True : repeat False) $ filter onlyDefs $ $fromJust_s $ call_order cg startFunction
+        (functions, subst) = (unzip . map (inlineCriticalFunction cg ast startFunction) . zip (True : repeat False) . filter onlyDefs . $fromJust_s . call_order cg) startFunction
+        substni = un {enSubst = concat subst}
       in
         fmap (\eni -> eni {enThreadId = Just tid}) fun
 
-inlineCriticalFunction :: CallGraph -> CTranslUnit' -> Symbol -> (Bool, Symbol) -> [CBlockItem'] -- {{{2
-inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) = lbl ?: inlinedBody
+inlineCriticalFunction :: CallGraph -> CTranslUnit' -> Symbol -> (Bool, Symbol) -> ([CBlockItem'], [Substitution]) -- {{{2
+inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunction) =
+  (lbl ?: inlinedBody, substitutions)
   where
     callChain = $fromJust_s $ call_chain cg startFunction inlinedFunction
     fd = $fromJust_s $ function_definition ast inlinedFunction
@@ -48,32 +49,41 @@ inlineCriticalFunction cg ast startFunction (isThreadStartFunction, inlinedFunct
       then Nothing
       else Just $ createLabel inlinedFunction 0
 
-    inlinedBody = extractBody $ (rewriteCriticalFunctionCalls . rewriteReturns . rewriteLocalVariableAccess . rewriteLocalVariableDecls) fd
+    (inlinedBody, substitutions) = runWriter $ return fd 
+      >>= rewriteLocalVariableDecls 
+      >>= return . rewriteLocalVariableAccess
+      >>= return . rewriteReturns
+      >>= return . rewriteCriticalFunctionCalls
+      >>= return . extractBody
 
     extractBody (CFunDef _ _ _ (CCompound _ body _) _) = body
     extractBody _ = $abort "unexpected parameters"
 
-    rewriteLocalVariableDecls :: CFunDef' -> CFunDef' -- {{{3
-    rewriteLocalVariableDecls = everywhere (mkT rewrite)
+    rewriteLocalVariableDecls :: CFunDef' -> Writer [Substitution] CFunDef' -- {{{3
+    rewriteLocalVariableDecls = everywhereM (mkM rewrite)
       where
-        rewrite (CCompound x items ni) =
-          let (subst, items') = ((concat *** catMaybes) . unzip . map transform) items in
-          CCompound x items' (ni {enSubst = subst})
+        rewrite :: CStat' -> Writer [Substitution] CStat'
+        rewrite (CCompound x items ni) = do
+          items' <- mapM transform items
+          return $ CCompound x (catMaybes items') ni
 
-        rewrite o = o
+        rewrite o = return o
 
+        transform :: CBlockItem' -> Writer [Substitution] (Maybe CBlockItem')
         transform (CBlockDecl cd)
-          | Map.member (symbol cd) localVariables =
-              ((,) <$> fmap renameTvar . enSubst . annotation <*> initialize . disableSubst) cd
-          | otherwise =
-              ((,) <$> enSubst . annotation <*> Just . CBlockDecl . disableSubst) cd
+          | Map.member (symbol cd) localVariables = do
+              tell $ (fmap renameEvar . enSubst . annotation) cd
+              return $ (initialize . disableSubst) cd
+          | otherwise = do
+              tell $ (enSubst . annotation) cd
+              return $ (Just . CBlockDecl . disableSubst) cd
           where
             disableSubst = fmap (\ni -> ni {enSubst = []})
-            renameTvar subst =
-              let expr = stackAccess callChain (Just (substTVar subst)) un in
-              subst {substTVar = (show . pretty . fmap nodeInfo) expr}
+            renameEvar subst =
+              let expr = stackAccess callChain (Just (substEVar subst)) un in
+              subst {substEVar = (show . pretty . fmap nodeInfo) expr}
 
-        transform o = ([], Just o)
+        transform o = (return . Just) o
 
         initialize cd@(CDecl _ [(_, Just (CInitExpr expr _), _)] _) = Just $
           CBlockStmt (CExpr (Just (CAssign CAssignOp (var cd ni) expr ni)) ni)
