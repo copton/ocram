@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell, TupleSections #-}
 module Ocram.Transformation
 -- exports {{{1
 (
@@ -8,15 +9,17 @@ module Ocram.Transformation
 import Data.Generics (everything, everywhere, mkT, mkQ, extT)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, blocking_functions)
-import Ocram.Debug (enrich_node_info, ENodeInfo(..), un)
-import Ocram.Ruab (VarMap)
+import Ocram.Debug (enrich_node_info, ENodeInfo(..), un, Substitution(..))
+import Ocram.Ruab (VarMap(..), Variable(..))
 import Ocram.Symbols (symbol)
 import Ocram.Transformation.Normalize (normalize)
 import Ocram.Transformation.Translate (translate)
 import Ocram.Transformation.Types
 import Ocram.Transformation.Names (frameType)
+import Ocram.Util (fromJust_s)
 
 import qualified Data.Set as Set
+import qualified Data.Map as M
 
 transformation :: CallGraph -> CTranslUnit -> (CTranslUnit', CTranslUnit', VarMap) -- {{{1
 transformation cg ast =
@@ -57,4 +60,13 @@ extractPal cg (CTranslUnit ds _) = CTranslUnit (map CDeclExt ds') un
   query _ = []
 
 extractVarMap :: CTranslUnit' -> VarMap -- {{{1
-extractVarMap _ = []
+extractVarMap (CTranslUnit ds _) = (VarMap . M.fromList . concatMap collect) ds
+  where
+    collect (CFDefExt fd) = case (enSubst . annotation) fd of
+      [] -> []
+      subst ->
+        let tid = ($fromJust_s . enThreadId . annotation) fd in
+        map (entry . (tid,)) subst
+    collect _ = []
+  
+    entry (tid, Substitution tv ev func) = (Variable tid func tv, ev)

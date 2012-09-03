@@ -153,11 +153,24 @@ response_stack_list_frames :: [Result] -> Maybe Stack -- {{{2
 response_stack_list_frames [item] = responseStack item
 response_stack_list_frames _      = Nothing
 
-response_break_insert :: [Result] -> Maybe Breakpoint
+response_break_insert :: [Result] -> Maybe Breakpoint -- {{{2
 response_break_insert [item] = responseBreakpoint item
 response_break_insert _      = Nothing
 
-response_stopped :: [Result] -> Maybe Stopped
+response_data_evaluate_expression :: [Result] -> Maybe String -- {{{2
+response_data_evaluate_expression [(Result variable value)] = do
+  guard  (variable == "value")
+  asConst value
+
+response_data_evaluate_expression _ = Nothing -- {{{2
+
+response_error :: [Result] -> Maybe String -- {{{2
+response_error [(Result variable value)] = do
+  guard (variable == "msg")
+  asConst value
+response_error _ = Nothing
+
+response_stopped :: [Result] -> Maybe Stopped -- {{{2
 response_stopped items = responseStopped items
   
 -- utils {{{1

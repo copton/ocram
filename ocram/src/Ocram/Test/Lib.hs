@@ -10,14 +10,15 @@ import Language.C.Syntax.AST (CTranslUnit)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
-import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), TRow(..), ERow(..))
+import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), TRow(..), ERow(..), VarMap(..), Variable(..), FunMap(..))
 import Ocram.Debug (Location(..))
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework (testGroup, Test)
 import Test.HUnit (Assertion)
 import Text.Printf (printf)
-import qualified Data.Set as Set
-import qualified Data.List as List
+import qualified Data.Set as S
+import qualified Data.List as L
+import qualified Data.Map as M
 
 parse :: String -> CTranslUnit -- {{{1
 parse code = case parseC code' pos of
@@ -51,7 +52,7 @@ class TestData d t where -- {{{1
 	enrich :: t -> d
 
 instance TestData CallGraph TCallGraph where
-	reduce cg = List.sort $ to_test_graph cg
+	reduce cg = L.sort $ to_test_graph cg
 	enrich cg = from_test_graph cg
 
 instance TestData CTranslUnit String where
@@ -66,6 +67,18 @@ instance TestData BlockingCall TBlockingCall where
   reduce bc = ((getTRow . tlocRow . bcTloc) bc, (getERow . elocRow . bcEloc) bc, bcThreadId bc)
   enrich (trow, erow, tid) = BlockingCall (TLocation (TRow trow) 1 1 "test") (ELocation (ERow erow) 1) tid
 
+instance TestData VarMap TVarMap where
+  reduce = map tr . M.toList . getVarMap
+    where tr (var, evar) = (varThread var, varFunction var, varSymbol var, evar)
+  enrich = VarMap . M.fromList . map tr
+    where tr (tid, fun, tvar, evar) = (Variable tid fun tvar, evar)
+
+instance TestData FunMap TFunMap where
+  reduce = map tr . getFunMap
+    where tr ((start, end), fun) = (fun, getTRow start, getTRow end)
+  enrich = FunMap . map tr
+    where tr (fun, start, end) = ((TRow start, TRow end), fun)
+
 instance TestData Char Char where
 	reduce = id
 	enrich = id
@@ -74,9 +87,9 @@ instance TestData ErrorCode Int where
 	reduce = fromEnum
 	enrich = toEnum
 
-instance Ord a => TestData (Set.Set a) [a] where
-	reduce set = Set.toList set
-	enrich list = Set.fromList list
+instance Ord a => TestData (S.Set a) [a] where
+	reduce set = S.toList set
+	enrich list = S.fromList list
 
 instance (TestData a b) => TestData [a] [b] where
 	reduce = map reduce
@@ -94,3 +107,7 @@ type TstLocation        = (Int, Int, Maybe Int)
 type TstLocations       = [TstLocation]
 type TBlockingCall      = (Int, Int, Int)
 type TBlockingCalls     = [TBlockingCall]
+type TVarMapEntry       = (Int, String, String, String)
+type TVarMap            = [TVarMapEntry]
+type TFunMapEntry       = (String, Int, Int)
+type TFunMap            = [TFunMapEntry]

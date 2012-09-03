@@ -14,7 +14,7 @@ import Graphics.UI.Gtk.Glade (xmlNew, xmlGetWidget)
 import Graphics.UI.Gtk.Gdk.Events (Event(Key))
 import Paths_Ruab (getDataFileName)
 import Prelude hiding (log, lines)
-import Ruab.Actor (new_actor, update)
+import Ruab.Actor (new_actor, monitor_async, update)
 import Ruab.Frontend.Infos (setHighlight, InfoInstance, render_info, setBreakpoint, infoIsHighlight, setThread, Row(getRow))
 import Ruab.Options (Options)
 import Ruab.Util (fromJust_s)
@@ -78,6 +78,7 @@ data CommandPrefix -- {{{2
   | CmdPrFilter
   | CmdPrHelp
   | CmdPrInterrupt
+  | CmdPrPrint
   | CmdPrQuit
   | CmdPrRun
   | CmdPrScroll
@@ -91,6 +92,7 @@ data Command -- {{{2
   | CmdFilter [C.ThreadId]
   | CmdHelp (Maybe CommandPrefix)
   | CmdInterrupt
+  | CmdPrint String
   | CmdQuit
   | CmdRun
   | CmdScroll RowType Int
@@ -123,7 +125,9 @@ commands = [
   , ("bremove",   CmdPrBreakRemove)
   , ("continue",  CmdPrContinue)
   , ("help",      CmdPrHelp)
+  , ("filter",    CmdPrFilter)
   , ("interrupt", CmdPrInterrupt)
+  , ("print",     CmdPrPrint)
   , ("quit",      CmdPrQuit)
   , ("run",       CmdPrRun)
   , ("scroll",    CmdPrScroll)
@@ -182,6 +186,8 @@ parseCommand text =
 
       CmdPrRun -> noopt CmdPrRun CmdRun options
 
+      CmdPrPrint -> CmdPrint (unwords options)
+
   where
     noopt _   ev [] = ev
     noopt cmd _  _  = CmdHelp (Just cmd)
@@ -193,12 +199,13 @@ help CmdPrBreakAdd    = ["badd prow [tid]: add a breakpoint, optionally filtered
 help CmdPrBreakList   = ["blist: list all breakpoints"]
 help CmdPrBreakRemove = ["bremove bid: remove the breakpoint with the given number"]
 help CmdPrContinue    = ["continue: continue execution"]
+help CmdPrFilter      = ["filter [tid]: ignore breakpoints of all threads that are not listed"]
 help CmdPrHelp        = ["help: show the list of available commands"]
 help CmdPrInterrupt   = ["interrupt: interrupt execution"]
-help CmdPrFilter      = ["filter [tid]: ignore breakpoints of all threads that are not listed"]
+help CmdPrPrint       = ["print expression: print the value of the given expression"]
 help CmdPrQuit        = ["quit: quit ruab"]
-help CmdPrScroll      = ["scroll [t|p|e] row: scroll views to the given row. Default row type is p-code."]
 help CmdPrRun         = ["start: start execution"]
+help CmdPrScroll      = ["scroll [t|p|e] row: scroll views to the given row. Default row type is p-code."]
 
 instance Read RowType where -- {{{2
   readsPrec _ rtype = case lookup rtype rowtypes of
@@ -222,6 +229,7 @@ createNetwork :: Context -> Options -> IO () -- {{{2
 createNetwork ctx@(Context gui core) opt = do
   let infos = foldr (flip setBreakpoint 0) [] $ C.possible_breakpoints core
   aInfo <- new_actor infos
+  monitor_async aInfo
   let
     fInfo u = update aInfo (\s -> do
         let s' = u s
@@ -236,6 +244,7 @@ createNetwork ctx@(Context gui core) opt = do
   let fCommand  = handleCommand core fInfo fLog fCore
 
   aInput <- new_actor (InputState [] [])
+  monitor_async aInput
   let fInput = update aInput . handleInput (guiInput gui) fLog fCommand
 
   _ <- onDestroy (guiWin gui) (fCommand CmdQuit)
@@ -293,6 +302,8 @@ handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
     handle C.ResRun = fLog $ Log LogOutput ["started"]
 
     handle C.ResFilter = fLog $ Log LogOutput ["thread filter set"]
+
+    handle (C.ResEvaluate value) = fLog $ Log LogOutput [value]
 
 handleStatus :: Context -> Fire InfoUpdate -> C.Status -> IO () -- {{{2
 handleStatus ctx fInfo status =
@@ -369,6 +380,8 @@ handleCommand core fInfo fLog fCommand = handle
               Just (C.Critical ts)      -> scroll . show . M.toList $ ts
 
     handle CmdRun = fCommand C.CmdRun
+
+    handle (CmdPrint expr) = fCommand (C.CmdEvaluate expr)
 
 handleKeyEvent :: Fire InputEvent -> Event -> IO Bool -- {{{2
 handleKeyEvent fInput (Key _ _ _ []        _ _ _ _ "Return" _) = fInput InputReturn     >> return True

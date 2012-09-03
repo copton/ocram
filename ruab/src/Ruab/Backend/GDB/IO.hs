@@ -6,11 +6,7 @@ module Ruab.Backend.GDB.IO
 ) where
 
 -- [The GDB/MI Interface](http://sourceware.org/gdb/current/onlinedocs/gdb/GDB_002fMI.html#GDB_002fMI)
--- GDB version 7.4
-
--- whenever an MI command results in an error, we recommend that the frontend refreshes all the information shown in the user interface.
--- it is suggested to just always pass the `--thread' and `--frame' options
---
+-- GDB version 7.5
 
 -- imports {{{1
 import Control.Applicative ((<*>), (<$>))

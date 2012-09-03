@@ -14,6 +14,7 @@ module Ocram.Query
 ) where
 
 -- import {{{1
+import Control.Monad (mplus)
 import Data.Data (Data)
 import Data.Generics (everything, mkQ, extQ)
 import Data.Maybe (mapMaybe)
@@ -131,12 +132,7 @@ extractTypeSpec (CTypeSpec ts:_) = ts
 extractTypeSpec (_:xs) = extractTypeSpec xs
 
 apply :: (CFunctionDef a -> b) -> (CDeclaration a -> b) -> CTranslationUnit a -> Symbol -> Maybe b
-apply fdf cdf ast name =
-  case function_definition ast name of
-    Just fd -> Just $ fdf fd
-    Nothing -> case function_declaration ast name of
-      Just cd -> Just $ cdf cd
-      Nothing -> Nothing
+apply fdf cdf ast name = fmap fdf (function_definition ast name) `mplus` fmap cdf (function_declaration ast name)
 
 addDecls :: SymbolTable a -> CDeclaration a -> SymbolTable a
 addDecls st cd = Map.insert (symbol cd) cd st

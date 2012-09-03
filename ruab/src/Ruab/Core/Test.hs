@@ -3,12 +3,12 @@
 module Ruab.Core.Test (tests) where
 
 -- imports {{{1
-import Control.Exception.Base (throwIO, try, SomeException)
+import Control.Exception.Base (try, SomeException)
 import Control.Monad.Fix (mfix)
 import Control.Monad (forM_, when)
 import Data.List (intercalate, find)
 import Data.Maybe (fromJust, isJust)
-import Ruab.Actor (new_actor, update, wait, quit)
+import Ruab.Actor (new_actor, update, quit, monitor)
 import Ruab.Core.Internal (t2p_row', p2t_row')
 import Ruab.Core
 import Ruab.Options (Options(..))
@@ -176,6 +176,47 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
+    -- print local variable of non-critical function {{{3
+    , [ ExpectStart $ CmdAddBreakpoint (PRow 461) []
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 1 461] (Just (CmdEvaluate "i"))
+      , ExpectResponse (Right (ResEvaluate "0")) (Just CmdContinue)
+      , ExpectResponse (Right ResContinue) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 1 461] (Just (CmdEvaluate "i"))
+      , ExpectResponse (Right (ResEvaluate "0")) (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+      ]
+    -- print non-existent local variable of non-critical function {{{3
+    , [ ExpectStart $ CmdAddBreakpoint (PRow 461) []
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 1 461] (Just (CmdEvaluate "j"))
+      , ExpectResponse (Left "No symbol \"j\" in current context.") (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+      ]
+    -- print local variable of critical function {{{3
+    , [ ExpectStart $ CmdAddBreakpoint (PRow 431) []
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 431) [0]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 0 1 431] (Just (CmdEvaluate "now"))
+      , ExpectResponse (Right (ResEvaluate "0")) (Just CmdContinue)
+      , ExpectResponse (Right ResContinue) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 0 1 431] (Just (CmdEvaluate "now"))
+      , ExpectResponse (Right (ResEvaluate "50")) (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+      ]
 
     -- end {{{3
   ]
@@ -208,10 +249,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
             (fire actor fCommand' InputStatus)
         )
       fCommand command
-      result <- wait actor
-      case result of
-        Left e -> throwIO e
-        Right _ -> return ()
+      monitor actor
 
     runTest _ = assertFailure "illegal script. Expect scripts must start with ExpectStart"
 
@@ -222,7 +260,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       fail ""
 
     step actor fCommand input (count, (expected:rest)) = do
-      putStrLn $ printf "%.2d: %s" count (show input)
+--       putStrLn $ printf "%.2d: %s" count (show input)
       cmd <- handle input expected
       when (isJust cmd) (fCommand (fromJust cmd))
       when (null rest) (quit actor)

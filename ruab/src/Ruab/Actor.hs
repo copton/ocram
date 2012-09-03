@@ -2,12 +2,13 @@ module Ruab.Actor
 -- exports {{{1
 (
     Actor, Quit, Update
-  , new_actor
+  , new_actor, monitor, monitor_async
   , update
  , quit, wait, kill
 ) where
 
 -- imports {{{1
+import Control.Exception.Base (throwIO)
 import Control.Concurrent.STM (atomically, TChan, newTChanIO, writeTChan, readTChan)
 import Control.Concurrent (forkIO, killThread, ThreadId, MVar, newEmptyMVar, takeMVar, putMVar)
 import Control.Exception.Base (SomeException, catch)
@@ -30,6 +31,12 @@ new_actor s0 = do
   quitFlag <- newEmptyMVar
   thread <- forkIO $ actor quitFlag inbox s0
   return $ Actor thread inbox quitFlag
+
+monitor :: Actor a -> IO () -- {{{1
+monitor a = wait a >>= either throwIO (return . const ())
+
+monitor_async :: Actor a -> IO () -- {{{1
+monitor_async a = forkIO (monitor a) >> return ()
 
 update :: Actor a -> Update a -> IO () -- {{{1
 update a u = send a (Right u)

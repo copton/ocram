@@ -9,7 +9,7 @@ module Ocram.Transformation.Test
 import Language.C.Data.Node (nodeInfo)
 import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (analysis)
-import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce)
+import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce, TVarMap)
 import Ocram.Text (show_errors)
 import Ocram.Transformation (transformation)
 import Test.Framework (Test, testGroup)
@@ -23,7 +23,7 @@ tests = testGroup "Transformation" [A.tests, B.tests, test_integration]
 
 test_integration :: Test -- {{{1
 test_integration = enumTestGroup "integration" $ map runTest [
--- setup {{{2
+-- 01 - setup {{{2
 	([paste|
 		__attribute__((tc_blocking)) void block(int i);
 		__attribute__((tc_run_thread)) void start() { 
@@ -57,8 +57,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
--- setup - returning a pointer {{{2
+	|], [])
+-- 02 - setup - returning a pointer {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) int* block(int i);
 		__attribute__((tc_run_thread)) void start() { 
@@ -93,8 +93,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
--- setup - returning a void pointer {{{2
+	|], [])
+-- 03 - setup - returning a void pointer {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void* block(int i);
 		__attribute__((tc_run_thread)) void start() { 
@@ -129,8 +129,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
--- local variable {{{2
+	|], [])
+-- 04 - local variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i);
 
@@ -168,8 +168,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
--- function static variable {{{2
+	|], [(0, "start", "i", "ec_stack_start.i")])
+-- 05 - function static variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i);
 
@@ -207,8 +207,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
--- global variable {{{2
+	|], [(0, "start", "i", "i")])
+-- 06 - global variable {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) void block(int i1, int i2);
 
@@ -252,8 +252,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_start_1: ;
 				return;	
 		}
-	|])
--- loop {{{2
+	|], [(0, "start", "j", "ec_stack_start.j")])
+-- 07 - loop {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int j);
 		__attribute__((tc_run_thread)) void start() { 
@@ -307,8 +307,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				ec_stack_start.i = 0;
 				return;	
 		}
-	|])
--- critical function {{{2
+	|], [(0, "start", "i", "ec_stack_start.i")])
+-- 08 - critical function {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
 
@@ -376,8 +376,12 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
-	|])
--- critical function, chained return {{{2
+	|], [
+      (0, "critical", "c", "ec_stack_start.ec_frames.critical.c")
+    , (0, "start", "s1", "ec_stack_start.s1")
+    , (0, "start", "s2", "ec_stack_start.s2")
+  ])
+-- 09 - critical function, chained return {{{2
 	,([paste|
 		__attribute__((tc_blocking)) int block(int b);
 
@@ -438,8 +442,10 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
         }
 		}
-	|])
--- two threads {{{2
+	|], [
+      (0, "critical", "c", "ec_stack_start.ec_frames.critical.c")
+  ])
+-- 10 - two threads {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
 
@@ -522,8 +528,11 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				}
 				return;	
 		}
-	|])
--- reentrance {{{2
+	|], [
+      (0,"start","s","ec_stack_start.s")
+    , (1,"run","r","ec_stack_run.r")
+  ])
+-- 11 - reentrance {{{2
 	,([paste|
 		__attribute__((tc_blocking)) void block(int b);
 
@@ -608,8 +617,11 @@ test_integration = enumTestGroup "integration" $ map runTest [
 			ec_label_critical_1: ;
 				goto *ec_stack_start.ec_frames.critical.ec_cont;
 		}
-	|])
--- return value {{{2
+	|], [
+      (0,"critical","c","ec_stack_run.ec_frames.critical.c")
+    , (1,"critical","c","ec_stack_start.ec_frames.critical.c")
+  ])
+-- 12 - return value {{{2
 	, ([paste|
 		__attribute__((tc_blocking)) int block(int i);
 
@@ -649,8 +661,10 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-	|])
--- multiple declarations {{{2
+	|], [
+      (0, "start", "i", "ec_stack_start.i")
+  ])
+-- 13 - multiple declarations {{{2
   , ([paste|
 		__attribute__((tc_blocking)) int block(int i);
 
@@ -691,8 +705,11 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-  |])
--- multiple global declarations {{{2
+  |], [
+      (0, "start", "i", "ec_stack_start.i")
+    , (0, "start", "j", "ec_stack_start.j")
+  ])
+-- 14 - multiple global declarations {{{2
   , ([paste|
     int i, k;
 		__attribute__((tc_blocking)) int block(int i);
@@ -732,8 +749,8 @@ test_integration = enumTestGroup "integration" $ map runTest [
 				i = ec_stack_start.ec_frames.block.ec_result;
 				return;	
 		}
-  |])
--- multiple declarations with initialization {{{2
+  |], [])
+-- 15 - multiple declarations with initialization {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(int i);
 
@@ -773,8 +790,11 @@ test_integration = enumTestGroup "integration" $ map runTest [
         ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
         return;
     }
-    |])
--- multiple declarations with critical initialization {{{2
+  |], [
+      (0, "start", "i", "ec_stack_start.i")
+    , (0, "start", "j", "ec_stack_start.j")
+  ])
+-- 16 - multiple declarations with critical initialization {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(int i);
 
@@ -816,8 +836,13 @@ test_integration = enumTestGroup "integration" $ map runTest [
         ec_stack_start.k = 23;
         return;
     }
-  |])
--- cast operator {{{2
+  |], [
+      (0, "start", "i", "ec_stack_start.i")
+    , (0, "start", "j", "ec_stack_start.j")
+    , (0, "start", "k", "ec_stack_start.k")
+  ])
+
+-- 17 - cast operator {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(char* c);
 
@@ -855,8 +880,10 @@ test_integration = enumTestGroup "integration" $ map runTest [
       ec_label_start_1: ;
         return;
     }
-    |])
--- returns {{{2
+  |], [
+      (0, "start", "i", "ec_stack_start.i")
+  ])
+-- 18 - returns {{{2
   , ([paste|
     __attribute__((tc_blocking)) int block(char* c);
 
@@ -926,8 +953,10 @@ test_integration = enumTestGroup "integration" $ map runTest [
          }
        }
     }
-  |])
--- struct {{{2
+  |], [
+      (0, "critical", "i", "ec_stack_start.ec_frames.critical.i")
+  ])
+-- 19 - struct {{{2
   , ([paste|
     struct S {
       int i;
@@ -970,7 +999,9 @@ test_integration = enumTestGroup "integration" $ map runTest [
       ec_label_start_1: ;
         return;
     }
-    |])
+    |], [
+        (0, "start", "s", "ec_stack_start.s")
+    ])
 -- struct initialization -- TODO {{{2
 --   , ([paste|
 --     struct S {
@@ -1015,17 +1046,20 @@ test_integration = enumTestGroup "integration" $ map runTest [
 --       ec_label_start_1: ;
 --         return;
 --     }
---     |])
+--     |], [])
 	]
 
-runTest :: (String, String) -> Assertion -- {{{1
-runTest (code, expected) =
-  let ast = enrich code in
+runTest :: (String, String, TVarMap) -> Assertion -- {{{1
+runTest (inputCode, expectedCode, expectedVarMap) =
+  let ast = enrich inputCode in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
     Right (cg, _) ->
       let
-        result = reduce $ fmap nodeInfo $ (\(a, _, _)->a) $ transformation cg ast
-        expected' = (reduce $ (enrich expected :: CTranslUnit) :: String)
-      in
-        expected' @=? result
+        (ast', _, varmap) = transformation cg ast
+        resultCode = (reduce . fmap nodeInfo) ast'
+        resultVarMap = reduce varmap
+        expectedCode' = (reduce $ (enrich expectedCode :: CTranslUnit) :: String)
+      in do
+        expectedCode' @=? resultCode
+        expectedVarMap @=? resultVarMap

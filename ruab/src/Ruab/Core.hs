@@ -24,12 +24,13 @@ import Control.Monad (forM, when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.List (intercalate, find, nub)
+import Data.Ix (inRange)
 import Data.Maybe (catMaybes, fromJust, isJust)
 import Prelude hiding (catch)
-import Ruab.Actor (new_actor, update)
+import Ruab.Actor (new_actor, update, monitor_async)
 import Ruab.Core.Internal
 import Ruab.Options (Options(optDebugFile))
-import Ruab.Util (fromJust_s, abort)
+import Ruab.Util (fromJust_s, abort, head_s)
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
 import qualified Data.ByteString.Char8 as BS
@@ -55,6 +56,7 @@ data Context = Context { -- {{{2
 data Command -- {{{2
   = CmdAddBreakpoint R.PRow [R.ThreadId]
   | CmdContinue
+  | CmdEvaluate String
   | CmdFilter [R.ThreadId]
   | CmdRemoveBreakpoint BreakpointNumber
   | CmdInterrupt
@@ -67,6 +69,7 @@ data Result -- {{{2
   = ResAddBreakpoint UserBreakpoint
   | ResContinue
   | ResRemoveBreakpoint
+  | ResEvaluate String
   | ResFilter
   | ResInterrupt
   | ResListBreakpoints [UserBreakpoint]
@@ -116,6 +119,10 @@ data ThreadStatus -- {{{2
   | Stopped (Maybe Int) -- stopped, maybe at user breakpoint
   deriving (Eq, Show)
 
+isStopped :: ThreadStatus -> Bool
+isStopped (Stopped _) = True
+isStopped _ = False
+
 data Status = Status { -- {{{2
     statusThreads :: [Thread]
   , statusExecution :: Execution
@@ -136,6 +143,7 @@ create_network :: Context -> Options -> Fire Response -> Fire Status -> IO (Fire
 create_network ctx opt fResponse fStatus = do
   let s0 = initialState ctx
   aCore <- new_actor s0
+  monitor_async aCore
   let
     fCore f = update aCore $ \state -> do
       state' <- f state
@@ -231,7 +239,7 @@ handleCommand ctx backend fResponse command state = do
       return (Just ResContinue,
           setExecution ExRunning
         . mapThreads (\thread ->
-            if isStopped thread
+            if (isStopped . thStatus) thread
               then thread {thStatus = Running, thProw = Nothing}
               else thread
           )
@@ -341,6 +349,32 @@ handleCommand ctx backend fResponse command state = do
           [] -> (M.keys . stateThreads) state
           ts -> ts
       in return (Just ResFilter, \state' -> state' {stateThreadFilter = threads'})
+
+    -- CmdEvaluate {{{3
+    handle (CmdEvaluate _) ExShutdown = alreadyShutdown
+    handle (CmdEvaluate _) ExRunning = failed "cannot evaluate expressions while the debugger is running"
+    handle (CmdEvaluate _) ExWaiting = notRunning
+    handle (CmdEvaluate texpr) ExStopped = 
+      case (M.elems . M.filter (isStopped . thStatus) . stateThreads) state of
+        [thread] -> do
+          stack <- B.backtrace backend
+          let 
+            di           = ctxDebugInfo ctx
+            erow         = (R.ERow . B.frameLine . $head_s . B.stackFrames) stack
+            inRange' (R.TRow x, R.TRow y) (R.TRow z) = (x, y) `inRange` z
+            (Just fname) = do
+              prow <- e2p_row ctx erow
+              trow <- p2t_row ctx prow
+              entry <- find ((`inRange'` trow) . fst) ((R.getFunMap . R.diFm) di)
+              return (snd entry)
+          case t2e_expr (R.diCf di) (R.diVm di) (thId thread) fname texpr of
+            Left err -> failed err
+            Right eexpr -> do
+              res <- B.evaluate_expression backend eexpr
+              case res of
+                Left err -> failed err
+                Right value -> return (Just (ResEvaluate value), id)
+        x -> $abort $ "illegal state of threads: " ++ show x
     
     --utils {{{3
     failed e  = fResponse (command, Left e) >> return (Nothing, id)
@@ -351,12 +385,6 @@ handleCommand ctx backend fResponse command state = do
 -- utils {{{2
 runningThreads :: State -> [Thread] -- {{{3
 runningThreads = M.elems . M.filter ((Running==) . thStatus) . stateThreads
-
-isStopped :: Thread -> Bool -- {{{3
-isStopped thread = case thStatus thread of
-  Stopped _ -> True
-  _ -> False
-
 
 -- state updates {{{1
 updateThread :: Int -> (Thread -> Thread) -> State -> State -- {{{2
@@ -415,9 +443,9 @@ setup opt = do
         go (key, elocs) m =
           let
             erow   = minimum . map R.elocRow $ elocs
-            tid    = fst . R.getLocKey $ key
-            trow   = R.tlocRow . snd . R.getLocKey $ key
-            tfile' = R.tlocFile . snd . R.getLocKey $ key
+            tid    = R.locKeyThread key
+            trow   = (R.tlocRow . R.locKeyTloc) key
+            tfile' = (R.tlocFile . R.locKeyTloc) key
           in if tfile == tfile'
             then M.alter (alter erow tid) trow m
             else m
@@ -436,8 +464,8 @@ setup opt = do
       where
         go (key, elocs) xs =
           let
-            trow = R.tlocRow . snd . R.getLocKey $ key
-            tfile' = R.tlocFile . snd . R.getLocKey $ key
+            trow = R.tlocRow . R.locKeyTloc $ key
+            tfile' = R.tlocFile . R.locKeyTloc $ key
           in if tfile == tfile'
             then map ((, trow) . R.elocRow) elocs ++ xs
             else xs
