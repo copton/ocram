@@ -11,8 +11,9 @@ import Data.Generics (everywhereBut, mkQ, mkT)
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Util (abort, unexp, tmap)
+import Ocram.Util (abort, unexp, (?:))
 import Ocram.Names (ctrLbl)
+import Prelude hiding (init)
 
 desugar_control_structures :: [CBlockItem] -> [CBlockItem] -- {{{1
 desugar_control_structures items = evalState (mapM tItem items) 0
@@ -27,27 +28,45 @@ tStmt (CCompound x1 items x2) = do
   return $ CCompound x1 items' x2
 
 tStmt (CWhile cond block False ni) = do -- while loop {{{3
-  ids <- nextIds
+  ids <- nextIds 2
   let
-    ((lblStart, lblEnd), (gotoStart, gotoEnd)) = createLabels ids ni
+    [(lblStart, gotoStart), (lblEnd, gotoEnd)] = map (labelGotoPair ni) ids
     body = replaceBreakContinue lblStart lblEnd $ extractBody block
     cond' = CUnary CNegOp cond ni
     if_ = CIf cond' gotoEnd Nothing ni
     body' = map CBlockStmt [lblStart, if_] ++ body ++ map CBlockStmt [gotoStart, lblEnd]
-  return $ CCompound [] body' ni
+  body'' <- mapM tItem body'
+  return $ CCompound [] body'' ni
 
 tStmt (CWhile cond block True ni) = do -- do loop {{{3
-  ids <- nextIds
+  ids <- nextIds 2
   let
-    ((lblStart, lblEnd), (gotoStart, _)) = createLabels ids ni
+    [(lblStart, gotoStart), (lblEnd, _)] = map (labelGotoPair ni) ids
     body = replaceBreakContinue lblStart lblEnd $ extractBody block
     if_ = CIf cond gotoStart Nothing ni
     body' = CBlockStmt lblStart : body ++ map CBlockStmt [if_, lblEnd]
-  return $ CCompound [] body' ni
+  body'' <- mapM tItem body'
+  return $ CCompound [] body'' ni
 
--- tStmt o@(CFor _ _ _ _ _) = do
---   ids <- nextIds
---   return $ desugarFor ids o
+tStmt (CFor init cond incr block ni) = do -- for loop {{{3
+  ids <- nextIds 2
+  let
+    [(lblStart, gotoStart), (lblEnd, gotoEnd)] = map (labelGotoPair ni) ids 
+    body = replaceBreakContinue lblStart lblEnd $ extractBody block
+    exprStmt expr = CExpr (Just expr) ni
+    init' = case init of
+      Left Nothing -> Nothing
+      Left (Just e) -> Just $ CBlockStmt $ exprStmt e
+      Right d -> $abort $ unexp d
+    incr' = fmap exprStmt incr
+    if_ = fmap (\c -> CIf (CUnary CNegOp c ni) gotoEnd Nothing ni) cond
+    body' =
+         init' ?: 
+         map CBlockStmt (lblStart : if_ ?: []) 
+      ++ body
+      ++ map CBlockStmt (incr' ?: gotoStart : lblEnd : [])
+  body'' <- mapM tItem body'
+  return $ CCompound [] body'' ni
 
 tStmt x = return x
 
@@ -55,14 +74,14 @@ extractBody :: CStat -> [CBlockItem]  -- {{{2
 extractBody (CCompound _ body _) = body
 extractBody o                    = [CBlockStmt o]
 
-createLabels :: (Int, Int) -> NodeInfo -> ((CStat, CStat), (CStat, CStat)) -- {{{2
-createLabels ids ni =
+labelGotoPair :: NodeInfo -> Int -> (CStat, CStat) -- {{{2
+labelGotoPair ni lid =
   let
-    identifiers = tmap (internalIdent . ctrLbl) ids
-    labels = tmap (\i -> CLabel i (CExpr Nothing ni) [] ni) identifiers
-    gotos = tmap (\i -> CGoto i ni) identifiers
-  in 
-    (labels, gotos)
+    identifier = (internalIdent . ctrLbl) lid
+    label = CLabel identifier (CExpr Nothing ni) [] ni
+    goto = CGoto identifier ni
+  in
+    (label, goto)
 
 replaceBreakContinue :: CStat -> CStat -> [CBlockItem] -> [CBlockItem] -- {{{2
 replaceBreakContinue lblStart lblEnd = everywhereBut (mkQ False blocks) (mkT trans)
@@ -80,10 +99,10 @@ replaceBreakContinue lblStart lblEnd = everywhereBut (mkQ False blocks) (mkT tra
     lblIdent (CLabel i _ _ _) = i
     lblIdent o = $abort $ unexp o
 
-nextIds :: S (Int, Int) -- {{{2
-nextIds = do
+nextIds :: Int -> S [Int] -- {{{2
+nextIds count = do
   idx <- get
-  modify (+2)
-  return $ (idx, idx+1)
+  modify (+count)
+  return $ map (idx+) [0..(count-1)]
 
 type S = State Int

@@ -214,12 +214,12 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         {
           i = 0;
           {
-            ec_ctrlbl_1_0: ;
-            if (! (i<23)) goto ec_ctrlbl_1_1;
+            ec_ctrlbl_0: ;
+            if (! (i<23)) goto ec_ctrlbl_1;
             g(i);
             i++;
-            goto ec_ctrlbl_1_0;
-            ec_ctrlbl_1_1: ;
+            goto ec_ctrlbl_0;
+            ec_ctrlbl_1: ;
           }
         }
         b();
@@ -243,12 +243,12 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         {
           i = 0;
           {
-            ec_ctrlbl_1_0: ;
-            if (! (i<23)) goto ec_ctrlbl_1_1;
+            ec_ctrlbl_0: ;
+            if (! (i<23)) goto ec_ctrlbl_1;
             g(i);
             i++;
-            goto ec_ctrlbl_1_0;
-            ec_ctrlbl_1_1: ;
+            goto ec_ctrlbl_0;
+            ec_ctrlbl_1: ;
           }
         }
         b();
@@ -267,12 +267,12 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       void foo() {
         a();
         {
-          ec_ctrlbl_1_0: ;
-          if (! (i<23)) goto ec_ctrlbl_1_1;
+          ec_ctrlbl_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1;
           g(i);
           i++;
-          goto ec_ctrlbl_1_0;
-          ec_ctrlbl_1_1: ;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
         }
         b();
       }
@@ -281,8 +281,8 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
   ([paste|
       void foo() {
         a();
-        i = 0;
         {
+          i = 0;
           for (; ; i++) {
             g(i);
           }
@@ -295,11 +295,11 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         {
           i = 0;
           {
-            ec_ctrlbl_1_0: ;
+            ec_ctrlbl_0: ;
             g(i);
             i++;
-            goto ec_ctrlbl_1_0;
-            ec_ctrlbl_1_1: ;
+            goto ec_ctrlbl_0;
+            ec_ctrlbl_1: ;
           }
         }
         b();
@@ -319,11 +319,11 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         a();
         {
           i = 0;
-          ec_ctrlbl_1_0: ;
-          if (! (i<23)) goto ec_ctrlbl_1_1;
+          ec_ctrlbl_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1;
           g(i);
-          goto ec_ctrlbl_1_0;
-          ec_ctrlbl_1_1: ;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
         }
         b();
       }
@@ -343,12 +343,12 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       void foo() {
         a();
         {
-          ec_ctrlbl_1_0: ;
-          goto ec_ctrlbl_1_0;
+          ec_ctrlbl_0: ;
+          goto ec_ctrlbl_0;
           g();
-          goto ec_ctrlbl_1_1;
-          if (1) goto ec_ctrlbl_1_0;
-          ec_ctrlbl_1_1: ;
+          goto ec_ctrlbl_1;
+          if (1) goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
         }
         b();
       }
@@ -378,30 +378,84 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       void foo() {
         a();
         {
-          ec_ctrlbl_1_2: ;
-          if (!1) goto ec_ctrlbl_1_3;
+          ec_ctrlbl_0: ;
+          if (!1) goto ec_ctrlbl_1;
           b();
-          goto ec_ctrlbl_1_2;
+          goto ec_ctrlbl_0;
           c();
           {
-            ec_ctrlbl_1_0: ;
+            ec_ctrlbl_2: ;
             d();
-            goto ec_ctrlbl_1_0;
+            goto ec_ctrlbl_2;
             e();
-            goto ec_ctrlbl_1_1;
+            goto ec_ctrlbl_3;
             f();
-            if (23) goto ec_ctrlbl_1_0;
-            ec_ctrlbl_1_1: ;
+            if (23) goto ec_ctrlbl_2;
+            ec_ctrlbl_3: ;
           }
           g();
-          goto ec_ctrlbl_1_3;
+          goto ec_ctrlbl_1;
           h();
-          goto ec_ctrlbl_1_2;
-          ec_ctrlbl_1_3: ; 
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ; 
         }
         i(); 
       }
     |])
+  , -- 10 - if statements {{{3
+  ([paste|
+    void foo() {
+      if (1) {
+        b();
+      }
+    } 
+  |], [paste|
+    void foo() {
+      {
+        if (1) {
+          goto ec_ctrlbl_0;
+        } else {
+          goto ec_ctrlbl_1;
+        }
+        {
+          ec_ctrlbl_0: ;
+          b();
+        }
+        ec_ctrlbl_1: ;
+      }
+    }
+  |])
+  , -- 11 - if statements with else block {{{3
+  ([paste|
+    void foo() {
+      if (1) {
+        b();
+      } else {
+        c();
+      }
+    } 
+  |], [paste|
+    void foo() {
+      {
+        if (1) {
+          goto ec_ctrlbl_0;
+        } else {
+          goto ec_ctrlbl_1;
+        }
+        {
+          ec_ctrlbl_0: ;
+          b();
+          goto ec_ctrlbl_2;
+        }
+        {
+          ec_ctrlbl_1: ;
+          c();
+        }
+        ec_ctrlbl_2: ;
+      }
+    }
+  |])
+    
   -- end {{{3
   ]
   where
