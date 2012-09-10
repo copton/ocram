@@ -101,6 +101,31 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("i", "i", 1, 4)
     , ("i", "ec_shadow_i_0", 2, 3)
   ])
+  , -- 06 - multiple declarations {{{3
+  ([lpaste|
+01: int foo() {
+      int i=0, j=1;
+03:   {
+        int i=23, j=42;
+        return i + j;
+06:   }
+07: }
+  |], [paste|
+    int foo() {
+      i = 0;
+      j = 1;
+      {
+        ec_shadow_i_0 = 23;
+        ec_shadow_j_0 = 42;
+        return ec_shadow_i_0 + ec_shadow_j_0;
+      }
+    }
+  |], [
+      ("i", "ec_shadow_i_0", 3, 6)
+    , ("j", "ec_shadow_j_0", 3, 6)
+    , ("i", "i", 1, 7)
+    , ("j", "j", 1, 7)
+  ])
   ]
   where
     runTest :: (String, String, [(String, String, Int, Int)]) -> Assertion

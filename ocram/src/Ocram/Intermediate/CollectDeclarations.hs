@@ -77,25 +77,6 @@ trExpr (CVar ident ni) = do
 
 trExpr o = return o
 
--- types {{{1
-data Ctx = Ctx { -- {{{2
-    ctxIdents :: Identifiers
-  , ctxScope  :: NodeInfo
-  , ctxVars   :: [Variable]
-  }
-
-data Identifiers = Identifiers { -- {{{2
-  idEs :: ExtraSymbols,
-  idRt :: RenameTable
-  } deriving (Show)
-
-type ExtraSymbols = M.Map Symbol Int -- {{{2
-
-type RenameTable = M.Map Symbol Symbol -- {{{2
-
-type S a = State Ctx a -- {{{2
-
--- utils {{{1
 trDecl :: CDecl -> S [CStat] -- {{{2
 trDecl decl = do
   (Ctx ids scope vars) <- get
@@ -120,6 +101,25 @@ trDecl decl = do
     mkInit (Just rhs) name =  Just $ CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) ni) rhs ni)) ni
       where ni = annotation rhs
 
+-- types {{{1
+data Ctx = Ctx { -- {{{2
+    ctxIdents :: Identifiers
+  , ctxScope  :: NodeInfo
+  , ctxVars   :: [Variable]
+  }
+
+data Identifiers = Identifiers { -- {{{2
+  idEs :: ExtraSymbols,
+  idRt :: RenameTable
+  } deriving (Show)
+
+type ExtraSymbols = M.Map Symbol Int -- {{{2
+
+type RenameTable = M.Map Symbol Symbol -- {{{2
+
+type S a = State Ctx a -- {{{2
+
+-- utils {{{1
 getIdentifier :: Identifiers -> Symbol -> Symbol -- {{{2
 getIdentifier (Identifiers _ rt) name = fromMaybe name (M.lookup name rt)
 
