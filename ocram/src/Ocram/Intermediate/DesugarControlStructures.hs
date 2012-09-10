@@ -68,6 +68,31 @@ tStmt (CFor init cond incr block ni) = do -- for loop {{{3
   body'' <- mapM tItem body'
   return $ CCompound [] body'' ni
 
+-- if statements {{{3
+tStmt o@(CIf _ (CGoto _ _) Nothing _) = return o
+tStmt o@(CIf _ (CGoto _ _) (Just (CGoto _ _)) _) = return o
+
+tStmt (CIf cond then_ Nothing ni) = do
+  ids <- nextIds 2
+  let
+    [(lblThen, gotoThen), (lblEnd, gotoEnd)] = map (labelGotoPair ni) ids 
+    if_ = CIf cond gotoThen (Just gotoEnd) ni
+    then_' = CCompound [] (CBlockStmt lblThen : extractBody then_) ni
+    body = map CBlockStmt [if_, then_', lblEnd]
+  body' <- mapM tItem body
+  return $ CCompound [] body' ni
+
+tStmt (CIf cond then_ (Just else_) ni) = do
+  ids <- nextIds 3
+  let
+    [(lblThen, gotoThen), (lblElse, gotoElse), (lblEnd, gotoEnd)] = map (labelGotoPair ni) ids 
+    if_ = CIf cond gotoThen (Just gotoElse) ni
+    then_' = CCompound [] (CBlockStmt lblThen : extractBody then_ ++ [CBlockStmt gotoEnd]) ni
+    else_' = CCompound [] (CBlockStmt lblElse : extractBody else_) ni
+    body = map CBlockStmt [if_, then_', else_', lblEnd]
+  body' <- mapM tItem body
+  return $ CCompound [] body' ni
+
 tStmt x = return x
 
 extractBody :: CStat -> [CBlockItem]  -- {{{2
