@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, RankNTypes #-}
 module Ocram.Intermediate.CollectDeclarations 
 -- exports {{{1
 (
@@ -6,19 +6,18 @@ module Ocram.Intermediate.CollectDeclarations
 ) where
 
 -- imports {{{1
-import Data.Data (Data)
-import Data.Typeable (Typeable)
 import Control.Monad.State (State, get, put, runState, gets)
-import Data.Generics (everywhereM, mkM, extM)
+import Data.Data (Data, gmapM)
+import Data.Generics (mkM, extM, mkQ, GenericQ, GenericM)
 import Data.Maybe (fromMaybe, mapMaybe)
-import Language.C.Syntax.AST
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo, undefNode)
+import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
-import Ocram.Symbols (symbol, Symbol)
-import Ocram.Util (abort, unexp)
 import Ocram.Query (function_parameters_fd)
+import Ocram.Symbols (symbol, Symbol)
 import Ocram.Transformation.Names (varShadow) -- XXX: bad dependency
+import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
 
@@ -29,7 +28,7 @@ collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
     ps = function_parameters_fd fd
     initialIdents = Identifiers M.empty (M.fromList (map ((\x -> (x, x)) . symbol) ps))
     initialState  = Ctx initialIdents funScope []
-    (statements, state) = runState (mapM trItem items) initialState
+    (statements, state) = runState (mapM mItem items) initialState
 
     params = map (\cd -> Variable cd (symbol cd) funScope) ps
 
@@ -38,56 +37,69 @@ collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
 
 collect_declarations x = $abort $ unexp x
 
-trav :: (Data a, Typeable a) => a -> S a -- {{{2
-trav x = everywhereM (mkM trStmt `extM` trExpr) x
+mItem :: CBlockItem -> S [CBlockItem] -- {{{2
+mItem (CBlockStmt stmt) = do
+  stmt' <- topDown (mkQ False qStmt) (mkM tExpr `extM` tStmt) stmt
+  return [CBlockStmt stmt']
 
-trItem :: CBlockItem -> S [CBlockItem] -- {{{2
-trItem (CBlockStmt stmt) = trav stmt >>= return . (:[]) . CBlockStmt
-trItem (CBlockDecl decl) = trDecl decl >>= return . map CBlockStmt
-trItem x                 = $abort $ unexp x
+mItem (CBlockDecl decl) = trDecl decl >>= return . map CBlockStmt
 
-trStmt :: CStat -> S CStat -- {{{2
+mItem x                 = $abort $ unexp x
 
-trStmt (CCompound x items' innerScope) = do
+topDown :: (Monad m, Data a) => GenericQ Bool -> GenericM m -> a -> m a -- {{{2
+topDown q f x
+  | q x == True = f x
+  | otherwise = f x >>= gmapM (topDown q f)
+
+qStmt :: CStat -> Bool
+qStmt (CCompound _ _ _) = True
+qStmt _                 = False
+
+tStmt :: CStat -> S CStat -- {{{2
+
+tStmt (CCompound x items' innerScope) = do
   (Ctx curIds curScope curVars) <- get
-  let (statements, Ctx newIds _ newVars) = runState (mapM trItem items') (Ctx curIds innerScope curVars)
+  let (statements, Ctx newIds _ newVars) = runState (mapM mItem items') (Ctx curIds innerScope curVars)
   put $ Ctx (curIds {idEs = idEs newIds}) curScope newVars
   return $ CCompound x (concat statements) innerScope
 
-trStmt (CFor (Right decl) x1 x2 body ni) = do
+tStmt (CFor (Right decl) x1 x2 body ni) = do
   -- the scope of the declared variable is the body of the for loop
   (Ctx ids scope vars) <- get 
-  let (inits, Ctx ids' _ vars') = runState (trDecl decl) (Ctx ids (annotation body) vars)
-  put $ Ctx ids' scope vars'
+  let (Ctx ids' _ vars', inits) = trDecl' (Ctx ids (annotation body) vars) decl 
+  put (Ctx ids' scope vars')
 
-  x1' <- trav x1  
-  x2' <- trav x2  
-  body' <- trav body
-  let for   = CFor (Left Nothing) x1' x2' body' ni
+  let for   = CFor (Left Nothing) x1 x2 body ni
   let block = map CBlockStmt $ inits ++ [for]
   return $ CCompound [] block undefNode
 
-trStmt o  = return o
+tStmt o  = return o
 
-trExpr :: CExpr -> S CExpr -- {{{2
-trExpr (CVar ident ni) = do
+tExpr :: CExpr -> S CExpr -- {{{2
+tExpr (CVar ident ni) = do
   ids <- gets ctxIdents
   let name = getIdentifier ids (symbol ident)
   return $ CVar (internalIdent name) ni
 
-trExpr o = return o
+tExpr o = return o
 
 trDecl :: CDecl -> S [CStat] -- {{{2
 trDecl decl = do
-  (Ctx ids scope vars) <- get
+  ctx <- get
+  let (ctx', inits) = trDecl' ctx decl
+  put ctx'
+  return inits
+
+trDecl' :: Ctx -> CDecl -> (Ctx, [CStat])
+trDecl' (Ctx ids scope vars) decl = 
   let
     (decls, rhss) = (unzip . map split . unlistDecl) decl 
     ids' = foldl addIdentifier ids $ map symbol decls
     newNames = map (getIdentifier ids' . symbol) decls
     vars' = map (\(cd, name) -> Variable cd name scope) $ zip decls newNames
     inits = mapMaybe (uncurry mkInit) $ zip rhss newNames
-  put $ Ctx ids' scope (vars' ++ vars)
-  return inits
+    ctx = Ctx ids' scope (vars' ++ vars)
+  in (ctx, inits)
   where
     unlistDecl (CDecl x [] ni) = [CDecl x [] ni] -- struct S { int i; };
     unlistDecl (CDecl s ds ni) = map (\x -> CDecl s [x] ni) ds
