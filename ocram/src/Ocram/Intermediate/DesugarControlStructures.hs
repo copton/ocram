@@ -36,6 +36,15 @@ tStmt (CWhile cond block False ni) = do -- while loop {{{3
     body' = map CBlockStmt [lblStart, if_] ++ body ++ map CBlockStmt [gotoStart, lblEnd]
   return $ CCompound [] body' ni
 
+tStmt (CWhile cond block True ni) = do -- do loop {{{3
+  ids <- nextIds
+  let
+    ((lblStart, lblEnd), (gotoStart, _)) = createLabels ids ni
+    body = replaceBreakContinue lblStart lblEnd $ extractBody block
+    if_ = CIf cond gotoStart Nothing ni
+    body' = CBlockStmt lblStart : body ++ map CBlockStmt [if_, lblEnd]
+  return $ CCompound [] body' ni
+
 -- tStmt o@(CFor _ _ _ _ _) = do
 --   ids <- nextIds
 --   return $ desugarFor ids o

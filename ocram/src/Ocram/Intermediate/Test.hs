@@ -188,10 +188,10 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       void foo() {
         a();
         {
-          ec_ctrlbl_1_0: ;
+          ec_ctrlbl_0: ;
           g();
-          if (1) goto ec_ctrlbl_1_0;
-          ec_ctrlbl_1_1: ;
+          if (1) goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
         }
         b();
       }
