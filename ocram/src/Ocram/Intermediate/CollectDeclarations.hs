@@ -14,9 +14,9 @@ import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo, undefNode)
 import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
+import Ocram.Names (varShadow)
 import Ocram.Query (function_parameters_fd)
 import Ocram.Symbols (symbol, Symbol)
-import Ocram.Transformation.Names (varShadow) -- XXX: bad dependency
 import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
