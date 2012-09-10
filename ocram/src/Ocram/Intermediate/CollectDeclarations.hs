@@ -6,9 +6,11 @@ module Ocram.Intermediate.CollectDeclarations
 ) where
 
 -- imports {{{1
+import Data.Data (Data)
+import Data.Typeable (Typeable)
 import Control.Monad.State (State, get, put, runState, gets)
 import Data.Generics (everywhereM, mkM, extM)
-import Data.Maybe (fromMaybe, catMaybes)
+import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo, undefNode)
@@ -36,8 +38,11 @@ collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
 
 collect_declarations x = $abort $ unexp x
 
+trav :: (Data a, Typeable a) => a -> S a -- {{{2
+trav x = everywhereM (mkM trStmt `extM` trExpr) x
+
 trItem :: CBlockItem -> S [CBlockItem] -- {{{2
-trItem (CBlockStmt stmt) = everywhereM (mkM trStmt `extM` trExpr) stmt >>= return . (:[]) . CBlockStmt
+trItem (CBlockStmt stmt) = trav stmt >>= return . (:[]) . CBlockStmt
 trItem (CBlockDecl decl) = trDecl decl >>= return . map CBlockStmt
 trItem x                 = $abort $ unexp x
 
@@ -49,9 +54,16 @@ trStmt (CCompound x items' innerScope) = do
   put $ Ctx (curIds {idEs = idEs newIds}) curScope newVars
   return $ CCompound x (concat statements) innerScope
 
-trStmt (CFor (Right decl) x2 x3 s x4) = do
-  inits <- trDecl decl
-  let for   = CFor (Left Nothing) x2 x3 s x4
+trStmt (CFor (Right decl) x1 x2 body ni) = do
+  -- the scope of the declared variable is the body of the for loop
+  (Ctx ids scope vars) <- get 
+  let (inits, Ctx ids' _ vars') = runState (trDecl decl) (Ctx ids (annotation body) vars)
+  put $ Ctx ids' scope vars'
+
+  x1' <- trav x1  
+  x2' <- trav x2  
+  body' <- trav body
+  let for   = CFor (Left Nothing) x1' x2' body' ni
   let block = map CBlockStmt $ inits ++ [for]
   return $ CCompound [] block undefNode
 
@@ -92,9 +104,9 @@ trDecl decl = do
     ids' = foldl addIdentifier ids $ map symbol decls
     newNames = map (getIdentifier ids' . symbol) decls
     vars' = map (\(cd, name) -> Variable cd name scope) $ zip decls newNames
-    inits = map (uncurry mkInit) $ zip rhss newNames
+    inits = mapMaybe (uncurry mkInit) $ zip rhss newNames
   put $ Ctx ids' scope (vars' ++ vars)
-  return $ catMaybes inits
+  return inits
   where
     unlistDecl (CDecl x [] ni) = [CDecl x [] ni] -- struct S { int i; };
     unlistDecl (CDecl s ds ni) = map (\x -> CDecl s [x] ni) ds

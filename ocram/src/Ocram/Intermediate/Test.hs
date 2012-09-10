@@ -84,7 +84,23 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("i", "ec_shadow_i_0", 3, 6)
     , ("i", "i", 1, 7)
   ])
-  
+  , -- 05 - for loop with declaration {{{3
+  ([lpaste|
+01: void foo(int i) {
+02:   for (int i = 0; i < 23; i++) {
+03:   }
+04: } 
+  |], [paste|
+    void foo(int i) {
+      {
+        ec_shadow_i_0 = 0;
+        for (; ec_shadow_i_0 < 23; ec_shadow_i_0++) { }
+      }
+    }
+  |], [
+      ("i", "i", 1, 4)
+    , ("i", "ec_shadow_i_0", 2, 3)
+  ])
   ]
   where
     runTest :: (String, String, [(String, String, Int, Int)]) -> Assertion
@@ -101,7 +117,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
         mapM_ (uncurry cmpVar) (zip expectedVars outputVars)
 
     cmpVar (tname, ename, start, end) var =
-      let prefix = "Variable " ++ tname ++ ": " in
+      let prefix = "Variable " ++ ename ++ ": " in
       do
         assertEqual (prefix ++ "T-code name") tname ((symbol . var_decl) var)
         assertEqual (prefix ++ "E-cdoe name") ename (var_fqn var)
