@@ -6,7 +6,8 @@ module Ocram.Intermediate.CollectDeclarations
 ) where
 
 -- imports {{{1
-import Control.Monad.State (State, get, put, runState)
+import Control.Monad.State (State, get, put, runState, gets)
+import Data.Generics (everywhereM, mkM, extM)
 import Data.Maybe (fromMaybe, catMaybes)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (internalIdent)
@@ -36,25 +37,11 @@ collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
 collect_declarations x = $abort $ unexp x
 
 trItem :: CBlockItem -> S [CBlockItem] -- {{{2
-trItem (CBlockStmt stmt) = trStmt stmt >>= return . (:[]) . CBlockStmt
+trItem (CBlockStmt stmt) = everywhereM (mkM trStmt `extM` trExpr) stmt >>= return . (:[]) . CBlockStmt
 trItem (CBlockDecl decl) = trDecl decl >>= return . map CBlockStmt
 trItem x                 = $abort $ unexp x
 
 trStmt :: CStat -> S CStat -- {{{2
-
-trStmt (CLabel x1 s x2 x3)         = trStmt s >>= return . (\s' -> CLabel x1 s' x2 x3)
-trStmt (CCase x1 s x2)             = trStmt s >>= return . (\s' -> CCase x1 s' x2)
-trStmt (CDefault s x1)             = trStmt s >>= return . (\s' -> CDefault s' x1)
-trStmt (CIf x1 s Nothing x2)       = trStmt s >>= return . (\s' -> CIf x1 s' Nothing x2)
-trStmt (CSwitch x1 s x2)           = trStmt s >>= return . (\s' -> CSwitch x1 s' x2)
-trStmt (CWhile x1 s x2 x3)         = trStmt s >>= return . (\s' -> CWhile x1 s' x2 x3)
-trStmt (CFor (Left x1) x2 x3 s x4) = trStmt s >>= return . (\s' -> CFor (Left x1) x2 x3 s' x4)
-
-trStmt o@(CExpr _ _)               = return o
-trStmt o@(CGoto _ _)               = return o
-trStmt o@(CCont _)                 = return o
-trStmt o@(CBreak _)                = return o
-trStmt o@(CReturn _ _)             = return o
 
 trStmt (CCompound x items' innerScope) = do
   (Ctx curIds curScope curVars) <- get
@@ -62,21 +49,21 @@ trStmt (CCompound x items' innerScope) = do
   put $ Ctx (curIds {idEs = idEs newIds}) curScope newVars
   return $ CCompound x (concat statements) innerScope
 
-trStmt (CIf x1 s1 (Just s2) x2) = do
-  s1' <- trStmt s1
-  s2' <- trStmt s2
-  return $ CIf x1 s1' (Just s2') x2
-
 trStmt (CFor (Right decl) x2 x3 s x4) = do
   inits <- trDecl decl
-  s' <- trStmt s
-  let for   = CFor (Left Nothing) x2 x3 s' x4
+  let for   = CFor (Left Nothing) x2 x3 s x4
   let block = map CBlockStmt $ inits ++ [for]
   return $ CCompound [] block undefNode
 
-trStmt o@(CGotoPtr _ _)   = $abort $ unexp o
-trStmt o@(CAsm _ _)       = $abort $ unexp o
-trStmt o@(CCases _ _ _ _) = $abort $ unexp o
+trStmt o  = return o
+
+trExpr :: CExpr -> S CExpr -- {{{2
+trExpr (CVar ident ni) = do
+  ids <- gets ctxIdents
+  let name = getIdentifier ids (symbol ident)
+  return $ CVar (internalIdent name) ni
+
+trExpr o = return o
 
 -- types {{{1
 data Ctx = Ctx { -- {{{2
