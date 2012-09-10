@@ -37,7 +37,7 @@ collect_declarations x = $abort $ unexp x
 
 trItem :: CBlockItem -> S [CBlockItem] -- {{{2
 trItem (CBlockStmt stmt) = trStmt stmt >>= return . (:[]) . CBlockStmt
-trItem (CBlockDecl decl) = addDecl decl >>= return . map CBlockStmt
+trItem (CBlockDecl decl) = trDecl decl >>= return . map CBlockStmt
 trItem x                 = $abort $ unexp x
 
 trStmt :: CStat -> S CStat -- {{{2
@@ -68,7 +68,7 @@ trStmt (CIf x1 s1 (Just s2) x2) = do
   return $ CIf x1 s1' (Just s2') x2
 
 trStmt (CFor (Right decl) x2 x3 s x4) = do
-  inits <- addDecl decl
+  inits <- trDecl decl
   s' <- trStmt s
   let for   = CFor (Left Nothing) x2 x3 s' x4
   let block = map CBlockStmt $ inits ++ [for]
@@ -97,13 +97,15 @@ type RenameTable = M.Map Symbol Symbol -- {{{2
 type S a = State Ctx a -- {{{2
 
 -- utils {{{1
-addDecl :: CDecl -> S [CStat] -- {{{2
-addDecl decl = do
+trDecl :: CDecl -> S [CStat] -- {{{2
+trDecl decl = do
   (Ctx ids scope vars) <- get
   let
-    (decls, inits) = (unzip . map split . unlistDecl) decl 
+    (decls, rhss) = (unzip . map split . unlistDecl) decl 
     ids' = foldl addIdentifier ids $ map symbol decls
-    vars' = map (\cd -> Variable cd (getIdentifier ids' (symbol cd)) scope) decls
+    newNames = map (getIdentifier ids' . symbol) decls
+    vars' = map (\(cd, name) -> Variable cd name scope) $ zip decls newNames
+    inits = map (uncurry mkInit) $ zip rhss newNames
   put $ Ctx ids' scope (vars' ++ vars)
   return $ catMaybes inits
   where
@@ -111,13 +113,13 @@ addDecl decl = do
     unlistDecl (CDecl s ds ni) = map (\x -> CDecl s [x] ni) ds
 
     split (CDecl y1 [(Just declr, Just (CInitExpr cexpr _), y2)] y3) =
-      let
-        declare = (CDecl y1 [(Just declr, Nothing, y2)] y3)
-        ni = annotation cexpr
-        initialize = CExpr (Just (CAssign CAssignOp (CVar (internalIdent (symbol declr)) ni) cexpr ni)) ni
-      in
-        (declare, Just initialize)
+      let declare = (CDecl y1 [(Just declr, Nothing, y2)] y3) in
+      (declare, Just cexpr)
     split cdecl = (cdecl, Nothing)
+
+    mkInit Nothing    _    =  Nothing
+    mkInit (Just rhs) name =  Just $ CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) ni) rhs ni)) ni
+      where ni = annotation rhs
 
 getIdentifier :: Identifiers -> Symbol -> Symbol -- {{{2
 getIdentifier (Identifiers _ rt) name = fromMaybe name (M.lookup name rt)

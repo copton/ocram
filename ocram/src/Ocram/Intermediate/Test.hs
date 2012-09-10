@@ -17,11 +17,11 @@ tests = testGroup "Representation" [test_collect_declarations]
 
 test_collect_declarations :: Test -- {{{2
 test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
-  -- nothing to do {{3
+  -- 01 - nothing to do {{3
   ([lpaste|
-    int foo(int i) {
+01: int foo(int i) {
       return i;
-    }  
+03: }  
   |], [paste|
     int foo(int i) {
       return i;
@@ -29,6 +29,62 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
   |], [
       ("i", "i", 1, 3)
   ]) 
+  , -- 02 - local variable with initializer {{{3
+  ([lpaste|
+01: int foo(int i) {
+      int j = 23;
+      return i + j;
+04: }
+  |], [paste|
+    int foo(int i) {
+      j = 23;
+      return i + j;
+    }
+  |], [
+      ("i", "i", 1, 4)
+    , ("j", "j", 1, 4)
+  ])
+  , -- 03 - local variable shadowing {{{3
+  ([lpaste|
+01: void foo() {
+      int i = 23;
+03:   {
+        int i = 42;
+05:   }
+06: }
+  |], [paste|
+    void foo() {
+      i = 23;
+      {
+        ec_shadow_i_0 = 42;
+      }
+    }
+  |], [
+      ("i", "ec_shadow_i_0", 3, 5)
+    , ("i", "i", 1, 6)
+  ])
+  , -- 04 - local variable shadowing - with access {{{3
+  ([lpaste|
+01: void foo() {
+      int i = 23;
+03:   {
+        int i = 42;
+        i = 19;
+06:   }
+07: }
+  |], [paste|
+    void foo() {
+      i = 23;
+      {
+        ec_shadow_i_0 = 42;
+        ec_shadow_i_0 = 19;
+      }
+    }
+  |], [
+      ("i", "ec_shadow_i_0", 3, 6)
+    , ("i", "i", 1, 7)
+  ])
+  
   ]
   where
     runTest :: (String, String, [(String, String, Int, Int)]) -> Assertion
