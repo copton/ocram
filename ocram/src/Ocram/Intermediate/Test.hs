@@ -455,6 +455,72 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
+  , -- 12 - switch statement {{{3
+  ([paste|
+    void foo(int i) {
+      switch (i) {
+        case 1: a(); b(); break;
+        case 2: c(); d();
+        case 3: e(); f(); return;
+      }
+    }
+  |], [paste|
+    void foo(int i) {
+      {
+        if (i==1) goto ec_ctrlbl_1;
+        if (i==2) goto ec_ctrlbl_2;
+        if (i==3) goto ec_ctrlbl_3;
+        
+        {
+          ec_ctrlbl_1: ;
+          a(); b();
+          goto ec_ctrlbl_0;
+        }
+        {
+          ec_ctrlbl_2: ;
+          c(); d();
+        }
+        {
+          ec_ctrlbl_3: ;
+          e(); f(); return;
+        }
+        ec_ctrlbl_0: ;
+      }
+    }
+  |])
+  , -- 13 - switch statement with default {{{3
+  ([paste|
+    void foo(int i) {
+      switch (i) {
+        case 1: a(); b(); break;
+        case 2: c(); d();
+        default: e(); f();
+      }
+    }
+  |], [paste|
+    void foo(int i) {
+      {
+        if (i==1) goto ec_ctrlbl_1;
+        if (i==2) goto ec_ctrlbl_2;
+        goto ec_ctrlbl_3;
+        
+        {
+          ec_ctrlbl_1: ;
+          a(); b();
+          goto ec_ctrlbl_0;
+        }
+        {
+          ec_ctrlbl_2: ;
+          c(); d();
+        }
+        {
+          ec_ctrlbl_3: ;
+          e(); f();
+        }
+        ec_ctrlbl_0: ;
+      }
+    }
+  |])
     
   -- end {{{3
   ]

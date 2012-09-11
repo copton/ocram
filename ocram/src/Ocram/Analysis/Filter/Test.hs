@@ -13,7 +13,7 @@ tests = testGroup "Filter" [test_check_sanity, test_check_constraints]
 
 test_check_sanity :: Test -- {{{1
 test_check_sanity = enumTestGroup "check_sanity" $ map runTest [
-    -- 01 - function declaration without parameter name {{{2
+    -- , 01 - function declaration without parameter name {{{2
     ([paste|
       __attribute__((tc_blocking)) void block(int);
       __attribute__((tc_run_thread)) void start() {
@@ -30,10 +30,12 @@ test_check_sanity = enumTestGroup "check_sanity" $ map runTest [
     ("void foo(int i) { switch (i) ; }", [IllFormedSwitch])
   , -- 06 - switch with preceding statement {{{2
     ("void f(int i) { switch (i) { f(23); case 1: return; }}", [IllFormedSwitch])
-  , -- 06 - switch with preceding declaration {{{2
+  , -- 07 - switch with preceding declaration {{{2
     ("void f(int i) { switch (i) { int j; case 1: return; }}", [IllFormedSwitch])
-  , -- 07 - switch statement with multiple default markers {{{2
-    ("void f(int i) { switch (i) {default: return; default: return;}}", [IllFormedSwitch])
+  , -- 08 - switch with multiple default statements {{{2
+    ("void f(int i) { switch (i) {case 0: ; default: ; default: ;}}", [IllFormedSwitch])
+  , -- 09 - switch with case after default statement {{{2
+    ("void f(int i) { switch (i) {case 0: ; default: ; case 1: ;}}", [IllFormedSwitch])
   ]
   where
     runTest (code, expected) = expected @=? errs (enrich code)

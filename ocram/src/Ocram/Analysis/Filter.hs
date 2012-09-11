@@ -9,6 +9,7 @@ module Ocram.Analysis.Filter
 import Control.Monad (guard)
 import Data.Data (Data)
 import Data.Generics (mkQ, everything, extQ)
+import Data.List (findIndices)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo, nodeInfo)
@@ -91,6 +92,9 @@ check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` sane
 
     saneExtDecls _ = []
 
+    -- The restrictions on switch statements are not strictly required, but
+    -- make the implementation of desugar_control_structures easier.
+    -- Furthermore, we see little sense in using these cases deliberately.
     saneStmt (CSwitch _ body ni) =
       let
         isCase (CCase _ _ _)         = True
@@ -99,14 +103,23 @@ check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` sane
         isCases _                    = False
         isDefault (CDefault _ _)     = True
         isDefault _                  = False
-        isDefaultStmt (CBlockStmt s) = isDefault s
-        isDefaultStmt _              = False
+        extract (CBlockStmt s)       = Just s
+        extract _                    = Nothing        
 
-        test = do
+        test = let flt = or . sequence [isCase, isCases, isDefault] in do
+          -- Enforce a switch "code block"...
           (CCompound _ items _) <- Just body
+          -- ...which must start with a statement...
           ((CBlockStmt stmt):_) <- Just items
-          (guard . or . sequence [isCase, isCases, isDefault]) stmt
-          (guard . (<=1) . length . filter isDefaultStmt) items
+          -- ...that has to be a case(es) or a default statement.
+          (guard . flt) stmt
+
+          -- And finally make sure that there is at most one default
+          -- statement and that no case(es) statement follows.
+          let
+             allcases = filter flt $ mapMaybe extract items
+             dfltcases = findIndices isDefault allcases
+          guard (null dfltcases || head dfltcases == length allcases) 
       in case test of
         Nothing -> [newError IllFormedSwitch Nothing (Just ni)]
         Just () -> []
