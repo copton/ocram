@@ -6,6 +6,7 @@ module Ocram.Analysis.Filter
 ) where
 
 -- imports {{{1
+import Control.Monad (guard)
 import Data.Data (Data)
 import Data.Generics (mkQ, everything, extQ)
 import Data.Maybe (fromMaybe, mapMaybe)
@@ -48,6 +49,7 @@ data ErrorCode =
   | GotoPtr
   | BuiltinExpr
   | RangeDesignator
+  | IllFormedSwitch
   deriving (Eq, Enum, Show)
 
 errors :: [(ErrorCode, String)]
@@ -68,13 +70,14 @@ errors = [
   , (GotoPtr, "Computed gotos are not part of C99 and are thus not supported")
   , (BuiltinExpr, "GNU C builtin expressions are not supported")
   , (RangeDesignator, "GNU C array range designators are not supported")
+  , (IllFormedSwitch, "ill-formed switch statement")
   ]
 
 errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors
 
 check_sanity :: CTranslUnit -> Either [OcramError] () -- {{{1
-check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls) ast
+check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStmt) ast
   where
     saneExtDecls (CDeclExt cd@(CDecl ts _ ni))
       | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
@@ -87,6 +90,28 @@ check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls) ast
       | otherwise = []
 
     saneExtDecls _ = []
+
+    saneStmt (CSwitch _ body ni) =
+      let
+        isCase (CCase _ _ _)         = True
+        isCase _                     = False
+        isCases (CCases _ _ _ _)     = True
+        isCases _                    = False
+        isDefault (CDefault _ _)     = True
+        isDefault _                  = False
+        isDefaultStmt (CBlockStmt s) = isDefault s
+        isDefaultStmt _              = False
+
+        test = do
+          (CCompound _ items _) <- Just body
+          ((CBlockStmt stmt):_) <- Just items
+          (guard . or . sequence [isCase, isCases, isDefault]) stmt
+          (guard . (<=1) . length . filter isDefaultStmt) items
+      in case test of
+        Nothing -> [newError IllFormedSwitch Nothing (Just ni)]
+        Just () -> []
+
+    saneStmt _ = []
 
     hasReturnType = any isTypeSpec
       where
