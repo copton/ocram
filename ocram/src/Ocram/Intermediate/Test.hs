@@ -8,13 +8,18 @@ import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
 import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
+import Ocram.Intermediate.FlattenScopes
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Symbols (symbol)
 import Test.Framework (Test, testGroup)
 import Test.HUnit (assertEqual, Assertion, (@=?))
 
 tests :: Test -- {{{1
-tests = testGroup "Representation" [test_collect_declarations, test_desugar_control_structures]
+tests = testGroup "Representation" [
+          test_collect_declarations
+        , test_desugar_control_structures
+        , test_flatten_scopes
+        ]
 
 test_collect_declarations :: Test -- {{{2
 test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
@@ -536,5 +541,419 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       in
         expectedCode' @=? outputCode
         
+test_flatten_scopes :: Test -- {{{1
+test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
+  -- , 01 - while loop {{{3
+  ([paste|
+    void foo() {
+      a();
+      {
+        ec_ctrlbl_0: ;
+        if (! 1) goto ec_ctrlbl_1;
+        g();
+        goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ;
+      }
+      b();
+    }
+  |], [paste|
+    void foo() {
+      a();
+      ec_ctrlbl_0: ;
+      if (! 1) goto ec_ctrlbl_1;
+      g();
+      goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ;
+      b();
+    }
+  |])
+  , -- 02 - do loop {{{3
+  ([paste|
+    void foo() {
+      a();
+      {
+        ec_ctrlbl_0: ;
+        g();
+        if (1) goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ;
+      }
+      b();
+    }
+  |], [paste|
+    void foo() {
+      a();
+      ec_ctrlbl_0: ;
+      g();
+      if (1) goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ;
+      b();
+    }
+  |])
+  , -- 03 - for loop {{{3
+  ([paste|
+    void foo() {
+      a();
+      {
+        i = 0;
+        {
+          ec_ctrlbl_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1;
+          g(i);
+          i++;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+      }
+      b();
+    }
+  |], [paste|
+    void foo() {
+      a();
+      i = 0;
+      ec_ctrlbl_0: ;
+      if (! (i<23)) goto ec_ctrlbl_1;
+      g(i);
+      i++;
+      goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ;
+      b();
+    }
+  |])
+  , -- 04 - for loop - with declaration {{{3
+  ([paste|
+    void foo() {
+      a();
+      {
+        i = 0;
+        {
+          ec_ctrlbl_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1;
+          g(i);
+          i++;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+      }
+      b();
+    }
+  |], [paste|
+    void foo() {
+      a();
+      i = 0;
+      ec_ctrlbl_0: ;
+      if (! (i<23)) goto ec_ctrlbl_1;
+      g(i);
+      i++;
+      goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ;
+      b();
+    }
+  |])
+  , -- 05 - for loop - no init expression {{{3
+  ([paste|
+      void foo() {
+        a();
+        {
+          ec_ctrlbl_0: ;
+          if (! (i<23)) goto ec_ctrlbl_1;
+          g(i);
+          i++;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+        b();
+      }
+  |], [paste|
+      void foo() {
+        a();
+        ec_ctrlbl_0: ;
+        if (! (i<23)) goto ec_ctrlbl_1;
+        g(i);
+        i++;
+        goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ;
+        b();
+      }
+  |])
+  , -- 06 - for loop - no break condition {{{3
+  ([paste|
+    void foo() {
+      a();
+      {
+        i = 0;
+        {
+          ec_ctrlbl_0: ;
+          g(i);
+          i++;
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        }
+      }
+      b();
+    }
+  |], [paste|
+    void foo() {
+      a();
+      i = 0;
+      ec_ctrlbl_0: ;
+      g(i);
+      i++;
+      goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ;
+      b();
+    }
+  |])
+  , -- 07 - for loop - no incr expression{{{3
+  ([paste|
+    void foo() {
+      a();
+      {
+        i = 0;
+        ec_ctrlbl_0: ;
+        if (! (i<23)) goto ec_ctrlbl_1;
+        g(i);
+        goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ;
+      }
+      b();
+    }
+  |], [paste|
+    void foo() {
+      a();
+      i = 0;
+      ec_ctrlbl_0: ;
+      if (! (i<23)) goto ec_ctrlbl_1;
+      g(i);
+      goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ;
+      b();
+    }
+  |])
+  , -- 08 - continue and break {{{3
+  ([paste|
+    void foo() {
+      a();
+      {
+        ec_ctrlbl_0: ;
+        goto ec_ctrlbl_0;
+        g();
+        goto ec_ctrlbl_1;
+        if (1) goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ;
+      }
+      b();
+    }
+  |], [paste|
+    void foo() {
+      a();
+      ec_ctrlbl_0: ;
+      goto ec_ctrlbl_0;
+      g();
+      goto ec_ctrlbl_1;
+      if (1) goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ;
+      b();
+    }
+  |])
+  , -- 09 - nested {{{3
+  ([paste|
+    void foo() {
+      a();
+      {
+        ec_ctrlbl_0: ;
+        if (!1) goto ec_ctrlbl_1;
+        b();
+        goto ec_ctrlbl_0;
+        c();
+        {
+          ec_ctrlbl_2: ;
+          d();
+          goto ec_ctrlbl_2;
+          e();
+          goto ec_ctrlbl_3;
+          f();
+          if (23) goto ec_ctrlbl_2;
+          ec_ctrlbl_3: ;
+        }
+        g();
+        goto ec_ctrlbl_1;
+        h();
+        goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ; 
+      }
+      i(); 
+    }
+  |], [paste|
+    void foo() {
+      a();
+      ec_ctrlbl_0: ;
+      if (!1) goto ec_ctrlbl_1;
+      b();
+      goto ec_ctrlbl_0;
+      c();
+      ec_ctrlbl_2: ;
+      d();
+      goto ec_ctrlbl_2;
+      e();
+      goto ec_ctrlbl_3;
+      f();
+      if (23) goto ec_ctrlbl_2;
+      ec_ctrlbl_3: ;
+      g();
+      goto ec_ctrlbl_1;
+      h();
+      goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ; 
+      i(); 
+    }
+  |])
+  , -- 10 - if statements {{{3
+  ([paste|
+    void foo() {
+      {
+        if (1) {
+          goto ec_ctrlbl_0;
+        } else {
+          goto ec_ctrlbl_1;
+        }
+        {
+          ec_ctrlbl_0: ;
+          b();
+        }
+        ec_ctrlbl_1: ;
+      }
+    }
+  |], [paste|
+    void foo() {
+      if (1) goto ec_ctrlbl_0;
+      else goto ec_ctrlbl_1;
+      ec_ctrlbl_0: ;
+      b();
+      ec_ctrlbl_1: ;
+    }
+  |])
+  , -- 11 - if statements with else block {{{3
+  ([paste|
+    void foo() {
+      {
+        if (1) {
+          goto ec_ctrlbl_0;
+        } else {
+          goto ec_ctrlbl_1;
+        }
+        {
+          ec_ctrlbl_0: ;
+          b();
+          goto ec_ctrlbl_2;
+        }
+        {
+          ec_ctrlbl_1: ;
+          c();
+        }
+        ec_ctrlbl_2: ;
+      }
+    }
+  |], [paste|
+    void foo() {
+      if (1) goto ec_ctrlbl_0;
+      else goto ec_ctrlbl_1;
+      ec_ctrlbl_0: ;
+      b();
+      goto ec_ctrlbl_2;
+      ec_ctrlbl_1: ;
+      c();
+      ec_ctrlbl_2: ;
+    }
+  |])
+  , -- 12 - switch statement {{{3
+  ([paste|
+    void foo(int i) {
+      {
+        if (i==1) goto ec_ctrlbl_1;
+        if (i==2) goto ec_ctrlbl_2;
+        if (i==3) goto ec_ctrlbl_3;
+        
+        {
+          ec_ctrlbl_1: ;
+          a(); b();
+          goto ec_ctrlbl_0;
+        }
+        {
+          ec_ctrlbl_2: ;
+          c(); d();
+        }
+        {
+          ec_ctrlbl_3: ;
+          e(); f(); return;
+        }
+        ec_ctrlbl_0: ;
+      }
+    }
+  |], [paste|
+    void foo(int i) {
+      if (i==1) goto ec_ctrlbl_1;
+      if (i==2) goto ec_ctrlbl_2;
+      if (i==3) goto ec_ctrlbl_3;
+      ec_ctrlbl_1: ;
+      a(); b();
+      goto ec_ctrlbl_0;
+      ec_ctrlbl_2: ;
+      c(); d();
+      ec_ctrlbl_3: ;
+      e(); f(); return;
+      ec_ctrlbl_0: ;
+    }
+  |])
+  , -- 13 - switch statement with default {{{3
+  ([paste|
+    void foo(int i) {
+      {
+        if (i==1) goto ec_ctrlbl_1;
+        if (i==2) goto ec_ctrlbl_2;
+        goto ec_ctrlbl_3;
+        
+        {
+          ec_ctrlbl_1: ;
+          a(); b();
+          goto ec_ctrlbl_0;
+        }
+        {
+          ec_ctrlbl_2: ;
+          c(); d();
+        }
+        {
+          ec_ctrlbl_3: ;
+          e(); f();
+        }
+        ec_ctrlbl_0: ;
+      }
+    }
+  |], [paste|
+    void foo(int i) {
+      if (i==1) goto ec_ctrlbl_1;
+      if (i==2) goto ec_ctrlbl_2;
+      goto ec_ctrlbl_3;
+      ec_ctrlbl_1: ;
+      a(); b();
+      goto ec_ctrlbl_0;
+      ec_ctrlbl_2: ;
+      c(); d();
+      ec_ctrlbl_3: ;
+      e(); f();
+      ec_ctrlbl_0: ;
+    }
+  |])
 
-   
+  -- end {{{3
+  ]
+  where
+    runTest :: (String, String) -> Assertion -- {{{3
+    runTest (inputCode, expectedCode) =
+      let
+        (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
+        outputItems = map CBlockStmt $ flatten_scopes inputItems
+        outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputItems x5) x6] x7
+        expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
+        outputCode = reduce outputAst
+      in
+        expectedCode' @=? outputCode

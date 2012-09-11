@@ -34,7 +34,7 @@ We need proper support for initializer lists and other funky initializer syntax 
 
 > collect_declarations :: CFunDef -> ([CStat], [Variable])
 
-Replace all higher control sturctures with @if@ and @goto@. This also includes @switch@ statements.
+Replace all higher control sturctures with @if@ and @goto@. This also includes @switch@ statements. The body of then and else blocks (if existent) consist of a single goto statement.
 
 > desugar_control_structures :: [CStat] -> [CStat]
 
