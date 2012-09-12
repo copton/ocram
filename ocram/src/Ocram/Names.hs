@@ -15,3 +15,7 @@ ctrLbl count = "ec_ctrlbl_" ++ show count
 -- |The naming scheme to unshadow automatic variables
 varShadow :: String -> Int -> String
 varShadow name count =  "ec_shadow_" ++ name ++ "_" ++ show count
+
+-- |The name of a temporary variable for critical calls
+varCrit :: Int -> String
+varCrit count = "ec_crit_" ++ show count

@@ -30,7 +30,7 @@ collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
     initialState  = Ctx initialIdents funScope []
     (statements, state) = runState (mapM mItem items) initialState
 
-    params = map (\cd -> Variable cd (symbol cd) funScope) ps
+    params = map (\cd -> Variable cd (symbol cd) (Just funScope)) ps
 
     body = concat statements
     variables = params ++ ctxVars state
@@ -96,7 +96,7 @@ trDecl' (Ctx ids scope vars) decl =
     (decls, rhss) = (unzip . map split . unlistDecl) decl 
     ids' = foldl addIdentifier ids $ map symbol decls
     newNames = map (getIdentifier ids' . symbol) decls
-    vars' = map (\(cd, name) -> Variable cd name scope) $ zip decls newNames
+    vars' = map (\(cd, name) -> Variable cd name (Just scope)) $ zip decls newNames
     inits = mapMaybe (uncurry mkInit) $ zip rhss newNames
     ctx = Ctx ids' scope (vars' ++ vars)
   in (ctx, inits)

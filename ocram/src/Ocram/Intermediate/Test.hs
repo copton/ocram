@@ -4,21 +4,29 @@ module Ocram.Intermediate.Test (tests) where
 -- imports {{{1
 import Language.C.Data.Node (getLastTokenPos, posOfNode)
 import Language.C.Data.Position (posRow)
+import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST
-import Ocram.Intermediate.Representation
+import Ocram.Intermediate.Ast2Ir
 import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.FlattenScopes
-import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
+import Ocram.Intermediate.Representation
+import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Symbols (symbol)
+import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
+import Ocram.Util (fromJust_s)
 import Test.Framework (Test, testGroup)
 import Test.HUnit (assertEqual, Assertion, (@=?))
+
+import qualified Data.Map as M
 
 tests :: Test -- {{{1
 tests = testGroup "Representation" [
           test_collect_declarations
         , test_desugar_control_structures
         , test_flatten_scopes
+        , test_normalize_critical_calls
+        , test_ast2ir
         ]
 
 test_collect_declarations :: Test -- {{{2
@@ -153,8 +161,8 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       do
         assertEqual (prefix ++ "T-code name") tname ((symbol . var_decl) var)
         assertEqual (prefix ++ "E-cdoe name") ename (var_fqn var)
-        assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . var_scope) var)
-        assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . var_scope) var)
+        assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
+        assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
 
 test_desugar_control_structures:: Test -- {{{2
 test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ map runTest [
@@ -957,3 +965,83 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
         outputCode = reduce outputAst
       in
         expectedCode' @=? outputCode
+
+test_normalize_critical_calls :: Test -- {{{1
+test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map runTest [
+  -- , 01 - critical call in return statement {{{2
+  ([paste|
+    int foo() {
+      return bar() + 23;
+    } 
+
+    int bar() { return 0; }
+  |], [paste|
+    int foo() {
+      ec_crit_0 = bar();
+      return ec_crit_0 + 23;
+    }
+  |], [
+      "int ec_crit_0"
+  ])
+  , -- 02 - critical call in condition of if statement {{{2
+  ([paste|
+    int foo() {
+      if (bar() == 'a') return 0; else return 1;
+    } 
+
+    char bar() { return 0; }
+  |], [paste|
+    int foo() {
+      ec_crit_0 = bar();
+      if (ec_crit_0 == 'a') return 0; else return 1;
+    }
+  |], [
+      "char ec_crit_0"
+  ])
+  , -- 03 - critical call in nested expressions {{{2
+  ([paste|
+    void foo() {
+      i = bar() + 23;
+    } 
+
+    double bar() { return 0; }
+  |], [paste|
+    void foo() {
+      ec_crit_0 = bar();
+      i = ec_crit_0 + 23;
+    }
+  |], [
+      "double ec_crit_0"
+  ])
+  -- end {{{2
+  ]
+  where
+    runTest :: (String, String, [String]) -> Assertion
+    runTest (inputCode, expectedCode, expectedDecls) =
+      let
+        (CTranslUnit eds y) = enrich inputCode
+        (fd:fds) = map unwrapFd eds
+        cf       = M.fromList $ zip (map symbol fds) fds 
+        (CFunDef x1 x2 x3 (CCompound x4 bitems x5) x6) = fd
+        inputItems = map unwrapB bitems
+        (outputItems, outputVariables) = normalize_critical_calls cf inputItems
+        outputFd = CFunDef x1 x2 x3 (CCompound x4 (map CBlockStmt outputItems) x5) x6
+        outputAst = CTranslUnit [CFDefExt outputFd] y
+        outputCode = reduce outputAst
+        expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
+        outputDecls = map (show . pretty . var_decl) outputVariables
+      in do
+        expectedCode' @=? outputCode
+        expectedDecls @=? outputDecls
+
+    unwrapFd (CFDefExt fd) = fd
+    unwrapFd _             = error "unwrapFd"
+
+    unwrapB (CBlockStmt s) = s
+    unwrapB _              = error "unwrapB"
+
+test_ast2ir :: Test -- {{{1
+test_ast2ir = enumTestGroup "ast2ir" $ map runTest [
+  ]
+  where
+    runTest = undefined

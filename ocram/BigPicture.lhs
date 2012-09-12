@@ -38,9 +38,17 @@ Replace all higher control sturctures with @if@ and @goto@. This also includes @
 
 > desugar_control_structures :: [CStat] -> [CStat]
 
+Replace critical function calls in boolean expressions with equivalent sequences of @if@ statements
+
+> short_circuiting :: Set Symbol -> Function -> Function
+
 Remove all @CCompound@s
 
 > flatten_scopes :: [CStat] -> [CStat]
+
+Process critical calls in return statements, conditions of if statements and nested expressions.
+
+> normalize_critical_calls :: CriticalFunctions -> [CStat] -> ([CStat], [Variables])
 
 Translate from AST to Intermediate representation. Replace all labels with Hoogle labels.
 
@@ -48,9 +56,6 @@ Translate from AST to Intermediate representation. Replace all labels with Hoogl
 
 \section{Generic Passes}
 
-Replace critical function calls in boolean expressions with equivalent sequences of @if@ statements
-
-> short_circuiting :: Set Symbol -> Function -> Function
 
 Make sure that all code paths of @void@ functions end with a @return@ statement
 

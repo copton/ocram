@@ -237,8 +237,8 @@ critical_statements tid cf ast (CFunDef x1 x2 x3 s x4) = CFunDef x1 x2 x3 (evalS
     isInNormalForm _ = False
 
 -- utils {{{1
-containsCriticalCall :: Data a => Set.Set Symbol -> a -> Bool
-containsCriticalCall cf o = -- {{{2
+containsCriticalCall :: Data a => Set.Set Symbol -> a -> Bool -- {{{2
+containsCriticalCall cf o =
   getAny $ everything mappend (mkQ (Any False) isCriticalCall) o
   where
     isCriticalCall :: CExpr' -> Any
