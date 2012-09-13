@@ -8,7 +8,6 @@ module Ocram.Intermediate.DesugarControlStructures
 -- imports {{{1
 import Control.Monad.State (State, evalState, get, modify)
 import Data.Generics (everywhereBut, mkQ, mkT)
-import Data.List (sortBy)
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo, undefNode)
 import Language.C.Syntax.AST
@@ -93,7 +92,8 @@ tStmt (CIf cond thenBlock (Just elseBlock) ni) = do
   body' <- mapM tItem body
   return $ CCompound [] body' ni
 
-tStmt (CSwitch switchExpr (CCompound _ items _) ni) = 
+tStmt (CSwitch switchExpr (CCompound _ items _) ni) =  -- {{{3
+  -- the possible structures of switch statements is limited. See Analysis.Filter 
   let
     cases = groupCases items
   in do
@@ -113,27 +113,21 @@ tStmt (CSwitch switchExpr (CCompound _ items _) ni) =
       let items'' = replaceBreakContinue undefined end items' in -- switch statements do not contain continue statements
       CCompound [] (CBlockStmt (label lg) : items'') undefNode
     
-tStmt x = return x
+tStmt x = return x -- {{{3
 
 groupCases :: [CBlockItem] -> [(Maybe CExpr, [CBlockItem])]
-groupCases = sortBy cmp . group
+groupCases xs = case xs of
+  [] -> []
+  (CBlockStmt item):rest -> case item of
+    CCase expr stmt _ ->
+      let (block, others) = span (not . isCaseDefault) rest in
+      (Just expr, CBlockStmt stmt : block) : groupCases others
+    CDefault stmt _   ->
+      let (block, others) = span (not . isCaseDefault) rest in
+      (Nothing, CBlockStmt stmt : block) : groupCases others
+    x -> $abort $ unexp x
+  (x:_) -> $abort $ unexp x
   where
-    group xs = case xs of
-      [] -> []
-      (CBlockStmt item):rest -> case item of
-        CCase expr stmt _ ->
-          let (block, others) = span (not . isCaseDefault) rest in
-          (Just expr, CBlockStmt stmt : block) : group others
-        CDefault stmt _   ->
-          let (block, others) = span (not . isCaseDefault) rest in
-          (Nothing, CBlockStmt stmt : block) : group others
-        x -> $abort $ unexp x
-      (x:_) -> $abort $ unexp x
-
-    cmp (Nothing, _) (Just _ , _) = GT
-    cmp (Just _ , _) (Nothing, _) = LT
-    cmp _            _            = EQ
-  
     isCaseDefault (CBlockStmt (CCase _ _ _))  = True
     isCaseDefault (CBlockStmt (CDefault _ _)) = True
     isCaseDefault _                           = False

@@ -24,7 +24,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 
 tests :: Test -- {{{1
-tests = testGroup "Representation" [
+tests = testGroup "Intermediate" [
           test_collect_declarations
         , test_desugar_control_structures
         , test_boolean_short_circuiting
