@@ -5,23 +5,24 @@
 \section{setup}
 
 > import Language.C.Syntax.AST
+> import qualified Data.Map as Map
 
 \section{Analysis}
 
 > data OcramError = OcramError
-
-> check_sanity :: CTranslUnit -> Either [OcramError] ()
-
 > data Footprint = Footprint
 > data CallGraph = CallGraph
+> type CriticalFunctions = M.Map Symbol CFunDef
 
 > data Analysis = Analysis {
 > 	nonCritical :: [CExtDecl],
 > 	blocking :: [CDecl],
-> 	critical :: [CFunDef],
+> 	critical :: CriticalFunctions
 > 	footprint :: Footprint,
 > 	callgraph :: CallGraph
 > 	}
+>
+> check_sanity :: CTranslUnit -> Either [OcramError] ()
 >
 > analysis :: CTranslUnit -> Analysis
 
@@ -40,17 +41,17 @@ Replace all higher control sturctures with @if@ and @goto@. This also includes @
 
 Replace critical function calls in boolean expressions with equivalent sequences of @if@ statements
 
-> short_circuiting :: Set Symbol -> Function -> Function
+> short_circuiting :: CriticalFunctions -> [CStat] -> [CStat]
 
 Remove all @CCompound@s
 
 > flatten_scopes :: [CStat] -> [CStat]
 
-Process critical calls in return statements, conditions of if statements and nested expressions.
+Process critical calls in return statements, conditions of if statements and nested expressions. All critical calls have to be in one of two normal forms. Either a single call or a single assignment with the call on the right-hand side.
 
 > normalize_critical_calls :: CriticalFunctions -> [CStat] -> ([CStat], [Variables])
 
-Translate from AST to Intermediate representation. Replace all labels with Hoogle labels.
+Translate from AST to Intermediate representation.
 
 > ast2ir :: CFunDef -> [Variable] -> Function
 

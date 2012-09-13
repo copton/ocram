@@ -21,7 +21,7 @@ import Prelude hiding (init)
 
 import qualified Data.Map as M
 
-type CriticalFunctions = M.Map Symbol CFunDef
+type CriticalFunctions = M.Map Symbol CFunDef -- XXX bad dependency
 
 normalize_critical_calls :: CriticalFunctions -> [CStat] -> ([CStat], [Variable]) -- {{{1
 normalize_critical_calls cf items =

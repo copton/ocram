@@ -19,3 +19,7 @@ varShadow name count =  "ec_shadow_" ++ name ++ "_" ++ show count
 -- |The name of a temporary variable for critical calls
 varCrit :: Int -> String
 varCrit count = "ec_crit_" ++ show count
+
+-- |The name of a temporary variable for boolean short-circuiting
+varBool :: Int -> String
+varBool count = "ec_bool_" ++ show count

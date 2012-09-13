@@ -5,6 +5,7 @@ module Ocram.Intermediate.Test (tests) where
 import Language.C.Data.Node (getLastTokenPos, posOfNode)
 import Language.C.Data.Position (posRow)
 import Language.C.Pretty (pretty)
+import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
 import Ocram.Intermediate.Ast2Ir
 import Ocram.Intermediate.CollectDeclarations
@@ -12,6 +13,7 @@ import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.FlattenScopes
 import Ocram.Intermediate.Representation
 import Ocram.Intermediate.NormalizeCriticalCalls
+import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Symbols (symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Util (fromJust_s)
@@ -19,19 +21,21 @@ import Test.Framework (Test, testGroup)
 import Test.HUnit (assertEqual, Assertion, (@=?))
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 
 tests :: Test -- {{{1
 tests = testGroup "Representation" [
           test_collect_declarations
         , test_desugar_control_structures
+        , test_boolean_short_circuiting
         , test_flatten_scopes
         , test_normalize_critical_calls
         , test_ast2ir
         ]
 
-test_collect_declarations :: Test -- {{{2
+test_collect_declarations :: Test -- {{{1
 test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
-  -- , 01 - nothing to do {{{3
+  -- , 01 - nothing to do {{{2
   ([lpaste|
 01: int foo(int i) {
       return i;
@@ -43,7 +47,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
   |], [
       ("i", "i", 1, 3)
   ]) 
-  , -- 02 - local variable with initializer {{{3
+  , -- 02 - local variable with initializer {{{2
   ([lpaste|
 01: int foo(int i) {
       int j = 23;
@@ -58,7 +62,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("i", "i", 1, 4)
     , ("j", "j", 1, 4)
   ])
-  , -- 03 - local variable shadowing {{{3
+  , -- 03 - local variable shadowing {{{2
   ([lpaste|
 01: void foo() {
       int i = 23;
@@ -77,7 +81,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("i", "ec_shadow_i_0", 3, 5)
     , ("i", "i", 1, 6)
   ])
-  , -- 04 - local variable shadowing - with access {{{3
+  , -- 04 - local variable shadowing - with access {{{2
   ([lpaste|
 01: void foo() {
       int i = 23;
@@ -98,7 +102,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("i", "ec_shadow_i_0", 3, 6)
     , ("i", "i", 1, 7)
   ])
-  , -- 05 - for loop with declaration {{{3
+  , -- 05 - for loop with declaration {{{2
   ([lpaste|
 01: void foo(int i) {
 02:   for (int i = 0; i < 23; i++) {
@@ -115,7 +119,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("i", "i", 1, 4)
     , ("i", "ec_shadow_i_0", 2, 3)
   ])
-  , -- 06 - multiple declarations {{{3
+  , -- 06 - multiple declarations {{{2
   ([lpaste|
 01: int foo() {
       int i=0, j=1;
@@ -140,10 +144,10 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
     , ("i", "i", 1, 7)
     , ("j", "j", 1, 7)
   ])
-  -- end {{{3
+  -- end {{{2
   ]
   where
-    runTest :: (String, String, [(String, String, Int, Int)]) -> Assertion -- {{{3
+    runTest :: (String, String, [(String, String, Int, Int)]) -> Assertion -- {{{2
     runTest (inputCode, expectedCode, expectedVars) =
       let
         (CTranslUnit [CFDefExt fd@(CFunDef x1 x2 x3 (CCompound x4 _ x5) x6)] x7) = enrich inputCode
@@ -164,9 +168,9 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
         assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
         assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
 
-test_desugar_control_structures:: Test -- {{{2
+test_desugar_control_structures:: Test -- {{{1
 test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ map runTest [
-  -- , 01 - while loop {{{3
+  -- , 01 - while loop {{{2
   ([paste|
       void foo() {
         a();
@@ -188,7 +192,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
   |])
-  , -- 02 - do loop {{{3
+  , -- 02 - do loop {{{2
   ([paste|
       void foo() {
         a();
@@ -209,7 +213,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
   |])
-  , -- 03 - for loop {{{3
+  , -- 03 - for loop {{{2
   ([paste|
       void foo() {
         a();
@@ -238,7 +242,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 04 - for loop - with declaration {{{3
+  , -- 04 - for loop - with declaration {{{2
   ([paste|
       void foo() {
         a();
@@ -267,7 +271,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 05 - for loop - no init expression {{{3
+  , -- 05 - for loop - no init expression {{{2
   ([paste|
       void foo() {
         a();
@@ -290,7 +294,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 06 - for loop - no break condition {{{3
+  , -- 06 - for loop - no break condition {{{2
   ([paste|
       void foo() {
         a();
@@ -318,7 +322,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 07 - for loop - no incr expression{{{3
+  , -- 07 - for loop - no incr expression{{{2
   ([paste|
       void foo() {
         a();
@@ -341,7 +345,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 08 - continue and break {{{3
+  , -- 08 - continue and break {{{2
   ([paste|
       void foo() {
         a();
@@ -366,7 +370,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
   |])
-  , -- 09 - nested {{{3
+  , -- 09 - nested {{{2
   ([paste|
       void foo() {
         a();
@@ -415,7 +419,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         i(); 
       }
     |])
-  , -- 10 - if statements {{{3
+  , -- 10 - if statements {{{2
   ([paste|
     void foo() {
       if (1) {
@@ -438,7 +442,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 11 - if statements with else block {{{3
+  , -- 11 - if statements with else block {{{2
   ([paste|
     void foo() {
       if (1) {
@@ -468,7 +472,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 12 - switch statement {{{3
+  , -- 12 - switch statement {{{2
   ([paste|
     void foo(int i) {
       switch (i) {
@@ -501,7 +505,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 13 - switch statement with default {{{3
+  , -- 13 - switch statement with default {{{2
   ([paste|
     void foo(int i) {
       switch (i) {
@@ -535,10 +539,10 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
     }
   |])
     
-  -- end {{{3
+  -- end {{{2
   ]
   where
-    runTest :: (String, String) -> Assertion -- {{{3
+    runTest :: (String, String) -> Assertion -- {{{2
     runTest (inputCode, expectedCode) =
       let
         (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
@@ -549,9 +553,232 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       in
         expectedCode' @=? outputCode
         
+test_boolean_short_circuiting :: Test -- {{{1
+test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map runTest [
+  -- , 01 - no critical function {{{2
+  ([],
+  [paste|
+    void foo() {
+      if(g() || h()) ;
+    }
+  |], [paste|
+    void foo() {
+      if(g() || h()) ;
+    }
+  |])
+  , -- 02 - critical function on left hand side, or expression {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      if(g() || h()) ;
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
+        }
+        if (ec_bool_0) ;
+      }
+    }
+  |])
+  , -- 03 - critical function on right hand side, and expression {{{2
+  (["h"],
+  [paste|
+    void foo() {
+      if(g() && h()) ;
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (ec_bool_0) {
+          ec_bool_0 = !!h();
+        }
+        if (ec_bool_0) ;
+      }
+    }
+  |])
+  , -- 04 - expression statement {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      g() || h();
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
+        }
+        ec_bool_0;
+      }
+    }
+  |])
+  , -- 05 - switch statement {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      switch(g() || h()) ;
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
+        }
+        switch(ec_bool_0) ;
+      }
+    }
+  |])
+  , -- 06 - return statement {{{2
+  (["g"],
+  [paste|
+    int foo() {
+      return (g() || h()) ;
+    }
+  |], [paste|
+    int foo() {
+      {
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
+        }
+        return ec_bool_0;
+      }
+    }
+  |])
+  , -- 07 - function call {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      h(k() || g());
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_bool_0;
+        ec_bool_0 = !!k();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!g();
+        }
+        h(ec_bool_0);
+      }
+    }
+  |])
+  , -- 08 - within algebraic expression {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      if ((g() || 1) + 3);
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_bool_0;
+        ec_bool_0 = !!g();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!1;
+        }
+        if (ec_bool_0 + 3);
+      }
+    }
+  |])
+  , -- 09 - containing algebraic expression {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      if ((1+g()) || h());
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_bool_0;
+        ec_bool_0 = !!(1 + g());
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h();
+        }
+        if (ec_bool_0);
+      }
+    }
+  |])
+  , -- 10 - nested {{{2
+  (["g1", "g2"],
+  [paste|
+    void foo() {
+      if ((g1() || h1()) && (h2() || g2()));
+    }
+  |], [paste|
+    void foo() {
+      {
+        int ec_bool_0;
+        ec_bool_0 = !!g1();
+        if (! ec_bool_0) {
+          ec_bool_0 = !!h1();
+        }
+        int ec_bool_2;
+        ec_bool_2 = !!ec_bool_0;
+        if (ec_bool_2) {
+          int ec_bool_1;
+          ec_bool_1 = !!h2();
+          if (!ec_bool_1) {
+            ec_bool_1 = !!g2();
+          }
+          ec_bool_2 = !!ec_bool_1;
+        }
+        if (ec_bool_2);
+      }
+    }
+  |])
+  , -- 11 - generic case {{{2
+  (["g", "h"],
+  [paste|
+      void foo() {
+        if ((g() || (i = x(), 1)) && h());
+      }
+  |], [paste|
+      void foo() {
+        {
+          int ec_bool_0;
+          ec_bool_0 = !!g();
+          if (! ec_bool_0) {
+            ec_bool_0 = !! (i = x(), 1);
+          }
+          int ec_bool_1;
+          ec_bool_1 = !!ec_bool_0;
+          if (ec_bool_1) {
+            ec_bool_1 = !!h();
+          }
+          if (ec_bool_1);
+        }
+      }
+  |])
+  ]
+  where
+    runTest :: ([String], String, String) -> Assertion -- {{{2
+    runTest (cf, inputCode, expectedCode) =
+      let
+        (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
+        inputStatements = map (\(CBlockStmt s) -> s) inputItems
+        outputStatements = boolean_short_circuiting (S.fromList cf) inputStatements
+        outputItems = map CBlockStmt outputStatements
+        outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputItems x5) x6] (x7 :: NodeInfo)
+        expectedCode' = reduce $ (enrich expectedCode :: CTranslUnit) :: String
+        outputCode = reduce $ outputAst
+      in
+        expectedCode' @=? outputCode
+
 test_flatten_scopes :: Test -- {{{1
 test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
-  -- , 01 - while loop {{{3
+  -- , 01 - while loop {{{2
   ([paste|
     void foo() {
       a();
@@ -575,7 +802,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       b();
     }
   |])
-  , -- 02 - do loop {{{3
+  , -- 02 - do loop {{{2
   ([paste|
     void foo() {
       a();
@@ -597,7 +824,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       b();
     }
   |])
-  , -- 03 - for loop {{{3
+  , -- 03 - for loop {{{2
   ([paste|
     void foo() {
       a();
@@ -627,7 +854,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       b();
     }
   |])
-  , -- 04 - for loop - with declaration {{{3
+  , -- 04 - for loop - with declaration {{{2
   ([paste|
     void foo() {
       a();
@@ -657,7 +884,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       b();
     }
   |])
-  , -- 05 - for loop - no init expression {{{3
+  , -- 05 - for loop - no init expression {{{2
   ([paste|
       void foo() {
         a();
@@ -683,7 +910,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
         b();
       }
   |])
-  , -- 06 - for loop - no break condition {{{3
+  , -- 06 - for loop - no break condition {{{2
   ([paste|
     void foo() {
       a();
@@ -711,7 +938,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       b();
     }
   |])
-  , -- 07 - for loop - no incr expression{{{3
+  , -- 07 - for loop - no incr expression{{{2
   ([paste|
     void foo() {
       a();
@@ -737,7 +964,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       b();
     }
   |])
-  , -- 08 - continue and break {{{3
+  , -- 08 - continue and break {{{2
   ([paste|
     void foo() {
       a();
@@ -763,7 +990,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       b();
     }
   |])
-  , -- 09 - nested {{{3
+  , -- 09 - nested {{{2
   ([paste|
     void foo() {
       a();
@@ -815,7 +1042,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       i(); 
     }
   |])
-  , -- 10 - if statements {{{3
+  , -- 10 - if statements {{{2
   ([paste|
     void foo() {
       {
@@ -840,7 +1067,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       ec_ctrlbl_1: ;
     }
   |])
-  , -- 11 - if statements with else block {{{3
+  , -- 11 - if statements with else block {{{2
   ([paste|
     void foo() {
       {
@@ -873,7 +1100,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       ec_ctrlbl_2: ;
     }
   |])
-  , -- 12 - switch statement {{{3
+  , -- 12 - switch statement {{{2
   ([paste|
     void foo(int i) {
       {
@@ -912,7 +1139,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       ec_ctrlbl_0: ;
     }
   |])
-  , -- 13 - switch statement with default {{{3
+  , -- 13 - switch statement with default {{{2
   ([paste|
     void foo(int i) {
       {
@@ -952,10 +1179,10 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
     }
   |])
 
-  -- end {{{3
+  -- end {{{2
   ]
   where
-    runTest :: (String, String) -> Assertion -- {{{3
+    runTest :: (String, String) -> Assertion -- {{{2
     runTest (inputCode, expectedCode) =
       let
         (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
