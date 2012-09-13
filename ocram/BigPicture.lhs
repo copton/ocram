@@ -37,13 +37,13 @@ We need proper support for initializer lists and other funky initializer syntax 
 
 Replace all higher control sturctures with @if@ and @goto@. This also includes @switch@ statements. The body of then and else blocks (if existent) consist of a single goto statement.
 
-> desugar_control_structures :: [CStat] -> [CStat]
+> desugar_control_structures :: [CBlockItem] -> [CBlockItem]
 
 Replace critical function calls in boolean expressions with equivalent sequences of @if@ statements
 
 > short_circuiting :: CriticalFunctions -> [CStat] -> [CStat]
 
-Remove all @CCompound@s
+Remove all @CCompound@s and all empty statements (i.e. @(CExpr Nothing \_)@)
 
 > flatten_scopes :: [CStat] -> [CStat]
 

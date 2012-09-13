@@ -7,11 +7,11 @@ import Language.C.Data.Position (posRow)
 import Language.C.Pretty (pretty)
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
-import Ocram.Intermediate.Ast2Ir
+import Ocram.Intermediate
+import Ocram.Intermediate.BuildBasicBlocks
 import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
-import Ocram.Intermediate.FlattenScopes
-import Ocram.Intermediate.Representation
+import Ocram.Intermediate.Cleanup
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Symbols (symbol)
@@ -28,9 +28,10 @@ tests = testGroup "Intermediate" [
           test_collect_declarations
         , test_desugar_control_structures
         , test_boolean_short_circuiting
-        , test_flatten_scopes
+        , test_cleanup
         , test_normalize_critical_calls
-        , test_ast2ir
+        , test_build_basic_blocks
+        , test_ast_2_ir
         ]
 
 test_collect_declarations :: Test -- {{{1
@@ -151,7 +152,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
     runTest (inputCode, expectedCode, expectedVars) =
       let
         (CTranslUnit [CFDefExt fd@(CFunDef x1 x2 x3 (CCompound x4 _ x5) x6)] x7) = enrich inputCode
-        (outputVars, outputBody) = collect_declarations fd
+        (outputBody, outputVars) = collect_declarations fd
         outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputBody x5) x6] x7
         expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
         outputCode = reduce outputAst
@@ -447,8 +448,10 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
     void foo() {
       if (1) {
         b();
+        return;
       } else {
         c();
+        return;
       }
     } 
   |], [paste|
@@ -462,11 +465,13 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         {
           ec_ctrlbl_0: ;
           b();
+          return;
           goto ec_ctrlbl_2;
         }
         {
           ec_ctrlbl_1: ;
           c();
+          return;
         }
         ec_ctrlbl_2: ;
       }
@@ -766,9 +771,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         outputAst                           
             = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputItems x5) x6] (x7 :: NodeInfo)
 
-        inputStatements                     = map (\(CBlockStmt s) -> s) inputItems
-        (outputStatements, outputVariables) = boolean_short_circuiting (S.fromList cf) inputStatements
-        outputItems                         = map CBlockStmt outputStatements
+        (outputItems, outputVariables) = boolean_short_circuiting (S.fromList cf) inputItems
         expectedCode'                       = reduce $ (enrich expectedCode :: CTranslUnit) :: String
         outputCode                          = reduce $ outputAst
         outputDecls                         = map (show . pretty . var_decl) outputVariables
@@ -776,8 +779,8 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         expectedCode' @=? outputCode
         expectedDecls @=? outputDecls
 
-test_flatten_scopes :: Test -- {{{1
-test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
+test_cleanup :: Test -- {{{1
+test_cleanup = enumTestGroup "cleanup" $ map runTest [
   -- , 01 - while loop {{{2
   ([paste|
     void foo() {
@@ -800,6 +803,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
+      return;
     }
   |])
   , -- 02 - do loop {{{2
@@ -822,6 +826,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       if (1) goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
+      return;
     }
   |])
   , -- 03 - for loop {{{2
@@ -852,6 +857,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
+      return;
     }
   |])
   , -- 04 - for loop - with declaration {{{2
@@ -882,6 +888,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
+      return;
     }
   |])
   , -- 05 - for loop - no init expression {{{2
@@ -908,6 +915,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
         goto ec_ctrlbl_0;
         ec_ctrlbl_1: ;
         b();
+        return;
       }
   |])
   , -- 06 - for loop - no break condition {{{2
@@ -936,6 +944,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
+      return;
     }
   |])
   , -- 07 - for loop - no incr expression{{{2
@@ -962,6 +971,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
+      return;
     }
   |])
   , -- 08 - continue and break {{{2
@@ -988,6 +998,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       if (1) goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
+      return;
     }
   |])
   , -- 09 - nested {{{2
@@ -1040,6 +1051,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ; 
       i(); 
+      return;
     }
   |])
   , -- 10 - if statements {{{2
@@ -1065,6 +1077,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       ec_ctrlbl_0: ;
       b();
       ec_ctrlbl_1: ;
+      return;
     }
   |])
   , -- 11 - if statements with else block {{{2
@@ -1079,11 +1092,13 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
         {
           ec_ctrlbl_0: ;
           b();
+          return;
           goto ec_ctrlbl_2;
         }
         {
           ec_ctrlbl_1: ;
           c();
+          return;
         }
         ec_ctrlbl_2: ;
       }
@@ -1094,10 +1109,13 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       else goto ec_ctrlbl_1;
       ec_ctrlbl_0: ;
       b();
+      return;
       goto ec_ctrlbl_2;
       ec_ctrlbl_1: ;
       c();
+      return;
       ec_ctrlbl_2: ;
+      return;
     }
   |])
   , -- 12 - switch statement {{{2
@@ -1137,6 +1155,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       ec_ctrlbl_3: ;
       e(); f(); return;
       ec_ctrlbl_0: ;
+      return;
     }
   |])
   , -- 13 - switch statement with default {{{2
@@ -1176,6 +1195,31 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
       ec_ctrlbl_3: ;
       e(); f();
       ec_ctrlbl_0: ;
+      return;
+    }
+  |])
+  , -- 14 - empty statements -- {{{2
+  ([paste|
+    void foo() {
+      i++;
+      ;
+      {
+        i*=2;
+        ;
+      }
+      i/=2;
+      {
+        ;
+      }
+      i--;
+    }
+  |], [paste|
+    void foo () {
+      i++;
+      i*=2;
+      i/=2;
+      i--;
+      return;
     }
   |])
 
@@ -1186,7 +1230,7 @@ test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
     runTest (inputCode, expectedCode) =
       let
         (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
-        outputItems = map CBlockStmt $ flatten_scopes inputItems
+        outputItems = map CBlockStmt $ cleanup inputItems
         outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputItems x5) x6] x7
         expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
         outputCode = reduce outputAst
@@ -1267,8 +1311,14 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
     unwrapB (CBlockStmt s) = s
     unwrapB _              = error "unwrapB"
 
-test_ast2ir :: Test -- {{{1
-test_ast2ir = enumTestGroup "ast2ir" $ map runTest [
+test_build_basic_blocks :: Test -- {{{1
+test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
+  ]
+  where
+    runTest = undefined
+
+test_ast_2_ir :: Test  -- {{{
+test_ast_2_ir = enumTestGroup "ast_2_ir" $ map runTest [
   ]
   where
     runTest = undefined

@@ -21,9 +21,9 @@ import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
 
-collect_declarations :: CFunDef -> ([Variable], [CBlockItem]) -- {{{1
+collect_declarations :: CFunDef -> ([CBlockItem], [Variable]) -- {{{1
 collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
-  (variables, body)
+  (body, variables)
   where
     ps = function_parameters_fd fd
     initialIdents = Identifiers M.empty (M.fromList (map ((\x -> (x, x)) . symbol) ps))

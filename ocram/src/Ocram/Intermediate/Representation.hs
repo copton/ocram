@@ -24,9 +24,9 @@ data Variable -- {{{1
 data Function -- {{{1
   -- |A critical function
   = Function {
-    fun_vars  :: [Variable]       -- ^the function's variables
-  , fun_def   :: CFunDef          -- ^the original AST node
-  , fun_body  :: H.Graph Node C C -- ^the function's body as graph of basic blocks
+    fun_vars  :: [Variable] -- ^the function's variables
+  , fun_def   :: CFunDef    -- ^the original AST node
+  , fun_body  :: Body       -- ^the function's body as graph of basic blocks
   }
 
 fun_name :: Function -> Symbol -- {{{2
@@ -56,3 +56,10 @@ instance H.NonLocal Node where -- {{{2
   successors (If _ tl el) = map hLabel [tl, el]
   successors (Call _ l)   = [hLabel l]
   successors (Return _)   = [] 
+
+type Body = H.Graph Node C C -- {{{1
+
+type M = H.CheckingFuelMonad H.SimpleUniqueMonad -- {{{1
+
+runIr :: M a -> a
+runIr m = H.runSimpleUniqueMonad $ H.runWithFuel H.infiniteFuel m

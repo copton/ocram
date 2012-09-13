@@ -18,10 +18,14 @@ import Ocram.Util (abort, unexp, unexp')
 
 import qualified Data.Set as S
 
-boolean_short_circuiting :: S.Set Symbol -> [CStat] -> ([CStat], [Variable]) -- {{{1
+boolean_short_circuiting :: S.Set Symbol -> [CBlockItem] -> ([CBlockItem], [Variable]) -- {{{1
 boolean_short_circuiting cf inputItems =
-  let (outputItems, (Ctx _ vars)) = runState (mapM (everywhereM (mkM tStat)) inputItems) (Ctx 0 [])
-  in (outputItems, vars)
+  let
+    inputStmts = map (\(CBlockStmt s) -> s) inputItems
+    (outputStmts, (Ctx _ vars)) = runState (mapM (everywhereM (mkM tStat)) inputStmts) (Ctx 0 [])
+    outputItems = map CBlockStmt outputStmts
+  in
+    (outputItems, vars)
   where
     tStat :: CStat -> S CStat -- {{{2
     tStat o@(CIf cond then_ else_ ni) = do

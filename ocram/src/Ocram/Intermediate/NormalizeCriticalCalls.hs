@@ -21,14 +21,12 @@ import Prelude hiding (init)
 
 import qualified Data.Map as M
 
-type CriticalFunctions = M.Map Symbol CFunDef -- XXX bad dependency
-
-normalize_critical_calls :: CriticalFunctions -> [CStat] -> ([CStat], [Variable]) -- {{{1
+normalize_critical_calls :: M.Map Symbol CFunDef -> [CStat] -> ([CStat], [Variable]) -- {{{1
 normalize_critical_calls cf items =
   let (items', Ctx vars _ _) = runState (mapM tStmt items) (Ctx [] 0 [])
   in (concat items', vars)
   where
-    tStmt :: CStat -> S [CStat]
+    tStmt :: CStat -> S [CStat] -- {{{2
     tStmt o@(CIf cond t e ni) =
       keepOrReplace [cond] o (\[cond'] -> CIf cond' t e ni) 
 
@@ -43,7 +41,7 @@ normalize_critical_calls cf items =
 
     tStmt x = $abort $ unexp x
 
-    keepOrReplace :: [CExpr] -> CStat -> ([CExpr] -> CStat) -> S [CStat]
+    keepOrReplace :: [CExpr] -> CStat -> ([CExpr] -> CStat) -> S [CStat] -- {{{2
     keepOrReplace es s f = do
       (inits, es') <- liftM unzip $ mapM extractCriticalCalls es
       let allInits = concat inits
@@ -53,18 +51,18 @@ normalize_critical_calls cf items =
           let s' = f es' in
           return $ allInits ++ [s']
 
-    isInNormalForm (CCall _ _ _)                 = True
+    isInNormalForm (CCall _ _ _)                 = True -- {{{2
     isInNormalForm (CAssign _ _ (CCall _ _ _) _) = True
     isInNormalForm _                             = False
 
-    extractCriticalCalls :: CExpr -> S ([CStat], CExpr)
+    extractCriticalCalls :: CExpr -> S ([CStat], CExpr) -- {{{2
     extractCriticalCalls expr = do
       modify (\(Ctx v c _) -> Ctx v c [])
       expr' <- everywhereM (mkM tExpr) expr
       (Ctx _ _ inits) <- get
       return (inits, expr')
       
-    tExpr :: CExpr -> S CExpr
+    tExpr :: CExpr -> S CExpr -- {{{2
     tExpr call@(CCall (CVar callee _) _ _)
       | M.member (symbol callee) cf = do
           Ctx vars count inits <- get
@@ -81,7 +79,7 @@ normalize_critical_calls cf items =
   
     tExpr o = return o
 
-    newDecl :: Ident -> Int -> CDecl
+    newDecl :: Ident -> Int -> CDecl -- {{{2
     newDecl callee count =
       CDecl [CTypeSpec returnType] [(Just declarator, Nothing, Nothing)] undefNode
       where
@@ -90,10 +88,10 @@ normalize_critical_calls cf items =
         tmpVar            = internalIdent (varCrit count)
         declarator        = CDeclr (Just tmpVar) dds Nothing [] undefNode
 
-data Ctx = Ctx {
+data Ctx = Ctx { -- {{{2
     ctxVars  :: [Variable]
   , ctxCount :: Int
   , ctxInits :: [CStat]
   }
 
-type S a = State Ctx a
+type S a = State Ctx a -- {{{2
