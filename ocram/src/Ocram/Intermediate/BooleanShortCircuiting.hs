@@ -6,19 +6,22 @@ module Ocram.Intermediate.BooleanShortCircuiting
 ) where
 
 -- imports {{{1
-import Control.Monad.State (State, evalState, get, put)
+import Control.Monad.State (State, runState, get, put)
 import Data.Generics (everywhereM, mkM)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo)
+import Ocram.Intermediate.Representation (Variable(..))
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Names (varBool)
 import Ocram.Util (abort, unexp, unexp')
 
 import qualified Data.Set as S
 
-boolean_short_circuiting :: S.Set Symbol -> [CStat] -> [CStat] -- {{{1
-boolean_short_circuiting cf itms = evalState (mapM (everywhereM (mkM tStat)) itms) 0
+boolean_short_circuiting :: S.Set Symbol -> [CStat] -> ([CStat], [Variable]) -- {{{1
+boolean_short_circuiting cf inputItems =
+  let (outputItems, (Ctx _ vars)) = runState (mapM (everywhereM (mkM tStat)) inputItems) (Ctx 0 [])
+  in (outputItems, vars)
   where
     tStat :: CStat -> S CStat -- {{{2
     tStat o@(CIf cond then_ else_ ni) = do
@@ -85,7 +88,7 @@ boolean_short_circuiting cf itms = evalState (mapM (everywhereM (mkM tStat)) itm
           if subCritical lhs' || subCritical rhs'
             then do
               idx <- next
-              return $ substitute idx op ni lhs' rhs'
+              substitute idx op ni lhs' rhs'
             else
               let
                 expr = CBinary op (subExpr lhs') (subExpr rhs') ni
@@ -194,21 +197,24 @@ boolean_short_circuiting cf itms = evalState (mapM (everywhereM (mkM tStat)) itm
 
     traverse o = $abort $ unexp o -- {{{3
  
-substitute :: Int -> CBinaryOp -> NodeInfo -> Substitution CExpr -> Substitution CExpr -> Substitution CExpr -- {{{2
+substitute :: Int -> CBinaryOp -> NodeInfo -> Substitution CExpr -> Substitution CExpr -> S (Substitution CExpr) -- {{{2
 substitute idx op ni lhs rhs =
   let
     iden = internalIdent (varBool idx)
-    decl = CBlockDecl $ CDecl [CTypeSpec (CIntType ni)] [(Just (CDeclr (Just iden) [] Nothing [] ni) , Nothing, Nothing)] ni
-    var = CVar iden ni
-    [lhs_assign, rhs_assign] = map (CBlockStmt . (\x -> CExpr (Just x) (annotation x)) . (\x -> CAssign CAssignOp var ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
+    decl = CDecl [CTypeSpec (CIntType ni)] [(Just (CDeclr (Just iden) [] Nothing [] ni) , Nothing, Nothing)] ni
+    ivar = Variable decl (symbol decl) Nothing
+    cvar = CVar iden ni
+    [lhs_assign, rhs_assign] = map (CBlockStmt . (\x -> CExpr (Just x) (annotation x)) . (\x -> CAssign CAssignOp cvar ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
     cond = case op of
-      CLorOp -> neg var
-      CLndOp -> var
+      CLorOp -> neg cvar
+      CLndOp -> cvar
       o -> $abort $ unexp' o
     if_ = CBlockStmt $ CIf cond (CCompound [] (subItems rhs ++ [rhs_assign]) ni) Nothing ni
-    items = subItems lhs ++ [decl, lhs_assign, if_]
-  in
-    Substitution var items True
+    items = subItems lhs ++ [lhs_assign, if_]
+  in do
+    Ctx count vars <- get
+    put $ Ctx count (ivar : vars)
+    return $ Substitution cvar items True
 
 neg :: CExpr -> CExpr -- {{{2
 neg expr = CUnary CNegOp expr (annotation expr)
@@ -220,11 +226,16 @@ isLogicalOp _ = False
 
 next :: S Int -- {{{2
 next = do
-  idx <- get
-  put $ idx + 1
-  return idx
+  Ctx count vars <- get
+  put $ Ctx (count + 1) vars
+  return count
 
-type S = State Int -- {{{2
+data Ctx = Ctx { -- {{{2
+    ctxCount :: Int
+  , ctxVars  :: [Variable]
+  }
+
+type S = State Ctx -- {{{2
 
 data Substitution a =  -- {{{2
   Substitution {

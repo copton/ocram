@@ -565,7 +565,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
     void foo() {
       if(g() || h()) ;
     }
-  |])
+  |], [])
   , -- 02 - critical function on left hand side, or expression {{{2
   (["g"],
   [paste|
@@ -575,7 +575,6 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
         ec_bool_0 = !!g();
         if (! ec_bool_0) {
           ec_bool_0 = !!h();
@@ -583,7 +582,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         if (ec_bool_0) ;
       }
     }
-  |])
+  |], ["int ec_bool_0"])
   , -- 03 - critical function on right hand side, and expression {{{2
   (["h"],
   [paste|
@@ -593,7 +592,6 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
         ec_bool_0 = !!g();
         if (ec_bool_0) {
           ec_bool_0 = !!h();
@@ -601,7 +599,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         if (ec_bool_0) ;
       }
     }
-  |])
+  |], ["int ec_bool_0"])
   , -- 04 - expression statement {{{2
   (["g"],
   [paste|
@@ -611,7 +609,6 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
         ec_bool_0 = !!g();
         if (! ec_bool_0) {
           ec_bool_0 = !!h();
@@ -619,7 +616,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         ec_bool_0;
       }
     }
-  |])
+  |], ["int ec_bool_0"])
   , -- 05 - switch statement {{{2
   (["g"],
   [paste|
@@ -629,7 +626,6 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
         ec_bool_0 = !!g();
         if (! ec_bool_0) {
           ec_bool_0 = !!h();
@@ -637,7 +633,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         switch(ec_bool_0) ;
       }
     }
-  |])
+  |], ["int ec_bool_0"])
   , -- 06 - return statement {{{2
   (["g"],
   [paste|
@@ -647,7 +643,6 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
     int foo() {
       {
-        int ec_bool_0;
         ec_bool_0 = !!g();
         if (! ec_bool_0) {
           ec_bool_0 = !!h();
@@ -655,7 +650,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         return ec_bool_0;
       }
     }
-  |])
+  |], ["int ec_bool_0"])
   , -- 07 - function call {{{2
   (["g"],
   [paste|
@@ -665,7 +660,6 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
         ec_bool_0 = !!k();
         if (! ec_bool_0) {
           ec_bool_0 = !!g();
@@ -673,7 +667,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         h(ec_bool_0);
       }
     }
-  |])
+  |], ["int ec_bool_0"])
   , -- 08 - within algebraic expression {{{2
   (["g"],
   [paste|
@@ -683,7 +677,6 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
         ec_bool_0 = !!g();
         if (! ec_bool_0) {
           ec_bool_0 = !!1;
@@ -691,7 +684,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         if (ec_bool_0 + 3);
       }
     }
-  |])
+  |], ["int ec_bool_0"])
   , -- 09 - containing algebraic expression {{{2
   (["g"],
   [paste|
@@ -701,7 +694,6 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
         ec_bool_0 = !!(1 + g());
         if (! ec_bool_0) {
           ec_bool_0 = !!h();
@@ -709,7 +701,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         if (ec_bool_0);
       }
     }
-  |])
+  |], ["int ec_bool_0"])
   , -- 10 - nested {{{2
   (["g1", "g2"],
   [paste|
@@ -719,15 +711,12 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
     void foo() {
       {
-        int ec_bool_0;
         ec_bool_0 = !!g1();
         if (! ec_bool_0) {
           ec_bool_0 = !!h1();
         }
-        int ec_bool_2;
         ec_bool_2 = !!ec_bool_0;
         if (ec_bool_2) {
-          int ec_bool_1;
           ec_bool_1 = !!h2();
           if (!ec_bool_1) {
             ec_bool_1 = !!g2();
@@ -737,7 +726,11 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         if (ec_bool_2);
       }
     }
-  |])
+  |], [
+      "int ec_bool_2"
+    , "int ec_bool_1"
+    , "int ec_bool_0"
+  ])
   , -- 11 - generic case {{{2
   (["g", "h"],
   [paste|
@@ -747,12 +740,10 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   |], [paste|
       void foo() {
         {
-          int ec_bool_0;
           ec_bool_0 = !!g();
           if (! ec_bool_0) {
             ec_bool_0 = !! (i = x(), 1);
           }
-          int ec_bool_1;
           ec_bool_1 = !!ec_bool_0;
           if (ec_bool_1) {
             ec_bool_1 = !!h();
@@ -760,21 +751,30 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
           if (ec_bool_1);
         }
       }
-  |])
+  |], [
+      "int ec_bool_1"
+    , "int ec_bool_0"
+  ])
   ]
   where
-    runTest :: ([String], String, String) -> Assertion -- {{{2
-    runTest (cf, inputCode, expectedCode) =
+    runTest :: ([String], String, String, [String]) -> Assertion -- {{{2
+    runTest (cf, inputCode, expectedCode, expectedDecls) =
       let
-        (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
-        inputStatements = map (\(CBlockStmt s) -> s) inputItems
-        outputStatements = boolean_short_circuiting (S.fromList cf) inputStatements
-        outputItems = map CBlockStmt outputStatements
-        outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputItems x5) x6] (x7 :: NodeInfo)
-        expectedCode' = reduce $ (enrich expectedCode :: CTranslUnit) :: String
-        outputCode = reduce $ outputAst
-      in
+        (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7)
+           = enrich inputCode
+
+        outputAst                           
+            = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputItems x5) x6] (x7 :: NodeInfo)
+
+        inputStatements                     = map (\(CBlockStmt s) -> s) inputItems
+        (outputStatements, outputVariables) = boolean_short_circuiting (S.fromList cf) inputStatements
+        outputItems                         = map CBlockStmt outputStatements
+        expectedCode'                       = reduce $ (enrich expectedCode :: CTranslUnit) :: String
+        outputCode                          = reduce $ outputAst
+        outputDecls                         = map (show . pretty . var_decl) outputVariables
+      in do
         expectedCode' @=? outputCode
+        expectedDecls @=? outputDecls
 
 test_flatten_scopes :: Test -- {{{1
 test_flatten_scopes = enumTestGroup "flatten_scopes" $ map runTest [
@@ -1243,7 +1243,7 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
   -- end {{{2
   ]
   where
-    runTest :: (String, String, [String]) -> Assertion
+    runTest :: (String, String, [String]) -> Assertion -- {{{2
     runTest (inputCode, expectedCode, expectedDecls) =
       let
         (CTranslUnit eds y) = enrich inputCode
