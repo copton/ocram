@@ -2,6 +2,7 @@
 module Ocram.Intermediate.Test (tests) where
 
 -- imports {{{1
+import Compiler.Hoopl (showGraph)
 import Language.C.Data.Node (getLastTokenPos, posOfNode)
 import Language.C.Data.Position (posRow)
 import Language.C.Pretty (pretty)
@@ -1313,11 +1314,452 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
 
 test_build_basic_blocks :: Test -- {{{1
 test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
+  -- , 01 - just return {{{2
+  ([],
+  [paste|
+    void foo() {
+      return;      
+    }
+  |], [paste|
+    L1:
+    RETURN
+  |])
+  , -- 02 - while loop {{{2
+  ([],
+  [paste|
+    void foo() {
+      a();
+      ec_ctrlbl_0: ;
+      if (! 1) goto ec_ctrlbl_1;
+      g();
+      goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ;
+      b();
+      return;
+    }
+  |], [paste|
+    L1:
+    a();
+    GOTO ec_ctrlbl_0
+
+    ec_ctrlbl_0:
+    IF !1 then GOTO ec_ctrlbl_1 else GOTO L3
+
+    L3:
+    g();
+    GOTO ec_ctrlbl_0
+
+    ec_ctrlbl_1:
+    b();
+    RETURN
+  |])
+--   , -- 02 - do loop {{{2
+--   ([paste|
+--     void foo() {
+--       a();
+--       {
+--         ec_ctrlbl_0: ;
+--         g();
+--         if (1) goto ec_ctrlbl_0;
+--         ec_ctrlbl_1: ;
+--       }
+--       b();
+--     }
+--   |], [paste|
+--     void foo() {
+--       a();
+--       ec_ctrlbl_0: ;
+--       g();
+--       if (1) goto ec_ctrlbl_0;
+--       ec_ctrlbl_1: ;
+--       b();
+--       return;
+--     }
+--   |])
+--   , -- 03 - for loop {{{2
+--   ([paste|
+--     void foo() {
+--       a();
+--       {
+--         i = 0;
+--         {
+--           ec_ctrlbl_0: ;
+--           if (! (i<23)) goto ec_ctrlbl_1;
+--           g(i);
+--           i++;
+--           goto ec_ctrlbl_0;
+--           ec_ctrlbl_1: ;
+--         }
+--       }
+--       b();
+--     }
+--   |], [paste|
+--     void foo() {
+--       a();
+--       i = 0;
+--       ec_ctrlbl_0: ;
+--       if (! (i<23)) goto ec_ctrlbl_1;
+--       g(i);
+--       i++;
+--       goto ec_ctrlbl_0;
+--       ec_ctrlbl_1: ;
+--       b();
+--       return;
+--     }
+--   |])
+--   , -- 04 - for loop - with declaration {{{2
+--   ([paste|
+--     void foo() {
+--       a();
+--       {
+--         i = 0;
+--         {
+--           ec_ctrlbl_0: ;
+--           if (! (i<23)) goto ec_ctrlbl_1;
+--           g(i);
+--           i++;
+--           goto ec_ctrlbl_0;
+--           ec_ctrlbl_1: ;
+--         }
+--       }
+--       b();
+--     }
+--   |], [paste|
+--     void foo() {
+--       a();
+--       i = 0;
+--       ec_ctrlbl_0: ;
+--       if (! (i<23)) goto ec_ctrlbl_1;
+--       g(i);
+--       i++;
+--       goto ec_ctrlbl_0;
+--       ec_ctrlbl_1: ;
+--       b();
+--       return;
+--     }
+--   |])
+--   , -- 05 - for loop - no init expression {{{2
+--   ([paste|
+--       void foo() {
+--         a();
+--         {
+--           ec_ctrlbl_0: ;
+--           if (! (i<23)) goto ec_ctrlbl_1;
+--           g(i);
+--           i++;
+--           goto ec_ctrlbl_0;
+--           ec_ctrlbl_1: ;
+--         }
+--         b();
+--       }
+--   |], [paste|
+--       void foo() {
+--         a();
+--         ec_ctrlbl_0: ;
+--         if (! (i<23)) goto ec_ctrlbl_1;
+--         g(i);
+--         i++;
+--         goto ec_ctrlbl_0;
+--         ec_ctrlbl_1: ;
+--         b();
+--         return;
+--       }
+--   |])
+--   , -- 06 - for loop - no break condition {{{2
+--   ([paste|
+--     void foo() {
+--       a();
+--       {
+--         i = 0;
+--         {
+--           ec_ctrlbl_0: ;
+--           g(i);
+--           i++;
+--           goto ec_ctrlbl_0;
+--           ec_ctrlbl_1: ;
+--         }
+--       }
+--       b();
+--     }
+--   |], [paste|
+--     void foo() {
+--       a();
+--       i = 0;
+--       ec_ctrlbl_0: ;
+--       g(i);
+--       i++;
+--       goto ec_ctrlbl_0;
+--       ec_ctrlbl_1: ;
+--       b();
+--       return;
+--     }
+--   |])
+--   , -- 07 - for loop - no incr expression{{{2
+--   ([paste|
+--     void foo() {
+--       a();
+--       {
+--         i = 0;
+--         ec_ctrlbl_0: ;
+--         if (! (i<23)) goto ec_ctrlbl_1;
+--         g(i);
+--         goto ec_ctrlbl_0;
+--         ec_ctrlbl_1: ;
+--       }
+--       b();
+--     }
+--   |], [paste|
+--     void foo() {
+--       a();
+--       i = 0;
+--       ec_ctrlbl_0: ;
+--       if (! (i<23)) goto ec_ctrlbl_1;
+--       g(i);
+--       goto ec_ctrlbl_0;
+--       ec_ctrlbl_1: ;
+--       b();
+--       return;
+--     }
+--   |])
+--   , -- 08 - continue and break {{{2
+--   ([paste|
+--     void foo() {
+--       a();
+--       {
+--         ec_ctrlbl_0: ;
+--         goto ec_ctrlbl_0;
+--         g();
+--         goto ec_ctrlbl_1;
+--         if (1) goto ec_ctrlbl_0;
+--         ec_ctrlbl_1: ;
+--       }
+--       b();
+--     }
+--   |], [paste|
+--     void foo() {
+--       a();
+--       ec_ctrlbl_0: ;
+--       goto ec_ctrlbl_0;
+--       g();
+--       goto ec_ctrlbl_1;
+--       if (1) goto ec_ctrlbl_0;
+--       ec_ctrlbl_1: ;
+--       b();
+--       return;
+--     }
+--   |])
+--   , -- 09 - nested {{{2
+--   ([paste|
+--     void foo() {
+--       a();
+--       {
+--         ec_ctrlbl_0: ;
+--         if (!1) goto ec_ctrlbl_1;
+--         b();
+--         goto ec_ctrlbl_0;
+--         c();
+--         {
+--           ec_ctrlbl_2: ;
+--           d();
+--           goto ec_ctrlbl_2;
+--           e();
+--           goto ec_ctrlbl_3;
+--           f();
+--           if (23) goto ec_ctrlbl_2;
+--           ec_ctrlbl_3: ;
+--         }
+--         g();
+--         goto ec_ctrlbl_1;
+--         h();
+--         goto ec_ctrlbl_0;
+--         ec_ctrlbl_1: ; 
+--       }
+--       i(); 
+--     }
+--   |], [paste|
+--     void foo() {
+--       a();
+--       ec_ctrlbl_0: ;
+--       if (!1) goto ec_ctrlbl_1;
+--       b();
+--       goto ec_ctrlbl_0;
+--       c();
+--       ec_ctrlbl_2: ;
+--       d();
+--       goto ec_ctrlbl_2;
+--       e();
+--       goto ec_ctrlbl_3;
+--       f();
+--       if (23) goto ec_ctrlbl_2;
+--       ec_ctrlbl_3: ;
+--       g();
+--       goto ec_ctrlbl_1;
+--       h();
+--       goto ec_ctrlbl_0;
+--       ec_ctrlbl_1: ; 
+--       i(); 
+--       return;
+--     }
+--   |])
+--   , -- 10 - if statements {{{2
+--   ([paste|
+--     void foo() {
+--       {
+--         if (1) {
+--           goto ec_ctrlbl_0;
+--         } else {
+--           goto ec_ctrlbl_1;
+--         }
+--         {
+--           ec_ctrlbl_0: ;
+--           b();
+--         }
+--         ec_ctrlbl_1: ;
+--       }
+--     }
+--   |], [paste|
+--     void foo() {
+--       if (1) goto ec_ctrlbl_0;
+--       else goto ec_ctrlbl_1;
+--       ec_ctrlbl_0: ;
+--       b();
+--       ec_ctrlbl_1: ;
+--       return;
+--     }
+--   |])
+--   , -- 11 - if statements with else block {{{2
+--   ([paste|
+--     void foo() {
+--       {
+--         if (1) {
+--           goto ec_ctrlbl_0;
+--         } else {
+--           goto ec_ctrlbl_1;
+--         }
+--         {
+--           ec_ctrlbl_0: ;
+--           b();
+--           return;
+--           goto ec_ctrlbl_2;
+--         }
+--         {
+--           ec_ctrlbl_1: ;
+--           c();
+--           return;
+--         }
+--         ec_ctrlbl_2: ;
+--       }
+--     }
+--   |], [paste|
+--     void foo() {
+--       if (1) goto ec_ctrlbl_0;
+--       else goto ec_ctrlbl_1;
+--       ec_ctrlbl_0: ;
+--       b();
+--       return;
+--       goto ec_ctrlbl_2;
+--       ec_ctrlbl_1: ;
+--       c();
+--       return;
+--       ec_ctrlbl_2: ;
+--       return;
+--     }
+--   |])
+--   , -- 12 - switch statement {{{2
+--   ([paste|
+--     void foo(int i) {
+--       {
+--         if (i==1) goto ec_ctrlbl_1;
+--         if (i==2) goto ec_ctrlbl_2;
+--         if (i==3) goto ec_ctrlbl_3;
+--         
+--         {
+--           ec_ctrlbl_1: ;
+--           a(); b();
+--           goto ec_ctrlbl_0;
+--         }
+--         {
+--           ec_ctrlbl_2: ;
+--           c(); d();
+--         }
+--         {
+--           ec_ctrlbl_3: ;
+--           e(); f(); return;
+--         }
+--         ec_ctrlbl_0: ;
+--       }
+--     }
+--   |], [paste|
+--     void foo(int i) {
+--       if (i==1) goto ec_ctrlbl_1;
+--       if (i==2) goto ec_ctrlbl_2;
+--       if (i==3) goto ec_ctrlbl_3;
+--       ec_ctrlbl_1: ;
+--       a(); b();
+--       goto ec_ctrlbl_0;
+--       ec_ctrlbl_2: ;
+--       c(); d();
+--       ec_ctrlbl_3: ;
+--       e(); f(); return;
+--       ec_ctrlbl_0: ;
+--       return;
+--     }
+--   |])
+--   , -- 13 - switch statement with default {{{2
+--   ([paste|
+--     void foo(int i) {
+--       {
+--         if (i==1) goto ec_ctrlbl_1;
+--         if (i==2) goto ec_ctrlbl_2;
+--         goto ec_ctrlbl_3;
+--         
+--         {
+--           ec_ctrlbl_1: ;
+--           a(); b();
+--           goto ec_ctrlbl_0;
+--         }
+--         {
+--           ec_ctrlbl_2: ;
+--           c(); d();
+--         }
+--         {
+--           ec_ctrlbl_3: ;
+--           e(); f();
+--         }
+--         ec_ctrlbl_0: ;
+--       }
+--     }
+--   |], [paste|
+--     void foo(int i) {
+--       if (i==1) goto ec_ctrlbl_1;
+--       if (i==2) goto ec_ctrlbl_2;
+--       goto ec_ctrlbl_3;
+--       ec_ctrlbl_1: ;
+--       a(); b();
+--       goto ec_ctrlbl_0;
+--       ec_ctrlbl_2: ;
+--       c(); d();
+--       ec_ctrlbl_3: ;
+--       e(); f();
+--       ec_ctrlbl_0: ;
+--       return;
+--     }
+--   |])
+  -- end {{{2
   ]
   where
-    runTest = undefined
+    runTest :: ([String], String, String) -> Assertion -- {{{2
+    runTest (cf, inputCode, expectedIr) = 
+      let
+        (CTranslUnit [CFDefExt fd] _) = enrich inputCode :: CTranslationUnit NodeInfo
+        (CFunDef _ _ _ (CCompound _ bitems _) _) = fd
+        inputItems = map (\(CBlockStmt s) -> s) bitems
+        outputIr = showGraph show $ build_basic_blocks (S.fromList cf) inputItems
+        expectedIr' = (unlines . drop 1 . map (drop 4) . lines) expectedIr
+      in
+        expectedIr' @=? outputIr
 
-test_ast_2_ir :: Test  -- {{{
+test_ast_2_ir :: Test  -- {{{1
 test_ast_2_ir = enumTestGroup "ast_2_ir" $ map runTest [
   ]
   where

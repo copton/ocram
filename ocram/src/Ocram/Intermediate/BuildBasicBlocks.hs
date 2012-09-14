@@ -20,7 +20,7 @@ import qualified Compiler.Hoopl as H
 build_basic_blocks :: S.Set Symbol -> [CStat] -> I.Body -- {{{1
 build_basic_blocks cf stmts = runM $ do
   protoblocks <- partition cf stmts
-  let blockcont = zip protoblocks (map pbLabel protoblocks)
+  let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undefined]
   blocks <- mapM convert blockcont
   return $ foldl splice H.emptyClosedGraph blocks
   where splice = (H.|*><*|)
@@ -60,9 +60,10 @@ partition cf stmts =
           if S.member (symbol callee) cf
             then Just SplitAfter
             else Nothing
+    splitPoint (CReturn _ _)        = Just SplitAfter
     splitPoint o                    = $abort $ unexp o
 
-    getCallee (CCall (CVar callee _) _ _)                 = Just callee
+    getCallee (CCall (CVar callee _) _ _)                 = Just callee -- {{{3
     getCallee (CAssign _ _ (CCall (CVar callee _) _ _) _) = Just callee
     getCallee _                                           = Nothing
 
@@ -98,6 +99,13 @@ convert ((ProtoBlock thisBlock body), nextBlock) = do
 
     convL (Just SplitAfter, CExpr (Just expr) _) =
       return (Nothing, I.Call expr nextBlock)
+
+    convL (Just SplitAfter, CReturn expr _) =
+      return (Nothing, I.Return expr)
+
+    convL (Just SplitAfter, CGoto target _) = do
+      itarget <- labelFor (symbol target)
+      return (Nothing, I.Goto itarget)
 
     convL (x, y) = $abort $ unexp y ++ ", " ++ show x
       
