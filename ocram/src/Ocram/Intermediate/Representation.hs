@@ -80,9 +80,9 @@ instance Show (Node e x) where -- {{{2
   showsPrec _ (If cond tl el) =
       showString "IF "
     . (shows . pretty) cond
-    . showString " then GOTO "
+    . showString " THEN "
     . shows tl
-    . showString " else GOTO "
+    . showString " ELSE "
     . shows el
     . showChar '\n'
 

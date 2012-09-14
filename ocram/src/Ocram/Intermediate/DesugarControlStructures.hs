@@ -97,12 +97,15 @@ tStmt (CSwitch switchExpr (CCompound _ items _) ni) =  -- {{{3
   let
     cases = groupCases items
   in do
-    ids <- nextIds $ length cases + 2
+    ids <- nextIds $ length cases + 1
     let
       (end:lgs) = map (labelGotoPair ni) ids
       ifs       = map (uncurry buildIf) $ zip (map fst cases) (map goto lgs)
+      dflt      = case reverse cases of
+          ((Nothing, _):_) -> []
+          _                -> [goto end]
       blocks    = map (uncurry (buildBlock end)) $ zip (map snd cases) lgs
-      body      = map CBlockStmt $ ifs ++ blocks ++ [label end]
+      body      = map CBlockStmt $ ifs ++ dflt ++ blocks ++ [label end]
     body' <- mapM tItem body
     return $ CCompound [] body' ni
   where
@@ -115,7 +118,7 @@ tStmt (CSwitch switchExpr (CCompound _ items _) ni) =  -- {{{3
     
 tStmt x = return x -- {{{3
 
-groupCases :: [CBlockItem] -> [(Maybe CExpr, [CBlockItem])]
+groupCases :: [CBlockItem] -> [(Maybe CExpr, [CBlockItem])] -- {{{2
 groupCases xs = case xs of
   [] -> []
   (CBlockStmt item):rest -> case item of
