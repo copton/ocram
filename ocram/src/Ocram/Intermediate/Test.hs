@@ -805,7 +805,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |])
   , -- 02 - do loop {{{2
@@ -828,7 +827,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       if (1) goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |])
   , -- 03 - for loop {{{2
@@ -859,7 +857,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |])
   , -- 04 - for loop - with declaration {{{2
@@ -890,7 +887,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |])
   , -- 05 - for loop - no init expression {{{2
@@ -917,7 +913,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
         goto ec_ctrlbl_0;
         ec_ctrlbl_1: ;
         b();
-        return;
       }
   |])
   , -- 06 - for loop - no break condition {{{2
@@ -946,7 +941,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |])
   , -- 07 - for loop - no incr expression{{{2
@@ -973,7 +967,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |])
   , -- 08 - continue and break {{{2
@@ -1000,7 +993,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       if (1) goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |])
   , -- 09 - nested {{{2
@@ -1053,7 +1045,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ; 
       i(); 
-      return;
     }
   |])
   , -- 10 - if statements {{{2
@@ -1079,7 +1070,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       ec_ctrlbl_0: ;
       b();
       ec_ctrlbl_1: ;
-      return;
     }
   |])
   , -- 11 - if statements with else block {{{2
@@ -1117,7 +1107,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       c();
       return;
       ec_ctrlbl_2: ;
-      return;
     }
   |])
   , -- 12 - switch statement {{{2
@@ -1157,7 +1146,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       ec_ctrlbl_3: ;
       e(); f(); return;
       ec_ctrlbl_0: ;
-      return;
     }
   |])
   , -- 13 - switch statement with default {{{2
@@ -1197,7 +1185,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       ec_ctrlbl_3: ;
       e(); f();
       ec_ctrlbl_0: ;
-      return;
     }
   |])
   , -- 14 - empty statements -- {{{2
@@ -1221,7 +1208,6 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
       i*=2;
       i/=2;
       i--;
-      return;
     }
   |])
 
@@ -1336,7 +1322,6 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
       goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |], [paste|
     L1:
@@ -1364,7 +1349,6 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
       if (1) goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |], [paste|
     L1:
@@ -1391,7 +1375,6 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
       if (1) goto ec_ctrlbl_0;
       ec_ctrlbl_1: ;
       b();
-      return;
     }
   |], [paste|
     L1:
@@ -1428,7 +1411,6 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
       ec_ctrlbl_3: ;
       e(); f(); return;
       ec_ctrlbl_0: ;
-      return;
     }
   |], [paste|
     L1:

@@ -9,6 +9,7 @@ module Ocram.Intermediate.BuildBasicBlocks
 import Compiler.Hoopl (C, O)
 import Data.Maybe (isNothing)
 import Ocram.Symbols (Symbol, symbol)
+import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Ocram.Util (fromJust_s, head_s, abort, unexp)
 
@@ -27,8 +28,12 @@ build_basic_blocks cf stmts = runM $ do
 
 partition :: S.Set Symbol -> [CStat] -> M [ProtoBlock] -- {{{2
 partition cf stmts =
-  let annotatedStmts = zip (map splitPoint stmts) stmts in
-  part annotatedStmts
+  let
+    annotatedStmts = case reverse $ zip (map splitPoint stmts) stmts of
+      o@((Just SplitAfter, _):_) -> reverse o
+      o                          -> reverse $ (Just SplitAfter, CReturn Nothing undefNode) : o
+  in
+    part annotatedStmts
 
   where
     part []     = return []
