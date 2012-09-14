@@ -11,7 +11,7 @@ import Control.Monad.Writer (runWriter, Writer, tell)
 import Ocram.Intermediate.Representation
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
-import Ocram.Intermediate.Cleanup
+import Ocram.Intermediate.SequencializeBody
 import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
@@ -35,7 +35,7 @@ ast_2_ir cf = M.map convert cf
       >>= wrap     collect_declarations
       >>= return . desugar_control_structures
       >>= wrap     (boolean_short_circuiting cf')
-      >>= return . cleanup
+      >>= return . sequencialize_body
       >>= wrap     (normalize_critical_calls cf)
       >>= return . build_basic_blocks cf'
 

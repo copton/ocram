@@ -12,7 +12,7 @@ import Ocram.Intermediate
 import Ocram.Intermediate.BuildBasicBlocks
 import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
-import Ocram.Intermediate.Cleanup
+import Ocram.Intermediate.SequencializeBody
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Symbols (symbol)
@@ -29,7 +29,7 @@ tests = testGroup "Intermediate" [
           test_collect_declarations
         , test_desugar_control_structures
         , test_boolean_short_circuiting
-        , test_cleanup
+        , test_sequencialize_body
         , test_normalize_critical_calls
         , test_build_basic_blocks
         , test_ast_2_ir
@@ -781,8 +781,8 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         expectedCode' @=? outputCode
         expectedDecls @=? outputDecls
 
-test_cleanup :: Test -- {{{1
-test_cleanup = enumTestGroup "cleanup" $ map runTest [
+test_sequencialize_body :: Test -- {{{1
+test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
   -- , 01 - while loop {{{2
   ([paste|
     void foo() {
@@ -1218,7 +1218,7 @@ test_cleanup = enumTestGroup "cleanup" $ map runTest [
     runTest (inputCode, expectedCode) =
       let
         (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
-        outputItems = map CBlockStmt $ cleanup inputItems
+        outputItems = map CBlockStmt $ sequencialize_body inputItems
         outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputItems x5) x6] x7
         expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
         outputCode = reduce outputAst
