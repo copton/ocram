@@ -18,12 +18,13 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Compiler.Hoopl as H
 
-build_basic_blocks :: S.Set Symbol -> [CStat] -> I.Body -- {{{1
+build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
 build_basic_blocks cf stmts = runM $ do
   protoblocks <- partition cf stmts
   let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undefined]
   blocks <- mapM convert blockcont
-  return $ foldl splice H.emptyClosedGraph blocks
+  let body = foldl splice H.emptyClosedGraph blocks
+  return ((pbLabel . $head_s) protoblocks, body)
   where splice = (H.|*><*|)
 
 partition :: S.Set Symbol -> [CStat] -> M [ProtoBlock] -- {{{2
@@ -102,9 +103,11 @@ convert ((ProtoBlock thisBlock body), nextBlock) = do
     convL (Nothing, CExpr (Just expr) _) =
       return (Just (I.Stmt expr), I.Goto nextBlock)
 
-    convL (Just SplitAfter, CExpr (Just expr) _) =
-      return (Nothing, I.Call expr nextBlock)
+    convL (Just SplitAfter, CExpr (Just (CCall (CVar callee _) params _)) _) =
+      return (Nothing, I.Call (I.FirstNormalForm (symbol callee) params) nextBlock)
 
+    convL (Just SplitAfter, CExpr (Just (CAssign op lhs (CCall (CVar callee _) params _) _)) _) =
+      return (Nothing, I.Call (I.SecondNormalForm lhs op (symbol callee) params) nextBlock)
     convL (Just SplitAfter, CReturn expr _) =
       return (Nothing, I.Return expr)
 
@@ -115,7 +118,7 @@ convert ((ProtoBlock thisBlock body), nextBlock) = do
     convL (x, y) = $abort $ unexp y ++ ", " ++ show x
       
 -- types {{{1
-type AnnotatedStmt = (Maybe SplitPoint, CStat)
+type AnnotatedStmt = (Maybe SplitPoint, CStat) -- {{{2
 
 data ProtoBlock -- {{{2
   -- |Prototype of a basic block

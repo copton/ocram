@@ -4,17 +4,18 @@ module Ocram.Intermediate.Test (tests) where
 -- imports {{{1
 import Compiler.Hoopl (showGraph)
 import Language.C.Data.Node (getLastTokenPos, posOfNode)
+import Language.C.Data.Node (NodeInfo)
 import Language.C.Data.Position (posRow)
 import Language.C.Pretty (pretty)
-import Language.C.Data.Node (NodeInfo)
 import Language.C.Syntax.AST
 import Ocram.Intermediate
+import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
 import Ocram.Intermediate.CollectDeclarations
+import Ocram.Intermediate.CriticalVariables
 import Ocram.Intermediate.DesugarControlStructures
-import Ocram.Intermediate.SequencializeBody
 import Ocram.Intermediate.NormalizeCriticalCalls
-import Ocram.Intermediate.BooleanShortCircuiting
+import Ocram.Intermediate.SequencializeBody
 import Ocram.Symbols (symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Util (fromJust_s)
@@ -32,6 +33,7 @@ tests = testGroup "Intermediate" [
         , test_sequencialize_body
         , test_normalize_critical_calls
         , test_build_basic_blocks
+        , test_critical_variables
         , test_ast_2_ir
         ]
 
@@ -1310,7 +1312,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
   |], [paste|
     L1:
     RETURN
-  |])
+  |], "L1")
   , -- 02 - while loop {{{2
   ([],
   [paste|
@@ -1338,7 +1340,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     ec_ctrlbl_1:
     b();
     RETURN
-  |])
+  |], "L1")
   , -- 03 - do loop {{{2
   ([], 
   [paste|
@@ -1362,7 +1364,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     ec_ctrlbl_1:
     b();
     RETURN
-  |])
+  |], "L1")
   , -- 04 - continue and break {{{2
   ([],
   [paste|
@@ -1394,7 +1396,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     ec_ctrlbl_1:
     b();
     RETURN
-  |])
+  |], "L1")
   , -- 05 - switch statement {{{2
   ([],
   [paste|
@@ -1442,7 +1444,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
 
     ec_ctrlbl_0:
     RETURN
-  |])
+  |], "L1")
   , -- 06 - critical call {{{2
   (["g"],
   [paste|
@@ -1461,23 +1463,67 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
 
     L3:
     GOTO ec_ctrlbl_0
-  |])
+  |], "ec_ctrlbl_0")
   -- end {{{2
   ]
   where
-    runTest :: ([String], String, String) -> Assertion -- {{{2
-    runTest (cf, inputCode, expectedIr) = 
+    runTest :: ([String], String, String, String) -> Assertion -- {{{2
+    runTest (cf, inputCode, expectedIr, expectedEntry) = 
       let
         (CTranslUnit [CFDefExt fd] _) = enrich inputCode :: CTranslationUnit NodeInfo
         (CFunDef _ _ _ (CCompound _ bitems _) _) = fd
         inputItems = map (\(CBlockStmt s) -> s) bitems
-        outputIr = showGraph show $ build_basic_blocks (S.fromList cf) inputItems
+        (outputEntry, outputIr) = build_basic_blocks (S.fromList cf) inputItems
         expectedIr' = (unlines . drop 1 . map (drop 4) . lines) expectedIr
-      in
-        expectedIr' @=? outputIr
+      in do
+        expectedIr' @=? showGraph show outputIr
+        expectedEntry @=? show outputEntry
 
 test_ast_2_ir :: Test  -- {{{1
 test_ast_2_ir = enumTestGroup "ast_2_ir" $ map runTest [
   ]
   where
     runTest = undefined
+
+test_critical_variables :: Test -- {{{1
+test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
+  -- , 01 - single critical variable
+  ([paste|
+    int foo() {
+      int i = 0;
+      g();
+      return i;
+    }
+
+    void g() { }
+  |], ["i"], [])
+  , -- 02 - single non-critical variable
+  ([paste|
+    int foo() {
+      for (int i=0; i<23; i++) ;
+      g();
+      return 23;
+    }
+
+    void g() { }
+  |], [], ["i"])
+  -- end {{{2
+  ]
+  where
+    runTest :: (String, [String], [String]) -> Assertion
+    runTest (inputCode, expectedCriticalVars, expecedUncriticalVars) =
+      let
+        (CTranslUnit eds _) = enrich inputCode
+        fds = map unwrapFd eds
+        cf = M.fromList $ map (\fd -> (symbol fd, fd)) fds
+        funs = ast_2_ir cf
+        fun = $fromJust_s $ M.lookup ((symbol . head) fds) funs
+        (Function outputCriticalVars outputUncriticalVars _ _ _) = critical_variables fun
+        outputCriticalVars' = map var_fqn outputCriticalVars
+        outputUncriticalVars' = map var_fqn outputUncriticalVars
+      in do
+        expectedCriticalVars @=? outputCriticalVars'
+        expecedUncriticalVars @=? outputUncriticalVars'
+
+    unwrapFd (CFDefExt fd) = fd
+    unwrapFd _             = error "unwrapFd"

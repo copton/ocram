@@ -27,8 +27,11 @@ ast_2_ir cf = M.map convert cf
 
     convert :: CFunDef -> Function
     convert fd =
-      let (body, vars) = runWriter $ process fd in
-      Function vars fd body
+      let
+        (items, vars) = runWriter $ process fd 
+        (entry, body) = build_basic_blocks cf' items
+      in
+        Function vars [] fd body entry
 
     process fd = 
           return fd
@@ -37,7 +40,6 @@ ast_2_ir cf = M.map convert cf
       >>= wrap     (boolean_short_circuiting cf')
       >>= return . sequencialize_body
       >>= wrap     (normalize_critical_calls cf)
-      >>= return . build_basic_blocks cf'
 
     wrap :: (a -> (b, [Variable])) -> (a -> Writer [Variable] b)
     wrap f x = do
