@@ -1354,7 +1354,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     b();
     RETURN
   |])
-  , -- 02 - do loop {{{2
+  , -- 03 - do loop {{{2
   ([], 
   [paste|
     void foo() {
@@ -1379,7 +1379,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     b();
     RETURN
   |])
-  , -- 03 - continue and break {{{2
+  , -- 04 - continue and break {{{2
   ([],
   [paste|
     void foo() {
@@ -1412,7 +1412,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     b();
     RETURN
   |])
-  , -- 04 - switch statement {{{2
+  , -- 05 - switch statement {{{2
   ([],
   [paste|
     void foo(int i) {
@@ -1461,47 +1461,25 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     ec_ctrlbl_0:
     RETURN
   |])
+  , -- 06 - critical call {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      ec_ctrlbl_0: ;
+      if (! 1) goto ec_ctrlbl_1;
+      g();
+      goto ec_ctrlbl_0;
+    }
+  |], [paste| 
+    ec_ctrlbl_0:
+    IF !1 THEN ec_ctrlbl_1 ELSE L2
+    
+    L2:
+    g(); GOTO L3
 
---   , -- 13 - switch statement with default {{{2
---   ([paste|
---     void foo(int i) {
---       {
---         if (i==1) goto ec_ctrlbl_1;
---         if (i==2) goto ec_ctrlbl_2;
---         goto ec_ctrlbl_3;
---         
---         {
---           ec_ctrlbl_1: ;
---           a(); b();
---           goto ec_ctrlbl_0;
---         }
---         {
---           ec_ctrlbl_2: ;
---           c(); d();
---         }
---         {
---           ec_ctrlbl_3: ;
---           e(); f();
---         }
---         ec_ctrlbl_0: ;
---       }
---     }
---   |], [paste|
---     void foo(int i) {
---       if (i==1) goto ec_ctrlbl_1;
---       if (i==2) goto ec_ctrlbl_2;
---       goto ec_ctrlbl_3;
---       ec_ctrlbl_1: ;
---       a(); b();
---       goto ec_ctrlbl_0;
---       ec_ctrlbl_2: ;
---       c(); d();
---       ec_ctrlbl_3: ;
---       e(); f();
---       ec_ctrlbl_0: ;
---       return;
---     }
---   |])
+    L3:
+    GOTO ec_ctrlbl_0
+  |])
   -- end {{{2
   ]
   where

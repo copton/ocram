@@ -87,9 +87,8 @@ instance Show (Node e x) where -- {{{2
     . showChar '\n'
 
   showsPrec _ (Call expr l) =
-      showString "BLOCK #"
-    . (shows . pretty) expr
-    . showString "# GOTO "
+      (shows . pretty) expr
+    . showString "; GOTO "
     . shows l
     . showChar '\n'
 
