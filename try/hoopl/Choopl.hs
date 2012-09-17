@@ -36,6 +36,13 @@ instance NonLocal Node where -- {{{2
   successors (Crit _ x) = [x]
   successors (Return _) = []
 
+instance Show (Node e x) where -- {{{2
+  show (Label l) = show l
+  show (Stmt e)  = show e
+  show (Branch l) = "goto " ++ show l
+  show (Cond e l1 l2) = "if " ++ show e ++ " then " ++ show l1 ++ " else " ++ show l2
+  show (Crit e l)     = "call " ++ show e ++ "; goto " ++ show l
+  show (Return e)     = "return " ++ show e
 
 -- example graph -- {{{1
 
@@ -72,9 +79,9 @@ example = do
 -- Liveness analysis -- {{{1
 -- types {{{2
 type Var = String
-type Live = S.Set Var
+type LiveFact = S.Set Var
 
-liveLattice :: DataflowLattice Live -- {{{2
+liveLattice :: DataflowLattice LiveFact -- {{{2
 liveLattice = DataflowLattice {
     fact_name = "Live variables"
   , fact_bot  = S.empty
@@ -86,32 +93,32 @@ liveLattice = DataflowLattice {
         u = new `S.union` old
         c = changeIf (S.size u > S.size old)
 
-liveness :: BwdTransfer Node Live -- {{{2
+liveness :: BwdTransfer Node LiveFact -- {{{2
 liveness = mkBTransfer3 firstLive middleLive lastLive
   where
-    firstLive :: Node C O -> Live -> Live
+    firstLive :: Node C O -> LiveFact -> LiveFact
     firstLive (Label _)   = id
 
-    middleLive :: Node O O -> Live -> Live
+    middleLive :: Node O O -> LiveFact -> LiveFact
     middleLive (Stmt expr) = addUses expr . delUses expr
 
-    lastLive :: Node O C -> FactBase Live -> Live
+    lastLive :: Node O C -> FactBase LiveFact -> LiveFact
     lastLive (Branch l)     f = fact l f
     lastLive (Cond e tl el) f = addUses e . (S.union <$> fact tl <*> fact el) $ f
     lastLive (Crit e l)     f = addUses e . fact l $ f
     lastLive (Return e)     _ = foldr addUses (fact_bot liveLattice) (maybeToList e)
 
-    fact :: Label -> FactBase Live -> Live
+    fact :: Label -> FactBase LiveFact -> LiveFact
     fact l = fromMaybe S.empty . lookupFact l
 
-    addUses :: CExpr -> Live -> Live
+    addUses :: CExpr -> LiveFact -> LiveFact
     addUses (CAssign _ _ v@(CVar _ _) _)        = S.insert (name v)
     addUses (CAssign _ _ (CBinary _ v1 v2 _) _) = S.insert (name v1) . S.insert (name v2)
     addUses (CAssign _ _ (CConst _) _)          = id
     addUses v@(CVar _ _)                        = S.insert (name v)
     addUses x                                   = error $ "addUses: " ++ (show . pretty) x
 
-    delUses :: CExpr -> Live -> Live
+    delUses :: CExpr -> LiveFact -> LiveFact
     delUses (CAssign _ v _ _) = S.delete (name v)
     delUses x                 = error $ "delUses: " ++ (show . pretty) x
 
@@ -119,9 +126,8 @@ liveness = mkBTransfer3 firstLive middleLive lastLive
     name (CVar (Ident n _ _) _) = n
     name x                      = error $ "name: " ++ (show . pretty) x
 
--- analyzer -- {{{1
-analyze :: (Label, Graph Node C C) -> M (FactBase Live)
-analyze (entry, graph) = do
+runLiveness :: (Label, Graph Node C C) -> M (FactBase LiveFact) -- {{{2
+runLiveness (entry, graph) = do
   (_, facts, _) <- analyzeAndRewriteBwd bwd (JustC [entry]) graph mapEmpty
   return facts 
   where
@@ -130,7 +136,35 @@ analyze (entry, graph) = do
           , bp_transfer = liveness
           , bp_rewrite  = noBwdRewrite
           }
- 
+
+-- Constant Propagation -- {{{1
+type ConstFact = M.Map Var (WithTop CConst) -- {{{2
+
+constLattice :: DataflowLattice ConstFact -- {{{2
+constLattice = DataflowLattice {
+    fact_name = "constant propagation"
+  , fact_bot  = M.empty
+  , fact_join = joinMaps (extenedJoinDomain constFactAdd)
+  }
+  where
+    constFactAdd _ (OldFact old) (NewFact new) =
+      if new == old
+        then (NoChange, PElem new)
+        else (SomeChange, Top)
+
+initFact :: [Var] -> ConstFact
+initFact vars = M.fromList [(v, Top) | v <- vars]
+
+constantPropagation :: FwdRewrite
+
+-- convert -- {{{1
+-- convert :: Graph Node C C -> [Node e x]
+-- convert graph = let
+--   blocks = (map snd $ bodyList graph) :: Block Node e x
+--   x = foldBlockNodesF (:) (head blocks) 
+--   in
+--     []
+
 main :: IO ()
 main = print $ runSimpleUniqueMonad $ runWithFuel fuel (example >>= analyze)
   where fuel = 9999

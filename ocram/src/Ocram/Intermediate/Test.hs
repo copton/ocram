@@ -1274,6 +1274,8 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
   |], [
       "double ec_crit_0"
   ])
+  , -- 04 - empty function {{{2
+  ("void foo(){ }", "void foo() { }", [])
   -- end {{{2
   ]
   where

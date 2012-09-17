@@ -39,6 +39,8 @@ normalize_critical_calls cf items =
 
     tStmt o@(CGoto _ _) = return [o]
 
+    tStmt o@(CLabel _ (CExpr Nothing _) _ _) = return [o]
+
     tStmt x = $abort $ unexp x
 
     keepOrReplace :: [CExpr] -> CStat -> ([CExpr] -> CStat) -> S [CStat] -- {{{2
