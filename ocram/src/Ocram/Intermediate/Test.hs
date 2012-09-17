@@ -1330,16 +1330,16 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
   |], [paste|
     L1:
     a();
-    GOTO ec_ctrlbl_0
+    GOTO L2/ec_ctrlbl_0
 
-    ec_ctrlbl_0:
-    IF !1 THEN ec_ctrlbl_1 ELSE L3
+    L2/ec_ctrlbl_0:
+    IF !1 THEN L4/ec_ctrlbl_1 ELSE L3
 
     L3:
     g();
-    GOTO ec_ctrlbl_0
+    GOTO L2/ec_ctrlbl_0
 
-    ec_ctrlbl_1:
+    L4/ec_ctrlbl_1:
     b();
     RETURN
   |], "L1")
@@ -1357,13 +1357,13 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
   |], [paste|
     L1:
     a();
-    GOTO ec_ctrlbl_0
+    GOTO L2/ec_ctrlbl_0
 
-    ec_ctrlbl_0:
+    L2/ec_ctrlbl_0:
     g();
-    IF 1 THEN ec_ctrlbl_0 ELSE ec_ctrlbl_1
+    IF 1 THEN L2/ec_ctrlbl_0 ELSE L3/ec_ctrlbl_1
 
-    ec_ctrlbl_1:
+    L3/ec_ctrlbl_1:
     b();
     RETURN
   |], "L1")
@@ -1383,19 +1383,19 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
   |], [paste|
     L1:
     a();
-    GOTO ec_ctrlbl_0
+    GOTO L2/ec_ctrlbl_0
 
-    ec_ctrlbl_0:
-    GOTO ec_ctrlbl_0
+    L2/ec_ctrlbl_0:
+    GOTO L2/ec_ctrlbl_0
 
     L3:
     g();
-    GOTO ec_ctrlbl_1
+    GOTO L5/ec_ctrlbl_1
 
     L4:
-    IF 1 THEN ec_ctrlbl_0 ELSE ec_ctrlbl_1
+    IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
  
-    ec_ctrlbl_1:
+    L5/ec_ctrlbl_1:
     b();
     RETURN
   |], "L1")
@@ -1418,33 +1418,33 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     }
   |], [paste|
     L1:
-    IF i == 1 THEN ec_ctrlbl_1 ELSE L2
+    IF i == 1 THEN L5/ec_ctrlbl_1 ELSE L2
 
     L2:
-    IF i == 2 THEN ec_ctrlbl_2 ELSE L3
+    IF i == 2 THEN L6/ec_ctrlbl_2 ELSE L3
  
     L3:
-    IF i == 3 THEN ec_ctrlbl_3 ELSE L4
+    IF i == 3 THEN L7/ec_ctrlbl_3 ELSE L4
 
     L4:
-    GOTO ec_ctrlbl_0
+    GOTO L8/ec_ctrlbl_0
 
-    ec_ctrlbl_1:
+    L5/ec_ctrlbl_1:
     a();
     b();
-    GOTO ec_ctrlbl_0
+    GOTO L8/ec_ctrlbl_0
 
-    ec_ctrlbl_2:
+    L6/ec_ctrlbl_2:
     c();
     d();
-    GOTO ec_ctrlbl_3
+    GOTO L7/ec_ctrlbl_3
 
-    ec_ctrlbl_3:
+    L7/ec_ctrlbl_3:
     e();
     f();
     RETURN
 
-    ec_ctrlbl_0:
+    L8/ec_ctrlbl_0:
     RETURN
   |], "L1")
   , -- 06 - critical call {{{2
@@ -1455,17 +1455,21 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
       if (! 1) goto ec_ctrlbl_1;
       g();
       goto ec_ctrlbl_0;
+      ec_ctrlbl_1: ;
     }
   |], [paste| 
-    ec_ctrlbl_0:
-    IF !1 THEN ec_ctrlbl_1 ELSE L2
+    L1/ec_ctrlbl_0:
+    IF !1 THEN L4/ec_ctrlbl_1 ELSE L2
     
     L2:
     g(); GOTO L3
 
     L3:
-    GOTO ec_ctrlbl_0
-  |], "ec_ctrlbl_0")
+    GOTO L1/ec_ctrlbl_0
+
+    L4/ec_ctrlbl_1:
+    RETURN
+  |], "L1/ec_ctrlbl_0")
   -- end {{{2
   ]
   where
@@ -1489,7 +1493,7 @@ test_ast_2_ir = enumTestGroup "ast_2_ir" $ map runTest [
 
 test_critical_variables :: Test -- {{{1
 test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
-  -- , 01 - single critical variable
+  -- , 01 - single critical variable {{{2
   ([paste|
     int foo() {
       int i = 0;
@@ -1499,7 +1503,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
 
     void g() { }
   |], ["i"], [])
-  , -- 02 - single non-critical variable
+  , -- 02 - single non-critical variable {{{2
   ([paste|
     int foo() {
       for (int i=0; i<23; i++) ;
@@ -1509,6 +1513,43 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
 
     void g() { }
   |], [], ["i"])
+  , -- 03 - single critical variable in loop {{{2
+  ([paste|
+    void foo() {
+      for (int i=0; i<23; i++) {
+        g();
+      }
+    }
+
+    void g() { }
+  |], ["i"], [])
+  , -- 04 - both critical and non-critical variables {{{2
+  ([paste|
+    void foo() {
+      int j;
+      for (int i=0; i<23; i++) {
+        g();
+      }
+      j = 23;
+    }
+
+    void g() { }
+  |], ["i"], ["j"])
+  , -- 05 - kill liveness {{{2
+  ([paste|
+    void foo() {
+      int j = 23;
+      g();
+      j = 42;
+    }
+  |], [], ["j"]) 
+  , -- 06 - don't reuse {{{2
+  ([paste|
+    void foo() {
+      int j = 23;
+      g();
+    }
+  |], [], ["j"])
   -- end {{{2
   ]
   where
@@ -1524,8 +1565,8 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
         outputCriticalVars' = map var_fqn outputCriticalVars
         outputUncriticalVars' = map var_fqn outputUncriticalVars
       in do
-        expectedCriticalVars @=? outputCriticalVars'
-        expecedUncriticalVars @=? outputUncriticalVars'
+        assertEqual "critical variables" expectedCriticalVars outputCriticalVars'
+        assertEqual "uncritical variables" expecedUncriticalVars outputUncriticalVars'
 
     unwrapFd (CFDefExt fd) = fd
     unwrapFd _             = error "unwrapFd"

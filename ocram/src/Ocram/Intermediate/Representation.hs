@@ -48,7 +48,7 @@ data Label -- {{{1
   | ILabel H.Label        -- ^A label required by the IR
 
 instance Show Label where -- {{{2
-  show (TLabel l _) = l
+  show (TLabel tl hl) = show hl ++ "/" ++ tl
   show (ILabel l)   = show l
 
 hLabel :: Label -> H.Label -- {{{2
