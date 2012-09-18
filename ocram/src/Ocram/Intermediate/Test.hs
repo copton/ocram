@@ -1470,6 +1470,52 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L4/ec_ctrlbl_1:
     RETURN
   |], "L1/ec_ctrlbl_0")
+  , -- 07 - trailing critical call {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      g();
+    }
+  |], [paste|
+    L1:
+    g(); GOTO L2
+    
+    L2:
+    RETURN
+  |], "L1")
+  , -- 08 - trailing if {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      ec_ctrlbl_0: ;
+      g();
+      if (1) goto ec_ctrlbl_0;
+    }
+  |], [paste|
+    L1/ec_ctrlbl_0:
+    g(); GOTO L2
+
+    L2:
+    IF 1 THEN L1/ec_ctrlbl_0 ELSE L3
+
+    L3:
+    RETURN
+  |], "L1/ec_ctrlbl_0")
+  , -- 09 - trailing statement {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      g();
+      h();
+    }
+  |], [paste|
+    L1:
+    g(); GOTO L2
+
+    L2:
+    h();
+    RETURN
+  |], "L1")
   -- end {{{2
   ]
   where
@@ -1542,6 +1588,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
       g();
       j = 42;
     }
+    void g() { }
   |], [], ["j"]) 
   , -- 06 - don't reuse {{{2
   ([paste|
@@ -1549,7 +1596,17 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
       int j = 23;
       g();
     }
+    void g() { }
   |], [], ["j"])
+  , -- 07 - take pointer {{{2
+  ([paste|
+    void foo() {
+      int i = 23;
+      int* j = &i;
+      g();
+    }
+    void g() { }
+  |], ["i"], ["j"])
   -- end {{{2
   ]
   where

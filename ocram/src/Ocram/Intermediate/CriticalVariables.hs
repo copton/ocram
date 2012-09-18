@@ -7,24 +7,26 @@ module Ocram.Intermediate.CriticalVariables
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
+import Data.Generics (everything, mkQ)
 import Data.Maybe (fromMaybe)
-import Compiler.Hoopl hiding ((<*>), Label)
+import Compiler.Hoopl hiding ((<*>), Label, Body)
 import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
-import Ocram.Util (abort, (?:), unexp)
+import Ocram.Util (abort, (?:), (?++), unexp)
 import Ocram.Symbols (Symbol, symbol)
 
 import qualified Data.Set as S
 
 critical_variables :: Function -> Function -- {{{1
-critical_variables (Function cvars [] fd body entry) =
+critical_variables (Function allVars [] fd body entry) =
   let
     facts = runLiveness entry body
     criticalLabels = S.fromList $ foldGraphNodes criticalLabel body [] 
     criticalFacts = filter ((`S.member` criticalLabels) . fst) (mapToList facts)
-    criticalVars = S.unions (map snd criticalFacts)
-    nonCriticalVars = [x | x <- cvars, not (S.member (var_fqn x) criticalVars)]
-    truelyCriticalVars = [x | x <- cvars, S.member (var_fqn x) criticalVars]
+    undecidableVars = S.fromList $ undecidable allVars body
+    criticalVars = S.unions $ undecidableVars : map snd criticalFacts
+    nonCriticalVars = [x | x <- allVars, not (S.member (var_fqn x) criticalVars)]
+    truelyCriticalVars = [x | x <- allVars, S.member (var_fqn x) criticalVars]
   in Function truelyCriticalVars nonCriticalVars fd body entry
     
   where
@@ -137,6 +139,48 @@ writeAccess (CCompoundLit _ _ _)             = $abort "TODO"
 writeAccess o@(CStatExpr _ _)                = $abort $ unexp o
 writeAccess o@(CLabAddrExpr _ _)             = $abort $ unexp o
 writeAccess o@(CBuiltinExpr _)               = $abort $ unexp o
+
+undecidable :: [Variable] -> Body -> [Symbol] -- {{{1
+undecidable vars body = addrof
+  where
+    arrays = S.fromList . map symbol . filter isArray . map var_decl $ vars
+    isArray (CDecl _ [(Just (CDeclr _ dds _ _ _), _, _)] _) = any isArrayDecl dds
+    isArray _                                               = False
+    isArrayDecl (CArrDeclr _ _ _) = True
+    isArrayDecl _                 = False
+
+    addrof :: [Symbol]
+    addrof = foldGraphNodes addrof' body []
+
+    addrof' :: Node e x -> [Symbol] -> [Symbol]
+    addrof' (Label _)                                  p = p
+    addrof' (Stmt e)                                   p = addrof'' e ++ p
+    addrof' (Goto _)                                   p = p
+    addrof' (If e _ _)                                 p = addrof'' e ++ p
+    addrof' (Call (FirstNormalForm _ params) _)        p = concatMap addrof'' params ++ p
+    addrof' (Call (SecondNormalForm lhs _ _ params) _) p = concatMap addrof'' (lhs : params) ++ p
+    addrof' (Return e)                                 p = fmap addrof'' e ?++ p
+
+    addrof'' :: CExpr -> [Symbol]
+    addrof'' = everything (++) (mkQ [] pquery)
+
+    pquery :: CExpr -> [Symbol]
+    pquery (CUnary CAdrOp expr _) = pbase expr
+    pquery (CBinary op (CVar lhs _) _ _)
+      | S.member (symbol lhs) arrays
+          && isAddOrSub op        = [symbol lhs]
+      | otherwise = []
+    pquery _                      = []
+
+    isAddOrSub CAddOp = True
+    isAddOrSub CSubOp = True
+    isAddOrSub _      = False
+
+    pbase (CVar iden _)       = [symbol iden]
+    pbase (CMember lhs _ _ _) = pbase lhs
+    pbase (CIndex lhs _ _)    = pbase lhs
+    pbase _                   = []
+
 
 runLiveness :: Label -> Graph Node C C -> FactBase LiveFact -- {{{1
 runLiveness entry graph = runSimpleUniqueMonad $ runWithFuel infiniteFuel result

@@ -21,24 +21,33 @@ import qualified Compiler.Hoopl as H
 build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
 build_basic_blocks cf stmts = runM $ do
   protoblocks <- partition cf stmts
-  let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undefined]
+  let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [nope]
   blocks <- mapM convert blockcont
   let body = foldl splice H.emptyClosedGraph blocks
   return ((pbLabel . $head_s) protoblocks, body)
-  where splice = (H.|*><*|)
+  where
+    splice = (H.|*><*|)
+    nope = error "nope"
 
 partition :: S.Set Symbol -> [CStat] -> M [ProtoBlock] -- {{{2
-partition cf stmts =
-  let
-    annotatedStmts = case reverse $ zip (map splitPoint stmts) stmts of
-      o@((Just SplitAfter, _):_) -> reverse o
-      o                          -> reverse $ (Just SplitAfter, CReturn Nothing undefNode) : o
-  in
-    part annotatedStmts
-
+partition cf stmts = part Nothing $ zip (map splitPoint stmts) stmts
   where
-    part []     = return []
-    part astmts = case head astmts of
+    explicitReturn = (Just SplitAfter, CReturn Nothing undefNode)
+
+    sequel = do
+      ilabel <- newILabel
+      return $ [ProtoBlock ilabel [explicitReturn]]
+
+    part previousStatement [] = case previousStatement of
+      Nothing                          -> sequel 
+      Just (Just SplitAfter, expr) -> 
+        case expr of
+          CIf _ _ Nothing _            -> sequel
+          CExpr (Just (CCall _ _ _)) _ -> sequel
+          _                            -> return []
+      Just (x, y)                      -> $abort $ unexp y ++ ", " ++ show x
+      
+    part _ astmts = case head astmts of
       (_, CLabel name _ _ _) -> do
         ilabel <- labelFor (symbol name)
         buildBlock ilabel (tail astmts)
@@ -49,25 +58,28 @@ partition cf stmts =
     buildBlock ilabel astmts =  -- {{{3
       let
         (prefix, suffix) = span (isNothing . fst) astmts
-        (block, rest) = case ($fromJust_s . fst . $head_s) suffix of
-          SplitBefore -> (prefix, suffix)
-          SplitAfter  -> (prefix ++ [head suffix], tail suffix)
-      in
-        part rest >>= return . (ProtoBlock ilabel block :)
+        (block, rest) = case suffix of
+          [] -> (prefix ++ [explicitReturn], [])
+          (split:rest') -> case ($fromJust_s . fst) split of
+            SplitBefore -> (prefix, suffix)
+            SplitAfter  -> (prefix ++ [split], rest')
+      in do
+        subsequentBlocks <- part (Just (last block)) rest
+        return $ ProtoBlock ilabel block : subsequentBlocks
 
     splitPoint :: CStat -> Maybe SplitPoint -- {{{3
-    splitPoint (CLabel _ _ _ _)      = Just SplitBefore
-    splitPoint (CIf _ _ _ _)         = Just SplitAfter
-    splitPoint (CGoto _ _ )          = Just SplitAfter
-    splitPoint (CExpr (Just expr) _) =
+    splitPoint (CLabel _ _ _ _)         = Just SplitBefore
+    splitPoint (CIf _ _ _ _)            = Just SplitAfter
+    splitPoint (CGoto _ _ )             = Just SplitAfter
+    splitPoint (CExpr (Just expr) _)    =
       case getCallee expr of
-        Nothing -> Nothing
+        Nothing                        -> Nothing
         Just callee ->
           if S.member (symbol callee) cf
-            then Just SplitAfter
-            else Nothing
-    splitPoint (CReturn _ _)        = Just SplitAfter
-    splitPoint o                    = $abort $ unexp o
+                                     then Just SplitAfter
+                                     else Nothing
+    splitPoint (CReturn _ _)            = Just SplitAfter
+    splitPoint o                        = $abort $ unexp o
 
     getCallee (CCall (CVar callee _) _ _)                 = Just callee -- {{{3
     getCallee (CAssign _ _ (CCall (CVar callee _) _ _) _) = Just callee
