@@ -14,6 +14,7 @@ import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
 import Ocram.Util (abort, (?:), (?++), unexp)
 import Ocram.Symbols (Symbol, symbol)
+import Ocram.Query (function_parameters_fd)
 
 import qualified Data.Set as S
 
@@ -24,7 +25,8 @@ critical_variables (Function allVars [] fd body entry) =
     criticalLabels = S.fromList $ foldGraphNodes criticalLabel body [] 
     criticalFacts = filter ((`S.member` criticalLabels) . fst) (mapToList facts)
     undecidableVars = S.fromList $ undecidable allVars body
-    criticalVars = S.unions $ undecidableVars : map snd criticalFacts
+    functionParameters = S.fromList $ map symbol $ function_parameters_fd fd
+    criticalVars = S.unions $ functionParameters : undecidableVars : map snd criticalFacts
     nonCriticalVars = [x | x <- allVars, not (S.member (var_fqn x) criticalVars)]
     truelyCriticalVars = [x | x <- allVars, S.member (var_fqn x) criticalVars]
   in Function truelyCriticalVars nonCriticalVars fd body entry

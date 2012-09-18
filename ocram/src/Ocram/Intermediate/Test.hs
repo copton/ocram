@@ -1609,6 +1609,14 @@ test_critical_variables = enumTestGroup "ast_2_ir" $ map runTest [
     }
     void g() { }
    |], ["a"], ["j"])
+  , -- 09 - function parameters are always critical {{{2
+  ([paste|
+    void foo(int i) {
+      g();
+      i = 23;
+    }
+    void g() { }
+  |], ["i"], [])
   -- end {{{2
   ]
   where
