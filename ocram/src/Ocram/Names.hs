@@ -53,3 +53,15 @@ eframe name = "ec_eframe_" ++ name ++ "_t"
 -- |The name of the variable that holds the e-stack of a thread
 estackVar :: String
 estackVar = "ec_estack"
+
+-- |The name of the thread execution function
+tfunction :: Int -> String
+tfunction tid = "ec_thread_" ++ show tid
+
+-- |The name of a continuation label
+contLbl :: String -> String
+contLbl ilbl = "ec_contlbl_" ++ ilbl
+
+-- |How to mangle labels with function names
+mangleFun :: String -> String -> String
+mangleFun x fun = x ++ "_" ++ fun

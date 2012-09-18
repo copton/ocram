@@ -19,7 +19,7 @@ import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
 
-data Analysis = Analysis {
+data Analysis = Analysis { -- {{{1
     anaNonCritical :: [CExtDecl]
   , anaCritical    :: M.Map Symbol CFunDef
   , anaBlocking    :: M.Map Symbol CDecl
