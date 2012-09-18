@@ -10,7 +10,7 @@ module Ocram.Print.Test
 --import Data.List (intercalate)
 --import Ocram.Debug (ENodeInfo(..))
 --import Language.C.Syntax.AST (annotation)
-import Ocram.Analysis (analysis)
+import Ocram.Analysis (analysis, Analysis(anaCallgraph))
 import Ocram.Print (print_with_log)
 import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TstLocations, TBlockingCalls)
 import Ocram.Text (show_errors)
@@ -753,8 +753,9 @@ runTest (inputCode, expectedCode, expectedBps, expectedBcs) =
   let ast = enrich inputCode in
   case analysis ast of
     Left es -> assertFailure $ show_errors "analysis" es
-    Right (cg, _) ->
+    Right ana ->
       let
+        cg           = anaCallgraph ana
         (ast', _, _) = transformation cg ast
         (resultCode, resultBps, resultBcs) = print_with_log ast'
         resultCode' = BS.unpack resultCode

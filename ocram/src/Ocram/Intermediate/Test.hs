@@ -12,7 +12,6 @@ import Ocram.Intermediate
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
 import Ocram.Intermediate.CollectDeclarations
-import Ocram.Intermediate.CriticalVariables
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.SequencializeBody
@@ -34,7 +33,6 @@ tests = testGroup "Intermediate" [
         , test_normalize_critical_calls
         , test_build_basic_blocks
         , test_critical_variables
-        , test_ast_2_ir
         ]
 
 test_collect_declarations :: Test -- {{{1
@@ -1531,14 +1529,8 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
         expectedIr' @=? showGraph show outputIr
         expectedEntry @=? show outputEntry
 
-test_ast_2_ir :: Test  -- {{{1
-test_ast_2_ir = enumTestGroup "ast_2_ir" $ map runTest [
-  ]
-  where
-    runTest = undefined
-
-test_critical_variables :: Test -- {{{1
-test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
+test_critical_variables :: Test  -- {{{1
+test_critical_variables = enumTestGroup "ast_2_ir" $ map runTest [
   -- , 01 - single critical variable {{{2
   ([paste|
     int foo() {
@@ -1620,15 +1612,14 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
   -- end {{{2
   ]
   where
-    runTest :: (String, [String], [String]) -> Assertion
+    runTest :: (String, [String], [String]) -> Assertion -- {{{2
     runTest (inputCode, expectedCriticalVars, expecedUncriticalVars) =
       let
         (CTranslUnit eds _) = enrich inputCode
         fds = map unwrapFd eds
         cf = M.fromList $ map (\fd -> (symbol fd, fd)) fds
         funs = ast_2_ir cf
-        fun = $fromJust_s $ M.lookup ((symbol . head) fds) funs
-        (Function outputCriticalVars outputUncriticalVars _ _ _) = critical_variables fun
+        (Function outputCriticalVars outputUncriticalVars _ _ _) = $fromJust_s $ M.lookup ((symbol . head) fds) funs
         outputCriticalVars' = map var_fqn outputCriticalVars
         outputUncriticalVars' = map var_fqn outputUncriticalVars
       in do

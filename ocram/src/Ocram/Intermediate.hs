@@ -15,13 +15,14 @@ import Ocram.Intermediate.SequencializeBody
 import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
+import Ocram.Intermediate.CriticalVariables
 import Ocram.Symbols (Symbol)
 import Language.C.Syntax.AST
 
 import qualified Data.Map as M
 
 ast_2_ir :: M.Map Symbol CFunDef -> M.Map Symbol Function -- {{{1
-ast_2_ir cf = M.map convert cf
+ast_2_ir cf = M.map (critical_variables . convert) cf
   where
     cf' = M.keysSet cf
 

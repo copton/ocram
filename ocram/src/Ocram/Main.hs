@@ -1,8 +1,9 @@
 module Ocram.Main (main, tests) where
 
 -- imports {{{1
-import Ocram.Analysis (analysis)
+import Ocram.Analysis (analysis, Analysis(anaCritical))
 import Ocram.Debug (create_debug_info)
+import Ocram.Intermediate (ast_2_ir)
 import Ocram.Options (options)
 import Ocram.IO (parse, generate_pal, dump_ecode, dump_debug_info)
 import Ocram.Print (print_with_log)
@@ -29,15 +30,16 @@ runCompiler argv = do
 
   opt                 <- exitOnError "options"  $ options prg cwd argv 
   (tcode, pcode, ast) <- exitOnError "parser" =<< parse opt
-  (cg, fpr)           <- exitOnError "analysis" $ analysis ast
+  ana                 <- exitOnError "analysis" $ analysis ast
 
-  let (ast', pal, vm) = transformation cg ast
-  let (ecode, lm, bl) = print_with_log ast'
-  let di              = encode_debug_info $ create_debug_info opt ast cg tcode pcode ecode vm lm bl
+  let ir              = ast_2_ir (anaCritical ana)
+--   let (ast', pal, vm) = transformation cg ast
+--   let (ecode, lm, bl) = print_with_log ast'
+--   let di              = encode_debug_info $ create_debug_info opt ast cg tcode pcode ecode vm lm bl
 
-  exitOnError "output" =<< generate_pal opt fpr pal
-  exitOnError "output" =<< dump_ecode opt ecode
-  exitOnError "output" =<< dump_debug_info opt di
+--   exitOnError "output" =<< generate_pal opt fpr pal
+--   exitOnError "output" =<< dump_ecode opt ecode
+--   exitOnError "output" =<< dump_debug_info opt di
 
   return ()
 
