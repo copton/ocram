@@ -30,8 +30,10 @@ build_basic_blocks cf stmts = runM $ do
     nope = error "nope"
 
 partition :: S.Set Symbol -> [CStat] -> M [ProtoBlock] -- {{{2
-partition cf stmts = part Nothing $ zip (map splitPoint stmts) stmts
+partition cf stmts =
+  part unused $ zip (map splitPoint stmts) stmts
   where
+    unused = $abort "empty critical function?"
     explicitReturn = (Just SplitAfter, CReturn Nothing undefNode)
 
     sequel = do
@@ -39,13 +41,12 @@ partition cf stmts = part Nothing $ zip (map splitPoint stmts) stmts
       return $ [ProtoBlock ilabel [explicitReturn]]
 
     part previousStatement [] = case previousStatement of
-      Nothing                          -> sequel 
-      Just (Just SplitAfter, expr) -> 
+      (Just SplitAfter, expr) -> 
         case expr of
           CIf _ _ Nothing _            -> sequel
           CExpr (Just (CCall _ _ _)) _ -> sequel
           _                            -> return []
-      Just (x, y)                      -> $abort $ unexp y ++ ", " ++ show x
+      (x, y)                           -> $abort $ unexp y ++ ", " ++ show x
       
     part _ astmts = case head astmts of
       (_, CLabel name _ _ _) -> do
@@ -64,7 +65,7 @@ partition cf stmts = part Nothing $ zip (map splitPoint stmts) stmts
             SplitBefore -> (prefix, suffix)
             SplitAfter  -> (prefix ++ [split], rest')
       in do
-        subsequentBlocks <- part (Just (last block)) rest
+        subsequentBlocks <- part (last block) rest
         return $ ProtoBlock ilabel block : subsequentBlocks
 
     splitPoint :: CStat -> Maybe SplitPoint -- {{{3
