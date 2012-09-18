@@ -1587,6 +1587,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
       int j = 23;
       g();
       j = 42;
+      j++;
     }
     void g() { }
   |], [], ["j"]) 
