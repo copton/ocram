@@ -1607,6 +1607,15 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
     }
     void g() { }
   |], ["i"], ["j"])
+  , -- 08 - pointer to array element {{{2
+  ([paste|
+    void foo() {
+      int a[23];
+      int* j = a + 1;
+      g();
+    }
+    void g() { }
+   |], ["a"], ["j"])
   -- end {{{2
   ]
   where
