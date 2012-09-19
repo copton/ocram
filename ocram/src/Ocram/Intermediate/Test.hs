@@ -3,6 +3,7 @@ module Ocram.Intermediate.Test (tests) where
 
 -- imports {{{1
 import Compiler.Hoopl (showGraph)
+import Data.Either (partitionEithers)
 import Language.C.Data.Node (getLastTokenPos, posOfNode)
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Data.Position (posRow)
@@ -18,6 +19,7 @@ import Ocram.Intermediate.SequencializeBody
 import Ocram.Symbols (symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Util (fromJust_s)
+import Ocram.Query (return_type_fd)
 import Test.Framework (Test, testGroup)
 import Test.HUnit (assertEqual, Assertion, (@=?))
 
@@ -1280,12 +1282,12 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
     runTest :: (String, String, [String]) -> Assertion -- {{{2
     runTest (inputCode, expectedCode, expectedDecls) =
       let
-        (CTranslUnit eds y) = enrich inputCode
+        (CTranslUnit eds y) = enrich inputCode :: CTranslUnit
         (fd:fds) = map unwrapFd eds
-        cf       = M.fromList $ zip (map symbol fds) fds 
+        sf       = M.fromList $ zip (map symbol fds) (map return_type_fd fds)
         (CFunDef x1 x2 x3 (CCompound x4 bitems x5) x6) = fd
         inputItems = map unwrapB bitems
-        (outputItems, outputVariables) = normalize_critical_calls cf inputItems
+        (outputItems, outputVariables) = normalize_critical_calls sf inputItems
         outputFd = CFunDef x1 x2 x3 (CCompound x4 (map CBlockStmt outputItems) x5) x6
         outputAst = CTranslUnit [CFDefExt outputFd] y
         outputCode = reduce outputAst
@@ -1623,10 +1625,11 @@ test_critical_variables = enumTestGroup "ast_2_ir" $ map runTest [
     runTest :: (String, [String], [String]) -> Assertion -- {{{2
     runTest (inputCode, expectedCriticalVars, expecedUncriticalVars) =
       let
-        (CTranslUnit eds _) = enrich inputCode
-        fds = map unwrapFd eds
+        (CTranslUnit eds _) = enrich inputCode :: CTranslUnit
+        (cds, fds) = partitionEithers $ map unwrap eds
         cf = M.fromList $ map (\fd -> (symbol fd, fd)) fds
-        funs = ast_2_ir cf
+        bf = M.fromList $ map (\cd -> (symbol cd, cd)) cds
+        funs = ast_2_ir bf cf
         (Function outputCriticalVars outputUncriticalVars _ _ _) = $fromJust_s $ M.lookup ((symbol . head) fds) funs
         outputCriticalVars' = map var_fqn outputCriticalVars
         outputUncriticalVars' = map var_fqn outputUncriticalVars
@@ -1634,5 +1637,6 @@ test_critical_variables = enumTestGroup "ast_2_ir" $ map runTest [
         assertEqual "critical variables" expectedCriticalVars outputCriticalVars'
         assertEqual "uncritical variables" expecedUncriticalVars outputUncriticalVars'
 
-    unwrapFd (CFDefExt fd) = fd
-    unwrapFd _             = error "unwrapFd"
+    unwrap (CFDefExt fd) = Right fd
+    unwrap (CDeclExt cd) = Left cd 
+    unwrap _             = error "unwrapFd"

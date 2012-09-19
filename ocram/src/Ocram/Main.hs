@@ -1,7 +1,7 @@
 module Ocram.Main (main, tests) where
 
 -- imports {{{1
-import Ocram.Analysis (analysis, Analysis(anaCritical))
+import Ocram.Analysis (analysis, Analysis(anaCritical, anaBlocking))
 import Ocram.Debug (create_debug_info)
 import Ocram.Intermediate (ast_2_ir)
 import Ocram.Options (options)
@@ -32,7 +32,7 @@ runCompiler argv = do
   (tcode, pcode, ast) <- exitOnError "parser" =<< parse opt
   ana                 <- exitOnError "analysis" $ analysis ast
 
-  let ir              = ast_2_ir (anaCritical ana)
+  let ir              = ast_2_ir (anaBlocking ana) (anaCritical ana)
 --   let (ast', pal, vm) = transformation cg ast
 --   let (ecode, lm, bl) = print_with_log ast'
 --   let di              = encode_debug_info $ create_debug_info opt ast cg tcode pcode ecode vm lm bl

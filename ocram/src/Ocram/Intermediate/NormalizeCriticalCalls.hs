@@ -16,13 +16,12 @@ import Ocram.Intermediate.Representation (Variable(..))
 import Ocram.Names (varCrit)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Util (fromJust_s, abort, unexp)
-import Ocram.Query (return_type_fd)
 import Prelude hiding (init)
 
 import qualified Data.Map as M
 
-normalize_critical_calls :: M.Map Symbol CFunDef -> [CStat] -> ([CStat], [Variable]) -- {{{1
-normalize_critical_calls cf items =
+normalize_critical_calls :: M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -> [CStat] -> ([CStat], [Variable]) -- {{{1
+normalize_critical_calls sf items =
   let (items', Ctx vars _ _) = runState (mapM tStmt items) (Ctx [] 0 [])
   in (concat items', vars)
   where
@@ -66,7 +65,7 @@ normalize_critical_calls cf items =
       
     tExpr :: CExpr -> S CExpr -- {{{2
     tExpr call@(CCall (CVar callee _) _ _)
-      | M.member (symbol callee) cf = do
+      | M.member (symbol callee) sf = do
           Ctx vars count inits <- get
           let
             decl       = newDecl callee count
@@ -85,8 +84,7 @@ normalize_critical_calls cf items =
     newDecl callee count =
       CDecl [CTypeSpec returnType] [(Just declarator, Nothing, Nothing)] undefNode
       where
-        fd                = $fromJust_s $ M.lookup (symbol callee) cf
-        (returnType, dds) = return_type_fd fd
+        (returnType, dds) = $fromJust_s $ M.lookup (symbol callee) sf
         tmpVar            = internalIdent (varCrit count)
         declarator        = CDeclr (Just tmpVar) dds Nothing [] undefNode
 
