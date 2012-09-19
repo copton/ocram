@@ -7,7 +7,7 @@ import tempfile
 
 def getline(prefix):
     line = sys.stdin.readline()
-    assert line.startswith(prefix)
+    assert line.startswith(prefix), "prefix not found"
     return line[len(prefix)+2:-2].replace(r'\n', '\n')
 
 def linetofile(prefix):
@@ -20,11 +20,16 @@ def hline():
     sys.stdout.write("-" * 20 + "\n")
 
 while True:
-    expected = linetofile("expected:")
-    butgot   = linetofile(" but got:")
+    try:
+        expected = linetofile("expected:")
+        butgot   = linetofile(" but got:")
 
-    hline()
-    proc = subprocess.Popen(["wdiff", expected.name, butgot.name])
-    proc.wait()
-    sys.stdout.write("\n")
-    hline()
+        hline()
+        proc = subprocess.Popen(["wdiff", expected.name, butgot.name])
+        proc.wait()
+        sys.stdout.write("\n")
+        hline()
+    except AssertionError, e:
+        hline()
+        print e
+        hline()
