@@ -1668,6 +1668,13 @@ test_critical_variables = enumTestGroup "ast_2_ir" $ map runTest [
     }
     void g() { }
   |], ["i"], [])
+  , -- 10 - second normal form {{{2
+  ([paste|
+    void foo() {
+      int j = g(23);
+    }
+    int g(int i) { return 23; }
+  |], [], ["j"])
   -- end {{{2
   ]
   where
