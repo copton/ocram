@@ -74,7 +74,7 @@ inlineCriticalFunction cg bf cf startFunction inlinedFunction =
       | otherwise = case expr of
           Nothing    -> append $ CGotoPtr (tstackAccess callChain (Just contVar) un) un
           Just expr' -> append' $ reverse [
-              CExpr (Just (CAssign CAssignOp (tstackAccess callChain (Just resVar) un) expr' un)) un
+              CExpr (Just (CAssign CAssignOp (tstackAccess callChain (Just resVar) un) (rewriteLocalVariableAccess expr') un)) un
             , CGotoPtr (tstackAccess callChain (Just contVar) un) un
             ]
 

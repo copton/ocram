@@ -346,23 +346,36 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       return;
     }
   |])
---   , -- 03 - critical function {{{2
---   ([paste| 
---     __attribute__((tc_blocking)) void block(int i);
---     int crit(int k) { block(k); return k;}
---     __attribute__((tc_run_thread)) void start() {
---       crit(23);
---     }
---   |], [paste|
---     void ec_thread_1(void* ec_cont) {
---       if (ec_cont) goto *ec_cont;
+  , -- 03 - critical function {{{2
+  ([paste| 
+    __attribute__((tc_blocking)) void block(int i);
+    int crit(int k) { block(k); return k;}
+    __attribute__((tc_run_thread)) void start() {
+      crit(23);
+    }
+  |], [paste|
+    void ec_thread_1(void* ec_cont) {
+      if (ec_cont) goto *ec_cont;
 
---       ec_contlbl_L1_start: ;
---       ec_tstack_start.ec_frames.crit.k = 23;
---       ec_tstack_start.ec_frames.crit.ec_cont = &&ec_contlbl_L2_
---       
---     }
---   |])
+      ec_contlbl_L1_start: ;
+      ec_tstack_start.ec_frames.crit.k = 23;
+      ec_tstack_start.ec_frames.crit.ec_cont = &&ec_contlbl_L2_start;
+      goto ec_contlbl_L1_crit;
+
+      ec_contlbl_L2_start: ;
+      return;
+
+      ec_contlbl_L1_crit: ;
+      ec_tstack_start.ec_frames.crit.ec_frames.block.i = ec_tstack_start.ec_frames.crit.k;
+      ec_tstack_start.ec_frames.crit.ec_frames.block.ec_cont = &&ec_contlbl_L2_crit;
+      block(&ec_tstack_start.ec_frames.crit.ec_frames.block);
+      return;
+
+      ec_contlbl_L2_crit: ;
+      ec_tstack_start.ec_frames.crit.ec_result = ec_tstack_start.ec_frames.crit.k;
+      goto *ec_tstack_start.ec_frames.crit.ec_cont;
+    }
+  |])
   -- end {{{2
   ]
   where
