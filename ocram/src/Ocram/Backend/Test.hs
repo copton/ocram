@@ -376,6 +376,97 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       goto *ec_tstack_start.ec_frames.crit.ec_cont;
     }
   |])
+  , -- 04 - two threads {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      block(23);
+    }
+    __attribute__((tc_run_thread)) void run() {
+      block(42);
+    }
+  |], [paste|
+    void ec_thread_1(void* ec_cont) {
+      if (ec_cont) goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+      ec_tstack_start.ec_frames.block.i = 23;
+      ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+      block(&ec_tstack_start.ec_frames.block);
+      return;
+
+      ec_contlbl_L2_start: ;
+      return;
+    } 
+
+    void ec_thread_2(void* ec_cont) {
+      if (ec_cont) goto *ec_cont;
+
+      ec_contlbl_L1_run: ;
+      ec_tstack_run.ec_frames.block.i = 42;
+      ec_tstack_run.ec_frames.block.ec_cont = &&ec_contlbl_L2_run;
+      block(&ec_tstack_run.ec_frames.block);
+      return;
+
+      ec_contlbl_L2_run: ;
+      return;
+    } 
+  |])
+  , -- 05 - reentrance {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    int crit(int k) { block(k); return k; }
+    __attribute__((tc_run_thread)) void start() {
+      crit(23);
+    }
+    __attribute__((tc_run_thread)) void run() {
+      crit(42);
+    }
+  |], [paste|
+    void ec_thread_1(void* ec_cont) {
+      if (ec_cont) goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+      ec_tstack_start.ec_frames.crit.k = 23;
+      ec_tstack_start.ec_frames.crit.ec_cont = &&ec_contlbl_L2_start;
+      goto ec_contlbl_L1_crit;
+
+      ec_contlbl_L2_start: ;
+      return;
+
+      ec_contlbl_L1_crit: ;
+      ec_tstack_start.ec_frames.crit.ec_frames.block.i = ec_tstack_start.ec_frames.crit.k;
+      ec_tstack_start.ec_frames.crit.ec_frames.block.ec_cont = &&ec_contlbl_L2_crit;
+      block(&ec_tstack_start.ec_frames.crit.ec_frames.block);
+      return;
+
+      ec_contlbl_L2_crit: ;
+      ec_tstack_start.ec_frames.crit.ec_result = ec_tstack_start.ec_frames.crit.k;
+      goto *ec_tstack_start.ec_frames.crit.ec_cont;
+    }
+
+    void ec_thread_2(void* ec_cont) {
+      if (ec_cont) goto *ec_cont;
+
+      ec_contlbl_L1_run: ;
+      ec_tstack_run.ec_frames.crit.k = 42;
+      ec_tstack_run.ec_frames.crit.ec_cont = &&ec_contlbl_L2_run;
+      goto ec_contlbl_L1_crit;
+
+      ec_contlbl_L2_run: ;
+      return;
+
+      ec_contlbl_L1_crit: ;
+      ec_tstack_run.ec_frames.crit.ec_frames.block.i = ec_tstack_run.ec_frames.crit.k;
+      ec_tstack_run.ec_frames.crit.ec_frames.block.ec_cont = &&ec_contlbl_L2_crit;
+      block(&ec_tstack_run.ec_frames.crit.ec_frames.block);
+      return;
+
+      ec_contlbl_L2_crit: ;
+      ec_tstack_run.ec_frames.crit.ec_result = ec_tstack_run.ec_frames.crit.k;
+      goto *ec_tstack_run.ec_frames.crit.ec_cont;
+    }
+  |])
   -- end {{{2
   ]
   where
