@@ -50,7 +50,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
   ([paste| 
     __attribute__((tc_blocking)) void block(int i);
     __attribute__((tc_run_thread)) void start() {
-      block();
+      block(23);
     }
   |], [paste|
     typedef struct {
@@ -300,7 +300,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
 
 test_thread_execution_functions :: Test -- {{{1
 test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ map runTest [
-  -- , 01 - minimal case
+  -- , 01 - minimal case {{{2
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -318,6 +318,34 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       return;
     }
   |])
+  , -- 02 - blocking function with parameter and return value {{{2
+  ([paste| 
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      int j = block(23);
+    }
+  |], [paste|
+    typedef struct {
+      int j;
+    } ec_eframe_start_t;
+
+    void ec_thread_1(void* ec_cont) {
+      union {
+          ec_eframe_start_t start;
+      } ec_estack;
+
+      if (ec_cont) goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+      ec_tstack_start.ec_frames.block.i = 23;
+      ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_block;
+      block(&ec_tstack_start.ec_frames.block);
+      return;
+      ec_contlbl_L2_start: ;
+      ec_estack.start.j = ec_tstack_start.ec_frames.block.ec_result;
+      return;
+    }
+  |])
   -- end {{{2
   ]
   where
@@ -329,9 +357,9 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
           Left es -> error $ show_errors "test" es 
           Right x -> x
         ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
-        (_, stacks) = create_estacks (anaCallgraph ana) ir
-        funs = thread_execution_functions (anaCallgraph ana) ir stacks
-        outputCode = reduce (CTranslUnit (map CFDefExt funs) undefNode) :: String
+        (frames, stacks) = create_estacks (anaCallgraph ana) ir
+        funs = thread_execution_functions (anaCallgraph ana) (anaBlocking ana) ir stacks
+        outputCode = reduce (CTranslUnit ((map CDeclExt frames) ++ (map CFDefExt funs)) undefNode) :: String
         expectedCode' = (reduce (enrich expectedCode :: CTranslUnit) :: String)
       in
         expectedCode' @=? outputCode

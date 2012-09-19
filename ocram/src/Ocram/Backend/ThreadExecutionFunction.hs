@@ -13,21 +13,21 @@ import Language.C.Data.Ident (Ident, internalIdent)
 import Language.C.Data.Node (undefNode, NodeInfo)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, call_order, start_functions, call_chain, is_blocking)
-import Ocram.Query (function_parameters_fd)
+import Ocram.Query (function_parameters_fd, function_parameters_cd)
 import Ocram.Intermediate
 import Ocram.Names (mangleFun, contLbl, tfunction, contVar, frameUnion, tstackVar, resVar, estackVar)
 import Ocram.Symbols (Symbol, symbol)
-import Ocram.Util ((?:), fromJust_s, abort)
+import Ocram.Util ((?:), fromJust_s, abort, lookup_s)
 
 import qualified Data.Map as M
 
-thread_execution_functions :: CallGraph -> M.Map Symbol Function -> M.Map Symbol (Maybe CDecl) -> [CFunDef] -- {{{1
-thread_execution_functions cg cf estacks = map tef $ zip [1..] (start_functions cg)
+thread_execution_functions :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> M.Map Symbol (Maybe CDecl) -> [CFunDef] -- {{{1
+thread_execution_functions cg bf cf estacks = map tef $ zip [1..] (start_functions cg)
   where
-    tef (tid, sf) = threadExecutionFunction cg cf ($fromJust_s (M.lookup sf estacks)) tid sf
+    tef (tid, sf) = threadExecutionFunction cg bf cf ($lookup_s estacks sf) tid sf
 
-threadExecutionFunction :: CallGraph -> M.Map Symbol Function -> Maybe CDecl -> Int -> Symbol -> CFunDef -- {{{2
-threadExecutionFunction cg cf estack tid name = fun
+threadExecutionFunction :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> Maybe CDecl -> Int -> Symbol -> CFunDef -- {{{2
+threadExecutionFunction cg bf cf estack tid name = fun
   where
     fun =
       CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ii (tfunction tid))) [fdeclr] Nothing [] un) [] body un
@@ -41,20 +41,22 @@ threadExecutionFunction cg cf estack tid name = fun
     intro =
       CBlockStmt (CIf (CVar (ii contVar) un) (CGotoPtr (CVar (ii contVar) un) un) Nothing un)
 
-    functions = map CBlockStmt . concatMap (inlineCriticalFunction cg cf name) . mapMaybe (flip M.lookup cf) . $fromJust_s . call_order cg $ name
+    functions = map CBlockStmt . concatMap (inlineCriticalFunction cg bf cf name) . mapMaybe (flip M.lookup cf) . $fromJust_s . call_order cg $ name
 
-inlineCriticalFunction :: CallGraph -> M.Map Symbol Function -> Symbol -> Function -> [CStat] -- {{{2
-inlineCriticalFunction cg cf startFunction inlinedFunction = concatMap convertBlock (postorder_dfs (mkLast (Goto (fun_entry inlinedFunction)) |*><*| fun_body inlinedFunction))
+inlineCriticalFunction :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> Symbol -> Function -> [CStat] -- {{{2
+inlineCriticalFunction cg bf cf startFunction inlinedFunction =
+  let graph = mkLast (Goto (fun_entry inlinedFunction)) |*><*| fun_body inlinedFunction in
+  reverse $ fst $ foldl convertBlock ([],[]) (postorder_dfs graph)
   where
     -- stuff {{{3
     name = fun_name inlinedFunction
     callChain = $fromJust_s $ call_chain cg startFunction name
 
-    convertBlock :: Block Node C C -> [CStat] -- {{{3
-    convertBlock block = reverse $ fst $ foldBlockNodesF convertNode block ([], [])
+    convertBlock :: ([CStat], [CStat]) -> Block Node C C -> ([CStat], [CStat]) -- {{{3
+    convertBlock ctx block = foldBlockNodesF convertNode block ctx
 
     append x = append' [x]
-    append' xs (xs', carry) = (xs ++ carry ++ xs', [])
+    append' xs (ys, carry) = (carry ++ xs ++ ys, [])
 
     convertNode :: Node e x -> ([CStat], [CStat]) -> ([CStat], [CStat]) -- {{{3
     convertNode (Label lbl)     = append $ CLabel (lblIdent lbl name) (CExpr Nothing un) [] un
@@ -82,15 +84,15 @@ inlineCriticalFunction cg cf startFunction inlinedFunction = concatMap convertBl
       where
         callChain' = callChain ++ [callee]
         blocking   = is_blocking cg callee
-        fun        = $fromJust_s $ M.lookup callee cf
+        sf         = M.map function_parameters_cd bf `M.union` M.map (function_parameters_fd . fun_def) cf
 
-        parameters = zipWith paramAssign params $ function_parameters_fd (fun_def fun)
+        parameters = zipWith paramAssign params ($lookup_s sf callee)
 
         continuation = assign (tstackAccess callChain' (Just contVar) un) (CLabAddrExpr (lblIdent lbl callee) un)
 
         callExp
           | blocking  = CExpr (Just (CCall (CVar (ii callee) un) [CUnary CAdrOp (tstackAccess callChain' Nothing un) un] un)) un 
-          | otherwise = CGoto (lblIdent (fun_entry fun) callee) un
+          | otherwise = CGoto (lblIdent (fun_entry ($lookup_s cf callee)) callee) un
 
         returnExp
           | blocking  = Just $ CReturn Nothing un
