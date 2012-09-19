@@ -1276,6 +1276,28 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
   ])
   , -- 04 - empty function {{{2
   ("void foo(){ }", "void foo() { }", [])
+  , -- 05 - first normal form {{{2
+  ([paste|
+    void foo() {
+      g();
+    }
+    void g() { }
+  |], [paste|
+    void foo() {
+      g();
+    }
+  |], [])  
+  , -- 06 - second normal form {{{2
+  ([paste|
+    void foo() {
+      i = g();
+    }
+    void g() { }
+  |], [paste|
+    void foo() {
+      i = g();
+    }
+  |], [])  
   -- end {{{2
   ]
   where
@@ -1516,6 +1538,33 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     h();
     RETURN
   |], "L1")
+  , -- 10 - first normal form {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      g();
+    }
+  |], [paste|
+    L1:
+    g(); GOTO L2
+
+    L2:
+    RETURN
+  |], "L1")
+  , -- 11 - second normal form {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      i = g();
+    }
+  |], [paste|
+    L1:
+    i = g(); GOTO L2
+
+    L2:
+    RETURN
+  |], "L1")
+
   -- end {{{2
   ]
   where

@@ -21,13 +21,13 @@ import qualified Compiler.Hoopl as H
 build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
 build_basic_blocks cf stmts = runM $ do
   protoblocks <- partition cf stmts
-  let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [nope]
+  let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undef]
   blocks <- mapM convert blockcont
   let body = foldl splice H.emptyClosedGraph blocks
   return ((pbLabel . $head_s) protoblocks, body)
   where
     splice = (H.|*><*|)
-    nope = error "nope"
+    undef = $abort "undefined"
 
 partition :: S.Set Symbol -> [CStat] -> M [ProtoBlock] -- {{{2
 partition cf stmts =
@@ -43,10 +43,11 @@ partition cf stmts =
     part previousStatement [] = case previousStatement of
       (Just SplitAfter, expr) -> 
         case expr of
-          CIf _ _ Nothing _            -> sequel
-          CExpr (Just (CCall _ _ _)) _ -> sequel
-          _                            -> return []
-      (x, y)                           -> $abort $ unexp y ++ ", " ++ show x
+          CIf _ _ Nothing _                -> sequel
+          CExpr (Just (CCall _ _ _)) _     -> sequel
+          CExpr (Just (CAssign _ _ _ _)) _ -> sequel
+          _                                -> return []
+      (x, y)                               -> $abort $ unexp y ++ ", " ++ show x
       
     part _ astmts = case head astmts of
       (_, CLabel name _ _ _) -> do
