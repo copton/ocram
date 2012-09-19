@@ -311,7 +311,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       if (ec_cont) goto *ec_cont;
 
       ec_contlbl_L1_start: ;
-      ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_block;
+      ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
       block(&ec_tstack_start.ec_frames.block);
       return;
       ec_contlbl_L2_start: ;
@@ -338,7 +338,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
 
       ec_contlbl_L1_start: ;
       ec_tstack_start.ec_frames.block.i = 23;
-      ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_block;
+      ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
       block(&ec_tstack_start.ec_frames.block);
       return;
       ec_contlbl_L2_start: ;
@@ -346,6 +346,23 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       return;
     }
   |])
+--   , -- 03 - critical function {{{2
+--   ([paste| 
+--     __attribute__((tc_blocking)) void block(int i);
+--     int crit(int k) { block(k); return k;}
+--     __attribute__((tc_run_thread)) void start() {
+--       crit(23);
+--     }
+--   |], [paste|
+--     void ec_thread_1(void* ec_cont) {
+--       if (ec_cont) goto *ec_cont;
+
+--       ec_contlbl_L1_start: ;
+--       ec_tstack_start.ec_frames.crit.k = 23;
+--       ec_tstack_start.ec_frames.crit.ec_cont = &&ec_contlbl_L2_
+--       
+--     }
+--   |])
   -- end {{{2
   ]
   where

@@ -6,7 +6,7 @@ module Ocram.Backend.ThreadExecutionFunction
 ) where
 
 -- imports {{{1
-import Compiler.Hoopl (postorder_dfs, foldBlockNodesF, Block(..), C, (|*><*|), mkLast)
+import Compiler.Hoopl (postorder_dfs, foldBlockNodesF, (|*><*|), mkLast)
 import Data.Generics (everywhere, mkT)
 import Data.Maybe (mapMaybe, maybeToList)
 import Language.C.Data.Ident (Ident, internalIdent)
@@ -52,7 +52,6 @@ inlineCriticalFunction cg bf cf startFunction inlinedFunction =
     name = fun_name inlinedFunction
     callChain = $fromJust_s $ call_chain cg startFunction name
 
-    convertBlock :: ([CStat], [CStat]) -> Block Node C C -> ([CStat], [CStat]) -- {{{3
     convertBlock ctx block = foldBlockNodesF convertNode block ctx
 
     append x = append' [x]
@@ -88,7 +87,7 @@ inlineCriticalFunction cg bf cf startFunction inlinedFunction =
 
         parameters = zipWith paramAssign params ($lookup_s sf callee)
 
-        continuation = assign (tstackAccess callChain' (Just contVar) un) (CLabAddrExpr (lblIdent lbl callee) un)
+        continuation = assign (tstackAccess callChain' (Just contVar) un) (CLabAddrExpr (lblIdent lbl name) un)
 
         callExp
           | blocking  = CExpr (Just (CCall (CVar (ii callee) un) [CUnary CAdrOp (tstackAccess callChain' Nothing un) un] un)) un 
