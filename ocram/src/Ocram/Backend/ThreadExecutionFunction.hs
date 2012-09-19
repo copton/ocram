@@ -51,31 +51,34 @@ inlineCriticalFunction cg cf startFunction inlinedFunction = concatMap convertBl
     callChain = $fromJust_s $ call_chain cg startFunction name
 
     convertBlock :: Block Node C C -> [CStat] -- {{{3
-    convertBlock block = reverse $ foldBlockNodesF convertNode block []
+    convertBlock block = reverse $ fst $ foldBlockNodesF convertNode block ([], [])
 
-    convertNode :: Node e x -> [CStat] -> [CStat] -- {{{3
-    convertNode (Label lbl)     ss = CLabel (lblIdent lbl name) (CExpr Nothing un) [] un : ss
-    convertNode (Stmt expr)     ss = CExpr (Just (rewriteLocalVariableAccess expr)) un : ss
-    convertNode (Goto lbl)      ss = CGoto (lblIdent lbl name) un : ss
-    convertNode (If cond tl el) ss = CIf (rewriteLocalVariableAccess cond) (CGoto (lblIdent tl name) un) (Just (CGoto (lblIdent el name) un)) un : ss
+    append x = append' [x]
+    append' xs (xs', carry) = (xs ++ carry ++ xs', [])
 
-    convertNode (Call (FirstNormalForm callee params) lbl) ss = 
-      criticalCallSequence callee (map rewriteLocalVariableAccess params) lbl Nothing ++ ss
+    convertNode :: Node e x -> ([CStat], [CStat]) -> ([CStat], [CStat]) -- {{{3
+    convertNode (Label lbl)     = append $ CLabel (lblIdent lbl name) (CExpr Nothing un) [] un
+    convertNode (Stmt expr)     = append $ CExpr (Just (rewriteLocalVariableAccess expr)) un
+    convertNode (Goto lbl)      = append $ CGoto (lblIdent lbl name) un
+    convertNode (If cond tl el) = append $ CIf (rewriteLocalVariableAccess cond) (CGoto (lblIdent tl name) un) (Just (CGoto (lblIdent el name) un)) un
 
-    convertNode (Call (SecondNormalForm lhs op callee params) lbl) ss =
-      criticalCallSequence callee (map rewriteLocalVariableAccess params) lbl (Just (rewriteLocalVariableAccess lhs, op)) ++ ss
+    convertNode (Call (FirstNormalForm callee params) lbl) =
+      criticalCallSequence callee (map rewriteLocalVariableAccess params) lbl Nothing
 
-    convertNode (Return expr) ss
-      | startFunction == fun_name inlinedFunction = CReturn Nothing un : ss
+    convertNode (Call (SecondNormalForm lhs op callee params) lbl) =
+      criticalCallSequence callee (map rewriteLocalVariableAccess params) lbl (Just (rewriteLocalVariableAccess lhs, op))
+
+    convertNode (Return expr)
+      | startFunction == fun_name inlinedFunction = append $ CReturn Nothing un
       | otherwise = case expr of
-          Nothing    -> CGotoPtr (tstackAccess callChain (Just contVar) un) un : ss
-          Just expr' -> 
+          Nothing    -> append $ CGotoPtr (tstackAccess callChain (Just contVar) un) un
+          Just expr' -> append' $ reverse [
               CExpr (Just (CAssign CAssignOp (tstackAccess callChain (Just resVar) un) expr' un)) un
-            : CGotoPtr (tstackAccess callChain (Just contVar) un) un
-            : ss 
+            , CGotoPtr (tstackAccess callChain (Just contVar) un) un
+            ]
 
-    criticalCallSequence callee params lbl nf2 = -- {{{3
-      parameters ++ continuation : callExp : returnExp ?: label : resultExpr ?: []
+    criticalCallSequence callee params lbl nf2 (ss, carry) = -- {{{3
+      (carry ++ reverse (parameters ++ continuation : callExp : returnExp ?: []) ++ ss, resultExpr)
       where
         callChain' = callChain ++ [callee]
         blocking   = is_blocking cg callee
@@ -93,12 +96,10 @@ inlineCriticalFunction cg cf startFunction inlinedFunction = concatMap convertBl
           | blocking  = Just $ CReturn Nothing un
           | otherwise = Nothing
 
-        label = CLabel (lblIdent lbl callee) (CExpr Nothing un) [] un
-
         resultExpr = case nf2 of
-          Nothing -> Nothing
-          Just (lhs, op) -> Just $
-            CExpr (Just (CAssign op lhs (tstackAccess callChain' (Just resVar) un) un)) un
+          Nothing -> []
+          Just (lhs, op) -> 
+            [CExpr (Just (CAssign op lhs (tstackAccess callChain' (Just resVar) un) un)) un]
 
         paramAssign e decl = assign (tstackAccess callChain' (Just (symbol decl)) un) e 
         assign lhs rhs = CExpr (Just (CAssign CAssignOp lhs rhs un)) un
@@ -108,12 +109,12 @@ inlineCriticalFunction cg cf startFunction inlinedFunction = concatMap convertBl
       where
         rewrite :: CExpr -> CExpr
         rewrite o@(CVar iden _)
-          | test fun_cVars  = tstackAccess callChain (Just name) un
-          | test fun_ncVars = estackAccess startFunction name
+          | test fun_cVars  = tstackAccess callChain (Just vname) un
+          | test fun_ncVars = estackAccess startFunction vname
           | otherwise       = o
           where
-            name = symbol iden
-            test f = name `elem` map var_fqn (f inlinedFunction)
+            vname = symbol iden
+            test f = vname `elem` map var_fqn (f inlinedFunction)
         rewrite o = o
 
 lblIdent :: Label -> Symbol -> Ident -- {{{2
@@ -122,12 +123,12 @@ lblIdent lbl fname = ii $ case lbl of
   (ILabel l)   -> mangleFun (contLbl (show l)) fname
 
 tstackAccess :: [Symbol] -> Maybe Symbol -> NodeInfo -> CExpr -- {{{2
-tstackAccess (sf:chain) variable ni = foldr create base members
+tstackAccess (sf:chain) variable ni = foldl create base members
   where
     variables = maybeToList variable
     base = CVar (ii (tstackVar sf)) ni
     members = foldr (\x l -> frameUnion : x : l) [] chain ++ variables
-    create member inner = CMember inner (ii  member) False ni
+    create inner member = CMember inner (ii  member) False ni
 tstackAccess [] _ _ = $abort "called tstackAccess with empty call chain"
 
 estackAccess :: Symbol -> Symbol -> CExpr -- {{{2

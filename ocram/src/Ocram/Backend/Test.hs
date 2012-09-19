@@ -6,7 +6,7 @@ import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Language.C.Pretty (pretty)
 import Ocram.Analysis (analysis, Analysis(..))
-import Ocram.Backend.BlockingFunctionDeclaration
+--import Ocram.Backend.BlockingFunctionDeclaration
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
 import Ocram.Backend.TStack
@@ -22,6 +22,7 @@ tests :: Test -- {{{1
 tests = testGroup "Backend" [
     test_create_tstacks
   , test_create_estacks
+  , test_thread_execution_functions
   ]
 
 test_create_tstacks :: Test  -- {{{1
@@ -176,7 +177,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
         ana = case analysis ast of
           Left es -> error $ show_errors "test" es 
           Right x -> x
-        ir = ast_2_ir (anaCritical ana)
+        ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
         (frames, stacks) = create_tstacks (anaCallgraph ana) (anaBlocking ana) ir
         outputDecls = reduce (CTranslUnit (map CDeclExt (frames ++ stacks)) undefNode) :: String
         expectedDecls' = (reduce (enrich expectedDecls :: CTranslUnit)) :: String
@@ -287,7 +288,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
         ana = case analysis ast of
           Left es -> error $ show_errors "test" es 
           Right x -> x
-        ir = ast_2_ir (anaCritical ana)
+        ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
         (frames, stacks) = create_estacks (anaCallgraph ana) ir        
         expectedFrames' = reduce (enrich expectedFrames :: CTranslUnit) :: String
         outputFrames = reduce (CTranslUnit (map CDeclExt frames) undefNode) :: String
@@ -297,3 +298,43 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
         assertEqual "stacks" expectedStacks outputStacks
         
 
+test_thread_execution_functions :: Test -- {{{1
+test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ map runTest [
+  -- , 01 - minimal case
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      block();
+    }
+  |], [paste|
+    void ec_thread_1(void* ec_cont) {
+      if (ec_cont) goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+      ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_block;
+      block(&ec_tstack_start.ec_frames.block);
+      return;
+      ec_contlbl_L2_start: ;
+      return;
+    }
+  |])
+  -- end {{{2
+  ]
+  where
+    runTest :: (String, String) -> Assertion -- {{{2
+    runTest (inputCode, expectedCode) =
+      let
+        ast = enrich inputCode :: CTranslUnit
+        ana = case analysis ast of
+          Left es -> error $ show_errors "test" es 
+          Right x -> x
+        ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
+        (_, stacks) = create_estacks (anaCallgraph ana) ir
+        funs = thread_execution_functions (anaCallgraph ana) ir stacks
+        outputCode = reduce (CTranslUnit (map CFDefExt funs) undefNode) :: String
+        expectedCode' = (reduce (enrich expectedCode :: CTranslUnit) :: String)
+      in
+        expectedCode' @=? outputCode
+  
+
+    
