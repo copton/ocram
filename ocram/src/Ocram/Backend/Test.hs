@@ -6,10 +6,10 @@ import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Language.C.Pretty (pretty)
 import Ocram.Analysis (analysis, Analysis(..))
---import Ocram.Backend.BlockingFunctionDeclaration
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
 import Ocram.Backend.TStack
+import Ocram.Backend
 import Ocram.Intermediate (ast_2_ir)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, paste)
 import Ocram.Text (show_errors)
@@ -23,6 +23,7 @@ tests = testGroup "Backend" [
     test_create_tstacks
   , test_create_estacks
   , test_thread_execution_functions
+  , test_tcode_2_ecode
   ]
 
 test_create_tstacks :: Test  -- {{{1
@@ -485,5 +486,259 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       in
         expectedCode' @=? outputCode
   
+test_tcode_2_ecode :: Test -- {{{1
+test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
+  -- , 01 - setup {{{2
+	([paste|
+		__attribute__((tc_blocking)) void block(int i);
+		__attribute__((tc_run_thread)) void start() { 
+			block(23);
+		}
+	|],[paste|
+		typedef struct {
+				void* ec_cont;
+				int i;
+		} ec_tframe_block_t;
 
+		typedef struct {
+				union {
+						ec_tframe_block_t block;
+				} ec_frames;
+		} ec_tframe_start_t;
+		
+		ec_tframe_start_t ec_tstack_start;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+				ec_tstack_start.ec_frames.block.i = 23;
+				ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+				block(&ec_tstack_start.ec_frames.block);
+				return;
+			ec_contlbl_L2_start: ;
+				return;	
+		}
+	|])
+  -- 02 - setup - returning a pointer {{{2
+	, ([paste|
+		__attribute__((tc_blocking)) int* block(int i);
+		__attribute__((tc_run_thread)) void start() { 
+			block(23);
+		}
+	|],[paste|
+		typedef struct {
+				void* ec_cont;
+        int* ec_result;
+				int i;
+		} ec_tframe_block_t;
+
+		typedef struct {
+				union {
+						ec_tframe_block_t block;
+				} ec_frames;
+		} ec_tframe_start_t;
+		
+		ec_tframe_start_t ec_tstack_start;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+				ec_tstack_start.ec_frames.block.i = 23;
+				ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+				block(&ec_tstack_start.ec_frames.block);
+				return;
+			ec_contlbl_L2_start: ;
+				return;	
+		}
+	|])
+  -- 03 - setup - returning a void pointer {{{2
+	, ([paste|
+		__attribute__((tc_blocking)) void* block(int i);
+		__attribute__((tc_run_thread)) void start() { 
+			block(23);
+		}
+	|],[paste|
+		typedef struct {
+				void* ec_cont;
+        void* ec_result;
+				int i;
+		} ec_tframe_block_t;
+
+		typedef struct {
+				union {
+						ec_tframe_block_t block;
+				} ec_frames;
+		} ec_tframe_start_t;
+		
+		ec_tframe_start_t ec_tstack_start;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
     
+      ec_contlbl_L1_start: ;
+				ec_tstack_start.ec_frames.block.i = 23;
+				ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+				block(&ec_tstack_start.ec_frames.block);
+				return;
+			ec_contlbl_L2_start: ;
+				return;	
+		}
+	|])
+-- 04 - local critical variable {{{2
+	, ([paste|
+		__attribute__((tc_blocking)) void block(int i);
+
+		__attribute__((tc_run_thread)) void start() 
+		{
+			int i = 23;
+			block(i);
+      i++;
+		}
+	|],[paste|
+		typedef struct {
+			void* ec_cont;
+			int i;
+		} ec_tframe_block_t;
+
+		typedef struct {
+			union {
+					ec_tframe_block_t block;
+			} ec_frames;
+			int i;
+		} ec_tframe_start_t;
+
+		ec_tframe_start_t ec_tstack_start;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+        ec_tstack_start.i = 23;
+				ec_tstack_start.ec_frames.block.i = ec_tstack_start.i;
+				ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+				block(&ec_tstack_start.ec_frames.block);
+				return;
+			ec_contlbl_L2_start: ;
+        ec_tstack_start.i++;
+				return;	
+		}
+	|])
+-- 05 - local non-critical variable {{{2
+	, ([paste|
+		__attribute__((tc_blocking)) void block(int i);
+
+		__attribute__((tc_run_thread)) void start() 
+		{
+			int i = 23;
+			block(i);
+		}
+	|],[paste|
+		typedef struct {
+			void* ec_cont;
+			int i;
+		} ec_tframe_block_t;
+
+		typedef struct {
+			union {
+					ec_tframe_block_t block;
+			} ec_frames;
+		} ec_tframe_start_t;
+
+		ec_tframe_start_t ec_tstack_start;
+
+    typedef struct {
+      int i;
+    } ec_eframe_start_t;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+      union {
+        ec_eframe_start_t start;
+      } ec_estack;
+			if (ec_cont)
+				goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+        ec_estack.start.i = 23;
+				ec_tstack_start.ec_frames.block.i = ec_estack.start.i;
+				ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+				block(&ec_tstack_start.ec_frames.block);
+				return;
+			ec_contlbl_L2_start: ;
+				return;	
+		}
+	|])
+  -- 06 - function static variable {{{2
+	, ([paste|
+		__attribute__((tc_blocking)) void block(int i);
+
+		__attribute__((tc_run_thread)) void start() 
+		{
+			static int i = 0;
+			block(i);
+		}
+	|],[paste|
+		typedef struct {
+			void* ec_cont;
+			int i;
+		} ec_tframe_block_t;
+
+		typedef struct {
+			union {
+					ec_tframe_block_t block;
+			} ec_frames;
+		} ec_tframe_start_t;
+
+		ec_tframe_start_t ec_tstack_start;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+        static int i = 0;
+				ec_tstack_start.ec_frames.block.i = i;
+				ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+				block(&ec_tstack_start.ec_frames.block);
+				return;
+			ec_contlbl_L2_start: ;
+				return;	
+		}
+	|])
+  -- end {{{2
+  ]
+  where
+    runTest :: (String, String) -> Assertion -- {{{2
+    runTest (inputCode, expectedCode) =
+      let
+        ast = enrich inputCode :: CTranslUnit
+        ana = case analysis ast of
+          Left es -> error $ show_errors "test" es 
+          Right x -> x
+        ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
+        outputCode = reduce $ tcode_2_ecode ana ir
+        expectedCode' = (reduce (enrich expectedCode :: CTranslUnit) :: String)
+      in
+        expectedCode' @=? outputCode

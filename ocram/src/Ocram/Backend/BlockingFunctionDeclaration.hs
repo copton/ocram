@@ -1,18 +1,24 @@
 module Ocram.Backend.BlockingFunctionDeclaration
 -- exports {{{1
 (
-  blocking_function_declaration
+  blocking_function_declarations
 ) where
 
 -- imports {{{1
-import Language.C.Syntax.AST
-import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (internalIdent)
-import Ocram.Symbols (symbol)
+import Language.C.Data.Node (undefNode)
+import Language.C.Syntax.AST
 import Ocram.Names (tframe)
+import Ocram.Symbols (symbol)
+import Ocram.Symbols (Symbol)
 
-blocking_function_declaration :: CDecl -> CDecl
-blocking_function_declaration cd = decl
+import qualified Data.Map as M
+
+blocking_function_declarations :: M.Map Symbol CDecl -> [CDecl]
+blocking_function_declarations = map blockingFunctionDeclaration . M.elems
+
+blockingFunctionDeclaration :: CDecl -> CDecl -- {{{1
+blockingFunctionDeclaration cd = decl
   where
     un = undefNode
     decl = CDecl ts [(Just declr, Nothing, Nothing)] un
