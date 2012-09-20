@@ -22,7 +22,7 @@ import Ocram.Util ((?:), fromJust_s, abort, lookup_s)
 import qualified Data.Map as M
 
 thread_execution_functions :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> M.Map Symbol (Maybe CDecl) -> [CFunDef] -- {{{1
-thread_execution_functions cg bf cf estacks = map tef $ zip [1..] (start_functions cg)
+thread_execution_functions cg bf cf estacks = map tef $ zip [0..] (start_functions cg)
   where
     tef (tid, sf) = threadExecutionFunction cg bf cf ($lookup_s estacks sf) tid sf
 

@@ -308,7 +308,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       block();
     }
   |], [paste|
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont) goto *ec_cont;
 
       ec_contlbl_L1_start: ;
@@ -330,7 +330,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       int j;
     } ec_eframe_start_t;
 
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       union {
           ec_eframe_start_t start;
       } ec_estack;
@@ -355,7 +355,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       crit(23);
     }
   |], [paste|
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont) goto *ec_cont;
 
       ec_contlbl_L1_start: ;
@@ -387,7 +387,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       block(42);
     }
   |], [paste|
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont) goto *ec_cont;
 
       ec_contlbl_L1_start: ;
@@ -400,7 +400,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       return;
     } 
 
-    void ec_thread_2(void* ec_cont) {
+    void ec_thread_1(void* ec_cont) {
       if (ec_cont) goto *ec_cont;
 
       ec_contlbl_L1_run: ;
@@ -424,7 +424,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       crit(42);
     }
   |], [paste|
-    void ec_thread_1(void* ec_cont) {
+    void ec_thread_0(void* ec_cont) {
       if (ec_cont) goto *ec_cont;
 
       ec_contlbl_L1_start: ;
@@ -446,7 +446,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       goto *ec_tstack_start.ec_frames.crit.ec_cont;
     }
 
-    void ec_thread_2(void* ec_cont) {
+    void ec_thread_1(void* ec_cont) {
       if (ec_cont) goto *ec_cont;
 
       ec_contlbl_L1_run: ;
@@ -510,7 +510,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -547,7 +547,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -584,7 +584,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -625,7 +625,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -670,7 +670,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
       union {
         ec_eframe_start_t start;
@@ -715,7 +715,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     static int ec_static_start_i = 0;
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -763,7 +763,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
       union {
         ec_eframe_start_t start;
@@ -812,7 +812,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -889,7 +889,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
       union {
         ec_eframe_start_t start;
@@ -953,7 +953,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-		void ec_thread_1(void* ec_cont)
+		void ec_thread_0(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
@@ -1019,7 +1019,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     void block(ec_tframe_block_t *);
 
-    void ec_thread_1(void * ec_cont)
+    void ec_thread_0(void * ec_cont)
     {
         if (ec_cont) goto * ec_cont;
 
@@ -1043,7 +1043,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         return;
     }
 
-    void ec_thread_2(void * ec_cont)
+    void ec_thread_1(void * ec_cont)
     {
         if (ec_cont) goto * ec_cont;
 
@@ -1113,7 +1113,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     void block(ec_tframe_block_t *);
 
-    void ec_thread_1(void * ec_cont)
+    void ec_thread_0(void * ec_cont)
     {
         if (ec_cont) goto * ec_cont;
 
@@ -1135,7 +1135,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         goto * (ec_tstack_run.ec_frames.critical.ec_cont);
     }
 
-    void ec_thread_2(void * ec_cont)
+    void ec_thread_1(void * ec_cont)
     {
         if (ec_cont) goto * ec_cont;
 
@@ -1187,7 +1187,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     void block(ec_tframe_block_t *);
 
-    void ec_thread_1(void * ec_cont)
+    void ec_thread_0(void * ec_cont)
     {
         union {
             ec_eframe_start_t start;
@@ -1237,7 +1237,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     void block(ec_tframe_block_t *);
 
-    void ec_thread_1(void * ec_cont)
+    void ec_thread_0(void * ec_cont)
     {
       union {
           ec_eframe_start_t start;
@@ -1300,7 +1300,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     void block(ec_tframe_block_t *);
 
-    void ec_thread_1(void * ec_cont)
+    void ec_thread_0(void * ec_cont)
     {
       if (ec_cont) goto * ec_cont;
 
@@ -1366,7 +1366,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     void block(ec_tframe_block_t *);
 
-    void ec_thread_1(void * ec_cont)
+    void ec_thread_0(void * ec_cont)
     {
       union {
           ec_eframe_start_t start;
@@ -1411,7 +1411,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     void block(ec_tframe_block_t *);
 
-    void ec_thread_1(void * ec_cont)
+    void ec_thread_0(void * ec_cont)
     {
         if (ec_cont) goto * ec_cont;
 

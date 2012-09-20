@@ -2,6 +2,7 @@
 module Ocram.Query
 -- export {{{1
 (
+-- XXX: cleanup: some functions are not needed any more
     function_definition, function_declaration
   , is_function_declaration
   , function_parameters,  return_type, local_variables

@@ -23,7 +23,7 @@ typedef enum {
 
 /*{ for syscall in all_syscalls }*/
 typedef struct {
-    ec_frame_/*syscall*/_t* frame;
+    ec_tframe_/*syscall*/_t* frame;
 /*{ if syscall == "tc_sleep" }*/
     struct etimer et;
 /*{ endif }*/
@@ -43,7 +43,7 @@ ThreadContext threads[/*numberof_threads*/];
 ThreadContext* thread;
 
 /*{ if "tc_sleep" in all_syscalls }*/
-void tc_sleep(ec_frame_tc_sleep_t* frame) {
+void tc_sleep(ec_tframe_tc_sleep_t* frame) {
     thread->ctx.tc_sleep.frame = frame;
     thread->syscall = SYSCALL_tc_sleep;
 
@@ -65,7 +65,7 @@ void tc_sleep(ec_frame_tc_sleep_t* frame) {
 /*{ endif }*/
 
 /*{ if "tc_receive" in all_syscalls }*/
-void tc_receive(ec_frame_tc_receive_t* frame) {
+void tc_receive(ec_tframe_tc_receive_t* frame) {
     thread->ctx.tc_receive.frame = frame;
     thread->syscall = SYSCALL_tc_receive;
 
@@ -80,7 +80,7 @@ void tc_receive(ec_frame_tc_receive_t* frame) {
 /*{ endif }*/
 
 /*{ if "tc_condition_wait" in all_syscalls }*/
-void tc_condition_wait(ec_frame_tc_condition_wait_t* frame) {
+void tc_condition_wait(ec_tframe_tc_condition_wait_t* frame) {
     thread->ctx.tc_condition_wait.frame = frame;
     thread->syscall = SYSCALL_tc_condition_wait;
 
