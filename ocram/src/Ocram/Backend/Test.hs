@@ -1473,7 +1473,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         return;
     }
   |])
-  , -- 18 - regression test {{{2
+  , -- 18 - regression test - else if {{{2
   ([paste|
     int c;
     int next;
@@ -1559,6 +1559,67 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     ec_ctrlbl_1_start: ;
         return;
+    }
+  |])
+  , -- 19 - regression test - estack access {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    void critical() {
+      int i = 0;
+      block();
+    }
+    __attribute__((tc_run_thread)) void start() {
+      critical();
+    }
+  |], [paste|
+    typedef struct {
+      void * ec_cont;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      void * ec_cont;
+      union {
+        ec_tframe_block_t block;
+      } ec_frames;
+    } ec_tframe_critical_t;
+
+    typedef struct {
+      union {
+        ec_tframe_critical_t critical;
+      } ec_frames;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+
+    typedef struct {
+      int i;
+    } ec_eframe_critical_t;
+
+    void block(ec_tframe_block_t *);
+
+    void ec_thread_0(void * ec_cont)
+    {
+        union {
+          ec_eframe_critical_t critical;
+        } ec_estack;
+
+        if (ec_cont) goto * ec_cont;
+
+      ec_contlbl_L1_start: ;
+        ec_tstack_start.ec_frames.critical.ec_cont = &&ec_contlbl_L2_start;
+        goto ec_contlbl_L1_critical;
+
+      ec_contlbl_L2_start: ;
+        return;
+
+      ec_contlbl_L1_critical: ;
+        ec_estack.critical.i = 0;
+        ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L2_critical;
+        block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
+        return;
+
+      ec_contlbl_L2_critical: ;
+        goto * (ec_tstack_start.ec_frames.critical.ec_cont);
     }
   |])
   -- end {{{2

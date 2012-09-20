@@ -111,7 +111,7 @@ inlineCriticalFunction cg bf cf startFunction inlinedFunction =
         rewrite :: CExpr -> CExpr
         rewrite o@(CVar iden _)
           | test fun_cVars  = tstackAccess callChain (Just vname) un
-          | test fun_ncVars = estackAccess startFunction vname
+          | test fun_ncVars = estackAccess (fun_name inlinedFunction) vname
           | otherwise       = o
           where
             vname = symbol iden
