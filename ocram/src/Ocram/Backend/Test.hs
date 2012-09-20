@@ -1426,6 +1426,26 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         return;
     }
   |])
+  , -- 18 - regression test
+  ([paste|
+    int c;
+    int next;
+
+    __attribute__((tc_blocking)) void wait(int* c);
+    __attribute__((tc_blocking)) void sleep(int t, int* c);
+    void check();
+
+    __attribute__((tc_run_thread)) void start() {
+      while(1) {
+        if (next == -1) {
+          wait(&c);
+        } else if (! sleep(next, &c)) {
+          check();
+        }
+      }
+    }
+  |], [paste|
+  |])
   -- end {{{2
   ]
   where

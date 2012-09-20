@@ -559,7 +559,52 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 12 - switch statement {{{2
+  , -- 12 - if statements with else if {{{2
+  ([paste|
+    void foo() {
+      if (1) {
+        b();
+        return;
+      } else if (2) {
+        c();
+        return;
+      }
+    } 
+  |], [paste|
+    void foo() {
+      {
+        if (1) {
+          goto ec_ctrlbl_0;
+        } else {
+          goto ec_ctrlbl_1;
+        }
+        {
+          ec_ctrlbl_0: ;
+          b();
+          return;
+          goto ec_ctrlbl_2;
+        }
+        {
+          ec_ctrlbl_1: ;
+          {
+            if (2) {
+              goto ec_ctrlbl_3;
+            } else {
+              goto ec_ctrlbl_4;
+            }
+            {
+              ec_ctrlbl_3: ;
+              c();
+              return;
+            }
+            ec_ctrlbl_4: ;
+          }
+        }
+        ec_ctrlbl_2: ;
+      }
+    }
+  |])
+  , -- 13 - switch statement {{{2
   ([paste|
     void foo(int i) {
       switch (i) {
@@ -593,7 +638,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 13 - switch statement with default {{{2
+  , -- 14 - switch statement with default {{{2
   ([paste|
     void foo(int i) {
       switch (i) {
@@ -1190,7 +1235,57 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_2: ;
     }
   |])
-  , -- 12 - switch statement {{{2
+  , -- 12 - if statement with else if {{{2
+  ([paste|
+    void foo() {
+      {
+        if (1) {
+          goto ec_ctrlbl_0;
+        } else {
+          goto ec_ctrlbl_1;
+        }
+        {
+          ec_ctrlbl_0: ;
+          b();
+          return;
+          goto ec_ctrlbl_2;
+        }
+        {
+          ec_ctrlbl_1: ;
+          {
+            if (2) {
+              goto ec_ctrlbl_3;
+            } else {
+              goto ec_ctrlbl_4;
+            }
+            {
+              ec_ctrlbl_3: ;
+              c();
+              return;
+            }
+            ec_ctrlbl_4: ;
+          }
+        }
+        ec_ctrlbl_2: ;
+      }
+    }
+  |], [paste|
+    void foo() {
+      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      ec_ctrlbl_0: ;
+      b();
+      return;
+      goto ec_ctrlbl_2;
+      ec_ctrlbl_1: ;
+      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+      ec_ctrlbl_3: ;
+      c();
+      return;
+      ec_ctrlbl_4: ;
+      ec_ctrlbl_2: ;
+    }
+  |])
+  , -- 13 - switch statement {{{2
   ([paste|
     void foo(int i) {
       {
@@ -1229,7 +1324,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
     }
   |])
-  , -- 13 - switch statement with default {{{2
+  , -- 14 - switch statement with default {{{2
   ([paste|
     void foo(int i) {
       {
@@ -1268,7 +1363,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
     }
   |])
-  , -- 14 - empty statements -- {{{2
+  , -- 15 - empty statements -- {{{2
   ([paste|
     void foo() {
       i++;
@@ -1643,7 +1738,40 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L2:
     RETURN
   |], "L1")
+  , -- 12 - label without body {{{2
+  ([],
+  [paste|
+    void foo() {
+      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      ec_ctrlbl_0: ;
+      b();
+      goto ec_ctrlbl_2;
+      ec_ctrlbl_1: ;
+      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+      ec_ctrlbl_3: ;
+      c();
+      return;
+      ec_ctrlbl_4: ;
+      ec_ctrlbl_2: ;
+    }
+  |], [paste|
+    void foo() {
+      L1:
+      IF 1 THEN L2/ec_ctrlbl_0 ELSE L3/ec_ctrlbl_1
 
+      L2/ec_ctrlbl_0:
+      b();
+      GOTO L6/ec_ctrlbl_2
+
+      L3/ec_ctrlbl_1:
+      IF 2 THEN L4/ec_ctrlbl_3 ELSE L5/ec_ctrlbl_4
+
+      L4/ec_ctrlbl_3:
+      c()
+      RETURN
+    }   
+  |])
+  -- XXX dead code elimination; if (c) { return; } else {...} -> RETURN; GOTO <after else block>
   -- end {{{2
   ]
   where

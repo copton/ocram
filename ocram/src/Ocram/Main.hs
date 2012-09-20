@@ -34,7 +34,7 @@ runCompiler argv = do
 
   let ir              = ast_2_ir (anaBlocking ana) (anaCritical ana)
   let (eAst, pal)     = tcode_2_ecode ana ir
-  let (ecode, _, _)  = print_with_log eAst
+  let (ecode, _, _)   = print_with_log eAst
 --   let di              = encode_debug_info $ create_debug_info opt ast cg tcode pcode ecode vm lm bl
 
   exitOnError "output" =<< generate_pal opt (footprint (anaCallgraph ana)) pal
