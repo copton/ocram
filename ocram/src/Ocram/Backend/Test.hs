@@ -1384,6 +1384,48 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         return;
     }
   |])
+  , -- 17 - multiple global declarations {{{2
+  ([paste|
+    int i, k;
+    __attribute__((tc_blocking)) int block(int i);
+
+    __attribute__((tc_run_thread)) void start() 
+    {
+            i = block(k);
+    }
+  |],[paste|
+    int i, k;
+    typedef struct {
+      void * ec_cont;
+      int ec_result;
+      int i;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      union {
+        ec_tframe_block_t block;
+      } ec_frames;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+
+    void block(ec_tframe_block_t *);
+
+    void ec_thread_1(void * ec_cont)
+    {
+        if (ec_cont) goto * ec_cont;
+
+    ec_contlbl_L1_start: ;
+        ec_tstack_start.ec_frames.block.i = k;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+        block(&ec_tstack_start.ec_frames.block);
+        return;
+
+    ec_contlbl_L2_start: ;
+        i = ec_tstack_start.ec_frames.block.ec_result;
+        return;
+    }
+  |])
   -- end {{{2
   ]
   where

@@ -15,6 +15,7 @@ import Ocram.Analysis.Filter
 import Ocram.Analysis.Types (CallGraph)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Text (OcramError)
+import Ocram.Query (is_function_declaration)
 import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
@@ -37,8 +38,10 @@ analysis ast@(CTranslUnit eds _) = do
     populate cg = foldr seperate (Analysis [] M.empty M.empty cg) eds
 
     seperate o@(CDeclExt cd) ana
-      | is_blocking (anaCallgraph ana) (symbol cd) = addBlocking ana cd
-      | otherwise = addNonCritical ana o
+      | is_function_declaration cd && is_blocking (anaCallgraph ana) (symbol cd) =
+          addBlocking ana cd
+      | otherwise =
+          addNonCritical ana o
 
     seperate o@(CFDefExt fd) ana
       | is_critical (anaCallgraph ana) (symbol fd) = addCritical ana fd
