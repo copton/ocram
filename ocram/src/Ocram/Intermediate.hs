@@ -8,6 +8,7 @@ module Ocram.Intermediate
 
 -- imports {{{1
 import Control.Monad.Writer (runWriter, Writer, tell)
+import Data.Either (partitionEithers)
 import Ocram.Intermediate.Representation
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
@@ -33,20 +34,23 @@ ast_2_ir bf cf = M.map (critical_variables . convert) cf
     convert fd =
       let
         (items, vars) = runWriter $ process fd 
+        (autoVars, staticVars) = partitionEithers vars
         (entry, body) = build_basic_blocks sf items
       in
-        Function vars [] fd body entry
+        Function autoVars [] staticVars fd body entry
 
     process fd = 
           return fd
-      >>= wrap     collect_declarations
+      >>= wrap'    collect_declarations
       >>= return . desugar_control_structures
       >>= wrap     (boolean_short_circuiting sf)
       >>= return . sequencialize_body
       >>= wrap     (normalize_critical_calls sf')
 
-    wrap :: (a -> (b, [Variable])) -> (a -> Writer [Variable] b)
-    wrap f x = do
-      let (y, vars) = f x
-      tell vars
+    wrap f = wrap' (\x -> let (y, autoVars) = f x in (y, autoVars, []))
+
+    wrap' f x = do
+      let (y, autoVars, staticVars) = f x
+      tell $ map Left autoVars
+      tell $ map Right staticVars
       return y

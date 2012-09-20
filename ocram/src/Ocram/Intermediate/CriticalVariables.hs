@@ -19,7 +19,7 @@ import Ocram.Query (function_parameters_fd)
 import qualified Data.Set as S
 
 critical_variables :: Function -> Function -- {{{1
-critical_variables (Function allVars [] fd body entry) =
+critical_variables (Function allVars [] staticVars fd body entry) =
   let
     facts = runLiveness entry body
     criticalLabels = S.fromList $ foldGraphNodes criticalLabel body [] 
@@ -29,7 +29,7 @@ critical_variables (Function allVars [] fd body entry) =
     criticalVars = S.unions $ functionParameters : undecidableVars : map snd criticalFacts
     nonCriticalVars = [x | x <- allVars, not (S.member (var_fqn x) criticalVars)]
     truelyCriticalVars = [x | x <- allVars, S.member (var_fqn x) criticalVars]
-  in Function truelyCriticalVars nonCriticalVars fd body entry
+  in Function truelyCriticalVars nonCriticalVars staticVars fd body entry
     
   where
     criticalLabel (Call _ l) ls = hLabel l : ls

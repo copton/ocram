@@ -7,6 +7,7 @@ module Ocram.Intermediate.CollectDeclarations
 
 -- imports {{{1
 import Control.Monad.State (State, get, put, runState, gets)
+import Data.List (partition)
 import Data.Data (Data, gmapM)
 import Data.Generics (mkM, extM, mkQ, GenericQ, GenericM)
 import Data.Maybe (fromMaybe, mapMaybe)
@@ -14,26 +15,27 @@ import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo, undefNode)
 import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
-import Ocram.Names (varShadow)
+import Ocram.Names (varShadow, varStatic)
 import Ocram.Query (function_parameters_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
 
-collect_declarations :: CFunDef -> ([CBlockItem], [Variable]) -- {{{1
+collect_declarations :: CFunDef -> ([CBlockItem], [Variable], [Variable]) -- {{{1
 collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
-  (body, variables)
+  (body, autoVars, staticVars)
   where
     ps = function_parameters_fd fd
     initialIdents = Identifiers M.empty (M.fromList (map ((\x -> (x, x)) . symbol) ps))
-    initialState  = Ctx initialIdents funScope []
+    initialState  = Ctx initialIdents funScope [] [] (symbol fd)
     (statements, state) = runState (mapM mItem items) initialState
 
     params = map (\cd -> Variable cd (symbol cd) (Just funScope)) ps
 
     body = concat statements
-    variables = params ++ ctxVars state
+    autoVars = params ++ ctxAutoVars state
+    staticVars = ctxStaticVars state
 
 collect_declarations x = $abort $ unexp x
 
@@ -58,16 +60,16 @@ qStmt _                 = False
 tStmt :: CStat -> S CStat -- {{{2
 
 tStmt (CCompound x items' innerScope) = do
-  (Ctx curIds curScope curVars) <- get
-  let (statements, Ctx newIds _ newVars) = runState (mapM mItem items') (Ctx curIds innerScope curVars)
-  put $ Ctx (curIds {idEs = idEs newIds}) curScope newVars
+  (Ctx curIds curScope curAutoVars curStaticVars fun) <- get
+  let (statements, Ctx newIds _ newAutoVars newStaticVars _) = runState (mapM mItem items') (Ctx curIds innerScope curAutoVars curStaticVars fun)
+  put $ Ctx (curIds {idEs = idEs newIds}) curScope newAutoVars newStaticVars fun
   return $ CCompound x (concat statements) innerScope
 
 tStmt (CFor (Right decl) x1 x2 body ni) = do
   -- the scope of the declared variable is the body of the for loop
-  (Ctx ids scope vars) <- get 
-  let (Ctx ids' _ vars', inits) = trDecl' (Ctx ids (annotation body) vars) decl 
-  put (Ctx ids' scope vars')
+  (Ctx ids scope autoVars staticVars fun) <- get 
+  let (Ctx ids' _ autoVars' staticVars' _, inits) = trDecl' (Ctx ids (annotation body) autoVars staticVars fun) decl 
+  put (Ctx ids' scope autoVars' staticVars' fun)
 
   let for   = CFor (Left Nothing) x1 x2 body ni
   let block = map CBlockStmt $ inits ++ [for]
@@ -91,15 +93,26 @@ trDecl decl = do
   return inits
 
 trDecl' :: Ctx -> CDecl -> (Ctx, [CStat])
-trDecl' (Ctx ids scope vars) decl = 
+trDecl' (Ctx ids scope autoVars staticVars fun) decl = 
   let
-    (decls, rhss) = (unzip . map split . unlistDecl) decl 
-    ids' = foldl addIdentifier ids $ map symbol decls
-    newNames = map (getIdentifier ids' . symbol) decls
-    vars' = map (\(cd, name) -> Variable cd name (Just scope)) $ zip decls newNames
-    inits = mapMaybe (uncurry mkInit) $ zip rhss newNames
-    ctx = Ctx ids' scope (vars' ++ vars)
-  in (ctx, inits)
+    decls = unlistDecl decl
+    (staticDecls, autoDecls) = partition isStatic decls
+
+    ids' = foldl (addIdentifier id) ids $ map symbol autoDecls
+    ids'' = foldl (addIdentifier (varStatic fun)) ids' $ map symbol staticDecls
+
+    newAutoNames   = map (getIdentifier ids'' . symbol) autoDecls
+    newStaticNames = map (getIdentifier ids'' . symbol) staticDecls
+
+    (autoDeclsOnly, autoInitExpr) = unzip $ map split autoDecls
+
+    autoVars'      = map mkVar $ zip autoDeclsOnly newAutoNames
+    staticVars'    = map mkVar $ zip staticDecls newStaticNames
+
+    autoInitStmt   = mapMaybe (uncurry mkInit) $ zip autoInitExpr newAutoNames
+
+    ctx = Ctx ids'' scope (autoVars' ++ autoVars) (staticVars' ++ staticVars) fun
+  in (ctx, autoInitStmt)
   where
     unlistDecl (CDecl x [] ni) = [CDecl x [] ni] -- struct S { int i; };
     unlistDecl (CDecl s ds ni) = map (\x -> CDecl s [x] ni) ds
@@ -109,15 +122,23 @@ trDecl' (Ctx ids scope vars) decl =
       (declare, Just cexpr)
     split cdecl = (cdecl, Nothing)
 
+    isStatic (CDecl ds _ _) = any isStaticSpec ds
+    isStaticSpec (CStorageSpec (CStatic _)) = True
+    isStaticSpec _                          = False
+
+    mkVar (cd, name) = Variable cd name (Just scope)
+
     mkInit Nothing    _    =  Nothing
     mkInit (Just rhs) name =  Just $ CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) ni) rhs ni)) ni
       where ni = annotation rhs
 
 -- types {{{1
 data Ctx = Ctx { -- {{{2
-    ctxIdents :: Identifiers
-  , ctxScope  :: NodeInfo
-  , ctxVars   :: [Variable]
+    ctxIdents     :: Identifiers
+  , ctxScope      :: NodeInfo
+  , ctxAutoVars   :: [Variable]
+  , ctxStaticVars :: [Variable]
+  , ctxFun        :: Symbol
   }
 
 data Identifiers = Identifiers { -- {{{2
@@ -135,12 +156,12 @@ type S a = State Ctx a -- {{{2
 getIdentifier :: Identifiers -> Symbol -> Symbol -- {{{2
 getIdentifier (Identifiers _ rt) name = fromMaybe name (M.lookup name rt)
 
-addIdentifier :: Identifiers -> Symbol -> Identifiers -- {{{2
-addIdentifier (Identifiers es rt) identifier = case M.lookup identifier rt of
-  Nothing -> Identifiers es (M.insert identifier identifier rt)
+addIdentifier :: (String -> String) -> Identifiers -> Symbol -> Identifiers -- {{{2
+addIdentifier mangle (Identifiers es rt) identifier = case M.lookup identifier rt of
+  Nothing -> Identifiers es (M.insert identifier (mangle identifier) rt)
   Just _ ->
     let (es', identifier') = newExtraSymbol in
-    Identifiers es' (M.insert identifier identifier' rt)
+    Identifiers es' (M.insert identifier (mangle identifier') rt)
   where
     newExtraSymbol = case M.lookup identifier es of
       Nothing -> (M.insert identifier 0 es, varShadow identifier  0)

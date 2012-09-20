@@ -29,11 +29,15 @@ instance Eq Variable where
 instance Ord Variable where
   compare v1 v2 = compare (var_fqn v1) (var_fqn v2)
 
+instance Show Variable where
+  show = show . var_fqn
+
 data Function -- {{{1
   -- |A critical function
   = Function {
     fun_cVars  :: [Variable] -- ^the function's critical variables
   , fun_ncVars :: [Variable] -- ^the function's non-critical variables
+  , fun_stVars :: [Variable] -- ^the function's static variables
   , fun_def    :: CFunDef    -- ^the original AST node
   , fun_body   :: Body       -- ^the function's body as graph of basic blocks
   , fun_entry  :: Label      -- ^the entry point to the function

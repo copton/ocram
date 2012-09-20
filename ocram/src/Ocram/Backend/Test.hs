@@ -713,13 +713,15 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
+    static int ec_static_start_i = 0;
+
 		void ec_thread_1(void* ec_cont)
 		{
 			if (ec_cont)
 				goto *ec_cont;
-
-        static int i = 0;
-				ec_tstack_start.ec_frames.block.i = i;
+    
+      ec_contlbl_L1_start: ;
+				ec_tstack_start.ec_frames.block.i = ec_static_start_i;
 				ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
 				block(&ec_tstack_start.ec_frames.block);
 				return;

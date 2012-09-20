@@ -49,8 +49,8 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       return i;
     }
   |], [
-      ("i", "i", 1, 3)
-  ]) 
+      ("int i", "i", 1, 3)
+  ], []) 
   , -- 02 - local variable with initializer {{{2
   ([lpaste|
 01: int foo(int i) {
@@ -63,15 +63,15 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       return i + j;
     }
   |], [
-      ("i", "i", 1, 4)
-    , ("j", "j", 1, 4)
-  ])
+      ("int i", "i", 1, 4)
+    , ("int j", "j", 1, 4)
+  ], [])
   , -- 03 - local variable shadowing {{{2
   ([lpaste|
 01: void foo() {
       int i = 23;
 03:   {
-        int i = 42;
+        char i = 42;
 05:   }
 06: }
   |], [paste|
@@ -82,15 +82,15 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       }
     }
   |], [
-      ("i", "ec_shadow_i_0", 3, 5)
-    , ("i", "i", 1, 6)
-  ])
+      ("char i", "ec_shadow_i_0", 3, 5)
+    , ("int i", "i", 1, 6)
+  ], [])
   , -- 04 - local variable shadowing - with access {{{2
   ([lpaste|
 01: void foo() {
       int i = 23;
 03:   {
-        int i = 42;
+        char i = 42;
         i = 19;
 06:   }
 07: }
@@ -103,9 +103,9 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       }
     }
   |], [
-      ("i", "ec_shadow_i_0", 3, 6)
-    , ("i", "i", 1, 7)
-  ])
+      ("char i", "ec_shadow_i_0", 3, 6)
+    , ("int i", "i", 1, 7)
+  ], [])
   , -- 05 - for loop with declaration {{{2
   ([lpaste|
 01: void foo(int i) {
@@ -120,9 +120,9 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       }
     }
   |], [
-      ("i", "i", 1, 4)
-    , ("i", "ec_shadow_i_0", 2, 3)
-  ])
+      ("int i", "i", 1, 4)
+    , ("int i", "ec_shadow_i_0", 2, 3)
+  ], [])
   , -- 06 - multiple declarations {{{2
   ([lpaste|
 01: int foo() {
@@ -143,32 +143,111 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       }
     }
   |], [
-      ("i", "ec_shadow_i_0", 3, 6)
-    , ("j", "ec_shadow_j_0", 3, 6)
-    , ("i", "i", 1, 7)
-    , ("j", "j", 1, 7)
+      ("int i", "ec_shadow_i_0", 3, 6)
+    , ("int j", "ec_shadow_j_0", 3, 6)
+    , ("int i", "i", 1, 7)
+    , ("int j", "j", 1, 7)
+  ], [])
+  , -- 07 - static variable with initializer {{{2
+  ([lpaste|
+01: int foo(int i) {
+      static int j = 23;
+      return i + j;
+04: }
+  |], [paste|
+    int foo(int i) {
+      return i + ec_static_foo_j;
+    }
+  |], [
+      ("int i", "i", 1, 4)
+  ], [
+      ("static int j = 23", "ec_static_foo_j", 1, 4)
+  ])
+  , -- 08 - static variable shadowing {{{2
+  ([lpaste|
+01: void foo() {
+      static int i = 23;
+03:   {
+        static int i = 42;
+05:   }
+06: }
+  |], [paste|
+    void foo() {
+      {
+      }
+    }
+  |], [], [
+      ("static int i = 42", "ec_static_foo_ec_shadow_i_0", 3, 5)
+    , ("static int i = 23", "ec_static_foo_i", 1, 6)
+  ])
+  , -- 09 - static variable shadowing - with access {{{2
+  ([lpaste|
+01: void foo() {
+      static int i = 23;
+03:   {
+        static int i = 42;
+        i = 19;
+06:   }
+07: }
+  |], [paste|
+    void foo() {
+      {
+        ec_static_foo_ec_shadow_i_0 = 19;
+      }
+    }
+  |], [], [
+      ("static int i = 42", "ec_static_foo_ec_shadow_i_0", 3, 6)
+    , ("static int i = 23", "ec_static_foo_i", 1, 7)
+  ])
+  , -- 10 - multiple declarations mixed {{{2
+  ([lpaste|
+01: int foo() {
+      static int i=0, j=1;
+03:   {
+        int i=23, j=42;
+        return i + j;
+06:   }
+07: }
+  |], [paste|
+    int foo() {
+      {
+        ec_shadow_i_0 = 23;
+        ec_shadow_j_0 = 42;
+        return ec_shadow_i_0 + ec_shadow_j_0;
+      }
+    }
+  |], [
+      ("int i", "ec_shadow_i_0", 3, 6)
+    , ("int j", "ec_shadow_j_0", 3, 6)
+  ], [
+      ("static int i = 0", "ec_static_foo_i", 1, 7)
+    , ("static int j = 1", "ec_static_foo_j", 1, 7)
   ])
   -- end {{{2
   ]
   where
-    runTest :: (String, String, [(String, String, Int, Int)]) -> Assertion -- {{{2
-    runTest (inputCode, expectedCode, expectedVars) =
+    runTest :: (String, String, [(String, String, Int, Int)], [(String, String, Int, Int)]) -> Assertion -- {{{2
+    runTest (inputCode, expectedCode, expectedAutoVars, expectedStaticVars) =
       let
-        (CTranslUnit [CFDefExt fd@(CFunDef x1 x2 x3 (CCompound x4 _ x5) x6)] x7) = enrich inputCode
-        (outputBody, outputVars) = collect_declarations fd
+        (CTranslUnit [CFDefExt fd@(CFunDef x1 x2 x3 (CCompound x4 _ x5) x6)] x7) = enrich inputCode :: CTranslUnit
+        (outputBody, outputAutoVars, outputStaticVars) = collect_declarations fd
         outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputBody x5) x6] x7
         expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
         outputCode = reduce outputAst
       in do
         assertEqual "output code" expectedCode' outputCode
-        assertEqual "number of variables" (length expectedVars) (length outputVars)
-        mapM_ (uncurry cmpVar) (zip expectedVars outputVars)
 
-    cmpVar (tname, ename, start, end) var =
-      let prefix = "Variable " ++ ename ++ ": " in
+        assertEqual "number of auto variables" (length expectedAutoVars) (length outputAutoVars)
+        mapM_ (uncurry (cmpVar "auto")) (zip expectedAutoVars outputAutoVars)
+
+        assertEqual "number of static variables" (length expectedStaticVars) (length outputStaticVars)
+        mapM_ (uncurry (cmpVar "static")) (zip expectedStaticVars outputStaticVars)
+
+    cmpVar kind (tdecl, ename, start, end) var =
+      let prefix = kind ++ " variable " ++ ename ++ ": " in
       do
-        assertEqual (prefix ++ "T-code name") tname ((symbol . var_decl) var)
-        assertEqual (prefix ++ "E-cdoe name") ename (var_fqn var)
+        assertEqual (prefix ++ "T-code decl") tdecl $ (show . pretty . var_decl) var
+        assertEqual (prefix ++ "E-code name") ename (var_fqn var)
         assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
         assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
 
@@ -1686,7 +1765,7 @@ test_critical_variables = enumTestGroup "ast_2_ir" $ map runTest [
         cf = M.fromList $ map (\fd -> (symbol fd, fd)) fds
         bf = M.fromList $ map (\cd -> (symbol cd, cd)) cds
         funs = ast_2_ir bf cf
-        (Function outputCriticalVars outputUncriticalVars _ _ _) = $fromJust_s $ M.lookup ((symbol . head) fds) funs
+        (Function outputCriticalVars outputUncriticalVars _ _ _ _) = $fromJust_s $ M.lookup ((symbol . head) fds) funs
         outputCriticalVars' = map var_fqn outputCriticalVars
         outputUncriticalVars' = map var_fqn outputUncriticalVars
       in do

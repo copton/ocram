@@ -65,3 +65,7 @@ contLbl ilbl = "ec_contlbl_" ++ ilbl
 -- |How to mangle labels with function names
 mangleFun :: String -> String -> String
 mangleFun x fun = x ++ "_" ++ fun
+
+-- |The name of a function static variable
+varStatic :: String -> String -> String
+varStatic fun var = "ec_static_" ++ fun ++ "_" ++ var
