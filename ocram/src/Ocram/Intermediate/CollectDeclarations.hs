@@ -7,10 +7,10 @@ module Ocram.Intermediate.CollectDeclarations
 
 -- imports {{{1
 import Control.Monad.State (State, get, put, runState, gets)
-import Data.List (partition)
 import Data.Data (Data, gmapM)
 import Data.Generics (mkM, extM, mkQ, GenericQ, GenericM)
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.List (partition)
+import Data.Maybe (mapMaybe, fromMaybe)
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo, undefNode)
 import Language.C.Syntax.AST
@@ -27,7 +27,9 @@ collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
   (body, autoVars, staticVars)
   where
     ps = function_parameters_fd fd
-    initialIdents = Identifiers M.empty (M.fromList (map ((\x -> (x, x)) . symbol) ps))
+    initialIdents = Identifiers (M.fromList (map initCnt ps)) (M.fromList (map initRen ps))
+    initCnt x = (symbol x, 0)
+    initRen x = (symbol x, symbol x)
     initialState  = Ctx initialIdents funScope [] [] (symbol fd)
     (statements, state) = runState (mapM mItem items) initialState
 
@@ -62,7 +64,7 @@ tStmt :: CStat -> S CStat -- {{{2
 tStmt (CCompound x items' innerScope) = do
   (Ctx curIds curScope curAutoVars curStaticVars fun) <- get
   let (statements, Ctx newIds _ newAutoVars newStaticVars _) = runState (mapM mItem items') (Ctx curIds innerScope curAutoVars curStaticVars fun)
-  put $ Ctx (curIds {idEs = idEs newIds}) curScope newAutoVars newStaticVars fun
+  put $ Ctx (Identifiers (idCnt newIds) (idRen curIds)) curScope newAutoVars newStaticVars fun
   return $ CCompound x (concat statements) innerScope
 
 tStmt (CFor (Right decl) x1 x2 body ni) = do
@@ -142,8 +144,8 @@ data Ctx = Ctx { -- {{{2
   }
 
 data Identifiers = Identifiers { -- {{{2
-  idEs :: ExtraSymbols,
-  idRt :: RenameTable
+    idCnt :: M.Map Symbol Int    -- ^counting the occurences of each identifier
+  , idRen :: M.Map Symbol Symbol -- ^the current renaming table
   } deriving (Show)
 
 type ExtraSymbols = M.Map Symbol Int -- {{{2
@@ -154,15 +156,9 @@ type S a = State Ctx a -- {{{2
 
 -- utils {{{1
 getIdentifier :: Identifiers -> Symbol -> Symbol -- {{{2
-getIdentifier (Identifiers _ rt) name = fromMaybe name (M.lookup name rt)
+getIdentifier (Identifiers _ rt) name = fromMaybe name $ M.lookup name rt
 
 addIdentifier :: (String -> String) -> Identifiers -> Symbol -> Identifiers -- {{{2
-addIdentifier mangle (Identifiers es rt) identifier = case M.lookup identifier rt of
-  Nothing -> Identifiers es (M.insert identifier (mangle identifier) rt)
-  Just _ ->
-    let (es', identifier') = newExtraSymbol in
-    Identifiers es' (M.insert identifier (mangle identifier') rt)
-  where
-    newExtraSymbol = case M.lookup identifier es of
-      Nothing -> (M.insert identifier 0 es, varShadow identifier  0)
-      Just x -> (M.adjust (+1) identifier es, varShadow identifier (x+1))
+addIdentifier mangle (Identifiers es rt) identifier = case M.lookup identifier es of
+  Nothing -> Identifiers (M.insert identifier 0 es) (M.insert identifier (mangle identifier) rt)
+  Just count -> Identifiers (M.adjust (+1) identifier es) (M.insert identifier (mangle (varShadow identifier count)) rt)

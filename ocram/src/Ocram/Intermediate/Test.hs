@@ -223,6 +223,30 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("static int i = 0", "ec_static_foo_i", 1, 7)
     , ("static int j = 1", "ec_static_foo_j", 1, 7)
   ])
+  , -- 11 - reuse without shadowing {{{2
+  ([lpaste|
+    int foo() {
+02:   {
+        int i = 0;
+04:   }
+05:   {
+        int i = 1;
+07:   }
+    }
+  |], [paste|
+    int foo() {
+      {
+        i = 0;
+      }
+      {
+        ec_shadow_i_0 = 1;
+      }
+    }
+  |], [
+      ("int i", "ec_shadow_i_0", 5, 7)
+    , ("int i", "i", 2, 4)
+  ], [
+  ])
   -- end {{{2
   ]
   where
