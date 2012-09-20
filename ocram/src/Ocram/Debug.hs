@@ -6,13 +6,13 @@ import Data.Data (Data)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.Typeable (Typeable)
 import Language.C.Data.Node (CNode(nodeInfo), NodeInfo, undefNode)
-import Language.C.Syntax.AST (CTranslUnit)
+import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, start_functions, blocking_functions, call_order, critical_functions)
 import Ocram.Options (Options(optInput, optOutput))
 import Ocram.Debug.Internal
 import Ocram.Ruab
 import Ocram.Symbols (Symbol)
-import Ocram.Transformation.Names (threadExecutionFunction)
+import Ocram.Names (tfunction)
 import Ocram.Util (fromJust_s)
 
 import qualified Data.ByteString.Char8 as BS
@@ -64,9 +64,21 @@ create_debug_info opt ast cg tcode pcode ecode vm bps bcs =
   in
     DebugInfo tfile pcode efile ppm lm bcs vm fm ts oa cf
   where
-    createThreadInfo tid sf = Thread tid sf (threadExecutionFunction tid) ($fromJust_s $ call_order cg sf)
+    createThreadInfo tid sf = Thread tid sf (tfunction tid) ($fromJust_s $ call_order cg sf)
 
     createLocMap = LocMap . foldr insert M.empty
     insert bp = M.alter (alter (bpEloc bp)) $ LocKey (bpThreadId bp) (bpTloc bp)
     alter eloc Nothing = Just [eloc]
     alter eloc (Just elocs) = Just $ eloc : elocs
+
+-- types {{{1
+type CTranslUnit' = CTranslationUnit ENodeInfo
+type CExpr' = CExpression ENodeInfo
+type CBlockItem' = CCompoundBlockItem ENodeInfo
+type CStat' = CStatement ENodeInfo
+type CFunDef' = CFunctionDef ENodeInfo
+type CDesignator' = CPartDesignator ENodeInfo
+type CInit' = CInitializer ENodeInfo
+type CDecl' = CDeclaration ENodeInfo
+type CDeclr' = CDeclarator ENodeInfo
+type CExtDecl' = CExternalDeclaration ENodeInfo

@@ -2,7 +2,7 @@
 module Ocram.Backend.Test (tests) where
 
 -- imports {{{1
-import Language.C.Data.Node (undefNode)
+import Language.C.Data.Node (undefNode, nodeInfo)
 import Language.C.Syntax.AST
 import Language.C.Pretty (pretty)
 import Ocram.Analysis (analysis, Analysis(..))
@@ -180,7 +180,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
           Right x -> x
         ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
         (frames, stacks) = create_tstacks (anaCallgraph ana) (anaBlocking ana) ir
-        outputDecls = reduce (CTranslUnit (map CDeclExt (frames ++ stacks)) undefNode) :: String
+        outputDecls = reduce (CTranslUnit (map CDeclExt (map snd frames ++ stacks)) undefNode) :: String
         expectedDecls' = (reduce (enrich expectedDecls :: CTranslUnit)) :: String
       in
         expectedDecls' @=? outputDecls
@@ -1395,7 +1395,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
           Left es -> error $ show_errors "test" es 
           Right x -> x
         ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
-        outputCode = reduce $ tcode_2_ecode ana ir
+        outputCode = reduce $ fmap nodeInfo $ fst $ tcode_2_ecode ana ir
         expectedCode' = (reduce (enrich expectedCode :: CTranslUnit) :: String)
       in
         expectedCode' @=? outputCode

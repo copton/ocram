@@ -19,7 +19,7 @@ import Ocram.Util (abort, fromJust_s, (?:))
 
 import qualified Data.Map as M
 
-create_tstacks :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> ([CDecl], [CDecl]) -- {{{1
+create_tstacks :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> ([(Symbol, CDecl)], [CDecl]) -- {{{1
 create_tstacks cg bf cf = (frames, stacks)
   where
     frames = map frame (dependency_list cg)
@@ -28,8 +28,8 @@ create_tstacks cg bf cf = (frames, stacks)
     frame fname = case M.lookup fname cf of
       Nothing -> case M.lookup fname bf of
         Nothing -> $abort "non-critical function in dependency list?"
-        Just decl -> tstackFrame cg (return_type_cd decl) fname (function_parameters_cd decl)
-      Just fun -> tstackFrame cg (return_type_fd (fun_def fun)) fname (map var_decl (fun_cVars fun))
+        Just decl -> (fname, tstackFrame cg (return_type_cd decl) fname (function_parameters_cd decl))
+      Just fun -> (fname, tstackFrame cg (return_type_fd (fun_def fun)) fname (map var_decl (fun_cVars fun)))
 
 tstackInstance :: Function -> CDecl -- {{{2
 tstackInstance fun = stack
@@ -38,7 +38,7 @@ tstackInstance fun = stack
     stack =
       CDecl [CTypeSpec (CTypeDef (ii (tframe name)) un)] [(Just (CDeclr (Just (ii (tstackVar name))) [] Nothing [] un), Nothing, Nothing)] un
 
-tstackFrame :: CallGraph -> (CTypeSpec, [CDerivedDeclr]) -> Symbol -> [CDecl] -> CDecl
+tstackFrame :: CallGraph -> (CTypeSpec, [CDerivedDeclr]) -> Symbol -> [CDecl] -> CDecl -- {{{2
 tstackFrame cg returnType name cvars = frame
   where
     frame = 
