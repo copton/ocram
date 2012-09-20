@@ -1317,11 +1317,11 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
       ec_ctrlbl_1_critical: ;
         ec_tstack_start.ec_frames.critical.ec_frames.block.c = 0;
-        ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L5_critical;
+        ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L4_critical;
         block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
         return;
         
-      ec_contlbl_L5_critical: ;
+      ec_contlbl_L4_critical: ;
         ec_tstack_start.ec_frames.critical.ec_result = 42;
         goto * (ec_tstack_start.ec_frames.critical.ec_cont);
 
@@ -1426,7 +1426,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         return;
     }
   |])
-  , -- 18 - regression test
+  , -- 18 - regression test {{{2
   ([paste|
     int c;
     int next;
@@ -1445,6 +1445,74 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       }
     }
   |], [paste|
+    int c;
+    int next;
+
+    void check();
+
+    typedef struct {
+      void * ec_cont;
+      int t;
+      int * c;
+    } ec_tframe_sleep_t;
+
+    typedef struct {
+      void * ec_cont;
+      int * c;
+    } ec_tframe_wait_t;
+
+    typedef struct {
+      union {
+          ec_tframe_wait_t wait; ec_tframe_sleep_t sleep;
+      } ec_frames;
+      void ec_crit_0;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+
+    void sleep(ec_tframe_sleep_t *);
+    void wait(ec_tframe_wait_t *);
+
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont) goto * ec_cont;
+
+    ec_ctrlbl_0_start: ;
+        if (!1) goto ec_ctrlbl_1_start; else goto ec_contlbl_L2_start;
+
+    ec_contlbl_L2_start: ;
+        if (next == -1) goto ec_ctrlbl_2_start; else goto ec_ctrlbl_3_start;
+
+    ec_ctrlbl_3_start: ;
+        ec_tstack_start.ec_frames.sleep.t = next;
+        ec_tstack_start.ec_frames.sleep.c = &c;
+        ec_tstack_start.ec_frames.sleep.ec_cont = &&ec_contlbl_L6_start;
+        sleep(&ec_tstack_start.ec_frames.sleep);
+        return;
+
+    ec_contlbl_L6_start: ;
+        ec_tstack_start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
+        if (!ec_tstack_start.ec_crit_0) goto ec_ctrlbl_5_start; else goto ec_ctrlbl_4_start;
+
+    ec_ctrlbl_5_start: ;
+        check();
+        goto ec_ctrlbl_4_start;
+
+    ec_ctrlbl_2_start: ;
+        ec_tstack_start.ec_frames.wait.c = &c;
+        ec_tstack_start.ec_frames.wait.ec_cont = &&ec_contlbl_L4_start;
+        wait(&ec_tstack_start.ec_frames.wait);
+        return;
+
+    ec_contlbl_L4_start: ;
+        goto ec_ctrlbl_4_start;
+
+    ec_ctrlbl_4_start: ;
+        goto ec_ctrlbl_0_start;
+
+    ec_ctrlbl_1_start: ;
+        return;
+    }
   |])
   -- end {{{2
   ]

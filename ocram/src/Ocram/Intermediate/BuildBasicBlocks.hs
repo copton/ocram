@@ -18,11 +18,8 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Compiler.Hoopl as H
 
-import Debug.Trace (trace)
-import Language.C.Pretty (pretty)
-
 build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
-build_basic_blocks cf stmts = trace ("XXX: " ++ show (map pretty stmts)) $ runM $ do
+build_basic_blocks cf stmts = runM $ do
   protoblocks <- partition cf stmts
   let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undef]
   blocks <- mapM convert blockcont
@@ -93,7 +90,7 @@ partition cf stmts =
 convert :: (ProtoBlock, I.Label) -> M I.Body -- {{{2
 convert ((ProtoBlock thisBlock body), nextBlock) = do
   let nfirst = I.Label thisBlock
-  nmiddles <- mapM convM (trace ("XXX: " ++ show (null body)) (init body))
+  nmiddles <- mapM convM (init body)
   (lastMiddle, nlast) <- convL (last body)
   let
     nmiddles' = case lastMiddle of

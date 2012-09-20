@@ -1228,7 +1228,6 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
       b();
       return;
-      goto ec_ctrlbl_2;
       ec_ctrlbl_1: ;
       c();
       return;
@@ -1275,13 +1274,11 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
       b();
       return;
-      goto ec_ctrlbl_2;
       ec_ctrlbl_1: ;
-      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_2;
       ec_ctrlbl_3: ;
       c();
       return;
-      ec_ctrlbl_4: ;
       ec_ctrlbl_2: ;
     }
   |])
@@ -1738,40 +1735,6 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L2:
     RETURN
   |], "L1")
-  , -- 12 - label without body {{{2
-  ([],
-  [paste|
-    void foo() {
-      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
-      ec_ctrlbl_0: ;
-      b();
-      goto ec_ctrlbl_2;
-      ec_ctrlbl_1: ;
-      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
-      ec_ctrlbl_3: ;
-      c();
-      return;
-      ec_ctrlbl_4: ;
-      ec_ctrlbl_2: ;
-    }
-  |], [paste|
-    void foo() {
-      L1:
-      IF 1 THEN L2/ec_ctrlbl_0 ELSE L3/ec_ctrlbl_1
-
-      L2/ec_ctrlbl_0:
-      b();
-      GOTO L6/ec_ctrlbl_2
-
-      L3/ec_ctrlbl_1:
-      IF 2 THEN L4/ec_ctrlbl_3 ELSE L5/ec_ctrlbl_4
-
-      L4/ec_ctrlbl_3:
-      c()
-      RETURN
-    }   
-  |])
-  -- XXX dead code elimination; if (c) { return; } else {...} -> RETURN; GOTO <after else block>
   -- end {{{2
   ]
   where
