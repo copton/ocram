@@ -78,11 +78,11 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
     void foo() {
       i = 23;
       {
-        ec_shadow_i_0 = 42;
+        ec_unique_i_0 = 42;
       }
     }
   |], [
-      ("char i", "ec_shadow_i_0", 3, 5)
+      ("char i", "ec_unique_i_0", 3, 5)
     , ("int i", "i", 1, 6)
   ], [])
   , -- 04 - local variable shadowing - with access {{{2
@@ -98,12 +98,12 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
     void foo() {
       i = 23;
       {
-        ec_shadow_i_0 = 42;
-        ec_shadow_i_0 = 19;
+        ec_unique_i_0 = 42;
+        ec_unique_i_0 = 19;
       }
     }
   |], [
-      ("char i", "ec_shadow_i_0", 3, 6)
+      ("char i", "ec_unique_i_0", 3, 6)
     , ("int i", "i", 1, 7)
   ], [])
   , -- 05 - for loop with declaration {{{2
@@ -115,13 +115,13 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
   |], [paste|
     void foo(int i) {
       {
-        ec_shadow_i_0 = 0;
-        for (; ec_shadow_i_0 < 23; ec_shadow_i_0++) { }
+        ec_unique_i_0 = 0;
+        for (; ec_unique_i_0 < 23; ec_unique_i_0++) { }
       }
     }
   |], [
       ("int i", "i", 1, 4)
-    , ("int i", "ec_shadow_i_0", 2, 3)
+    , ("int i", "ec_unique_i_0", 2, 3)
   ], [])
   , -- 06 - multiple declarations {{{2
   ([lpaste|
@@ -137,14 +137,14 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       i = 0;
       j = 1;
       {
-        ec_shadow_i_0 = 23;
-        ec_shadow_j_0 = 42;
-        return ec_shadow_i_0 + ec_shadow_j_0;
+        ec_unique_i_0 = 23;
+        ec_unique_j_0 = 42;
+        return ec_unique_i_0 + ec_unique_j_0;
       }
     }
   |], [
-      ("int i", "ec_shadow_i_0", 3, 6)
-    , ("int j", "ec_shadow_j_0", 3, 6)
+      ("int i", "ec_unique_i_0", 3, 6)
+    , ("int j", "ec_unique_j_0", 3, 6)
     , ("int i", "i", 1, 7)
     , ("int j", "j", 1, 7)
   ], [])
@@ -177,7 +177,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       }
     }
   |], [], [
-      ("static int i = 42", "ec_static_foo_ec_shadow_i_0", 3, 5)
+      ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 5)
     , ("static int i = 23", "ec_static_foo_i", 1, 6)
   ])
   , -- 09 - static variable shadowing - with access {{{2
@@ -192,11 +192,11 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
   |], [paste|
     void foo() {
       {
-        ec_static_foo_ec_shadow_i_0 = 19;
+        ec_static_foo_ec_unique_i_0 = 19;
       }
     }
   |], [], [
-      ("static int i = 42", "ec_static_foo_ec_shadow_i_0", 3, 6)
+      ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 6)
     , ("static int i = 23", "ec_static_foo_i", 1, 7)
   ])
   , -- 10 - multiple declarations mixed {{{2
@@ -211,14 +211,14 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
   |], [paste|
     int foo() {
       {
-        ec_shadow_i_0 = 23;
-        ec_shadow_j_0 = 42;
-        return ec_shadow_i_0 + ec_shadow_j_0;
+        ec_unique_i_0 = 23;
+        ec_unique_j_0 = 42;
+        return ec_unique_i_0 + ec_unique_j_0;
       }
     }
   |], [
-      ("int i", "ec_shadow_i_0", 3, 6)
-    , ("int j", "ec_shadow_j_0", 3, 6)
+      ("int i", "ec_unique_i_0", 3, 6)
+    , ("int j", "ec_unique_j_0", 3, 6)
   ], [
       ("static int i = 0", "ec_static_foo_i", 1, 7)
     , ("static int j = 1", "ec_static_foo_j", 1, 7)
@@ -239,11 +239,11 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
         i = 0;
       }
       {
-        ec_shadow_i_0 = 1;
+        ec_unique_i_0 = 1;
       }
     }
   |], [
-      ("int i", "ec_shadow_i_0", 5, 7)
+      ("int i", "ec_unique_i_0", 5, 7)
     , ("int i", "i", 2, 4)
   ], [
   ])

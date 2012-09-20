@@ -15,7 +15,7 @@ import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo, undefNode)
 import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
-import Ocram.Names (varShadow, varStatic)
+import Ocram.Names (varUnique, varStatic)
 import Ocram.Query (function_parameters_fd)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Util (abort, unexp)
@@ -161,4 +161,4 @@ getIdentifier (Identifiers _ rt) name = fromMaybe name $ M.lookup name rt
 addIdentifier :: (String -> String) -> Identifiers -> Symbol -> Identifiers -- {{{2
 addIdentifier mangle (Identifiers es rt) identifier = case M.lookup identifier es of
   Nothing -> Identifiers (M.insert identifier 0 es) (M.insert identifier (mangle identifier) rt)
-  Just count -> Identifiers (M.adjust (+1) identifier es) (M.insert identifier (mangle (varShadow identifier count)) rt)
+  Just count -> Identifiers (M.adjust (+1) identifier es) (M.insert identifier (mangle (varUnique identifier count)) rt)

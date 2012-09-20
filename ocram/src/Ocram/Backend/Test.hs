@@ -189,7 +189,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       union {
         ec_tframe_block_t block;
       } ec_frames;
-      int ec_shadow_i_0;
+      int ec_unique_i_0;
       int i;
     } ec_tframe_start_t;
 
@@ -320,7 +320,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
     }
   |], [paste|
     typedef struct {
-      int ec_shadow_i_0;
+      int ec_unique_i_0;
       int i;
     } ec_eframe_start_t;
   |], [("start", Just "union {\n    ec_eframe_start_t start;\n} ec_estack")]

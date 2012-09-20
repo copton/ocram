@@ -14,9 +14,9 @@ startAttr = "tc_run_thread"
 ctrLbl :: Int -> String
 ctrLbl count = "ec_ctrlbl_" ++ show count
 
--- |The naming scheme to unshadow automatic variables
-varShadow :: String -> Int -> String
-varShadow name count =  "ec_shadow_" ++ name ++ "_" ++ show count
+-- |The naming scheme for unique variable names
+varUnique :: String -> Int -> String
+varUnique name count =  "ec_unique_" ++ name ++ "_" ++ show count
 
 -- |The name of a temporary variable for critical calls
 varCrit :: Int -> String
