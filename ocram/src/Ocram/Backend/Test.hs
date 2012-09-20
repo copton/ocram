@@ -524,8 +524,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 				return;	
 		}
 	|])
-  -- 02 - setup - returning a pointer {{{2
-	, ([paste|
+  , -- 02 - setup - returning a pointer {{{2
+	([paste|
 		__attribute__((tc_blocking)) int* block(int i);
 		__attribute__((tc_run_thread)) void start() { 
 			block(23);
@@ -561,8 +561,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 				return;	
 		}
 	|])
-  -- 03 - setup - returning a void pointer {{{2
-	, ([paste|
+  , -- 03 - setup - returning a void pointer {{{2
+	([paste|
 		__attribute__((tc_blocking)) void* block(int i);
 		__attribute__((tc_run_thread)) void start() { 
 			block(23);
@@ -598,8 +598,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 				return;	
 		}
 	|])
--- 04 - local critical variable {{{2
-	, ([paste|
+  , -- 04 - local critical variable {{{2
+	([paste|
 		__attribute__((tc_blocking)) void block(int i);
 
 		__attribute__((tc_run_thread)) void start() 
@@ -641,8 +641,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 				return;	
 		}
 	|])
--- 05 - local non-critical variable {{{2
-	, ([paste|
+  , -- 05 - local non-critical variable {{{2
+	([paste|
 		__attribute__((tc_blocking)) void block(int i);
 
 		__attribute__((tc_run_thread)) void start() 
@@ -688,8 +688,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 				return;	
 		}
 	|])
-  -- 06 - function static variable {{{2
-	, ([paste|
+  , -- 06 - function static variable {{{2
+	([paste|
 		__attribute__((tc_blocking)) void block(int i);
 
 		__attribute__((tc_run_thread)) void start() 
@@ -729,6 +729,661 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 				return;	
 		}
 	|])
+  , -- 07 - global variable {{{2
+	([paste|
+		__attribute__((tc_blocking)) void block(int i1, int i2);
+
+		int k;
+
+		__attribute__((tc_run_thread)) void start() 
+		{
+			int j = 23;
+			block(j, k);
+		}
+	|],[paste|
+		int k;
+
+		typedef struct {
+			void* ec_cont;
+			int i1;
+			int i2;
+		} ec_tframe_block_t;
+
+		typedef struct {
+			union {
+					ec_tframe_block_t block;
+			} ec_frames;
+		} ec_tframe_start_t;
+
+		ec_tframe_start_t ec_tstack_start;
+
+    typedef struct {
+      int j;
+    } ec_eframe_start_t;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+      union {
+        ec_eframe_start_t start;
+      } ec_estack;
+			if (ec_cont)
+				goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+        ec_estack.start.j = 23;
+				ec_tstack_start.ec_frames.block.i1 = ec_estack.start.j;
+				ec_tstack_start.ec_frames.block.i2 = k;
+				ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+				block(&ec_tstack_start.ec_frames.block);
+				return;
+			ec_contlbl_L2_start: ;
+				return;	
+		}
+	|])
+  , -- 08 - loop {{{2
+	([paste|
+		__attribute__((tc_blocking)) void block(int j);
+		__attribute__((tc_run_thread)) void start() { 
+			int i;
+			i = 0;
+			while (i<10) {
+				i++;
+				block(i);
+				i++;
+			}
+			i = 0;
+		}
+	|],[paste|
+		typedef struct {
+				void* ec_cont;
+				int j;
+		} ec_tframe_block_t;
+
+		typedef struct {
+				union {
+						ec_tframe_block_t block;
+				} ec_frames;
+				int i;
+		} ec_tframe_start_t;
+		
+		ec_tframe_start_t ec_tstack_start;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+      ec_tstack_start.i = 0;
+      goto ec_ctrlbl_0_start; 
+      ec_ctrlbl_0_start: ;
+      if (!(ec_tstack_start.i < 10)) goto ec_ctrlbl_1_start; else goto ec_contlbl_L3_start;
+
+      ec_contlbl_L3_start: ;
+        ec_tstack_start.i++;
+        ec_tstack_start.ec_frames.block.j = ec_tstack_start.i;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L4_start;
+        block(&ec_tstack_start.ec_frames.block);
+        return;
+
+      ec_contlbl_L4_start: ;
+        ec_tstack_start.i++;
+        goto ec_ctrlbl_0_start;
+        ec_ctrlbl_1_start: ;
+				ec_tstack_start.i = 0;
+				return;	
+		}
+	|])
+  , -- 09 - critical function {{{2
+	([paste|
+		__attribute__((tc_blocking)) void block(int b);
+
+		void critical(int c) {
+			block(c+1);	
+		}
+
+		int non_critical(int n) {
+			return n+1;
+		}
+
+		__attribute__((tc_run_thread)) void start() { 
+				int s1;
+				int s2;
+				s2 = non_critical(s1);
+				critical(s2);
+		}
+	|],[paste|
+		int non_critical(int n) {
+			return n+1;
+		}
+
+		typedef struct {
+				void* ec_cont;
+				int b;
+		} ec_tframe_block_t;
+
+		typedef struct {
+			void* ec_cont;
+			union {
+				ec_tframe_block_t block;
+			} ec_frames;
+			int c;	
+		} ec_tframe_critical_t;
+
+		typedef struct {
+				union {
+						ec_tframe_critical_t critical;
+				} ec_frames;
+		} ec_tframe_start_t;
+		
+		ec_tframe_start_t ec_tstack_start;
+
+    typedef struct {
+      int s2;
+      int s1;
+    } ec_eframe_start_t;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+      union {
+        ec_eframe_start_t start;
+      } ec_estack;
+
+			if (ec_cont)
+				goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+				ec_estack.start.s2 = non_critical(ec_estack.start.s1);
+				ec_tstack_start.ec_frames.critical.c = ec_estack.start.s2;
+				ec_tstack_start.ec_frames.critical.ec_cont = &&ec_contlbl_L2_start;
+				goto ec_contlbl_L1_critical;
+			ec_contlbl_L2_start: ;
+				return;	
+			
+			ec_contlbl_L1_critical: ;
+				ec_tstack_start.ec_frames.critical.ec_frames.block.b = ec_tstack_start.ec_frames.critical.c + 1;
+				ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L2_critical;
+				block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
+				return;
+			ec_contlbl_L2_critical: ;
+				goto *ec_tstack_start.ec_frames.critical.ec_cont;
+		}
+	|])
+  , -- 10  - critical function, chained return {{{2
+	([paste|
+		__attribute__((tc_blocking)) int block(int b);
+
+		int critical(int c) {
+			return block(c+1);	
+		}
+
+		__attribute__((tc_run_thread)) void start() { 
+				critical(23);
+		}
+	|],[paste|
+		typedef struct {
+				void* ec_cont;
+        int ec_result;
+				int b;
+		} ec_tframe_block_t;
+
+		typedef struct {
+			void* ec_cont;
+      int ec_result;
+			union {
+				ec_tframe_block_t block;
+			} ec_frames;
+			int c;	
+      int ec_crit_0;
+		} ec_tframe_critical_t;
+
+		typedef struct {
+				union {
+						ec_tframe_critical_t critical;
+				} ec_frames;
+		} ec_tframe_start_t;
+		
+		ec_tframe_start_t ec_tstack_start;
+
+		void block(ec_tframe_block_t*);
+
+		void ec_thread_1(void* ec_cont)
+		{
+			if (ec_cont)
+				goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+				ec_tstack_start.ec_frames.critical.c = 23;
+				ec_tstack_start.ec_frames.critical.ec_cont = &&ec_contlbl_L2_start;
+				goto ec_contlbl_L1_critical;
+			ec_contlbl_L2_start: ;
+				return;	
+			
+			ec_contlbl_L1_critical: ;
+				ec_tstack_start.ec_frames.critical.ec_frames.block.b = ec_tstack_start.ec_frames.critical.c + 1;
+				ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L2_critical;
+				block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
+				return;
+
+      ec_contlbl_L2_critical: ;
+        ec_tstack_start.ec_frames.critical.ec_crit_0 = ec_tstack_start.ec_frames.critical.ec_frames.block.ec_result;
+        ec_tstack_start.ec_frames.critical.ec_result = ec_tstack_start.ec_frames.critical.ec_crit_0;
+				goto *ec_tstack_start.ec_frames.critical.ec_cont;
+		}
+	|])
+  , -- 11 - two threads {{{2
+	([paste|
+		__attribute__((tc_blocking)) void block(int b);
+
+		__attribute__((tc_run_thread)) void start() { 
+				int s = 23;
+				while (1) {
+					block(s);
+				}
+		}
+
+		__attribute__((tc_run_thread)) void run() { 
+				int r = 42;
+				while (1) {
+					block(r);
+				}
+		}
+	|],[paste|
+    typedef struct {
+      void * ec_cont;
+      int b;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      union {
+          ec_tframe_block_t block;
+      } ec_frames;
+      int s;
+    } ec_tframe_start_t;
+
+    typedef struct {
+      union {
+          ec_tframe_block_t block;
+      } ec_frames;
+      int r;
+    } ec_tframe_run_t;
+
+    ec_tframe_start_t ec_tstack_start;
+    ec_tframe_run_t ec_tstack_run;
+
+    void block(ec_tframe_block_t *);
+
+    void ec_thread_1(void * ec_cont)
+    {
+        if (ec_cont) goto * ec_cont;
+
+      ec_contlbl_L1_start: ;
+        ec_tstack_start.s = 23;
+        goto ec_ctrlbl_0_start;
+
+      ec_ctrlbl_0_start: ;
+        if (!1) goto ec_ctrlbl_1_start; else goto ec_contlbl_L3_start;
+        
+      ec_contlbl_L3_start: ;
+        ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L4_start;
+        block(&ec_tstack_start.ec_frames.block);
+        return;
+
+      ec_contlbl_L4_start: ;
+        goto ec_ctrlbl_0_start;
+
+      ec_ctrlbl_1_start: ;
+        return;
+    }
+
+    void ec_thread_2(void * ec_cont)
+    {
+        if (ec_cont) goto * ec_cont;
+
+      ec_contlbl_L1_run: ;
+        ec_tstack_run.r = 42;
+        goto ec_ctrlbl_0_run;
+
+      ec_ctrlbl_0_run: ;
+        if (!1) goto ec_ctrlbl_1_run; else goto ec_contlbl_L3_run;
+
+      ec_contlbl_L3_run: ;
+        ec_tstack_run.ec_frames.block.b = ec_tstack_run.r;
+        ec_tstack_run.ec_frames.block.ec_cont = &&ec_contlbl_L4_run;
+        block(&ec_tstack_run.ec_frames.block);
+        return;
+
+      ec_contlbl_L4_run: ;
+        goto ec_ctrlbl_0_run;
+
+      ec_ctrlbl_1_run: ;
+        return;
+    }
+	|])
+  , -- 12 - reentrance {{{2
+	([paste|
+		__attribute__((tc_blocking)) void block(int b);
+
+		void critical(int c) {
+			block(c+1);	
+		}
+
+		__attribute__((tc_run_thread)) void run() { 
+				critical(1);
+		}
+
+		__attribute__((tc_run_thread)) void start() { 
+				critical(2);
+		}
+	|],[paste|
+    typedef struct {
+      void * ec_cont;
+      int b;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      void * ec_cont;
+      union {
+          ec_tframe_block_t block;
+      } ec_frames;
+      int c;
+    } ec_tframe_critical_t;
+
+    typedef struct {
+      union {
+          ec_tframe_critical_t critical;
+      } ec_frames;
+    } ec_tframe_run_t;
+
+    typedef struct {
+      union {
+          ec_tframe_critical_t critical;
+      } ec_frames;
+    } ec_tframe_start_t;
+
+    ec_tframe_run_t ec_tstack_run;
+    ec_tframe_start_t ec_tstack_start;
+
+    void block(ec_tframe_block_t *);
+
+    void ec_thread_1(void * ec_cont)
+    {
+        if (ec_cont) goto * ec_cont;
+
+      ec_contlbl_L1_run: ;
+        ec_tstack_run.ec_frames.critical.c = 1;
+        ec_tstack_run.ec_frames.critical.ec_cont = &&ec_contlbl_L2_run;
+        goto ec_contlbl_L1_critical;
+
+      ec_contlbl_L2_run: ;
+        return;
+
+      ec_contlbl_L1_critical: ;
+        ec_tstack_run.ec_frames.critical.ec_frames.block.b = ec_tstack_run.ec_frames.critical.c + 1;
+        ec_tstack_run.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L2_critical;
+        block(&ec_tstack_run.ec_frames.critical.ec_frames.block);
+        return;
+
+      ec_contlbl_L2_critical: ;
+        goto * (ec_tstack_run.ec_frames.critical.ec_cont);
+    }
+
+    void ec_thread_2(void * ec_cont)
+    {
+        if (ec_cont) goto * ec_cont;
+
+      ec_contlbl_L1_start: ;
+        ec_tstack_start.ec_frames.critical.c = 2;
+        ec_tstack_start.ec_frames.critical.ec_cont = &&ec_contlbl_L2_start;
+        goto ec_contlbl_L1_critical;
+
+      ec_contlbl_L2_start: ;
+        return;
+
+      ec_contlbl_L1_critical: ;
+        ec_tstack_start.ec_frames.critical.ec_frames.block.b = ec_tstack_start.ec_frames.critical.c + 1;
+        ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L2_critical;
+        block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
+        return;
+
+      ec_contlbl_L2_critical: ;
+        goto * (ec_tstack_start.ec_frames.critical.ec_cont);
+    }
+  |])
+  , -- 13 - return value {{{2
+	([paste|
+		__attribute__((tc_blocking)) int block(int i);
+
+		__attribute__((tc_run_thread)) void start() 
+		{
+			int i;
+			i = block(i);
+		}
+	|],[paste|
+    typedef struct {
+      void * ec_cont;
+      int ec_result;
+      int i;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      union {
+          ec_tframe_block_t block;
+      } ec_frames;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+
+    typedef struct {
+        int i;
+    } ec_eframe_start_t;
+
+    void block(ec_tframe_block_t *);
+
+    void ec_thread_1(void * ec_cont)
+    {
+        union {
+            ec_eframe_start_t start;
+        } ec_estack;
+
+        if (ec_cont) goto * ec_cont;
+
+      ec_contlbl_L1_start: ;
+        ec_tstack_start.ec_frames.block.i = ec_estack.start.i;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+        block(&ec_tstack_start.ec_frames.block);
+        return;
+
+      ec_contlbl_L2_start: ;
+        ec_estack.start.i = ec_tstack_start.ec_frames.block.ec_result;
+        return;
+    }
+	|])
+  , -- 14 - multiple declarations with critical initialization {{{2
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+
+    __attribute__((tc_run_thread)) void start() {
+      int i, j=block(1) + 3, k=23;
+    }
+  |],[paste|
+    typedef struct {
+      void * ec_cont;
+      int ec_result;
+      int i;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      union {
+        ec_tframe_block_t block;
+      } ec_frames;
+      int ec_crit_0;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+
+    typedef struct {
+      int i;
+      int j;
+      int k;
+    } ec_eframe_start_t;
+
+    void block(ec_tframe_block_t *);
+
+    void ec_thread_1(void * ec_cont)
+    {
+      union {
+          ec_eframe_start_t start;
+      } ec_estack;
+
+      if (ec_cont) goto * ec_cont;
+
+    ec_contlbl_L1_start: ;
+      ec_tstack_start.ec_frames.block.i = 1;
+      ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+      block(&ec_tstack_start.ec_frames.block);
+      return;
+
+    ec_contlbl_L2_start: ;
+      ec_tstack_start.ec_crit_0 = ec_tstack_start.ec_frames.block.ec_result;
+      ec_estack.start.j = ec_tstack_start.ec_crit_0 + 3;
+      ec_estack.start.k = 23;
+      return;
+    }
+  |])
+  , -- 15 - returns {{{2
+  ([paste|
+    __attribute__((tc_blocking)) int block(char* c);
+
+    int critical(int i) {
+      if (i == 0) {
+        return 0;
+      } else {
+        block(0);
+        return 42;
+      }
+    }
+
+    __attribute__((tc_run_thread)) void start() {
+      critical(23);
+    }
+  |],[paste|
+    typedef struct {
+      void * ec_cont;
+      int ec_result;
+      char * c;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      void * ec_cont;
+      int ec_result;
+      union {
+        ec_tframe_block_t block;
+      } ec_frames;
+      int i;
+    } ec_tframe_critical_t;
+
+    typedef struct {
+      union {
+          ec_tframe_critical_t critical;
+      } ec_frames;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+
+    void block(ec_tframe_block_t *);
+
+    void ec_thread_1(void * ec_cont)
+    {
+      if (ec_cont) goto * ec_cont;
+
+      ec_contlbl_L1_start: ;
+        ec_tstack_start.ec_frames.critical.i = 23;
+        ec_tstack_start.ec_frames.critical.ec_cont = &&ec_contlbl_L2_start;
+        goto ec_contlbl_L1_critical;
+
+      ec_contlbl_L2_start: ;
+        return;
+
+      ec_contlbl_L1_critical: ;
+        if (ec_tstack_start.ec_frames.critical.i == 0) goto ec_ctrlbl_0_critical; else goto ec_ctrlbl_1_critical;
+
+      ec_ctrlbl_1_critical: ;
+        ec_tstack_start.ec_frames.critical.ec_frames.block.c = 0;
+        ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L5_critical;
+        block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
+        return;
+        
+      ec_contlbl_L5_critical: ;
+        ec_tstack_start.ec_frames.critical.ec_result = 42;
+        goto * (ec_tstack_start.ec_frames.critical.ec_cont);
+
+      ec_ctrlbl_0_critical: ;
+        ec_tstack_start.ec_frames.critical.ec_result = 0;
+        goto * (ec_tstack_start.ec_frames.critical.ec_cont);
+    }
+  |])
+  , -- 16 - struct {{{2
+  ([paste|
+    struct S {
+      int i;
+    };
+    __attribute__((tc_blocking)) int block(struct S s);
+
+    __attribute__((tc_run_thread)) void start() {
+      struct S s;
+      block(s);
+    }
+  |],[paste|
+    struct S {
+      int i;
+    };
+
+    typedef struct {
+      void * ec_cont;
+      int ec_result;
+      struct S s;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      union {
+          ec_tframe_block_t block;
+      } ec_frames;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+
+    typedef struct {
+      struct S s;
+    } ec_eframe_start_t;
+
+    void block(ec_tframe_block_t *);
+
+    void ec_thread_1(void * ec_cont)
+    {
+      union {
+          ec_eframe_start_t start;
+      } ec_estack;
+
+      if (ec_cont) goto * ec_cont;
+
+      ec_contlbl_L1_start: ;
+        ec_tstack_start.ec_frames.block.s = ec_estack.start.s;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+        block(&ec_tstack_start.ec_frames.block);
+        return;
+
+      ec_contlbl_L2_start: ;
+        return;
+    }
+  |])
   -- end {{{2
   ]
   where
