@@ -17,7 +17,7 @@ import Language.C.Syntax.AST
 import Ocram.Analysis.CallGraph (start_functions, is_start, is_critical)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
-import Ocram.Query (is_start_function', is_blocking_function', function_parameters_cd)
+import Ocram.Query (is_start_function, is_blocking_function, function_parameters_cd)
 import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
@@ -82,7 +82,7 @@ check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` sane
   where
     saneExtDecls (CDeclExt cd@(CDecl ts _ ni))
       | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
-      | is_blocking_function' cd = map (\p -> newError NoVarName Nothing (Just (nodeInfo p))) $ filter noVarName $ function_parameters_cd cd
+      | is_blocking_function cd = map (\p -> newError NoVarName Nothing (Just (nodeInfo p))) $ filter noVarName $ function_parameters_cd cd
       | otherwise = []
 
     saneExtDecls (CFDefExt (CFunDef ts (CDeclr _ ps _ _ _) _ _ ni))
@@ -166,7 +166,7 @@ checkStartFunctions :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkStartFunctions cg (CTranslUnit ds _) = foldr go [] ds
   where
   go (CFDefExt f@(CFunDef _ _ _ _ ni)) es
-    | is_start_function' f && not (is_start cg (symbol f)) = 
+    | is_start_function f && not (is_start cg (symbol f)) = 
       newError ThreadNotBlocking Nothing (Just ni) : es
     | otherwise = es
   go _ es = es
@@ -180,7 +180,7 @@ checkFeatures :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkFeatures cg (CTranslUnit ds _) = concatMap filt ds
   where
     filt (CDeclExt cd)
-      | is_blocking_function' cd = scan cd
+      | is_blocking_function cd = scan cd
       | otherwise = []
     filt (CFDefExt fd)
       | is_critical cg (symbol fd) = scan fd
