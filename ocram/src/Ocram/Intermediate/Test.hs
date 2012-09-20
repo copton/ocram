@@ -247,7 +247,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       let prefix = kind ++ " variable " ++ ename ++ ": " in
       do
         assertEqual (prefix ++ "T-code decl") tdecl $ (show . pretty . var_decl) var
-        assertEqual (prefix ++ "E-code name") ename (var_fqn var)
+        assertEqual (prefix ++ "E-code name") ename (var_unique var)
         assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
         assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
 
@@ -1857,8 +1857,8 @@ test_critical_variables = enumTestGroup "ast_2_ir" $ map runTest [
         bf = M.fromList $ map (\cd -> (symbol cd, cd)) cds
         funs = ast_2_ir bf cf
         (Function outputCriticalVars outputUncriticalVars _ _ _ _) = $fromJust_s $ M.lookup ((symbol . head) fds) funs
-        outputCriticalVars' = map var_fqn outputCriticalVars
-        outputUncriticalVars' = map var_fqn outputUncriticalVars
+        outputCriticalVars' = map var_unique outputCriticalVars
+        outputUncriticalVars' = map var_unique outputUncriticalVars
       in do
         assertEqual "critical variables" expectedCriticalVars outputCriticalVars'
         assertEqual "uncritical variables" expecedUncriticalVars outputUncriticalVars'

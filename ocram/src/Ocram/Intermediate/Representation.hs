@@ -11,26 +11,22 @@ import Ocram.Symbols (symbol, Symbol)
 
 import qualified Compiler.Hoopl as H
 
-type FQN -- {{{1
-  -- |A fully qualified name
-  = String
-
 data Variable -- {{{1
   -- |Local variables of functions, i.e. function parameters and automatic variables
   = Variable {
-    var_decl  :: CDecl          -- ^the T-code declaration
-  , var_fqn   :: FQN            -- ^the unique variable name
-  , var_scope :: Maybe NodeInfo -- ^the node info of the surrounding T-code scope
+    var_decl   :: CDecl          -- ^the T-code declaration
+  , var_unique :: Symbol         -- ^the unique variable name
+  , var_scope  :: Maybe NodeInfo -- ^the node info of the surrounding T-code scope
   }
 
 instance Eq Variable where
-  v1 == v2 = var_fqn v1 == var_fqn v2
+  v1 == v2 = var_unique v1 == var_unique v2
 
 instance Ord Variable where
-  compare v1 v2 = compare (var_fqn v1) (var_fqn v2)
+  compare v1 v2 = compare (var_unique v1) (var_unique v2)
 
 instance Show Variable where
-  show = show . var_fqn
+  show = show . var_unique
 
 data Function -- {{{1
   -- |A critical function

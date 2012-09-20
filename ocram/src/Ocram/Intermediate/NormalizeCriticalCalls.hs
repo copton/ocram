@@ -40,6 +40,8 @@ normalize_critical_calls sf items =
 
     tStmt o@(CLabel _ (CExpr Nothing _) _ _) = return [o]
 
+    tStmt o@(CReturn Nothing _) = return [o]
+
     tStmt x = $abort $ unexp x
 
     keepOrReplace :: [CExpr] -> CStat -> ([CExpr] -> CStat) -> S [CStat] -- {{{2

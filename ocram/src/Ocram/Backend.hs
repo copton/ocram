@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Ocram.Backend
 -- exports {{{1
 (
@@ -6,19 +5,18 @@ module Ocram.Backend
 ) where
 
 -- imports {{{1
-import Control.Applicative ((<$>), (<*>))
-import Language.C.Syntax.AST
-import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (internalIdent)
+import Language.C.Data.Node (undefNode)
+import Language.C.Syntax.AST
 import Ocram.Analysis (Analysis(..))
-import Ocram.Backend.TStack
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
+import Ocram.Backend.TStack
+import Ocram.Backend.Util (makeVarDecl)
 import Ocram.Debug (enrich_node_info, CTranslUnit')
-import Ocram.Intermediate (Function(..), Variable(..))
+import Ocram.Intermediate (Function(..))
 import Ocram.Names (tframe)
 import Ocram.Symbols (Symbol, symbol)
-import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
 
@@ -40,7 +38,7 @@ tcode_2_ecode ana cfs =
   in
     (fmap enrich_node_info ecode, fmap enrich_node_info pal)
 
-blockingFunctionDeclarations :: M.Map Symbol CDecl -> [CDecl]
+blockingFunctionDeclarations :: M.Map Symbol CDecl -> [CDecl] -- {{{2
 blockingFunctionDeclarations = map go . M.elems
   where
   go cd = decl
@@ -56,14 +54,5 @@ blockingFunctionDeclarations = map go . M.elems
       ts' = [CTypeSpec (CTypeDef (internalIdent (tframe fName)) un)]
       declr' = CDeclr Nothing [CPtrDeclr [] un] Nothing [] un
 
-staticVariables :: M.Map Symbol Function -> [CDecl]
-staticVariables = map mkVar . M.fold (\fun vs -> fun_stVars fun ++ vs) []
-  where
-    mkVar = renameDecl <$> var_fqn <*> var_decl
-    renameDecl newName (CDecl x1 [(Just declr, x2, x3)] x4) =
-      CDecl x1 [(Just (renameDeclr newName declr), x2, x3)] x4
-    renameDecl _ x = $abort $ unexp x
-
-    renameDeclr newName (CDeclr (Just _) x1 x2 x3 x4) =
-      CDeclr (Just (internalIdent newName)) x1 x2 x3 x4
-    renameDeclr _ x = $abort $ unexp x
+staticVariables :: M.Map Symbol Function -> [CDecl] -- {{{2
+staticVariables = map makeVarDecl . M.fold (\fun vs -> fun_stVars fun ++ vs) []

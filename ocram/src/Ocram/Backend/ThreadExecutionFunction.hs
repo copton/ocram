@@ -115,7 +115,7 @@ inlineCriticalFunction cg bf cf startFunction inlinedFunction =
           | otherwise       = o
           where
             vname = symbol iden
-            test f = vname `elem` map var_fqn (f inlinedFunction)
+            test f = vname `elem` map var_unique (f inlinedFunction)
         rewrite o = o
 
 lblIdent :: Label -> Symbol -> Ident -- {{{2

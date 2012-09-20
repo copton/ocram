@@ -27,8 +27,8 @@ critical_variables (Function allVars [] staticVars fd body entry) =
     undecidableVars = S.fromList $ undecidable allVars body
     functionParameters = S.fromList $ map symbol $ function_parameters_fd fd
     criticalVars = S.unions $ functionParameters : undecidableVars : map snd criticalFacts
-    nonCriticalVars = [x | x <- allVars, not (S.member (var_fqn x) criticalVars)]
-    truelyCriticalVars = [x | x <- allVars, S.member (var_fqn x) criticalVars]
+    nonCriticalVars = [x | x <- allVars, not (S.member (var_unique x) criticalVars)]
+    truelyCriticalVars = [x | x <- allVars, S.member (var_unique x) criticalVars]
   in Function truelyCriticalVars nonCriticalVars staticVars fd body entry
     
   where

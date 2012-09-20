@@ -168,6 +168,33 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
     ec_tframe_run_t ec_tstack_run;
   |])
 
+  , --  06 - shadowing {{{2
+  ([paste| 
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int i = 0;
+      {
+        int i = 1;
+        block();
+        i++;
+      }
+      i++;
+    }
+  |], [paste|
+    typedef struct {
+      void * ec_cont;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      union {
+        ec_tframe_block_t block;
+      } ec_frames;
+      int ec_shadow_i_0;
+      int i;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+  |])
   -- end {{{2
   ]
   where
@@ -279,6 +306,26 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
     , ("start", Just "union {\n    ec_eframe_start_t start; ec_eframe_crit_t crit;\n} ec_estack")
   ])
     
+  , -- 05 - shadowing {{{2
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int i = 0;
+      {
+        int i = 1;
+        i++;
+      }
+      i++;
+      block();
+    }
+  |], [paste|
+    typedef struct {
+      int ec_shadow_i_0;
+      int i;
+    } ec_eframe_start_t;
+  |], [("start", Just "union {\n    ec_eframe_start_t start;\n} ec_estack")]
+  )
+  
   -- end {{{2
   ]
   where
