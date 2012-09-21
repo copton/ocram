@@ -1316,6 +1316,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
       b();
       return;
+      goto ec_ctrlbl_2;
       ec_ctrlbl_1: ;
       c();
       return;
@@ -1362,6 +1363,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
       b();
       return;
+      goto ec_ctrlbl_2;
       ec_ctrlbl_1: ;
       if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_2;
       ec_ctrlbl_3: ;

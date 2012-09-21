@@ -1364,11 +1364,11 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
       ec_ctrlbl_1_critical: ;
         ec_tstack_start.ec_frames.critical.ec_frames.block.c = 0;
-        ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L4_critical;
+        ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L5_critical;
         block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
         return;
         
-      ec_contlbl_L4_critical: ;
+      ec_contlbl_L5_critical: ;
         ec_tstack_start.ec_frames.critical.ec_result = 42;
         goto * (ec_tstack_start.ec_frames.critical.ec_cont);
 

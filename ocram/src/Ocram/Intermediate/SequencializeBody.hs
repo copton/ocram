@@ -13,7 +13,7 @@ import Ocram.Symbols (symbol)
 import Ocram.Util (abort, unexp)
 
 sequencialize_body :: [CBlockItem] -> [CStat] -- {{{1
-sequencialize_body = mergeLabels . removeDeadCode . flattenScopes
+sequencialize_body = mergeLabels . flattenScopes
 
 flattenScopes :: [CBlockItem] -> [CStat]  -- {{{2
 -- |Inline all compound statements and unwrap all block items
@@ -31,14 +31,6 @@ flattenScopes = foldr flatten [] . map extract
     unpack o@(CGoto _ _)                              = o
     unpack x                                          = $abort $ unexp x
 
-removeDeadCode :: [CStat] -> [CStat] -- {{{2
--- |Remove all statements between a return and the subsequent label
-removeDeadCode = reverse . fst . foldr go ([], False) . reverse
-  where
-    go o@(CLabel _ _ _ _) (ss, True)  = (o : ss, False)
-    go _                  (ss, True)  = (ss, True)
-    go o@(CReturn _ _)    (ss, False) = (o : ss, True)
-    go o                  (ss, False) = (o : ss, False)
 
 mergeLabels :: [CStat] -> [CStat] -- {{{2
 mergeLabels []    = []
