@@ -628,7 +628,71 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 13 - switch statement {{{2
+  , -- 13 - chained else if {{{2
+  ([paste|
+    void foo() {
+      if (0) {
+      } else if(1) {
+          a();
+      } else if (2) {
+          b();
+      } else if (3) {
+          c();
+      } else {
+      }
+    }
+  |], [paste|
+    void foo() {
+    {
+      if (0) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      {
+        ec_ctrlbl_0: ;
+        goto ec_ctrlbl_2;
+      }
+      {
+        ec_ctrlbl_1: ;
+        {
+          if (1) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+          {
+            ec_ctrlbl_3: ;
+            a();
+            goto ec_ctrlbl_5;
+          }
+          {
+            ec_ctrlbl_4: ;
+            {
+              if (2) goto ec_ctrlbl_6; else goto ec_ctrlbl_7;
+              {
+                ec_ctrlbl_6: ;
+                b();
+                goto ec_ctrlbl_8;
+              }
+              {
+                ec_ctrlbl_7: ;
+                {
+                  if (3) goto ec_ctrlbl_9; else goto ec_ctrlbl_10;
+                  {
+                    ec_ctrlbl_9: ;
+                    c();
+                    goto ec_ctrlbl_11;
+                  }
+                  {
+                    ec_ctrlbl_10: ;
+                  }
+                  ec_ctrlbl_11: ;
+                }
+              }
+              ec_ctrlbl_8: ;
+              }
+            }
+            ec_ctrlbl_5: ;
+            }
+          }
+        ec_ctrlbl_2: ;
+      }
+    }
+  |])
+  , -- 14 - switch statement {{{2
   ([paste|
     void foo(int i) {
       switch (i) {
@@ -662,7 +726,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 14 - switch statement with default {{{2
+  , -- 15 - switch statement with default {{{2
   ([paste|
     void foo(int i) {
       switch (i) {
@@ -1306,7 +1370,89 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_2: ;
     }
   |])
-  , -- 13 - switch statement {{{2
+  , -- 13 - chained else if {{{2
+  ([paste|
+    void foo() {
+    {
+      if (0) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      {
+        ec_ctrlbl_0: ;
+        goto ec_ctrlbl_2;
+      }
+      {
+        ec_ctrlbl_1: ;
+        {
+          if (1) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+          {
+            ec_ctrlbl_3: ;
+            a();
+            goto ec_ctrlbl_5;
+          }
+          {
+            ec_ctrlbl_4: ;
+            {
+              if (2) goto ec_ctrlbl_6; else goto ec_ctrlbl_7;
+              {
+                ec_ctrlbl_6: ;
+                b();
+                goto ec_ctrlbl_8;
+              }
+              {
+                ec_ctrlbl_7: ;
+                {
+                  if (3) goto ec_ctrlbl_9; else goto ec_ctrlbl_10;
+                  {
+                    ec_ctrlbl_9: ;
+                    c();
+                    goto ec_ctrlbl_11;
+                  }
+                  {
+                    ec_ctrlbl_10: ;
+                  }
+                  ec_ctrlbl_11: ;
+                }
+              }
+              ec_ctrlbl_8: ;
+              }
+            }
+            ec_ctrlbl_5: ;
+            }
+          }
+        ec_ctrlbl_2: ;
+      }
+    }
+  |], [paste|
+    void foo() {
+      if (0) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+
+      ec_ctrlbl_0: ;
+      goto ec_ctrlbl_2;
+
+      ec_ctrlbl_1: ;
+      if (1) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+
+      ec_ctrlbl_3: ;
+      a();
+      goto ec_ctrlbl_2;
+
+      ec_ctrlbl_4: ;
+      if (2) goto ec_ctrlbl_6; else goto ec_ctrlbl_7;
+
+      ec_ctrlbl_6: ;
+      b();
+      goto ec_ctrlbl_2;
+
+      ec_ctrlbl_7: ;
+      if (3) goto ec_ctrlbl_9; else goto ec_ctrlbl_2;
+
+      ec_ctrlbl_9: ;
+      c();
+      goto ec_ctrlbl_2;
+
+      ec_ctrlbl_2: ;
+    }
+  |])
+  , -- 14 - switch statement {{{2
   ([paste|
     void foo(int i) {
       {
@@ -1345,7 +1491,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
     }
   |])
-  , -- 14 - switch statement with default {{{2
+  , -- 15 - switch statement with default {{{2
   ([paste|
     void foo(int i) {
       {
@@ -1384,7 +1530,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
     }
   |])
-  , -- 15 - empty statements -- {{{2
+  , -- 16 - empty statements -- {{{2
   ([paste|
     void foo() {
       i++;
