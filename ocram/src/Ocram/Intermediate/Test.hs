@@ -759,7 +759,47 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-    
+  , -- 16 - regression test - do and if {{{2  
+  ([paste|
+    void foo() {
+      if (0) {
+      } else {
+        do { if (!(0)) { debug_file = "app-tc.c"; debug_line = 66; debug_mark = 0xffff; } } while(0);
+      }
+    }
+  |], [paste|
+    void foo() {
+      {
+          if (0) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+          {
+          ec_ctrlbl_0: ;
+              goto ec_ctrlbl_2;
+          }
+          {
+          ec_ctrlbl_1: ;
+              {
+              ec_ctrlbl_3: ;
+                  {
+                      if (!0) goto ec_ctrlbl_5; else goto ec_ctrlbl_6;
+                      {
+                      ec_ctrlbl_5: ;
+                          debug_file = "app-tc.c";
+                          debug_line = 66;
+                          debug_mark = 0xffff;
+                      }
+                  ec_ctrlbl_6: ;
+                  }
+                  if (0)
+                  {
+                      goto ec_ctrlbl_3;
+                  }
+              ec_ctrlbl_4: ;
+              }
+          }
+      ec_ctrlbl_2: ;
+      }
+    }
+  |])
   -- end {{{2
   ]
   where
@@ -1555,7 +1595,59 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       i--;
     }
   |])
+  , -- 17 - regression test {{{2
+  ([paste|
+    void foo() {
+      {
+          if (23) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+          {
+          ec_ctrlbl_0: ;
+              goto ec_ctrlbl_2;
+          }
+          {
+          ec_ctrlbl_1: ;
+              {
+              ec_ctrlbl_3: ;
+                  {
+                      if (!0) goto ec_ctrlbl_5; else goto ec_ctrlbl_6;
+                      {
+                      ec_ctrlbl_5: ;
+                          debug_file = "app-tc.c";
+                          debug_line = 66;
+                          debug_mark = 0xffff;
+                      }
+                  ec_ctrlbl_6: ;
+                  }
+                  if (0)
+                  {
+                      goto ec_ctrlbl_3;
+                  }
+              ec_ctrlbl_4: ;
+              }
+          }
+      ec_ctrlbl_2: ;
+      }
+    }
+  |], [paste|
+    void foo() {
+        if (23) goto ec_ctrlbl_0; else goto ec_ctrlbl_3;
 
+      ec_ctrlbl_0: ;
+        goto ec_ctrlbl_2;
+
+      ec_ctrlbl_3: ;
+        if (!0) goto ec_ctrlbl_5; else goto ec_ctrlbl_6;
+
+      ec_ctrlbl_5: ;
+        debug_file = "app-tc.c";
+        debug_line = 66;
+        debug_mark = 0xffff;
+
+      ec_ctrlbl_6: ;
+        if (0) goto ec_ctrlbl_3;
+      ec_ctrlbl_2: ;
+    }
+  |])
   -- end {{{2
   ]
   where

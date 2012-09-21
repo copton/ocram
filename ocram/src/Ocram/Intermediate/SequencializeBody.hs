@@ -22,7 +22,7 @@ flattenScopes = foldr flatten [] . map extract
     extract (CBlockStmt s) = s
     extract x              = $abort $ unexp x
 
-    flatten (CCompound _ items _) stmts = sequencialize_body items ++ stmts
+    flatten (CCompound _ items _) stmts = flattenScopes items ++ stmts
     flatten (CIf cond t e ni)     stmts = CIf cond (unpack t) (fmap unpack e) ni : stmts
     flatten (CExpr Nothing _)     stmts = stmts
     flatten s                     stmts = s : stmts
@@ -39,9 +39,9 @@ mergeLabels stmts = case msum $ map scan (zip stmts (tail stmts)) of
   Just (oldLabel, newLabel) -> mergeLabels (rewrite oldLabel newLabel stmts)
   where
     scan (CLabel first _ _ _, CLabel second _ _ _) = Just (symbol first, symbol second)
-    scan _                                          = Nothing
+    scan _                                         = Nothing
 
-    rewrite oldLabel newLabel = foldr go []
+    rewrite oldLabel newLabel stmts' = foldr go [] stmts'
       where
         go o@(CLabel ident _ _ _) ss
           | symbol ident == oldLabel = ss
