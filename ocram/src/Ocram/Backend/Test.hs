@@ -868,21 +868,19 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       ec_tstack_start.i = 0;
       goto ec_ctrlbl_0_start; 
       ec_ctrlbl_0_start: ;
-      if (!(ec_tstack_start.i < 10)) goto ec_ctrlbl_1_start; else goto ec_contlbl_L3_start;
-
-      ec_contlbl_L3_start: ;
+      if (!(ec_tstack_start.i < 10)) {
+				ec_tstack_start.i = 0;
+				return;	
+      } else {
         ec_tstack_start.i++;
         ec_tstack_start.ec_frames.block.j = ec_tstack_start.i;
         ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L4_start;
         block(&ec_tstack_start.ec_frames.block);
         return;
-
       ec_contlbl_L4_start: ;
         ec_tstack_start.i++;
         goto ec_ctrlbl_0_start;
-        ec_ctrlbl_1_start: ;
-				ec_tstack_start.i = 0;
-				return;	
+      }
 		}
 	|])
   , -- 09 - critical function {{{2
@@ -1075,19 +1073,17 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         goto ec_ctrlbl_0_start;
 
       ec_ctrlbl_0_start: ;
-        if (!1) goto ec_ctrlbl_1_start; else goto ec_contlbl_L3_start;
-        
-      ec_contlbl_L3_start: ;
-        ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
-        ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L4_start;
-        block(&ec_tstack_start.ec_frames.block);
-        return;
+        if (!1) {
+          return;
+        } else {
+          ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
+          ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L4_start;
+          block(&ec_tstack_start.ec_frames.block);
+          return;
 
-      ec_contlbl_L4_start: ;
-        goto ec_ctrlbl_0_start;
-
-      ec_ctrlbl_1_start: ;
-        return;
+        ec_contlbl_L4_start: ;
+          goto ec_ctrlbl_0_start;
+        }
     }
 
     void ec_thread_1(void * ec_cont)
@@ -1099,19 +1095,17 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         goto ec_ctrlbl_0_run;
 
       ec_ctrlbl_0_run: ;
-        if (!1) goto ec_ctrlbl_1_run; else goto ec_contlbl_L3_run;
+        if (!1) {
+          return;
+        } else {
+          ec_tstack_run.ec_frames.block.b = ec_tstack_run.r;
+          ec_tstack_run.ec_frames.block.ec_cont = &&ec_contlbl_L4_run;
+          block(&ec_tstack_run.ec_frames.block);
+          return;
 
-      ec_contlbl_L3_run: ;
-        ec_tstack_run.ec_frames.block.b = ec_tstack_run.r;
-        ec_tstack_run.ec_frames.block.ec_cont = &&ec_contlbl_L4_run;
-        block(&ec_tstack_run.ec_frames.block);
-        return;
-
-      ec_contlbl_L4_run: ;
-        goto ec_ctrlbl_0_run;
-
-      ec_ctrlbl_1_run: ;
-        return;
+        ec_contlbl_L4_run: ;
+          goto ec_ctrlbl_0_run;
+        }
     }
 	|])
   , -- 12 - reentrance {{{2
@@ -1360,21 +1354,19 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         return;
 
       ec_contlbl_L1_critical: ;
-        if (ec_tstack_start.ec_frames.critical.i == 0) goto ec_ctrlbl_0_critical; else goto ec_ctrlbl_1_critical;
-
-      ec_ctrlbl_1_critical: ;
-        ec_tstack_start.ec_frames.critical.ec_frames.block.c = 0;
-        ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L5_critical;
-        block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
-        return;
-        
-      ec_contlbl_L5_critical: ;
-        ec_tstack_start.ec_frames.critical.ec_result = 42;
-        goto * (ec_tstack_start.ec_frames.critical.ec_cont);
-
-      ec_ctrlbl_0_critical: ;
-        ec_tstack_start.ec_frames.critical.ec_result = 0;
-        goto * (ec_tstack_start.ec_frames.critical.ec_cont);
+        if (ec_tstack_start.ec_frames.critical.i == 0) {
+          ec_tstack_start.ec_frames.critical.ec_result = 0;
+          goto * (ec_tstack_start.ec_frames.critical.ec_cont);
+        } else {
+          ec_tstack_start.ec_frames.critical.ec_frames.block.c = 0;
+          ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L5_critical;
+          block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
+          return;
+          
+        ec_contlbl_L5_critical: ;
+          ec_tstack_start.ec_frames.critical.ec_result = 42;
+          goto * (ec_tstack_start.ec_frames.critical.ec_cont);
+        }
     }
   |])
   , -- 16 - struct {{{2
@@ -1525,40 +1517,36 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         if (ec_cont) goto * ec_cont;
 
     ec_ctrlbl_0_start: ;
-        if (!1) goto ec_ctrlbl_1_start; else goto ec_contlbl_L2_start;
+        if (!1) {
+          return;
+        } else {
+          if (next == -1) {
+            ec_tstack_start.ec_frames.wait.c = &c;
+            ec_tstack_start.ec_frames.wait.ec_cont = &&ec_contlbl_L4_start;
+            wait(&ec_tstack_start.ec_frames.wait);
+            return;
 
-    ec_contlbl_L2_start: ;
-        if (next == -1) goto ec_ctrlbl_2_start; else goto ec_ctrlbl_3_start;
+          ec_contlbl_L4_start: ;
+              goto ec_ctrlbl_4_start;
+          } else {
+            ec_tstack_start.ec_frames.sleep.t = next;
+            ec_tstack_start.ec_frames.sleep.c = &c;
+            ec_tstack_start.ec_frames.sleep.ec_cont = &&ec_contlbl_L6_start;
+            sleep(&ec_tstack_start.ec_frames.sleep);
+            return;
 
-    ec_ctrlbl_3_start: ;
-        ec_tstack_start.ec_frames.sleep.t = next;
-        ec_tstack_start.ec_frames.sleep.c = &c;
-        ec_tstack_start.ec_frames.sleep.ec_cont = &&ec_contlbl_L6_start;
-        sleep(&ec_tstack_start.ec_frames.sleep);
-        return;
-
-    ec_contlbl_L6_start: ;
-        ec_tstack_start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
-        if (!ec_tstack_start.ec_crit_0) goto ec_ctrlbl_5_start; else goto ec_ctrlbl_4_start;
-
-    ec_ctrlbl_5_start: ;
-        check();
-        goto ec_ctrlbl_4_start;
-
-    ec_ctrlbl_2_start: ;
-        ec_tstack_start.ec_frames.wait.c = &c;
-        ec_tstack_start.ec_frames.wait.ec_cont = &&ec_contlbl_L4_start;
-        wait(&ec_tstack_start.ec_frames.wait);
-        return;
-
-    ec_contlbl_L4_start: ;
-        goto ec_ctrlbl_4_start;
-
-    ec_ctrlbl_4_start: ;
-        goto ec_ctrlbl_0_start;
-
-    ec_ctrlbl_1_start: ;
-        return;
+        ec_contlbl_L6_start: ;
+            ec_tstack_start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
+            if (!ec_tstack_start.ec_crit_0) {
+              check();
+              goto ec_ctrlbl_4_start;
+            } else {
+              goto ec_ctrlbl_4_start;
+          }
+        }
+      }
+  ec_ctrlbl_4_start: ;
+    goto ec_ctrlbl_0_start;
     }
   |])
   , -- 19 - regression test - estack access {{{2

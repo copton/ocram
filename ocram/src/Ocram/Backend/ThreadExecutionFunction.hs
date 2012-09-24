@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, GADTs #-}
+{-# LANGUAGE TemplateHaskell, GADTs#-}
 module Ocram.Backend.ThreadExecutionFunction
 -- exports {{{1
 (
@@ -6,7 +6,7 @@ module Ocram.Backend.ThreadExecutionFunction
 ) where
 
 -- imports {{{1
-import Compiler.Hoopl (postorder_dfs, foldBlockNodesF, (|*><*|), mkLast)
+import Compiler.Hoopl (postorder_dfs_from, foldBlockNodesF3, foldGraphNodes, successors, Graph'(GMany), MaybeO(NothingO), entryLabel, O, C, Block, mapLookup)
 import Data.Generics (everywhere, mkT)
 import Data.Maybe (mapMaybe, maybeToList)
 import Language.C.Data.Ident (Ident, internalIdent)
@@ -18,8 +18,11 @@ import Ocram.Intermediate
 import Ocram.Names (mangleFun, contLbl, tfunction, contVar, frameUnion, tstackVar, resVar, estackVar)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Util ((?:), fromJust_s, abort, lookup_s)
+import Prelude hiding (last)
 
 import qualified Data.Map as M
+import qualified Data.Set as S
+import qualified Compiler.Hoopl as H
 
 thread_execution_functions :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> M.Map Symbol (Maybe CDecl) -> [CFunDef] -- {{{1
 thread_execution_functions cg bf cf estacks = map tef $ zip [0..] (start_functions cg)
@@ -41,66 +44,96 @@ threadExecutionFunction cg bf cf estack tid name = fun
     intro =
       CBlockStmt (CIf (CVar (ii contVar) un) (CGotoPtr (CVar (ii contVar) un) un) Nothing un)
 
-    functions = map CBlockStmt . concatMap (inlineCriticalFunction cg bf cf name) . mapMaybe (flip M.lookup cf) . $fromJust_s . call_order cg $ name
+    functions = concatMap (inlineCriticalFunction cg callees entries name) . mapMaybe (flip M.lookup cf) . $fromJust_s . call_order cg $ name
 
-inlineCriticalFunction :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> Symbol -> Function -> [CStat] -- {{{2
-inlineCriticalFunction cg bf cf startFunction inlinedFunction =
-  let graph = mkLast (Goto (fun_entry inlinedFunction)) |*><*| fun_body inlinedFunction in
-  reverse $ fst $ foldl convertBlock ([],[]) (postorder_dfs graph)
+    callees = M.map function_parameters_cd bf `M.union` M.map (function_parameters_fd . fun_def) cf
+    entries = M.map fun_entry cf
+
+inlineCriticalFunction :: CallGraph -> M.Map Symbol [CDecl] -> M.Map Symbol Label -> Symbol -> Function -> [CBlockItem] -- {{{2
+inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph blocks
   where
-    -- stuff {{{3
-    name = fun_name inlinedFunction
-    callChain = $fromJust_s $ call_chain cg startFunction name
+    fname     = fun_name inlinedFunction
+    callChain = $fromJust_s $ call_chain cg startFunction fname
+    suls      = singleUsageLabels (fun_entry inlinedFunction) (fun_body inlinedFunction)
+    (GMany NothingO blocks NothingO) = fun_body inlinedFunction
 
-    convertBlock ctx block = foldBlockNodesF convertNode block ctx
+    cGraph :: H.LabelMap (Block Node C C) -> [CBlockItem]
+    cGraph lm =
+      let entry = Goto (fun_entry inlinedFunction) in
+        concatMap cBlock
+      $ filter (not . flip S.member suls . entryLabel)
+      $ postorder_dfs_from lm entry
 
-    append x = append' [x]
-    append' xs (ys, carry) = (carry ++ xs ++ ys, [])
+    cBlock :: Block Node C C -> [CBlockItem]
+    cBlock block =
+      let (Label entry, middles, last) = blockComponents block in
+        CBlockStmt (CLabel (lblIdent entry fname) (CExpr Nothing un) [] un)
+      : map cMiddle middles ++ cLast last
 
-    convertNode :: Node e x -> ([CStat], [CStat]) -> ([CStat], [CStat]) -- {{{3
-    convertNode (Label lbl)     = append $ CLabel (lblIdent lbl name) (CExpr Nothing un) [] un
-    convertNode (Stmt expr)     = append $ CExpr (Just (rewriteLocalVariableAccess expr)) un
-    convertNode (Goto lbl)      = append $ CGoto (lblIdent lbl name) un
-    convertNode (If cond tl el) = append $ CIf (rewriteLocalVariableAccess cond) (CGoto (lblIdent tl name) un) (Just (CGoto (lblIdent el name) un)) un
+    inlineBlock :: Label -> [CBlockItem]
+    inlineBlock lbl = 
+      let
+        block = $fromJust_s $ mapLookup (hLabel lbl) blocks
+        (_, middles, last) = blockComponents block
+      in
+        map cMiddle middles ++ cLast last
 
-    convertNode (Call (FirstNormalForm callee params) lbl) =
-      criticalCallSequence callee (map rewriteLocalVariableAccess params) lbl Nothing
+    cMiddle :: Node O O -> CBlockItem
+    cMiddle (Stmt expr) = CBlockStmt $ CExpr (Just (cExpr expr)) un 
+    
+    cLast :: Node O C -> [CBlockItem]
 
-    convertNode (Call (SecondNormalForm lhs op callee params) lbl) =
-      criticalCallSequence callee (map rewriteLocalVariableAccess params) lbl (Just (rewriteLocalVariableAccess lhs, op))
+    cLast (Return mexpr)
+      | startFunction == fname = [CBlockStmt (CReturn (fmap cExpr mexpr) un)]
+      | otherwise              = map CBlockStmt $ 
+           maybeToList (fmap assignResult mexpr)
+        ++ [CGotoPtr (tstackAccess callChain (Just contVar) un) un]
+      where assignResult expr = CExpr (Just (CAssign CAssignOp (tstackAccess callChain (Just resVar) un) (rewriteLocalVariableAccess expr) un)) un
 
-    convertNode (Return expr)
-      | startFunction == fun_name inlinedFunction = append $ CReturn Nothing un
-      | otherwise = case expr of
-          Nothing    -> append $ CGotoPtr (tstackAccess callChain (Just contVar) un) un
-          Just expr' -> append' $ reverse [
-              CExpr (Just (CAssign CAssignOp (tstackAccess callChain (Just resVar) un) (rewriteLocalVariableAccess expr') un)) un
-            , CGotoPtr (tstackAccess callChain (Just contVar) un) un
-            ]
+    cLast (Goto lbl)
+      | S.member (hLabel lbl) suls = inlineBlock lbl
+      | otherwise                  = [CBlockStmt $ CGoto (lblIdent lbl fname) un]
 
-    criticalCallSequence callee params lbl nf2 (ss, carry) = -- {{{3
-      (carry ++ reverse (parameters ++ continuation : callExp : returnExp ?: []) ++ ss, resultExpr)
+    cLast (If cond t e) = [CBlockStmt $ CIf (cExpr cond) (cBranch t) (Just (cBranch e)) un]
+
+    cLast (Call (FirstNormalForm callee params) lbl) =
+         criticalCallSequence callee (map cExpr params) lbl Nothing
+      ++ inlineBlock lbl
+
+    cLast (Call (SecondNormalForm  lhs op callee params) lbl) =
+         criticalCallSequence callee (map cExpr params) lbl (Just (cExpr lhs, op)) 
+      ++ inlineBlock lbl
+
+    cBranch lbl
+      | S.member (hLabel lbl) suls = CCompound [] (inlineBlock lbl) un 
+      | otherwise = CCompound [] [CBlockStmt (CGoto (lblIdent lbl fname) un)] un 
+
+    cExpr = rewriteLocalVariableAccess
+
+    criticalCallSequence callee params lbl nf2 = -- {{{3
+      map CBlockStmt $ parameters ++ continuation : callExp : returnExp ?: label : resultExpr ?: []
       where
         callChain' = callChain ++ [callee]
         blocking   = is_blocking cg callee
-        sf         = M.map function_parameters_cd bf `M.union` M.map (function_parameters_fd . fun_def) cf
 
-        parameters = zipWith paramAssign params ($lookup_s sf callee)
+        parameters = zipWith paramAssign params ($lookup_s callees callee)
 
-        continuation = assign (tstackAccess callChain' (Just contVar) un) (CLabAddrExpr (lblIdent lbl name) un)
+        continuation = assign (tstackAccess callChain' (Just contVar) un) (CLabAddrExpr (lblIdent lbl fname) un)
 
         callExp
           | blocking  = CExpr (Just (CCall (CVar (ii callee) un) [CUnary CAdrOp (tstackAccess callChain' Nothing un) un] un)) un 
-          | otherwise = CGoto (lblIdent (fun_entry ($lookup_s cf callee)) callee) un
+          | otherwise = CGoto (lblIdent ($lookup_s entries callee) callee) un
+
+        label = CLabel (lblIdent lbl fname) (CExpr Nothing un) [] un
 
         returnExp
           | blocking  = Just $ CReturn Nothing un
           | otherwise = Nothing
 
         resultExpr = case nf2 of
-          Nothing -> []
-          Just (lhs, op) -> 
-            [CExpr (Just (CAssign op lhs (tstackAccess callChain' (Just resVar) un) un)) un]
+          Nothing -> Nothing
+          Just (lhs, op) -> Just $
+            CExpr (Just (CAssign op lhs (tstackAccess callChain' (Just resVar) un) un)) un
 
         paramAssign e decl = assign (tstackAccess callChain' (Just (symbol decl)) un) e 
         assign lhs rhs = CExpr (Just (CAssign CAssignOp lhs rhs un)) un
@@ -117,6 +150,26 @@ inlineCriticalFunction cg bf cf startFunction inlinedFunction =
             vname = symbol iden
             test f = vname `elem` map var_unique (f inlinedFunction)
         rewrite o = o
+
+blockComponents :: Block Node C C -> (Node C O, [Node O O], Node O C)
+blockComponents block = let ([first], middles, [last]) = foldBlockNodesF3 (ffirst, fmiddle, flast) block ([], [], []) in (first, reverse middles, last)
+  where
+    ffirst  x (a, b, c) = (x:a, b, c)
+    fmiddle x (a, b, c) = (a, x:b, c)
+    flast   x (a, b, c) = (a, b, x:c)
+
+singleUsageLabels :: Label -> Body -> S.Set H.Label
+singleUsageLabels entry body = M.keysSet $ M.filterWithKey (\_ v -> v == (1 :: Int)) $ foldGraphNodes count body $ M.singleton (hLabel entry) 2
+  where
+    count (Label _) m = m
+    count (Stmt  _) m = m
+    count n@(Goto _) m = foldr (M.alter alter) m (successors n)
+    count n@(If _ _ _) m = foldr (M.alter alter) m (successors n)
+    count n@(Call _ _) m = foldr (M.alter alter) m (successors n)
+    count n@(Return _) m = foldr (M.alter alter) m (successors n)
+--    count n m = foldr (M.alter alter) m (successors n) XXX why doesn't this work?
+    alter Nothing  = Just 1
+    alter (Just x) = Just (x+1)
 
 lblIdent :: Label -> Symbol -> Ident -- {{{2
 lblIdent lbl fname = ii $ case lbl of
