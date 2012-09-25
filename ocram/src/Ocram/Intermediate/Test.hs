@@ -2043,7 +2043,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
         expectedEntry @=? show outputEntry
 
 test_critical_variables :: Test  -- {{{1
-test_critical_variables = enumTestGroup "ast_2_ir" $ map runTest [
+test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
   -- , 01 - single critical variable {{{2
   ([paste|
     int foo() {
