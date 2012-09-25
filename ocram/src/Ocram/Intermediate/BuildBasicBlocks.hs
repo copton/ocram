@@ -20,7 +20,7 @@ import qualified Compiler.Hoopl as H
 
 build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
 build_basic_blocks cf stmts = runM $ do
-  protoblocks <- partition cf stmts
+  protoblocks <- partition cf (annotate cf stmts)
   let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undef]
   blocks <- mapM convert blockcont
   let body = foldl splice H.emptyClosedGraph blocks
@@ -29,9 +29,29 @@ build_basic_blocks cf stmts = runM $ do
     splice = (H.|*><*|)
     undef = $abort "undefined"
 
-partition :: S.Set Symbol -> [CStat] -> M [ProtoBlock] -- {{{2
-partition cf stmts =
-  part unused $ zip (map splitPoint stmts) stmts
+annotate :: S.Set Symbol -> [CStat] -> [AnnotatedStmt] -- {{{2
+annotate cf stmts = zip (map splitPoint stmts) stmts
+  where
+    splitPoint (CLabel _ _ _ _)         = Just SplitBefore
+    splitPoint (CIf _ _ _ _)            = Just SplitAfter
+    splitPoint (CGoto _ _ )             = Just SplitAfter
+    splitPoint (CExpr (Just expr) _)    =
+      case getCallee expr of
+        Nothing                        -> Nothing
+        Just callee ->
+          if S.member (symbol callee) cf
+                                     then Just SplitAfter
+                                     else Nothing
+
+    splitPoint (CReturn _ _)            = Just SplitAfter
+    splitPoint o                        = $abort $ unexp o
+
+    getCallee (CCall (CVar callee _) _ _)                 = Just callee
+    getCallee (CAssign _ _ (CCall (CVar callee _) _ _) _) = Just callee
+    getCallee _                                           = Nothing
+
+partition :: S.Set Symbol -> [AnnotatedStmt] -> M [ProtoBlock] -- {{{2
+partition cf = part unused
   where
     unused = $abort "empty critical function?"
     explicitReturn = (Just SplitAfter, CReturn Nothing undefNode)
@@ -68,24 +88,6 @@ partition cf stmts =
       in do
         subsequentBlocks <- part (last block) rest
         return $ ProtoBlock ilabel block : subsequentBlocks
-
-    splitPoint :: CStat -> Maybe SplitPoint -- {{{3
-    splitPoint (CLabel _ _ _ _)         = Just SplitBefore
-    splitPoint (CIf _ _ _ _)            = Just SplitAfter
-    splitPoint (CGoto _ _ )             = Just SplitAfter
-    splitPoint (CExpr (Just expr) _)    =
-      case getCallee expr of
-        Nothing                        -> Nothing
-        Just callee ->
-          if S.member (symbol callee) cf
-                                     then Just SplitAfter
-                                     else Nothing
-    splitPoint (CReturn _ _)            = Just SplitAfter
-    splitPoint o                        = $abort $ unexp o
-
-    getCallee (CCall (CVar callee _) _ _)                 = Just callee -- {{{3
-    getCallee (CAssign _ _ (CCall (CVar callee _) _ _) _) = Just callee
-    getCallee _                                           = Nothing
 
 convert :: (ProtoBlock, I.Label) -> M I.Body -- {{{2
 convert ((ProtoBlock thisBlock body), nextBlock) = do

@@ -2027,6 +2027,40 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L2:
     RETURN
   |], "L1")
+  , -- 12 - dead code {{{2
+  (["g"],
+  [paste|
+    void foo() {
+      if (1) goto ec_ctrlbl_0;
+      else goto ec_ctrlbl_1;
+      ec_ctrlbl_0: ;
+      b();
+      return;
+      goto ec_ctrlbl_2;
+      ec_ctrlbl_1: ;
+      c();
+      return;
+      ec_ctrlbl_2: ;
+    }
+  |], [paste|
+    L1:
+    IF 1 THEN L2/ec_ctrlbl_0 ELSE L4/ec_ctrlbl_1
+
+    L2/ec_ctrlbl_0:
+    b();
+    RETURN
+
+    L3:
+    GOTO L5/ec_ctrlbl_2
+
+    L4/ec_ctrlbl_1:
+    c();
+    RETURN
+
+    L5/ec_ctrlbl_2:
+    RETURN
+  |], "L1")
+
   -- end {{{2
   ]
   where
