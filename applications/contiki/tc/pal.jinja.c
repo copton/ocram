@@ -138,8 +138,8 @@ static void* event_handler(process_event_t ev, process_data_t data)
             thread->ctx.tc_receive.frame->ec_result = false;
         } else if (ev == PROCESS_EVENT_CONTINUE
                 && data == &tc_condition_signal
-                && thread->ctx.tc_sleep.frame->cond != NULL
-                && thread->ctx.tc_sleep.frame->cond->waiting == false) {
+                && thread->ctx.tc_receive.frame->cond != NULL
+                && thread->ctx.tc_receive.frame->cond->waiting == false) {
             thread->ctx.tc_receive.frame->ec_result = true;
         } else {
             ASSERT(false);
