@@ -6,11 +6,11 @@ module Ocram.Intermediate.CollectDeclarations
 ) where
 
 -- imports {{{1
-import Control.Monad.State (State, get, put, runState, gets)
+import Control.Monad.State (State, get, gets, put, runState, gets, modify)
 import Data.Data (Data, gmapM)
-import Data.Generics (mkM, extM, mkQ, GenericQ, GenericM)
+import Data.Generics (everywhereM, mkM, extM, mkQ, GenericQ, GenericM)
 import Data.List (partition)
-import Data.Maybe (mapMaybe, fromMaybe)
+import Data.Maybe (fromMaybe, catMaybes)
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (NodeInfo, undefNode)
 import Language.C.Syntax.AST
@@ -68,11 +68,11 @@ tStmt (CCompound x items' innerScope) = do
   return $ CCompound x (concat statements) innerScope
 
 tStmt (CFor (Right decl) x1 x2 body ni) = do
-  -- the scope of the declared variable is the body of the for loop
-  (Ctx ids scope autoVars staticVars fun) <- get 
-  let (Ctx ids' _ autoVars' staticVars' _, inits) = trDecl' (Ctx ids (annotation body) autoVars staticVars fun) decl 
-  put (Ctx ids' scope autoVars' staticVars' fun)
-
+  --  the scope of the declared variable is the body of the for loop
+  scope <- gets ctxScope
+  modify (\ctx -> ctx {ctxScope = (annotation body)})
+  inits <- trDecl decl
+  modify (\ctx -> ctx {ctxScope = scope})
   let for   = CFor (Left Nothing) x1 x2 body ni
   let block = map CBlockStmt $ inits ++ [for]
   return $ CCompound [] block undefNode
@@ -89,13 +89,7 @@ tExpr o = return o
 
 trDecl :: CDecl -> S [CStat] -- {{{2
 trDecl decl = do
-  ctx <- get
-  let (ctx', inits) = trDecl' ctx decl
-  put ctx'
-  return inits
-
-trDecl' :: Ctx -> CDecl -> (Ctx, [CStat])
-trDecl' (Ctx ids scope autoVars staticVars fun) decl = 
+  (Ctx ids scope autoVars staticVars fun) <- get
   let
     decls = unlistDecl decl
     (staticDecls, autoDecls) = partition isStatic decls
@@ -108,13 +102,13 @@ trDecl' (Ctx ids scope autoVars staticVars fun) decl =
 
     (autoDeclsOnly, autoInitExpr) = unzip $ map split autoDecls
 
-    autoVars'      = map mkVar $ zip autoDeclsOnly newAutoNames
-    staticVars'    = map mkVar $ zip staticDecls newStaticNames
+    autoVars'      = map (mkVar scope) $ zip autoDeclsOnly newAutoNames
+    staticVars'    = map (mkVar scope) $ zip staticDecls newStaticNames
 
-    autoInitStmt   = mapMaybe (uncurry mkInit) $ zip autoInitExpr newAutoNames
+  autoInitStmt   <- mapM (uncurry mkInit) $ zip autoInitExpr newAutoNames
+  put $ Ctx ids'' scope (autoVars' ++ autoVars) (staticVars' ++ staticVars) fun
+  return $ catMaybes autoInitStmt
 
-    ctx = Ctx ids'' scope (autoVars' ++ autoVars) (staticVars' ++ staticVars) fun
-  in (ctx, autoInitStmt)
   where
     unlistDecl (CDecl x [] ni) = [CDecl x [] ni] -- struct S { int i; };
     unlistDecl (CDecl s ds ni) = map (\x -> CDecl s [x] ni) ds
@@ -128,10 +122,12 @@ trDecl' (Ctx ids scope autoVars staticVars fun) decl =
     isStaticSpec (CStorageSpec (CStatic _)) = True
     isStaticSpec _                          = False
 
-    mkVar (cd, name) = Variable cd name (Just scope)
+    mkVar scope (cd, name) = Variable cd name (Just scope)
 
-    mkInit Nothing    _    =  Nothing
-    mkInit (Just rhs) name =  Just $ CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) ni) rhs ni)) ni
+    mkInit Nothing    _    = return Nothing
+    mkInit (Just rhs) name = do
+      rhs' <- everywhereM (mkM tExpr) rhs
+      return $ Just $ CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) ni) rhs' ni)) ni
       where ni = annotation rhs
 
 -- types {{{1

@@ -246,39 +246,33 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("int i", "ec_unique_i_0", 5, 7)
     , ("int i", "i", 2, 4)
   ], [])
-  , -- 12 - regression test {{{2
+  , -- 12 - substitution in initializer {{{2
   ([lpaste|
-    typedef struct {
-      int b;
-      int resp[2];
-    } worker_t;
-
     void foo() {
-07:   if (0) {
-        worker_t* worker;
-        worker = 0;
-10:   } else {
-        worker_t* worker;
-        worker->b = 0;
-        int size = bar(&worker->resp[0]);
-14:   }
+02:   if (0) {
+        int i = 0;
+04:   } else {
+        int i = 1;
+        int size = bar(i);
+07:   }
     }
   |], [paste|
     void foo()
     {
         if (0)
         {
-            worker = 0;
+            i = 0;
         }
         else
         {
-            ec_unique_worker_0->b = 0;
-            size = bar(&ec_unique_worker_0->resp[0]);
+            ec_unique_i_0 = 1;
+            size = bar(ec_unique_i_0);
         }
     }
   |], [
-      ("worker_t worker", "worker", 7, 10)
-    , ("worker_t worker", "ec_unique_worker_0", 10, 14)
+      ("int size", "size", 4, 7)
+    , ("int i", "ec_unique_i_0", 4, 7)
+    , ("int i", "i", 2, 4)
   ], [])
   -- end {{{2
   ]
