@@ -155,6 +155,7 @@ static void* event_handler(process_event_t ev, process_data_t data)
         if (0) {
         } else if (ev == PROCESS_EVENT_CONTINUE
                 && data == &tc_condition_signal
+                && thread->ctx.tc_condition_wait.frame->cond != NULL
                 && thread->ctx.tc_condition_wait.frame->cond->waiting == false) {
         } else {
             ASSERT(false);
