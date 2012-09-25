@@ -2109,6 +2109,16 @@ test_critical_variables = enumTestGroup "ast_2_ir" $ map runTest [
     }
     int g(int i) { return 23; }
   |], [], ["j"])
+  , -- 11 - critical call in if-condition {{{2
+  ([paste|
+    void foo() {
+      int i;
+      if (g()) {
+        i = 23;
+      } 
+    }
+    int g() { return 23; }
+  |], [], ["i", "ec_crit_0"])
   -- end {{{2
   ]
   where
