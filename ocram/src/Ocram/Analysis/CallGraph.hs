@@ -21,7 +21,7 @@ import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Ocram.Analysis.Fgl (filter_nodes)
 import Ocram.Analysis.Types
-import Ocram.Query (is_function_declaration, is_blocking_function', is_start_function', function_definition)
+import Ocram.Query (is_function_declaration, is_blocking_function, is_start_function, function_definition)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Util (tmap, fromJust_s, lookup_s)
 import Prelude hiding (pred)
@@ -139,13 +139,13 @@ createLabels :: CTranslUnit -> [Label] -- {{{2
 createLabels (CTranslUnit ds _) = foldr go [] ds
   where
   go (CDeclExt x) labels
-    | is_function_declaration x && is_blocking_function' x =
+    | is_function_declaration x && is_blocking_function x =
       Label (symbol x) [Blocking] : labels
     | otherwise = labels
 
   go (CFDefExt x) labels =
     let
-      attr = [Start | is_start_function' x]
+      attr = [Start | is_start_function x]
       label = Label (symbol x) attr
     in
       label : labels

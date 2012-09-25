@@ -6,8 +6,10 @@ module Ocram.Analysis.Filter
 ) where
 
 -- imports {{{1
+import Control.Monad (guard)
 import Data.Data (Data)
 import Data.Generics (mkQ, everything, extQ)
+import Data.List (findIndices)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
 import Language.C.Data.Node (NodeInfo, nodeInfo)
@@ -15,7 +17,7 @@ import Language.C.Syntax.AST
 import Ocram.Analysis.CallGraph (start_functions, is_start, is_critical)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
-import Ocram.Query (is_start_function', is_blocking_function', function_parameters_cd)
+import Ocram.Query (is_start_function, is_blocking_function, function_parameters_cd)
 import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
@@ -48,6 +50,7 @@ data ErrorCode =
   | GotoPtr
   | BuiltinExpr
   | RangeDesignator
+  | IllFormedSwitch
   deriving (Eq, Enum, Show)
 
 errors :: [(ErrorCode, String)]
@@ -68,17 +71,18 @@ errors = [
   , (GotoPtr, "Computed gotos are not part of C99 and are thus not supported")
   , (BuiltinExpr, "GNU C builtin expressions are not supported")
   , (RangeDesignator, "GNU C array range designators are not supported")
+  , (IllFormedSwitch, "ill-formed switch statement")
   ]
 
 errorText :: ErrorCode -> String
 errorText code = $fromJust_s $ List.lookup code errors
 
 check_sanity :: CTranslUnit -> Either [OcramError] () -- {{{1
-check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls) ast
+check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStmt) ast
   where
     saneExtDecls (CDeclExt cd@(CDecl ts _ ni))
       | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
-      | is_blocking_function' cd = map (\p -> newError NoVarName Nothing (Just (nodeInfo p))) $ filter noVarName $ function_parameters_cd cd
+      | is_blocking_function cd = map (\p -> newError NoVarName Nothing (Just (nodeInfo p))) $ filter noVarName $ function_parameters_cd cd
       | otherwise = []
 
     saneExtDecls (CFDefExt (CFunDef ts (CDeclr _ ps _ _ _) _ _ ni))
@@ -87,6 +91,40 @@ check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls) ast
       | otherwise = []
 
     saneExtDecls _ = []
+
+    -- The restrictions on switch statements are not strictly required, but
+    -- make the implementation of desugar_control_structures easier.
+    -- Furthermore, we see little sense in using these cases deliberately.
+    saneStmt (CSwitch _ body ni) =
+      let
+        isCase (CCase _ _ _)         = True
+        isCase _                     = False
+        isCases (CCases _ _ _ _)     = True
+        isCases _                    = False
+        isDefault (CDefault _ _)     = True
+        isDefault _                  = False
+        extract (CBlockStmt s)       = Just s
+        extract _                    = Nothing        
+
+        test = let flt = or . sequence [isCase, isCases, isDefault] in do
+          -- Enforce a switch "code block"...
+          (CCompound _ items _) <- Just body
+          -- ...which must start with a statement...
+          ((CBlockStmt stmt):_) <- Just items
+          -- ...that has to be a case(es) or a default statement.
+          (guard . flt) stmt
+
+          -- And finally make sure that there is at most one default
+          -- statement and that no case(es) statement follows.
+          let
+             allcases = filter flt $ mapMaybe extract items
+             dfltcases = findIndices isDefault allcases
+          guard (null dfltcases || head dfltcases == length allcases) 
+      in case test of
+        Nothing -> [newError IllFormedSwitch Nothing (Just ni)]
+        Just () -> []
+
+    saneStmt _ = []
 
     hasReturnType = any isTypeSpec
       where
@@ -128,7 +166,7 @@ checkStartFunctions :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkStartFunctions cg (CTranslUnit ds _) = foldr go [] ds
   where
   go (CFDefExt f@(CFunDef _ _ _ _ ni)) es
-    | is_start_function' f && not (is_start cg (symbol f)) = 
+    | is_start_function f && not (is_start cg (symbol f)) = 
       newError ThreadNotBlocking Nothing (Just ni) : es
     | otherwise = es
   go _ es = es
@@ -142,7 +180,7 @@ checkFeatures :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkFeatures cg (CTranslUnit ds _) = concatMap filt ds
   where
     filt (CDeclExt cd)
-      | is_blocking_function' cd = scan cd
+      | is_blocking_function cd = scan cd
       | otherwise = []
     filt (CFDefExt fd)
       | is_critical cg (symbol fd) = scan fd

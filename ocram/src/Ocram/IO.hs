@@ -43,7 +43,7 @@ parse opt = do
 
 dump_ecode :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
 dump_ecode options ecode =
-  write (optOutput options) $ ecode
+  write (optOutput options) $ ecode `BS.append` BS.singleton '\n'
 
 dump_debug_info :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
 dump_debug_info opt di = case optDebugFile opt of

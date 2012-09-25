@@ -51,7 +51,7 @@ newtype LocMap -- {{{2
   = LocMap { getLocMap :: M.Map LocKey [ELocation] }
 
 data BlockingCall = BlockingCall { -- {{{2
-    bcTloc     :: TLocation
+    bcTloc     :: TLocation -- TODO not required any more, because every blocking call is included in the LocationMap
   , bcEloc     :: ELocation
   , bcThreadId :: ThreadId
   } deriving Show
@@ -96,7 +96,7 @@ data DebugInfo = DebugInfo { -- {{{2
   , diLm        :: LocMap
   , diBcs       :: BlockingCalls
   , diVm        :: VarMap
-  , diFm        :: FunMap
+  , diFm        :: FunMap -- TODO no needed any more (with new VarMap)
   , diThreads   :: [Thread]
   , diOsApi     :: [String]
   , diCf        :: [String]

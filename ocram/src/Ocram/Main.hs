@@ -1,15 +1,16 @@
 module Ocram.Main (main, tests) where
 
 -- imports {{{1
-import Ocram.Analysis (analysis)
-import Ocram.Debug (create_debug_info)
+import Ocram.Analysis (analysis, Analysis(anaCritical, anaBlocking, anaCallgraph), footprint)
+import Ocram.Backend (tcode_2_ecode)
+--import Ocram.Debug (create_debug_info)
+import Ocram.Intermediate (ast_2_ir)
 import Ocram.Options (options)
-import Ocram.IO (parse, generate_pal, dump_ecode, dump_debug_info)
+import Ocram.IO (parse, generate_pal, dump_ecode, {-dump_debug_info-})
 import Ocram.Print (print_with_log)
-import Ocram.Ruab (encode_debug_info)
+--import Ocram.Ruab (encode_debug_info)
 import Ocram.Text (OcramError, show_errors)
 import Ocram.Test (runTests)
-import Ocram.Transformation (transformation)
 import System.Directory (getCurrentDirectory)
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
@@ -28,16 +29,17 @@ runCompiler argv = do
   cwd                 <- getCurrentDirectory
 
   opt                 <- exitOnError "options"  $ options prg cwd argv 
-  (tcode, pcode, ast) <- exitOnError "parser" =<< parse opt
-  (cg, fpr)           <- exitOnError "analysis" $ analysis ast
+  (_, _, tAst)        <- exitOnError "parser" =<< parse opt
+  ana                 <- exitOnError "analysis" $ analysis tAst
 
-  let (ast', pal, vm) = transformation cg ast
-  let (ecode, lm, bl) = print_with_log ast'
-  let di              = encode_debug_info $ create_debug_info opt ast cg tcode pcode ecode vm lm bl
+  let ir              = ast_2_ir (anaBlocking ana) (anaCritical ana)
+  let (eAst, pal)     = tcode_2_ecode ana ir
+  let (ecode, _, _)   = print_with_log eAst
+--   let di              = encode_debug_info $ create_debug_info opt ast cg tcode pcode ecode vm lm bl
 
-  exitOnError "output" =<< generate_pal opt fpr pal
+  exitOnError "output" =<< generate_pal opt (footprint (anaCallgraph ana)) pal
   exitOnError "output" =<< dump_ecode opt ecode
-  exitOnError "output" =<< dump_debug_info opt di
+--   exitOnError "output" =<< dump_debug_info opt di
 
   return ()
 
