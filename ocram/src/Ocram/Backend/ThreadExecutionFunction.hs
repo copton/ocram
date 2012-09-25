@@ -88,7 +88,7 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
       | otherwise              = map CBlockStmt $ 
            maybeToList (fmap assignResult mexpr)
         ++ [CGotoPtr (tstackAccess callChain (Just contVar) un) un]
-      where assignResult expr = CExpr (Just (CAssign CAssignOp (tstackAccess callChain (Just resVar) un) (rewriteLocalVariableAccess expr) un)) un
+      where assignResult expr = CExpr (Just (CAssign CAssignOp (tstackAccess callChain (Just resVar) un) (cExpr expr) un)) un
 
     cLast (Goto lbl)
       | S.member (hLabel lbl) suls = inlineBlock lbl
