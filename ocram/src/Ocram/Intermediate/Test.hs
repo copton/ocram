@@ -245,15 +245,49 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
   |], [
       ("int i", "ec_unique_i_0", 5, 7)
     , ("int i", "i", 2, 4)
-  ], [
-  ])
+  ], [])
+  , -- 12 - regression test {{{2
+  ([lpaste|
+    typedef struct {
+      int b;
+      int resp[2];
+    } worker_t;
+
+    void foo() {
+07:   if (0) {
+        worker_t* worker;
+        worker = 0;
+10:   } else {
+        worker_t* worker;
+        worker->b = 0;
+        int size = bar(&worker->resp[0]);
+14:   }
+    }
+  |], [paste|
+    void foo()
+    {
+        if (0)
+        {
+            worker = 0;
+        }
+        else
+        {
+            ec_unique_worker_0->b = 0;
+            size = bar(&ec_unique_worker_0->resp[0]);
+        }
+    }
+  |], [
+      ("worker_t worker", "worker", 7, 10)
+    , ("worker_t worker", "ec_unique_worker_0", 10, 14)
+  ], [])
   -- end {{{2
   ]
   where
     runTest :: (String, String, [(String, String, Int, Int)], [(String, String, Int, Int)]) -> Assertion -- {{{2
     runTest (inputCode, expectedCode, expectedAutoVars, expectedStaticVars) =
       let
-        (CTranslUnit [CFDefExt fd@(CFunDef x1 x2 x3 (CCompound x4 _ x5) x6)] x7) = enrich inputCode :: CTranslUnit
+        (CTranslUnit eds x7) = enrich inputCode :: CTranslUnit
+        (CFDefExt fd@(CFunDef x1 x2 x3 (CCompound x4 _ x5) x6)) = last eds
         (outputBody, outputAutoVars, outputStaticVars) = collect_declarations fd
         outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputBody x5) x6] x7
         expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
