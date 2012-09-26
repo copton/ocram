@@ -37,9 +37,9 @@ ast_2_ir bf cf = M.map (critical_variables . convert) cf
         (items, vars) = runWriter $ process fd 
         (autoVars, staticVars) = partitionEithers vars
         (entry, body) = build_basic_blocks sf items
-        body' = optimize_ir body
+        (entry', body') = optimize_ir (entry, body)
       in
-        Function autoVars [] staticVars fd body' entry
+        Function autoVars [] staticVars fd body' entry'
 
     process fd = 
           return fd

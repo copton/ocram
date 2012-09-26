@@ -8,28 +8,34 @@ import Control.Monad (mplus)
 import Compiler.Hoopl (graphMapBlocks, blockMapNodes3, mapFold, mapDelete, mapMap, O, C)
 import Ocram.Intermediate.Representation
 
-import Debug.Trace (trace)
-
-optimize_ir :: Body -> Body
+optimize_ir :: (Label, Body) -> (Label, Body)
 optimize_ir = dissolveMiniBlocks . ifElseFusion
 
-ifElseFusion :: Body -> Body
-ifElseFusion = graphMapBlocks (blockMapNodes3 (id, id, replace))
+ifElseFusion :: (Label, Body) -> (Label, Body)
+ifElseFusion (lbl, body) = (lbl, graphMapBlocks (blockMapNodes3 (id, id, replace)) body)
   where
     replace o@(If _ tl el)
       | hLabel tl == hLabel el = Goto tl
       | otherwise              = o
     replace o = o
 
-dissolveMiniBlocks :: Body -> Body
-dissolveMiniBlocks = form_body . dissolve . block_map
+dissolveMiniBlocks :: (Label, Body) -> (Label, Body)
+dissolveMiniBlocks (lbl, body) =
+  let
+    bm = block_map body
+    (lbl', bm') = dissolve (lbl, bm)
+  in
+    (lbl', form_body bm')
   where
-    dissolve :: BlockMap -> BlockMap
-    dissolve bm = case mapFold scan Nothing bm of
-      Nothing -> bm
-      Just (oldLabel, newLabel) -> trace ("XXX: " ++ show (oldLabel, newLabel)) $
-          mapMap (blockMapNodes3 (id, id, replace oldLabel newLabel))
-        $ mapDelete (hLabel oldLabel) bm 
+    dissolve :: (Label, BlockMap) -> (Label, BlockMap)
+    dissolve (entry, bm) = case mapFold scan Nothing bm of
+      Nothing -> (entry, bm)
+      Just (oldLabel, newLabel) ->
+        let
+          entry' = replaceLabel oldLabel newLabel entry
+          bm' = mapMap (blockMapNodes3 (id, id, replace oldLabel newLabel))
+              $ mapDelete (hLabel oldLabel) bm 
+        in dissolve (entry', bm')
 
     scan block s = s `mplus` isMiniBlock (block_components block)
 
@@ -37,12 +43,14 @@ dissolveMiniBlocks = form_body . dissolve . block_map
     isMiniBlock _ = Nothing
 
     replace :: Label -> Label -> Node O C -> Node O C
-    replace oldLbl newLbl o = case o of
-      Goto lbl    -> Goto (replaceLabel lbl)
-      If cond t e -> If cond (replaceLabel t) (replaceLabel e)
-      Call nf lbl -> Call nf (replaceLabel lbl)
+    replace ol nl o = case o of
+      Goto t      -> Goto (repl t)
+      If cond t e -> If cond (repl t) (repl e)
+      Call nf t   -> Call nf (repl t)
       _           -> o
       where
-        replaceLabel lbl
-          | hLabel lbl == hLabel oldLbl = newLbl
-          | otherwise                   = lbl
+        repl = replaceLabel ol nl
+
+    replaceLabel oldLabel newLabel currentLabel
+      | hLabel currentLabel == hLabel oldLabel = newLabel
+      | otherwise                              = currentLabel

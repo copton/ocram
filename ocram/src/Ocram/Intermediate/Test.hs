@@ -17,6 +17,7 @@ import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.SequencializeBody
+import Ocram.Intermediate.Optimize
 import Ocram.Symbols (Symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Text (show_errors)
@@ -37,6 +38,7 @@ tests = testGroup "Intermediate" [
   , test_sequencialize_body
   , test_normalize_critical_calls
   , test_build_basic_blocks
+  , test_optimize_ir
   , test_critical_variables
   ]
 
@@ -82,8 +84,8 @@ type OutputNormalize = ( -- {{{2
 type OutputBasicBlocks = -- {{{2
     [(
       String -- critical function name
-    , String -- intermediate representation
     , String -- entry label
+    , String -- intermediate representation
     )]
 
 type OutputCriticalVariables = -- {{{2
@@ -151,22 +153,22 @@ testCases = [
     |], [("start", [])]
     )
   , outBasicBlocks = [ -- {{{3
-      ("start", [paste|
+      ("start", "L1", [paste|
           L1:
           block(); GOTO L2
 
           L2:
           RETURN
-      |], "L1")
+      |])
     ]
   , outOptimize = [ -- {{{3
-    ("start", [paste|
+    ("start", "L1", [paste|
         L1:
         block(); GOTO L2
 
         L2:
         RETURN    
-    |], "L1")
+    |])
     ]
   , outCritical = [ -- {{{3
       ("start", [], [])
@@ -307,7 +309,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest testC
       let
         expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outBasicBlocks testCase
         ana = analyze (input testCase)
-        bodies = pipeline ana (
+        result = pipeline ana (
             buildBasicBlocks ana
           . normalizeCriticalCalls ana
           . sequencializeBody
@@ -315,79 +317,48 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest testC
           . desugarControlStructures
           . collectDeclarations
           )
-      assertEqual "set of critical functions (bodies)" (M.keysSet expectedIrs) (M.keysSet bodies)
-      sequence_ $ M.elems $ M.intersectionWithKey cmpBody expectedIrs bodies
+      assertEqual "set of critical functions (bodies)" (M.keysSet expectedIrs) (M.keysSet result)
+      sequence_ $ M.elems $ M.intersectionWithKey cmp expectedIrs result
 
+    cmp :: String -> (String, String) -> (Label, Body) -> Assertion
+    cmp fname (eentry, ebody) (oentry, obody) =
       let
+        prefix = printf "function: '%s', " fname
+        ebody' = (unlines . drop 1 . map (drop 10) . lines) ebody
+        obody' = showGraph show obody
+      in do
+        assertEqual (prefix ++ " entry") eentry (show oentry)
+        assertEqual (prefix ++ " body") ebody' obody'
+      
+test_optimize_ir :: Test -- {{{1
+test_optimize_ir = enumTestGroup "optimize_ir" $ map runTest testCases
+  where
+    runTest testCase = do
+      let
+        expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outBasicBlocks testCase
+        ana = analyze (input testCase)
         result = pipeline ana (
-            build_basic_blocks (blockingAndCriticalFunctions ana)
+            optimizeIr
+          . buildBasicBlocks ana
           . normalizeCriticalCalls ana
           . sequencializeBody
           . booleanShortCircuiting ana
           . desugarControlStructures
-          .collectDeclarations
+          . collectDeclarations
           )
-      assertEqual "set of critical functions (result)" (M.keysSet expectedIrs) (M.keysSet result)
-      sequence_ $ M.elems $ M.intersectionWithKey cmpLabel expectedIrs result
+      assertEqual "set of critical functions (bodies)" (M.keysSet expectedIrs) (M.keysSet result)
+      sequence_ $ M.elems $ M.intersectionWithKey cmp expectedIrs result
 
-    cmpBody :: String -> (String, String) -> Body -> Assertion
-    cmpBody fname (eir, _) oir =
+    cmp :: String -> (String, String) -> (Label, Body) -> Assertion
+    cmp fname (eentry, ebody) (oentry, obody) =
       let
-        msg = printf "function: '%s', body" fname
-        eir' = (unlines . drop 1 . map (drop 10) . lines) eir
-        oir' = showGraph show oir
-      in
-        assertEqual msg eir' oir'
+        prefix = printf "function: '%s', " fname
+        ebody' = (unlines . drop 1 . map (drop 10) . lines) ebody
+        obody' = showGraph show obody
+      in do
+        assertEqual (prefix ++ " entry") eentry (show oentry)
+        assertEqual (prefix ++ " body") ebody' obody'
 
-    cmpLabel fname (_, elbl) (olbl, _) =
-      let msg = printf "function: '%s', entry" fname in
-      assertEqual msg elbl (show olbl)
-
--- test_optimize_ir :: Test -- {{{1
--- test_optimize_ir = enumTestGroup "optimize_ir" $ map runTest testCases
---   where
---     runTest testCase = do
---       let
---         expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outBasicBlocks testCase
---         ana = analyze (input testCase)
---         bodies = pipeline ana (
---             optimizeIr
---           . buildBasicBlocks ana
---           . normalizeCriticalCalls ana
---           . sequencializeBody
---           . booleanShortCircuiting ana
---           . desugarControlStructures
---           . collectDeclarations
---           )
---       assertEqual "set of critical functions (bodies)" (M.keysSet expectedIrs) (M.keysSet bodies)
---       sequence_ $ M.elems $ M.intersectionWithKey cmpBody expectedIrs bodies
-
---       let
---         result = pipeline ana (
---             build_basic_blocks (blockingAndCriticalFunctions ana)
---           . normalizeCriticalCalls ana
---           . sequencializeBody
---           . booleanShortCircuiting ana
---           . desugarControlStructures
---           .collectDeclarations
---           )
---       assertEqual "set of critical functions (result)" (M.keysSet expectedIrs) (M.keysSet result)
---       sequence_ $ M.elems $ M.intersectionWithKey cmpLabel expectedIrs result
-
---     cmpBody :: String -> (String, String) -> Body -> Assertion
---     cmpBody fname (eir, _) oir =
---       let
---         msg = printf "function: '%s', body" fname
---         eir' = (unlines . drop 1 . map (drop 10) . lines) eir
---         oir' = showGraph show oir
---       in
---         assertEqual msg eir' oir'
-
---     cmpLabel fname (_, elbl) (olbl, _) =
---       let msg = printf "function: '%s', entry" fname in
---       assertEqual msg elbl (show olbl)
-        
-  
 test_critical_variables :: Test -- {{{1
 test_critical_variables = enumTestGroup "critical_variables" $ map runTest testCases
   where
@@ -432,8 +403,11 @@ sequencializeBody = sequencialize_body
 normalizeCriticalCalls :: Analysis -> [CStat] -> [CStat] -- {{{3
 normalizeCriticalCalls ana = fst . normalize_critical_calls (returnTypes ana)
 
-buildBasicBlocks :: Analysis -> [CStat] -> Body  -- {{{3
-buildBasicBlocks ana = snd . build_basic_blocks (blockingAndCriticalFunctions ana)
+buildBasicBlocks :: Analysis -> [CStat] -> (Label, Body) -- {{{3
+buildBasicBlocks ana = build_basic_blocks (blockingAndCriticalFunctions ana)
+
+optimizeIr :: (Label, Body) -> (Label, Body) -- {{{3
+optimizeIr = optimize_ir
 
 -- preparation {{{2
 returnTypes :: Analysis -> M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -- {{{3
