@@ -6,7 +6,7 @@ module Ocram.Backend.ThreadExecutionFunction
 ) where
 
 -- imports {{{1
-import Compiler.Hoopl (postorder_dfs_from, foldBlockNodesF3, foldGraphNodes, successors, Graph'(GMany), MaybeO(NothingO), entryLabel, O, C, Block, mapLookup)
+import Compiler.Hoopl (postorder_dfs_from, foldGraphNodes, successors, entryLabel, O, C, mapLookup)
 import Data.Generics (everywhere, mkT)
 import Data.Maybe (mapMaybe, maybeToList)
 import Language.C.Data.Ident (Ident, internalIdent)
@@ -55,18 +55,18 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
     fname     = fun_name inlinedFunction
     callChain = $fromJust_s $ call_chain cg startFunction fname
     suls      = singleUsageLabels (fun_entry inlinedFunction) (fun_body inlinedFunction)
-    (GMany NothingO blocks NothingO) = fun_body inlinedFunction
+    blocks    = block_map $ fun_body inlinedFunction
 
-    cGraph :: H.LabelMap (Block Node C C) -> [CBlockItem]
+    cGraph :: BlockMap -> [CBlockItem]
     cGraph lm =
       let entry = Goto (fun_entry inlinedFunction) in
         concatMap cBlock
       $ filter (not . flip S.member suls . entryLabel)
       $ postorder_dfs_from lm entry
 
-    cBlock :: Block Node C C -> [CBlockItem]
+    cBlock :: Block -> [CBlockItem]
     cBlock block =
-      let (Label entry, middles, last) = blockComponents block in
+      let (Label entry, middles, last) = block_components block in
         CBlockStmt (CLabel (lblIdent entry fname) (CExpr Nothing un) [] un)
       : map cMiddle middles ++ cLast last
 
@@ -74,7 +74,7 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
     inlineBlock lbl = 
       let
         block = $fromJust_s $ mapLookup (hLabel lbl) blocks
-        (_, middles, last) = blockComponents block
+        (_, middles, last) = block_components block
       in
         map cMiddle middles ++ cLast last
 
@@ -150,13 +150,6 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
             vname = symbol iden
             test f = vname `elem` map var_unique (f inlinedFunction)
         rewrite o = o
-
-blockComponents :: Block Node C C -> (Node C O, [Node O O], Node O C)
-blockComponents block = let ([first], middles, [last]) = foldBlockNodesF3 (ffirst, fmiddle, flast) block ([], [], []) in (first, reverse middles, last)
-  where
-    ffirst  x (a, b, c) = (x:a, b, c)
-    fmiddle x (a, b, c) = (a, x:b, c)
-    flast   x (a, b, c) = (a, b, x:c)
 
 singleUsageLabels :: Label -> Body -> S.Set H.Label
 singleUsageLabels entry body = M.keysSet $ M.filterWithKey (\_ v -> v == (1 :: Int)) $ foldGraphNodes count body $ M.singleton (hLabel entry) 2

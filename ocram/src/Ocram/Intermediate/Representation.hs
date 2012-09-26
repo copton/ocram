@@ -123,7 +123,24 @@ instance Show (Node e x) where -- {{{2
 
 type Body = H.Graph Node C C -- {{{1
 
+type Block = H.Block Node C C -- {{{1
+
+type BlockMap = H.LabelMap Block -- {{{1
+
 type M = H.CheckingFuelMonad H.SimpleUniqueMonad -- {{{1
 
-runIr :: M a -> a
+runIr :: M a -> a -- {{{2
 runIr m = H.runSimpleUniqueMonad $ H.runWithFuel H.infiniteFuel m
+
+block_components :: Block -> (Node C O, [Node O O], Node O C) -- {{{1
+block_components block = let ([first], middles, [last']) = H.foldBlockNodesF3 (ffirst, fmiddle, flast) block ([], [], []) in (first, reverse middles, last')
+  where
+    ffirst  x (a, b, c) = (x:a, b, c)
+    fmiddle x (a, b, c) = (a, x:b, c)
+    flast   x (a, b, c) = (a, b, x:c)
+
+block_map :: Body -> BlockMap -- {{{1
+block_map (H.GMany H.NothingO blocks H.NothingO) = blocks
+
+form_body :: BlockMap -> Body -- {{{1
+form_body blocks = H.GMany H.NothingO blocks H.NothingO
