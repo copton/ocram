@@ -2,10 +2,10 @@
 module Ocram.Intermediate.Test (tests) where
 
 -- imports {{{1
+import Control.Applicative ((<$>), (<*>))
 import Compiler.Hoopl (showGraph)
-import Data.Either (partitionEithers)
 import Language.C.Data.Node (getLastTokenPos, posOfNode)
-import Language.C.Data.Node (NodeInfo, undefNode)
+import Language.C.Data.Node (undefNode)
 import Language.C.Data.Position (posRow)
 import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST
@@ -17,27 +17,28 @@ import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.SequencializeBody
-import Ocram.Symbols (symbol, Symbol)
+import Ocram.Symbols (Symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Text (show_errors)
 import Ocram.Util (fromJust_s, abort)
-import Ocram.Query (return_type_fd)
+import Ocram.Query (return_type_fd, return_type_cd)
 import Test.Framework (Test, testGroup)
-import Test.HUnit (assertEqual, Assertion, (@=?))
+import Test.HUnit (assertEqual, Assertion)
+import Text.Printf (printf)
 
 import qualified Data.Map as M
 import qualified Data.Set as S
 
 tests :: Test -- {{{1
 tests = testGroup "Intermediate" [
-           test_collect_declarations
-         , test_desugar_control_structures
-         , test_boolean_short_circuiting
---          , test_sequencialize_body
---         , test_normalize_critical_calls
---         , test_build_basic_blocks
---         , test_critical_variables
-        ]
+    test_collect_declarations
+  , test_desugar_control_structures
+  , test_boolean_short_circuiting
+  , test_sequencialize_body
+  , test_normalize_critical_calls
+  , test_build_basic_blocks
+  , test_critical_variables
+  ]
 
 -- types {{{1
 type ScopedVariable = ( -- {{{2
@@ -72,23 +73,27 @@ type OutputSequentialize = -- {{{2
 
 type OutputNormalize = ( -- {{{2
     String   -- code
-  , [String] -- declarations
+  , [(
+      String   -- critical function name
+    , [String] -- declarations
+    )]
   )
 
-type OutputBasicBlocks = ( -- {{{2
-    String   -- intermediate representation
-  , String   -- entry label
-  )
+type OutputBasicBlocks = -- {{{2
+    [(
+      String -- critical function name
+    , String -- intermediate representation
+    , String -- entry label
+    )]
 
-type OutputCriticalVariables = ( -- {{{2
-    [String] -- critical variables
-  , [String] -- uncritical variables
-  )
+type OutputCriticalVariables = -- {{{2
+  [(
+      String   -- critical function name
+    , [String] -- critical variables
+    , [String] -- uncritical variables
+  )] 
 
-type OutputOptimize = ( -- {{{2
-    String -- intermediate representation
-  , String -- entry label
-  )
+type OutputOptimize = OutputBasicBlocks
 
 data TestCase = TestCase { -- {{{2
     input              :: String
@@ -98,8 +103,8 @@ data TestCase = TestCase { -- {{{2
   , outSequence        :: OutputSequentialize
   , outNormalize       :: OutputNormalize
   , outBasicBlocks     :: OutputBasicBlocks
-  , outCritical        :: OutputCriticalVariables 
   , outOptimize        :: OutputOptimize
+  , outCritical        :: OutputCriticalVariables 
   }
 
 testCases :: [TestCase] -- {{{1
@@ -143,32 +148,29 @@ testCases = [
       void start() {
         block();
       }
-    |], [
-    ])
-  , outBasicBlocks = ( -- {{{3
-    [paste|
-      void start() {
+    |], [("start", [])]
+    )
+  , outBasicBlocks = [ -- {{{3
+      ("start", [paste|
+          L1:
+          block(); GOTO L2
+
+          L2:
+          RETURN
+      |], "L1")
+    ]
+  , outOptimize = [ -- {{{3
+    ("start", [paste|
         L1:
         block(); GOTO L2
 
         L2:
         RETURN    
-      }
     |], "L1")
-  , outCritical = ( -- {{{3
-    [
-    ], [
-    ])
-  , outOptimize = ( -- {{{3
-    [paste|
-      void start() {
-        L1:
-        block(); GOTO L2
-
-        L2:
-        RETURN    
-      }
-    |], "L1")
+    ]
+  , outCritical = [ -- {{{3
+      ("start", [], [])
+    ]
   }
   ]
 
@@ -185,16 +187,16 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest t
 
       let
         expectedVars = M.fromList . map (\(x, y, z) -> (x, (y, z))) $ expectedVars'
-        results = pipeline ana collect_declarations
-      assertEqual "set of critical functions" (M.keysSet expectedVars) (M.keysSet (anaCritical ana))
-      sequence_ $ M.elems $ M.intersectionWith cmpVars expectedVars results
+        result = pipeline ana collect_declarations
+      assertEqual "set of critical functions" (M.keysSet expectedVars) (M.keysSet result)
+      sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedVars result
       
-    cmpVars (av, sv) (_, av', sv') = do
-      mapM_ (uncurry (cmpVar "automatic")) $ zip av av'
-      mapM_ (uncurry (cmpVar "static"))    $ zip sv sv'
+    cmpVars fname (av, sv) (_, av', sv') = do
+      mapM_ (cmpVar fname "automatic") $ zip av av'
+      mapM_ (cmpVar fname "static")    $ zip sv sv'
 
-    cmpVar kind (tdecl, ename, start, end) var =
-      let prefix = kind ++ " variable '" ++ ename ++ "': " in
+    cmpVar fname kind ((tdecl, ename, start, end), var) =
+      let prefix = printf "function: '%s', %s variable: '%s'" fname kind ename in
       do
         assertEqual (prefix ++ "T-code decl") tdecl $ (show . pretty . var_decl) var
         assertEqual (prefix ++ "E-code name") ename (var_unique var)
@@ -208,7 +210,10 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       let
         expectedCode = outDesugar testCase
         ana = analyze (input testCase)
-        items = pipeline ana (desugarControlStructures . collectDeclarations)
+        items = pipeline ana (
+            desugarControlStructures
+          . collectDeclarations
+          )
         outputCode = printOutputCode ana items 
       in
         assertEqual "output code" (blurrSyntax expectedCode) outputCode
@@ -220,19 +225,188 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       let
         (expectedCode, expectedDecls') = outShortCircuit testCase
         ana = analyze (input testCase)
-        items = pipeline ana (booleanShortCircuiting ana . desugarControlStructures . collectDeclarations)
+        items = pipeline ana (
+            booleanShortCircuiting ana
+          . desugarControlStructures
+          . collectDeclarations
+          )
         outputCode = printOutputCode ana items
       assertEqual "output code" (blurrSyntax expectedCode) outputCode
 
       let
         expectedDecls = M.fromList expectedDecls' 
-        cf = M.keysSet (anaCritical ana)
-        result = pipeline ana (boolean_short_circuiting cf . desugarControlStructures . collectDeclarations)
-      assertEqual "set of critical functions" (M.keysSet expectedDecls) cf
-      sequence_ $ M.elems $ M.intersectionWith cmpVars expectedDecls result
+        result = pipeline ana (
+            boolean_short_circuiting (criticalFunctions ana)
+          . desugarControlStructures
+          . collectDeclarations
+          )
+      assertEqual "set of critical functions" (M.keysSet expectedDecls) (M.keysSet result)
+      sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedDecls result
 
-    cmpVars decls (_, vars) = mapM_ (uncurry cmpVar) $ zip decls vars
-    cmpVar decl var = assertEqual "variable" decl ((show . pretty . var_decl) var)
+    cmpVars fname decls (_, vars) = mapM_ (cmpVar fname) $ zip decls vars
+    cmpVar fname (decl, var) = 
+      let msg = printf "function: '%s', variable" fname in
+      assertEqual msg decl ((show . pretty . var_decl) var)
+
+test_sequencialize_body :: Test -- {{{1
+test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest testCases
+  where
+    runTest testCase =
+      let
+        expectedCode = outSequence testCase
+        ana = analyze (input testCase)
+        stmts = pipeline ana (
+            sequencializeBody
+          . booleanShortCircuiting ana
+          . desugarControlStructures
+          . collectDeclarations
+          )
+        outputCode = printOutputCode ana (M.map (map CBlockStmt) stmts)
+      in
+        assertEqual "output code" (blurrSyntax expectedCode) outputCode
+
+test_normalize_critical_calls :: Test -- {{{1
+test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map runTest testCases
+  where
+    runTest testCase = do
+      let
+        (expectedCode, expectedDecls') = outNormalize testCase
+        ana = analyze (input testCase)
+        stmts = pipeline ana (
+            normalizeCriticalCalls ana
+          . sequencializeBody
+          . booleanShortCircuiting ana
+          . desugarControlStructures
+          . collectDeclarations
+          )
+        outputCode = printOutputCode ana (M.map (map CBlockStmt) stmts)
+      assertEqual "output code" (blurrSyntax expectedCode) outputCode
+
+      let
+        expectedDecls = M.fromList expectedDecls'
+        result = pipeline ana (
+            normalize_critical_calls (returnTypes ana)
+          . sequencializeBody
+          . booleanShortCircuiting ana
+          . desugarControlStructures
+          . collectDeclarations
+          )
+
+      assertEqual "set of critical functions" (M.keysSet expectedDecls) (M.keysSet result)
+      sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedDecls result
+
+    cmpVars fname decls (_, vars) = mapM_ (cmpVar fname) $ zip decls vars
+    cmpVar fname (decl, var) = 
+      let msg = printf "function: '%s', variable" fname in
+      assertEqual msg decl ((show . pretty . var_decl) var)
+
+test_build_basic_blocks :: Test -- {{{1
+test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest testCases
+  where
+    runTest testCase = do
+      let
+        expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outBasicBlocks testCase
+        ana = analyze (input testCase)
+        bodies = pipeline ana (
+            buildBasicBlocks ana
+          . normalizeCriticalCalls ana
+          . sequencializeBody
+          . booleanShortCircuiting ana
+          . desugarControlStructures
+          . collectDeclarations
+          )
+      assertEqual "set of critical functions (bodies)" (M.keysSet expectedIrs) (M.keysSet bodies)
+      sequence_ $ M.elems $ M.intersectionWithKey cmpBody expectedIrs bodies
+
+      let
+        result = pipeline ana (
+            build_basic_blocks (blockingAndCriticalFunctions ana)
+          . normalizeCriticalCalls ana
+          . sequencializeBody
+          . booleanShortCircuiting ana
+          . desugarControlStructures
+          .collectDeclarations
+          )
+      assertEqual "set of critical functions (result)" (M.keysSet expectedIrs) (M.keysSet result)
+      sequence_ $ M.elems $ M.intersectionWithKey cmpLabel expectedIrs result
+
+    cmpBody :: String -> (String, String) -> Body -> Assertion
+    cmpBody fname (eir, _) oir =
+      let
+        msg = printf "function: '%s', body" fname
+        eir' = (unlines . drop 1 . map (drop 10) . lines) eir
+        oir' = showGraph show oir
+      in
+        assertEqual msg eir' oir'
+
+    cmpLabel fname (_, elbl) (olbl, _) =
+      let msg = printf "function: '%s', entry" fname in
+      assertEqual msg elbl (show olbl)
+
+-- test_optimize_ir :: Test -- {{{1
+-- test_optimize_ir = enumTestGroup "optimize_ir" $ map runTest testCases
+--   where
+--     runTest testCase = do
+--       let
+--         expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outBasicBlocks testCase
+--         ana = analyze (input testCase)
+--         bodies = pipeline ana (
+--             optimizeIr
+--           . buildBasicBlocks ana
+--           . normalizeCriticalCalls ana
+--           . sequencializeBody
+--           . booleanShortCircuiting ana
+--           . desugarControlStructures
+--           . collectDeclarations
+--           )
+--       assertEqual "set of critical functions (bodies)" (M.keysSet expectedIrs) (M.keysSet bodies)
+--       sequence_ $ M.elems $ M.intersectionWithKey cmpBody expectedIrs bodies
+
+--       let
+--         result = pipeline ana (
+--             build_basic_blocks (blockingAndCriticalFunctions ana)
+--           . normalizeCriticalCalls ana
+--           . sequencializeBody
+--           . booleanShortCircuiting ana
+--           . desugarControlStructures
+--           .collectDeclarations
+--           )
+--       assertEqual "set of critical functions (result)" (M.keysSet expectedIrs) (M.keysSet result)
+--       sequence_ $ M.elems $ M.intersectionWithKey cmpLabel expectedIrs result
+
+--     cmpBody :: String -> (String, String) -> Body -> Assertion
+--     cmpBody fname (eir, _) oir =
+--       let
+--         msg = printf "function: '%s', body" fname
+--         eir' = (unlines . drop 1 . map (drop 10) . lines) eir
+--         oir' = showGraph show oir
+--       in
+--         assertEqual msg eir' oir'
+
+--     cmpLabel fname (_, elbl) (olbl, _) =
+--       let msg = printf "function: '%s', entry" fname in
+--       assertEqual msg elbl (show olbl)
+        
+  
+test_critical_variables :: Test -- {{{1
+test_critical_variables = enumTestGroup "critical_variables" $ map runTest testCases
+  where
+    runTest testCase = do
+      let
+        ana = analyze (input testCase)
+        funs = ast_2_ir (anaBlocking ana) (anaCritical ana)
+        expectedVars = M.fromList $ map (\(x, y, z) -> (x, (y, z))) (outCritical testCase)
+      assertEqual "set of critical functions" (M.keysSet expectedVars) (M.keysSet funs)
+      sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedVars funs
+
+    cmpVars fname (ecs, eus) (Function ocs ous _ _ _ _) = do
+      mapM_ (cmpVar fname "critical")   $ zip ecs ocs
+      mapM_ (cmpVar fname "uncritical") $ zip eus ous
+
+    cmpVar fname kind (ev, ov) =
+      let msg = printf "function: '%s', %s variable" fname kind in
+      assertEqual msg ev (var_unique ov)
+        
 
 -- utils {{{1
 analyze :: String -> Analysis -- {{{2
@@ -250,9 +424,26 @@ desugarControlStructures :: [CBlockItem] -> [CBlockItem] -- {{{3
 desugarControlStructures = desugar_control_structures
 
 booleanShortCircuiting :: Analysis -> [CBlockItem] -> [CBlockItem] -- {{{3
-booleanShortCircuiting ana items = 
-  let cf = M.keysSet (anaCritical ana) in
-  (fst . boolean_short_circuiting cf) items
+booleanShortCircuiting ana = fst . boolean_short_circuiting (criticalFunctions ana)
+
+sequencializeBody :: [CBlockItem] -> [CStat]  -- {{{3
+sequencializeBody = sequencialize_body
+
+normalizeCriticalCalls :: Analysis -> [CStat] -> [CStat] -- {{{3
+normalizeCriticalCalls ana = fst . normalize_critical_calls (returnTypes ana)
+
+buildBasicBlocks :: Analysis -> [CStat] -> Body  -- {{{3
+buildBasicBlocks ana = snd . build_basic_blocks (blockingAndCriticalFunctions ana)
+
+-- preparation {{{2
+returnTypes :: Analysis -> M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -- {{{3
+returnTypes = M.union <$> M.map return_type_fd . anaCritical <*> M.map return_type_cd . anaBlocking
+
+criticalFunctions :: Analysis -> S.Set Symbol -- {{{3
+criticalFunctions = M.keysSet . anaCritical
+
+blockingAndCriticalFunctions :: Analysis -> S.Set Symbol -- {{{3
+blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet . anaBlocking
 
 blurrSyntax :: String -> String -- {{{2
 blurrSyntax code = reduce (enrich code :: CTranslUnit)
@@ -263,8 +454,8 @@ printOutputCode ana items =
   reduce (CTranslUnit (map CFDefExt funs) undefNode)
   where
     replaceBody :: CFunDef -> [CBlockItem] -> CFunDef -- {{{2
-    replaceBody (CFunDef x1 x2 x3 (CCompound x4 _ x5) x6) items =
-      CFunDef (filter (not . isAttr) x1) x2 x3 (CCompound x4 items x5) x6
+    replaceBody (CFunDef x1 x2 x3 (CCompound x4 _ x5) x6) is =
+      CFunDef (filter (not . isAttr) x1) x2 x3 (CCompound x4 is x5) x6
       where
         isAttr (CTypeQual (CAttrQual _)) = True
         isAttr _                         = False
