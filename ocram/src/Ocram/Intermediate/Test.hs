@@ -4,6 +4,7 @@ module Ocram.Intermediate.Test (tests) where
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
 import Compiler.Hoopl (showGraph)
+import Data.Maybe (fromMaybe)
 import Language.C.Data.Node (getLastTokenPos, posOfNode)
 import Language.C.Data.Node (undefNode)
 import Language.C.Data.Position (posRow)
@@ -60,10 +61,10 @@ type OutputCollectDeclarations = ( -- {{{2
   )
 
 type OutputDesugarControlStructures = -- {{{2
-    String -- code
+    Maybe String -- code
 
 type OutputBooleanShortCircuiting = ( -- {{{2
-    String   -- code
+    Maybe String   -- code
   , [(
       String    -- critical function name
     , [String]  -- declarations
@@ -71,10 +72,10 @@ type OutputBooleanShortCircuiting = ( -- {{{2
   )
 
 type OutputSequentialize = -- {{{2
-    String -- code
+    Maybe String -- code
 
 type OutputNormalize = ( -- {{{2
-    String   -- code
+    Maybe String   -- code
   , [(
       String   -- critical function name
     , [String] -- declarations
@@ -95,7 +96,8 @@ type OutputCriticalVariables = -- {{{2
     , [String] -- uncritical variables
   )] 
 
-type OutputOptimize = OutputBasicBlocks
+type OutputOptimize = -- {{{2
+  Maybe OutputBasicBlocks
 
 data TestCase = TestCase { -- {{{2
     input              :: String
@@ -120,37 +122,22 @@ testCases = [
       }
     |]
   , outCollect = ( -- {{{3
-    [paste|
-      void start() {
-        block();
-      }
-    |], [("start", [], [])]
+      [paste|
+        void start() {
+          block();
+        }
+      |],
+      [("start", [], [])]
     )
   , outDesugar = -- {{{3
-    [paste|
-      void start() {
-        block();
-      }
-    |]
+      Nothing
   , outShortCircuit = ( -- {{{3
-    [paste|
-      void start() {
-        block();
-      }
-    |], [("start", [])]
+      Nothing, [("start", [])]
     )
   , outSequence = -- {{{3
-    [paste|
-      void start() {
-        block();
-      }
-    |]
+      Nothing 
   , outNormalize = ( -- {{{3
-    [paste|
-      void start() {
-        block();
-      }
-    |], [("start", [])]
+      Nothing, [("start", [])]
     )
   , outBasicBlocks = [ -- {{{3
       ("start", "L1", [paste|
@@ -161,15 +148,8 @@ testCases = [
           RETURN
       |])
     ]
-  , outOptimize = [ -- {{{3
-    ("start", "L1", [paste|
-          L1:
-          block(); GOTO L2
-
-          L2:
-          RETURN
-    |])
-    ]
+  , outOptimize =  -- {{{3
+    Nothing
   , outCritical = [ -- {{{3
       ("start", [], [])
     ]
@@ -200,7 +180,7 @@ testCases = [
     |], [("start", [], [])]
     )
   , outDesugar = -- {{{3
-    [paste|
+    Just [paste|
       void start() {
         a();
         {
@@ -214,22 +194,10 @@ testCases = [
       }
     |]
   , outShortCircuit = ( -- {{{3
-    [paste|
-      void start() {
-        a();
-        {
-          ec_ctrlbl_0: ;
-          if (! 1) goto ec_ctrlbl_1;
-          block();
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        } 
-        b();
-      }
-    |], [("start", [])]
+      Nothing, [("start", [])]
     )
   , outSequence = -- {{{3
-    [paste|
+    Just [paste|
       void start() {
         a();
         ec_ctrlbl_0: ;
@@ -241,17 +209,7 @@ testCases = [
       }
     |]
   , outNormalize = ( -- {{{3
-    [paste|
-      void start() {
-        a();
-        ec_ctrlbl_0: ;
-        if (! 1) goto ec_ctrlbl_1;
-        block();
-        goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
-        b();
-      }
-    |], [("start", [])]
+      Nothing, [("start", [])]
     )
   , outBasicBlocks = [ -- {{{3
       ("start", "L1", [paste|
@@ -273,7 +231,7 @@ testCases = [
           RETURN
       |])
     ]
-  , outOptimize = [ -- {{{3
+  , outOptimize = Just [ -- {{{3
     ("start", "L1", [paste|
           L1:
           a();
@@ -320,7 +278,7 @@ testCases = [
     |], [("start", [], [])]
     )
   , outDesugar = -- {{{3
-    [paste|
+    Just [paste|
       void start() {
         a();
         {
@@ -333,21 +291,10 @@ testCases = [
       }
     |]
   , outShortCircuit = ( -- {{{3
-    [paste|
-      void start() {
-        a();
-        {
-          ec_ctrlbl_0: ;
-          block();
-          if (1) goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        } 
-        b();
-      }
-    |], [("start", [])]
+      Nothing, [("start", [])]
     )
   , outSequence = -- {{{3
-    [paste|
+    Just [paste|
       void start() {
         a();
         ec_ctrlbl_0: ;
@@ -358,16 +305,7 @@ testCases = [
       }
     |]
   , outNormalize = ( -- {{{3
-    [paste|
-      void start() {
-        a();
-        ec_ctrlbl_0: ;
-        block();
-        if (1) goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
-        b();
-      }
-    |], [("start", [])]
+      Nothing, [("start", [])]
     )
   , outBasicBlocks = [ -- {{{3
       ("start", "L1", [paste|
@@ -386,23 +324,8 @@ testCases = [
           RETURN
       |])
     ]
-  , outOptimize = [ -- {{{3
-    ("start", "L1", [paste|
-          L1:
-          a();
-          GOTO L2/ec_ctrlbl_0
-
-          L2/ec_ctrlbl_0:
-          block(); GOTO L3
-
-          L3:
-          IF 1 THEN L2/ec_ctrlbl_0 ELSE L4/ec_ctrlbl_1
-
-          L4/ec_ctrlbl_1:
-          b();
-          RETURN
-    |])
-    ]
+  , outOptimize = -- {{{3
+      Nothing
   , outCritical = [ -- {{{3
       ("start", [], [])
     ]
@@ -444,7 +367,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
   where
     runTest testCase =
       let
-        expectedCode = outDesugar testCase
+        expectedCode = getCodeDesugar testCase
         ana = analyze (input testCase)
         items = pipeline ana (
             desugarControlStructures
@@ -459,7 +382,8 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   where
     runTest testCase = do
       let
-        (expectedCode, expectedDecls') = outShortCircuit testCase
+        expectedCode = getCodeShortCircuit testCase
+        expectedDecls = M.fromList . snd . outShortCircuit $ testCase
         ana = analyze (input testCase)
         items = pipeline ana (
             booleanShortCircuiting ana
@@ -470,7 +394,6 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       assertEqual "output code" (blurrSyntax expectedCode) outputCode
 
       let
-        expectedDecls = M.fromList expectedDecls' 
         result = pipeline ana (
             boolean_short_circuiting (criticalFunctions ana)
           . desugarControlStructures
@@ -489,7 +412,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest testC
   where
     runTest testCase =
       let
-        expectedCode = outSequence testCase
+        expectedCode = getCodeSequence testCase
         ana = analyze (input testCase)
         stmts = pipeline ana (
             sequencializeBody
@@ -506,7 +429,8 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
   where
     runTest testCase = do
       let
-        (expectedCode, expectedDecls') = outNormalize testCase
+        expectedCode = getCodeNormalize testCase
+        expectedDecls = M.fromList . snd . outNormalize $ testCase
         ana = analyze (input testCase)
         stmts = pipeline ana (
             normalizeCriticalCalls ana
@@ -519,7 +443,6 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
       assertEqual "output code" (blurrSyntax expectedCode) outputCode
 
       let
-        expectedDecls = M.fromList expectedDecls'
         result = pipeline ana (
             normalize_critical_calls (returnTypes ana)
           . sequencializeBody
@@ -569,7 +492,7 @@ test_optimize_ir = enumTestGroup "optimize_ir" $ map runTest testCases
   where
     runTest testCase = do
       let
-        expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outOptimize testCase
+        expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ getOutOptimize testCase
         ana = analyze (input testCase)
         result = pipeline ana (
             optimizeIr
@@ -652,6 +575,22 @@ criticalFunctions = M.keysSet . anaCritical
 
 blockingAndCriticalFunctions :: Analysis -> S.Set Symbol -- {{{3
 blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet . anaBlocking
+
+-- getters {{{2
+getCodeDesugar :: TestCase -> String -- {{{3
+getCodeDesugar = fromMaybe <$> fst . outCollect <*> outDesugar
+
+getCodeShortCircuit :: TestCase -> String -- {{{3
+getCodeShortCircuit = fromMaybe <$> getCodeDesugar <*> fst . outShortCircuit
+
+getCodeSequence :: TestCase -> String -- {{{3
+getCodeSequence = fromMaybe <$> getCodeShortCircuit <*> outSequence
+
+getCodeNormalize :: TestCase -> String -- {{{3
+getCodeNormalize = fromMaybe <$> getCodeSequence <*> fst . outNormalize
+
+getOutOptimize :: TestCase -> OutputBasicBlocks -- {{{3
+getOutOptimize = fromMaybe <$> outBasicBlocks <*> outOptimize
 
 blurrSyntax :: String -> String -- {{{2
 blurrSyntax code = reduce (enrich code :: CTranslUnit)
