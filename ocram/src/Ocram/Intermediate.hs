@@ -9,17 +9,18 @@ module Ocram.Intermediate
 -- imports {{{1
 import Control.Monad.Writer (runWriter, Writer, tell)
 import Data.Either (partitionEithers)
-import Ocram.Intermediate.Representation
+import Language.C.Syntax.AST
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
-import Ocram.Intermediate.SequencializeBody
 import Ocram.Intermediate.CollectDeclarations
+import Ocram.Intermediate.CriticalVariables
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
-import Ocram.Intermediate.CriticalVariables
-import Ocram.Symbols (Symbol)
+import Ocram.Intermediate.Optimize
+import Ocram.Intermediate.Representation
+import Ocram.Intermediate.SequencializeBody
 import Ocram.Query (return_type_fd, return_type_cd)
-import Language.C.Syntax.AST
+import Ocram.Symbols (Symbol)
 
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -36,8 +37,9 @@ ast_2_ir bf cf = M.map (critical_variables . convert) cf
         (items, vars) = runWriter $ process fd 
         (autoVars, staticVars) = partitionEithers vars
         (entry, body) = build_basic_blocks sf items
+        body' = optimize_ir body
       in
-        Function autoVars [] staticVars fd body entry
+        Function autoVars [] staticVars fd body' entry
 
     process fd = 
           return fd
