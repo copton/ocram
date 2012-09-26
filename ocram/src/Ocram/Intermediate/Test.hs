@@ -163,17 +163,251 @@ testCases = [
     ]
   , outOptimize = [ -- {{{3
     ("start", "L1", [paste|
-        L1:
-        block(); GOTO L2
+          L1:
+          block(); GOTO L2
 
-        L2:
-        RETURN    
+          L2:
+          RETURN
     |])
     ]
   , outCritical = [ -- {{{3
       ("start", [], [])
     ]
   }
+  , -- 02 - while loop {{{2
+  TestCase {input = -- {{{3
+    [lpaste|
+      __attribute__((tc_blocking)) void block();
+      void a();
+      void b();
+      __attribute__((tc_run_thread)) void start() {
+        a();
+        while (1) {
+          block();
+        }
+        b();
+      }
+    |]
+  , outCollect = ( -- {{{3
+    [paste|
+      void start() {
+        a();
+        while (1) {
+          block();
+        }
+        b();
+      }
+    |], [("start", [], [])]
+    )
+  , outDesugar = -- {{{3
+    [paste|
+      void start() {
+        a();
+        {
+          ec_ctrlbl_0: ;
+          if (! 1) goto ec_ctrlbl_1;
+          block();
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        } 
+        b();
+      }
+    |]
+  , outShortCircuit = ( -- {{{3
+    [paste|
+      void start() {
+        a();
+        {
+          ec_ctrlbl_0: ;
+          if (! 1) goto ec_ctrlbl_1;
+          block();
+          goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        } 
+        b();
+      }
+    |], [("start", [])]
+    )
+  , outSequence = -- {{{3
+    [paste|
+      void start() {
+        a();
+        ec_ctrlbl_0: ;
+        if (! 1) goto ec_ctrlbl_1;
+        block();
+        goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ;
+        b();
+      }
+    |]
+  , outNormalize = ( -- {{{3
+    [paste|
+      void start() {
+        a();
+        ec_ctrlbl_0: ;
+        if (! 1) goto ec_ctrlbl_1;
+        block();
+        goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ;
+        b();
+      }
+    |], [("start", [])]
+    )
+  , outBasicBlocks = [ -- {{{3
+      ("start", "L1", [paste|
+          L1:
+          a();
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+
+          L3:
+          block(); GOTO L4
+
+          L4:
+          GOTO L2/ec_ctrlbl_0
+
+          L5/ec_ctrlbl_1:
+          b();
+          RETURN
+      |])
+    ]
+  , outOptimize = [ -- {{{3
+    ("start", "L1", [paste|
+          L1:
+          a();
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+
+          L3:
+          block(); GOTO L2/ec_ctrlbl_0
+
+          L5/ec_ctrlbl_1:
+          b();
+          RETURN
+    |])
+    ]
+  , outCritical = [ -- {{{3
+      ("start", [], [])
+    ]
+  }
+  , -- 03 - do loop {{{2
+  TestCase {input = -- {{{3
+    [lpaste|
+      __attribute__((tc_blocking)) void block();
+      void a();
+      void b();
+      __attribute__((tc_run_thread)) void start() {
+        a();
+        do {
+          block();
+        } while(1);
+        b();
+      }
+    |]
+  , outCollect = ( -- {{{3
+    [paste|
+      void start() {
+        a();
+        do {
+          block();
+        } while(1);
+        b();
+      }
+    |], [("start", [], [])]
+    )
+  , outDesugar = -- {{{3
+    [paste|
+      void start() {
+        a();
+        {
+          ec_ctrlbl_0: ;
+          block();
+          if (1) goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        } 
+        b();
+      }
+    |]
+  , outShortCircuit = ( -- {{{3
+    [paste|
+      void start() {
+        a();
+        {
+          ec_ctrlbl_0: ;
+          block();
+          if (1) goto ec_ctrlbl_0;
+          ec_ctrlbl_1: ;
+        } 
+        b();
+      }
+    |], [("start", [])]
+    )
+  , outSequence = -- {{{3
+    [paste|
+      void start() {
+        a();
+        ec_ctrlbl_0: ;
+        block();
+        if (1) goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ;
+        b();
+      }
+    |]
+  , outNormalize = ( -- {{{3
+    [paste|
+      void start() {
+        a();
+        ec_ctrlbl_0: ;
+        block();
+        if (1) goto ec_ctrlbl_0;
+        ec_ctrlbl_1: ;
+        b();
+      }
+    |], [("start", [])]
+    )
+  , outBasicBlocks = [ -- {{{3
+      ("start", "L1", [paste|
+          L1:
+          a();
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          block(); GOTO L3
+
+          L3:
+          IF 1 THEN L2/ec_ctrlbl_0 ELSE L4/ec_ctrlbl_1
+
+          L4/ec_ctrlbl_1:
+          b();
+          RETURN
+      |])
+    ]
+  , outOptimize = [ -- {{{3
+    ("start", "L1", [paste|
+          L1:
+          a();
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          block(); GOTO L3
+
+          L3:
+          IF 1 THEN L2/ec_ctrlbl_0 ELSE L4/ec_ctrlbl_1
+
+          L4/ec_ctrlbl_1:
+          b();
+          RETURN
+    |])
+    ]
+  , outCritical = [ -- {{{3
+      ("start", [], [])
+    ]
+  }
+  -- end {{{2
   ]
 
 test_collect_declarations :: Test -- {{{1
@@ -335,7 +569,7 @@ test_optimize_ir = enumTestGroup "optimize_ir" $ map runTest testCases
   where
     runTest testCase = do
       let
-        expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outBasicBlocks testCase
+        expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outOptimize testCase
         ana = analyze (input testCase)
         result = pipeline ana (
             optimizeIr
