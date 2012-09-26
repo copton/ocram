@@ -5,10 +5,11 @@ module Ocram.Intermediate.Test (tests) where
 import Compiler.Hoopl (showGraph)
 import Data.Either (partitionEithers)
 import Language.C.Data.Node (getLastTokenPos, posOfNode)
-import Language.C.Data.Node (NodeInfo)
+import Language.C.Data.Node (NodeInfo, undefNode)
 import Language.C.Data.Position (posRow)
 import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST
+import Ocram.Analysis (Analysis(..), analysis)
 import Ocram.Intermediate
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
@@ -16,9 +17,10 @@ import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.SequencializeBody
-import Ocram.Symbols (symbol)
+import Ocram.Symbols (symbol, Symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
-import Ocram.Util (fromJust_s)
+import Ocram.Text (show_errors)
+import Ocram.Util (fromJust_s, abort)
 import Ocram.Query (return_type_fd)
 import Test.Framework (Test, testGroup)
 import Test.HUnit (assertEqual, Assertion, (@=?))
@@ -28,15 +30,247 @@ import qualified Data.Set as S
 
 tests :: Test -- {{{1
 tests = testGroup "Intermediate" [
-          test_collect_declarations
-        , test_desugar_control_structures
-        , test_boolean_short_circuiting
-        , test_sequencialize_body
-        , test_normalize_critical_calls
-        , test_build_basic_blocks
-        , test_critical_variables
+           test_collect_declarations
+         , test_desugar_control_structures
+         , test_boolean_short_circuiting
+--          , test_sequencialize_body
+--         , test_normalize_critical_calls
+--         , test_build_basic_blocks
+--         , test_critical_variables
         ]
 
+-- types {{{1
+type ScopedVariable = ( -- {{{2
+    String   -- declaration
+  , String   -- unique name
+  , Int      -- first row of scope
+  , Int      -- last row of scope
+  )
+  
+type OutputCollectDeclarations = ( -- {{{2
+    String                 -- code
+  , [(
+        String             -- critical function name
+      , [ScopedVariable]   -- automatic variables
+      , [ScopedVariable]   -- static variables
+    )]
+  )
+
+type OutputDesugarControlStructures = -- {{{2
+    String -- code
+
+type OutputBooleanShortCircuiting = ( -- {{{2
+    String   -- code
+  , [(
+      String    -- critical function name
+    , [String]  -- declarations
+    )]
+  )
+
+type OutputSequentialize = -- {{{2
+    String -- code
+
+type OutputNormalize = ( -- {{{2
+    String   -- code
+  , [String] -- declarations
+  )
+
+type OutputBasicBlocks = ( -- {{{2
+    String   -- intermediate representation
+  , String   -- entry label
+  )
+
+type OutputCriticalVariables = ( -- {{{2
+    [String] -- critical variables
+  , [String] -- uncritical variables
+  )
+
+type OutputOptimize = ( -- {{{2
+    String -- intermediate representation
+  , String -- entry label
+  )
+
+data TestCase = TestCase { -- {{{2
+    input              :: String
+  , outCollect         :: OutputCollectDeclarations
+  , outDesugar         :: OutputDesugarControlStructures
+  , outShortCircuit    :: OutputBooleanShortCircuiting
+  , outSequence        :: OutputSequentialize
+  , outNormalize       :: OutputNormalize
+  , outBasicBlocks     :: OutputBasicBlocks
+  , outCritical        :: OutputCriticalVariables 
+  , outOptimize        :: OutputOptimize
+  }
+
+testCases :: [TestCase] -- {{{1
+testCases = [
+  -- , 01 - setup {{{2
+  TestCase {input = -- {{{3
+    [lpaste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        block();
+      }
+    |]
+  , outCollect = ( -- {{{3
+    [paste|
+      void start() {
+        block();
+      }
+    |], [("start", [], [])]
+    )
+  , outDesugar = -- {{{3
+    [paste|
+      void start() {
+        block();
+      }
+    |]
+  , outShortCircuit = ( -- {{{3
+    [paste|
+      void start() {
+        block();
+      }
+    |], [("start", [])]
+    )
+  , outSequence = -- {{{3
+    [paste|
+      void start() {
+        block();
+      }
+    |]
+  , outNormalize = ( -- {{{3
+    [paste|
+      void start() {
+        block();
+      }
+    |], [
+    ])
+  , outBasicBlocks = ( -- {{{3
+    [paste|
+      void start() {
+        L1:
+        block(); GOTO L2
+
+        L2:
+        RETURN    
+      }
+    |], "L1")
+  , outCritical = ( -- {{{3
+    [
+    ], [
+    ])
+  , outOptimize = ( -- {{{3
+    [paste|
+      void start() {
+        L1:
+        block(); GOTO L2
+
+        L2:
+        RETURN    
+      }
+    |], "L1")
+  }
+  ]
+
+test_collect_declarations :: Test -- {{{1
+test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest testCases
+  where
+    runTest testCase = do
+      let
+        (expectedCode, expectedVars') = outCollect testCase
+        ana = analyze (input testCase)
+        items = pipeline ana collectDeclarations
+        outputCode = printOutputCode ana items
+      assertEqual "output code" (blurrSyntax expectedCode) outputCode
+
+      let
+        expectedVars = M.fromList . map (\(x, y, z) -> (x, (y, z))) $ expectedVars'
+        results = pipeline ana collect_declarations
+      assertEqual "set of critical functions" (M.keysSet expectedVars) (M.keysSet (anaCritical ana))
+      sequence_ $ M.elems $ M.intersectionWith cmpVars expectedVars results
+      
+    cmpVars (av, sv) (_, av', sv') = do
+      mapM_ (uncurry (cmpVar "automatic")) $ zip av av'
+      mapM_ (uncurry (cmpVar "static"))    $ zip sv sv'
+
+    cmpVar kind (tdecl, ename, start, end) var =
+      let prefix = kind ++ " variable '" ++ ename ++ "': " in
+      do
+        assertEqual (prefix ++ "T-code decl") tdecl $ (show . pretty . var_decl) var
+        assertEqual (prefix ++ "E-code name") ename (var_unique var)
+        assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
+        assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
+
+test_desugar_control_structures :: Test -- {{{1
+test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ map runTest testCases
+  where
+    runTest testCase =
+      let
+        expectedCode = outDesugar testCase
+        ana = analyze (input testCase)
+        items = pipeline ana (desugarControlStructures . collectDeclarations)
+        outputCode = printOutputCode ana items 
+      in
+        assertEqual "output code" (blurrSyntax expectedCode) outputCode
+        
+test_boolean_short_circuiting :: Test -- {{{1
+test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map runTest testCases
+  where
+    runTest testCase = do
+      let
+        (expectedCode, expectedDecls') = outShortCircuit testCase
+        ana = analyze (input testCase)
+        items = pipeline ana (booleanShortCircuiting ana . desugarControlStructures . collectDeclarations)
+        outputCode = printOutputCode ana items
+      assertEqual "output code" (blurrSyntax expectedCode) outputCode
+
+      let
+        expectedDecls = M.fromList expectedDecls' 
+        cf = M.keysSet (anaCritical ana)
+        result = pipeline ana (boolean_short_circuiting cf . desugarControlStructures . collectDeclarations)
+      assertEqual "set of critical functions" (M.keysSet expectedDecls) cf
+      sequence_ $ M.elems $ M.intersectionWith cmpVars expectedDecls result
+
+    cmpVars decls (_, vars) = mapM_ (uncurry cmpVar) $ zip decls vars
+    cmpVar decl var = assertEqual "variable" decl ((show . pretty . var_decl) var)
+
+-- utils {{{1
+analyze :: String -> Analysis -- {{{2
+analyze code = case analysis (enrich code) of
+  Left es -> $abort $ show_errors "test" es
+  Right x -> x
+
+pipeline :: Analysis -> (CFunDef -> a) -> M.Map Symbol a -- {{{2
+pipeline ana pipe = M.map pipe (anaCritical ana)
+
+collectDeclarations :: CFunDef -> [CBlockItem] -- {{{3
+collectDeclarations = (\(x, _, _) -> x) . collect_declarations
+
+desugarControlStructures :: [CBlockItem] -> [CBlockItem] -- {{{3
+desugarControlStructures = desugar_control_structures
+
+booleanShortCircuiting :: Analysis -> [CBlockItem] -> [CBlockItem] -- {{{3
+booleanShortCircuiting ana items = 
+  let cf = M.keysSet (anaCritical ana) in
+  (fst . boolean_short_circuiting cf) items
+
+blurrSyntax :: String -> String -- {{{2
+blurrSyntax code = reduce (enrich code :: CTranslUnit)
+
+printOutputCode :: Analysis -> M.Map Symbol [CBlockItem] -> String
+printOutputCode ana items =
+  let funs = M.elems $ M.intersectionWith replaceBody (anaCritical ana) items in
+  reduce (CTranslUnit (map CFDefExt funs) undefNode)
+  where
+    replaceBody :: CFunDef -> [CBlockItem] -> CFunDef -- {{{2
+    replaceBody (CFunDef x1 x2 x3 (CCompound x4 _ x5) x6) items =
+      CFunDef (filter (not . isAttr) x1) x2 x3 (CCompound x4 items x5) x6
+      where
+        isAttr (CTypeQual (CAttrQual _)) = True
+        isAttr _                         = False
+    replaceBody _ _ = $abort "function without body"
+
+{-
 test_collect_declarations :: Test -- {{{1
 test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
   -- , 01 - nothing to do {{{2
@@ -2202,3 +2436,4 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
     unwrap (CFDefExt fd) = Right fd
     unwrap (CDeclExt cd) = Left cd 
     unwrap _             = error "unwrapFd"
+-}
