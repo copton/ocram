@@ -286,36 +286,25 @@ unitTestsCollect = [
 04:   {
         static int i = 23;
         block (i);
-07:   }
+        i = 13;
+08:   }
+      i = 14;
     }  
   |], ([
     ("start", [], [
-        ("static int ec_static_start_ec_unique_i_0 = 23", 4, 7)
+        ("static int ec_static_start_ec_unique_i_0 = 23", 4, 8)
+      , ("static int ec_static_start_i = 42", 2, 10)
     ])
   ], [paste|
     void start () {
       {
         block(ec_static_start_ec_unique_i_0);
+        ec_static_start_ec_unique_i_0 = 13;
       }
+      ec_static_start_i = 14;
     }
   |]))
 {-
-  ([lpaste|
-01: void foo() {
-      static int i = 23;
-03:   {
-        static int i = 42;
-05:   }
-06: }
-  |], [paste|
-    void foo() {
-      {
-      }
-    }
-  |], [], [
-      ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 5)
-    , ("static int i = 23", "ec_static_foo_i", 1, 6)
-  ])
   , -- 09 - static variable shadowing - with access {{{3
   ([lpaste|
 01: void foo() {
@@ -871,7 +860,9 @@ testOptimizeIr = test_optimize_ir <$> input <*> output
     output = fromMaybe <$> outBasicBlocks <*> outOptimize
 
 testCriticalVariables :: TestCase -> Assertion -- {{{3
-testCriticalVariables = test_critical_variables <$> input <*> emptyCfList
+testCriticalVariables = test_critical_variables <$> input <*> output
+  where
+    output = fromMaybe <$> emptyCfList <*> outCritical
 
 emptyCfList :: TestCase -> [(String, [a])] -- {{{3
 emptyCfList = M.toList . M.map (\_ -> []) . anaCritical . analyze . input
@@ -915,7 +906,9 @@ test_collect_declarations inputCode (expectedVars', expectedCode) = do
 
   where
     cmpVars fname (av, sv) (_, av', sv') = do
+      assertEqual "number of automatic variables" (length av) (length av')
       mapM_ (cmpVar fname "automatic") $ zip av av'
+      assertEqual "number of static variables" (length sv) (length sv')
       mapM_ (cmpVar fname "static")    $ zip sv sv'
 
     cmpVar fname kind ((decl, start, end), var) =
@@ -960,7 +953,10 @@ test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedDecls result
 
   where
-    cmpVars fname decls (_, vars) = mapM_ (cmpVar fname) $ zip decls vars
+    cmpVars fname decls (_, vars) = do
+      assertEqual (printf "function: '%s', number of variables" fname) (length decls) (length vars)
+      mapM_ (cmpVar fname) $ zip decls vars
+
     cmpVar fname (decl, var) = 
       let msg = printf "function: '%s', variable" fname in
       assertEqual msg decl ((show . pretty . var_decl) var)
@@ -991,7 +987,10 @@ test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedDecls result
 
   where
-    cmpVars fname decls (_, vars) = mapM_ (cmpVar fname) $ zip decls vars
+    cmpVars fname decls (_, vars) = do
+      assertEqual (printf "function: '%s', number of variables" fname) (length decls) (length vars)
+      mapM_ (cmpVar fname) $ zip decls vars
+
     cmpVar fname (decl, var) = 
       let msg = printf "function: '%s', variable" fname in
       assertEqual msg decl ((show . pretty . var_decl) var)
@@ -1060,9 +1059,13 @@ test_critical_variables inputCode expectedVars' = do
 
   where
     cmpVars fname evs (Function ocs ous _ _ _ _) =
-      let (ecs, eus) = partitionEithers $ map sep evs in
-      do
+      let 
+        (ecs, eus) = partitionEithers $ map sep evs
+        msg        = printf "function: '%s', number of %s variables" fname
+      in do
+        assertEqual (msg "critical") (length ecs) (length ocs)
         mapM_ (cmpVar fname "critical")   $ zip ecs ocs
+        assertEqual (msg "uncritical") (length eus) (length ous)
         mapM_ (cmpVar fname "uncritical") $ zip eus ous
       where
         sep (C v) = Left v
