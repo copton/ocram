@@ -7,7 +7,7 @@ module Ocram.Intermediate.BuildBasicBlocks
 
 -- imports {{{1
 import Compiler.Hoopl (C, O)
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, catMaybes)
 import Ocram.Symbols (Symbol, symbol)
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
@@ -95,13 +95,14 @@ convert ((ProtoBlock thisBlock body), nextBlock)
       nmiddles             <- mapM convM (init body)
       (lastMiddles, nlast) <- convL (last body)
       return                $ H.mkFirst (I.Label thisBlock)
-                     `splice` H.mkMiddles (nmiddles ++ lastMiddles)
+                     `splice` H.mkMiddles (catMaybes nmiddles ++ lastMiddles)
                      `splice` H.mkLast nlast
   where
     splice = (H.<*>)
  
-    convM :: AnnotatedStmt -> M (I.Node O O)
-    convM (Nothing, CExpr (Just e) _) = return $ I.Stmt e
+    convM :: AnnotatedStmt -> M (Maybe (I.Node O O))
+    convM (Nothing, CExpr (Just e) _) = return $ Just $ I.Stmt e
+    convM (Nothing, CExpr Nothing _)  = return Nothing
     convM (x, y)                      = $abort $ unexp y ++ ", " ++ show x
 
     convL :: AnnotatedStmt -> M ([I.Node O O], I.Node O C)
