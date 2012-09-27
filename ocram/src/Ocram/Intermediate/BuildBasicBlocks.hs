@@ -63,11 +63,10 @@ partition cf = part unused
     part previousStatement [] = case previousStatement of
       (Just SplitAfter, expr) -> 
         case expr of
-          CIf _ _ Nothing _                -> sequel
-          CExpr (Just (CCall _ _ _)) _     -> sequel
-          CExpr (Just (CAssign _ _ _ _)) _ -> sequel
-          _                                -> return []
-      (x, y)                               -> $abort $ unexp y ++ ", " ++ show x
+          CIf _ _ Nothing _   -> sequel
+          CExpr _ _           -> sequel
+          _                   -> return []
+      (x, y)                  -> $abort $ unexp y ++ ", " ++ show x
       
     part _ astmts = case head astmts of
       (_, CLabel name _ _ _) -> do
@@ -90,15 +89,14 @@ partition cf = part unused
         return $ ProtoBlock ilabel block : subsequentBlocks
 
 convert :: (ProtoBlock, I.Label) -> M I.Body -- {{{2
-convert ((ProtoBlock thisBlock body), nextBlock) = do
-  let nfirst = I.Label thisBlock
-  nmiddles <- mapM convM (init body)
-  (lastMiddle, nlast) <- convL (last body)
-  let
-    nmiddles' = case lastMiddle of
-      Nothing -> nmiddles
-      Just x  -> nmiddles ++ [x]
-  return $ H.mkFirst nfirst `splice` H.mkMiddles nmiddles' `splice` H.mkLast nlast
+convert ((ProtoBlock thisBlock body), nextBlock)
+  | null body = return      $ H.mkFirst (I.Label thisBlock) `splice` H.mkLast (I.Goto nextBlock)
+  | otherwise = do
+      nmiddles             <- mapM convM (init body)
+      (lastMiddles, nlast) <- convL (last body)
+      return                $ H.mkFirst (I.Label thisBlock)
+                     `splice` H.mkMiddles (nmiddles ++ lastMiddles)
+                     `splice` H.mkLast nlast
   where
     splice = (H.<*>)
  
@@ -106,30 +104,31 @@ convert ((ProtoBlock thisBlock body), nextBlock) = do
     convM (Nothing, CExpr (Just e) _) = return $ I.Stmt e
     convM (x, y)                      = $abort $ unexp y ++ ", " ++ show x
 
-    convL :: AnnotatedStmt -> M (Maybe (I.Node O O), I.Node O C)
+    convL :: AnnotatedStmt -> M ([I.Node O O], I.Node O C)
     convL (Just SplitAfter, CIf cond (CGoto target _) Nothing _) = do
       itarget <- labelFor (symbol target)
-      return (Nothing, I.If cond itarget nextBlock)
+      return ([], I.If cond itarget nextBlock)
 
     convL (Just SplitAfter, CIf cond (CGoto ttarget _) (Just (CGoto etarget _)) _) = do
       ittarget <- labelFor (symbol ttarget)
       ietarget <- labelFor (symbol etarget)
-      return (Nothing, I.If cond ittarget ietarget)
+      return ([], I.If cond ittarget ietarget)
 
     convL (Nothing, CExpr (Just expr) _) =
-      return (Just (I.Stmt expr), I.Goto nextBlock)
+      return ([I.Stmt expr], I.Goto nextBlock)
 
     convL (Just SplitAfter, CExpr (Just (CCall (CVar callee _) params _)) _) =
-      return (Nothing, I.Call (I.FirstNormalForm (symbol callee) params) nextBlock)
+      return ([], I.Call (I.FirstNormalForm (symbol callee) params) nextBlock)
 
     convL (Just SplitAfter, CExpr (Just (CAssign op lhs (CCall (CVar callee _) params _) _)) _) =
-      return (Nothing, I.Call (I.SecondNormalForm lhs op (symbol callee) params) nextBlock)
+      return ([], I.Call (I.SecondNormalForm lhs op (symbol callee) params) nextBlock)
+
     convL (Just SplitAfter, CReturn expr _) =
-      return (Nothing, I.Return expr)
+      return ([] , I.Return expr)
 
     convL (Just SplitAfter, CGoto target _) = do
       itarget <- labelFor (symbol target)
-      return (Nothing, I.Goto itarget)
+      return ([] , I.Goto itarget)
 
     convL (x, y) = $abort $ unexp y ++ ", " ++ show x
       

@@ -18,7 +18,6 @@ import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.Optimize
 import Ocram.Intermediate.Representation
-import Ocram.Intermediate.SequencializeBody
 import Ocram.Query (return_type_fd, return_type_cd)
 import Ocram.Symbols (Symbol)
 
@@ -46,7 +45,6 @@ ast_2_ir bf cf = M.map (critical_variables . convert) cf
       >>= wrap'    collect_declarations
       >>= return . desugar_control_structures
       >>= wrap     (boolean_short_circuiting sf)
-      >>= return . sequencialize_body
       >>= wrap     (normalize_critical_calls sf')
 
     wrap f = wrap' (\x -> let (y, autoVars) = f x in (y, autoVars, []))
