@@ -292,8 +292,8 @@ unitTestsCollect = [
     }  
   |], ([
     ("start", [], [
-        ("static int ec_static_start_ec_unique_i_0 = 23", 4, 8)
-      , ("static int ec_static_start_i = 42", 2, 10)
+      ("static int ec_static_start_ec_unique_i_0 = 23", 4, 8)
+    , ("static int ec_static_start_i = 42", 2, 10)
     ])
   ], [paste|
     void start () {
@@ -304,102 +304,92 @@ unitTestsCollect = [
       ec_static_start_i = 14;
     }
   |]))
-{-
-  , -- 09 - static variable shadowing - with access {{{3
+  , -- 09 - multiple declarations mixed {{{3
   ([lpaste|
-01: void foo() {
-      static int i = 23;
-03:   {
-        static int i = 42;
-        i = 19;
-06:   }
-07: }
-  |], [paste|
-    void foo() {
-      {
-        ec_static_foo_ec_unique_i_0 = 19;
-      }
-    }
-  |], [], [
-      ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 6)
-    , ("static int i = 23", "ec_static_foo_i", 1, 7)
-  ])
-  , -- 10 - multiple declarations mixed {{{3
-  ([lpaste|
-01: int foo() {
-      static int i=0, j=1;
-03:   {
-        int i=23, j=42;
-        return i + j;
-06:   }
-07: }
-  |], [paste|
-    int foo() {
-      {
-        ec_unique_i_0 = 23;
-        ec_unique_j_0 = 42;
-        return ec_unique_i_0 + ec_unique_j_0;
-      }
-    }
-  |], [
-      ("int i", "ec_unique_i_0", 3, 6)
-    , ("int j", "ec_unique_j_0", 3, 6)
-  ], [
-      ("static int i = 0", "ec_static_foo_i", 1, 7)
-    , ("static int j = 1", "ec_static_foo_j", 1, 7)
-  ])
-  , -- 11 - reuse without shadowing {{{3
-  ([lpaste|
-    int foo() {
-02:   {
-        int i = 0;
-04:   }
+    __attribute__((tc_blocking)) void block(int i);
+02: __attribute__((tc_run_thread)) void start() {
+      static int i = 42;
+      int j = 23;
 05:   {
-        int i = 1;
-07:   }
+        int i=0;
+        block (i+j);
+08:   }
+      block (i+j);
+10: }  
+  |], ([
+    ("start", [
+      ("int ec_unique_i_0", 5, 8)
+    , ("int j", 2, 10)
+    ], [
+      ("static int ec_static_start_i = 42", 2, 10)
+    ])
+  ], [paste|
+    void start () {
+      j = 23;
+      {
+        ec_unique_i_0 = 0;
+        block(ec_unique_i_0 + j);
+      }
+      block(ec_static_start_i + j);
     }
-  |], [paste|
-    int foo() {
+  |]))
+  , -- 10 - reuse without shadowing {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block();
+02: __attribute__((tc_run_thread)) void start() {
+03:   {
+        int i = 0;
+05:   }
+      block();
+07:   {
+        int i = 1;
+09:   }
+    }  
+  |], ([
+    ("start", [
+      ("int ec_unique_i_0", 7, 9)
+    , ("int i", 3, 5)
+    ], [])
+  ], [paste|
+    void start () {
+      {
+        i = 0;
+      }
+      block();
+      {
+        ec_unique_i_0 = 1;
+      }
+    }
+  |]))
+  , -- 11 - substitution in initializer {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+02: __attribute__((tc_run_thread)) void start() {
+03:   {
+        int i = 0;
+05:   }
+06:   {
+        int i = 1;
+        int j = block(i);
+09:   }
+    }  
+  |], ([
+    ("start", [
+      ("int j", 6, 9)
+    , ("int ec_unique_i_0", 6, 9)
+    , ("int i", 3, 5)
+    ], [])
+  ], [paste|
+    void start () {
       {
         i = 0;
       }
       {
         ec_unique_i_0 = 1;
+        j = block(ec_unique_i_0);
       }
     }
-  |], [
-      ("int i", "ec_unique_i_0", 5, 7)
-    , ("int i", "i", 2, 4)
-  ], [])
-  , -- 12 - substitution in initializer {{{3
-  ([lpaste|
-    void foo() {
-02:   if (0) {
-        int i = 0;
-04:   } else {
-        int i = 1;
-        int size = bar(i);
-07:   }
-    }
-  |], [paste|
-    void foo()
-    {
-        if (0)
-        {
-            i = 0;
-        }
-        else
-        {
-            ec_unique_i_0 = 1;
-            size = bar(ec_unique_i_0);
-        }
-    }
-  |], [
-      ("int size", "size", 4, 7)
-    , ("int i", "ec_unique_i_0", 4, 7)
-    , ("int i", "i", 2, 4)
-  ], [])
--}
+  |]))
   ]
 
 -- integration tests {{{1
