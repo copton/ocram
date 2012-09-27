@@ -1,4 +1,4 @@
-module Ocram.Main (main, tests) where
+module Ocram.Main (main) where
 
 -- imports {{{1
 import Ocram.Analysis (analysis, Analysis(anaCritical, anaBlocking, anaCallgraph), footprint)
@@ -47,8 +47,8 @@ exitOnError :: String -> Either [OcramError] a -> IO a -- {{{2
 exitOnError module_ (Left es) = hPutStrLn stderr (show_errors module_ es) >> exitWith (ExitFailure 1)
 exitOnError _ (Right x) = return x
 
-tests :: IO ()  -- {{{1
-tests = testsWith []
+_tests :: IO ()  -- {{{1
+_tests = tests []
 
-testsWith :: [String] -> IO () -- {{{1
-testsWith args = runTests $ words "--hide-successes --plain  -j 3" ++ args
+tests :: [String] -> IO () -- {{{1
+tests args = runTests $ words "--hide-successes --plain  -j 3" ++ args

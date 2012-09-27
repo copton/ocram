@@ -60,7 +60,7 @@ tStmt (CFor init cond incr block ni) = do -- for loop {{{3
                       Right d -> $abort $ unexp d
     incr'         = fmap exprStmt incr
     if_           = fmap (\c -> CIf (CUnary CNegOp c ni) (goto end) Nothing ni) cond
-  return          $ (init' ?: label start : if_ ?: []) ++ body ++ (incr' ?: goto start : label end : [])
+  return          $ (init' ?: label start : if_ ?: []) ++ body' ++ (incr' ?: goto start : label end : [])
 
 -- if statements {{{3
 tStmt o@(CIf _ (CGoto _ _) Nothing _)            = return [o]

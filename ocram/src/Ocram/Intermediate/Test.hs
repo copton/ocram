@@ -24,6 +24,7 @@ import Ocram.Text (show_errors)
 import Ocram.Util (fromJust_s, abort)
 import Ocram.Query (return_type_fd, return_type_cd)
 import Test.Framework (Test, testGroup)
+import Test.Framework.Providers.HUnit (testCase)
 import Test.HUnit (assertEqual, Assertion)
 import Text.Printf (printf)
 
@@ -31,18 +32,28 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 
 tests :: Test -- {{{1
-tests = testGroup "Intermediate" $ map (runTest testCases) allTests
+tests = _byCase
+
+_byFunction :: Test -- {{{2
+_byFunction = testGroup "Intermediate" $ map (runTest tcs) allTests
   where runTest ts (s, f) = enumTestGroup s $ map f ts
+
+_byCase :: Test -- {{{2
+_byCase = testGroup "Intermediate" $ zipWith runCase [(1::Int)..] tcs
+  where
+    runCase number tc = testGroup (printf "%.2d" number) $ map (runTest tc) allTests
+    runTest tc (name, fun) = testCase name (fun tc)
+
 
 allTests :: [(String, TestCase -> Assertion)] -- {{{2
 allTests = [
-    ("collect_declarations", test_collect_declarations)
-  , ("desugar_control_structures", test_desugar_control_structures)
-  , ("boolean_short_circuiting", test_boolean_short_circuiting)
-  , ("normalize_critical_calls", test_normalize_critical_calls)
-  , ("build_basic_blocks", test_build_basic_blocks)
-  , ("optimize_ir", test_optimize_ir)
-  , ("critical_variables", test_critical_variables)
+    ("collect", test_collect_declarations)
+  , ("desugar", test_desugar_control_structures)
+  , ("shortCircuit", test_boolean_short_circuiting)
+  , ("normalize", test_normalize_critical_calls)
+  , ("basicBlocks", test_build_basic_blocks)
+  , ("optimize", test_optimize_ir)
+  , ("critical", test_critical_variables)
   ]
 
 -- types {{{1
@@ -109,8 +120,8 @@ data TestCase = TestCase { -- {{{2
   , outCritical        :: OutputCriticalVariables 
   }
 
-testCases :: [TestCase] -- {{{1
-testCases = [
+tcs :: [TestCase] -- {{{1
+tcs = [
     TestCase { -- , 01 - setup {{{2
     input           = -- {{{3
       [lpaste|
@@ -371,10 +382,109 @@ testCases = [
         ("start", ["i"], [])
       ]
   }
-
-{-  , TestCase { -- {{{2
+  , TestCase { -- 05 - for loop with explicit break {{{2
     input       = -- {{{3
       [lpaste|
+        __attribute__((tc_blocking)) void block(int i);
+        __attribute__((tc_run_thread)) void start() {
+03:       for (int i=0; ; i++) {
+            block(i);
+            if (i == 23) break;
+          }
+        }
+      |]
+    , outCollect = ( -- {{{3
+        [("start", [("int i", "i", 3, 6)], []) ]
+      , [paste|
+          void start() {
+            {
+              i = 0;
+              for (; ; i++) {
+                block(i);
+                if (i == 23) {break;}
+              }
+            }
+          }
+        |]
+      )
+    , outDesugar = Just  -- {{{3
+        [paste|
+          void start() {
+            i = 0;
+            ec_ctrlbl_0: ;
+            block(i);
+            if (i==23) goto ec_ctrlbl_2; else goto ec_ctrlbl_3;
+            ec_ctrlbl_2: ;
+            goto ec_ctrlbl_1;
+            ec_ctrlbl_3: ;  
+            i++;
+            goto ec_ctrlbl_0;
+            ec_ctrlbl_1: ;
+          }
+        |]
+    , outShortCircuit = ( -- {{{3
+        [("start", [])]
+      , Nothing
+      )
+    , outNormalize   = ( -- {{{3
+        [("start", [])]
+      , Nothing
+      )
+    , outBasicBlocks = [
+        ("start", "L1", [paste|
+          L1:
+          i = 0;
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          block(i); GOTO L3
+
+          L3:
+          IF i == 23 THEN L4/ec_ctrlbl_2 ELSE L5/ec_ctrlbl_3
+
+          L4/ec_ctrlbl_2:
+          GOTO L6/ec_ctrlbl_1
+
+          L5/ec_ctrlbl_3:
+          i++;
+          GOTO L2/ec_ctrlbl_0
+
+          L6/ec_ctrlbl_1:
+          RETURN
+        |])
+      ]
+    , outOptimize = Just [ -- {{{3
+        ("start", "L1", [paste|
+          L1:
+          i = 0;
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          block(i); GOTO L3
+
+          L3:
+          IF i == 23 THEN L6/ec_ctrlbl_1 ELSE L5/ec_ctrlbl_3
+
+          L5/ec_ctrlbl_3:
+          i++;
+          GOTO L2/ec_ctrlbl_0
+
+          L6/ec_ctrlbl_1:
+          RETURN
+        |])
+      ]
+    , outCritical = [ -- {{{3
+        ("start", ["i"], [])
+      ]
+  }
+  -- end {{{2
+{-  
+  , TestCase { -- {{{2
+    input       = -- {{{3
+      [lpaste|
+        __attribute__((tc_blocking)) void block();
+        __attribute__((tc_run_thread)) void start() {
+        }
       |]
     , outCollect = ( -- {{{3
         [("start", [], []) ]
@@ -399,17 +509,17 @@ testCases = [
     , outOptimize = -- {{{3
         Nothing
     , outCritical = [ -- {{{3
+        ("start", [], [])
       ]
   }
 -}
-  -- end {{{2
   ]
 
 test_collect_declarations :: TestCase -> Assertion -- {{{1
-test_collect_declarations testCase = do
+test_collect_declarations tc = do
   let
-    (expectedVars', expectedCode) = outCollect testCase
-    ana = analyze (input testCase)
+    (expectedVars', expectedCode) = outCollect tc
+    ana = analyze (input tc)
     items = pipeline ana (map (\(CBlockStmt s) -> s) . collectDeclarations)
     outputCode = printOutputCode ana items
   assertEqual "output code" (blurrSyntax expectedCode) outputCode
@@ -434,10 +544,10 @@ test_collect_declarations testCase = do
         assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
 
 test_desugar_control_structures :: TestCase -> Assertion -- {{{1
-test_desugar_control_structures testCase = 
+test_desugar_control_structures tc = 
   let
-    expectedCode = getCodeDesugar testCase
-    ana = analyze (input testCase)
+    expectedCode = getCodeDesugar tc
+    ana = analyze (input tc)
     items = pipeline ana (
         desugarControlStructures
       . collectDeclarations
@@ -447,11 +557,11 @@ test_desugar_control_structures testCase =
     assertEqual "output code" (blurrSyntax expectedCode) outputCode
         
 test_boolean_short_circuiting :: TestCase -> Assertion -- {{{1
-test_boolean_short_circuiting testCase = do
+test_boolean_short_circuiting tc = do
   let
-    expectedCode = getCodeShortCircuit testCase
-    expectedDecls = M.fromList . fst . outShortCircuit $ testCase
-    ana = analyze (input testCase)
+    expectedCode = getCodeShortCircuit tc
+    expectedDecls = M.fromList . fst . outShortCircuit $ tc
+    ana = analyze (input tc)
     items = pipeline ana (
         booleanShortCircuiting ana
       . desugarControlStructures
@@ -476,11 +586,11 @@ test_boolean_short_circuiting testCase = do
       assertEqual msg decl ((show . pretty . var_decl) var)
 
 test_normalize_critical_calls :: TestCase -> Assertion -- {{{1
-test_normalize_critical_calls testCase = do
+test_normalize_critical_calls tc = do
   let
-    expectedCode = getCodeNormalize testCase
-    expectedDecls = M.fromList . fst . outNormalize $ testCase
-    ana = analyze (input testCase)
+    expectedCode = getCodeNormalize tc
+    expectedDecls = M.fromList . fst . outNormalize $ tc
+    ana = analyze (input tc)
     stmts = pipeline ana (
         normalizeCriticalCalls ana
       . booleanShortCircuiting ana
@@ -508,10 +618,10 @@ test_normalize_critical_calls testCase = do
       assertEqual msg decl ((show . pretty . var_decl) var)
 
 test_build_basic_blocks :: TestCase -> Assertion -- {{{1
-test_build_basic_blocks testCase = do
+test_build_basic_blocks tc = do
   let
-    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outBasicBlocks testCase
-    ana = analyze (input testCase)
+    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outBasicBlocks tc
+    ana = analyze (input tc)
     result = pipeline ana (
         buildBasicBlocks ana
       . normalizeCriticalCalls ana
@@ -534,10 +644,10 @@ test_build_basic_blocks testCase = do
         assertEqual (prefix ++ " body") ebody' obody'
       
 test_optimize_ir :: TestCase -> Assertion -- {{{1
-test_optimize_ir testCase = do
+test_optimize_ir tc = do
   let
-    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ getOutOptimize testCase
-    ana = analyze (input testCase)
+    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ getOutOptimize tc
+    ana = analyze (input tc)
     result = pipeline ana (
         optimizeIr
       . buildBasicBlocks ana
@@ -561,11 +671,11 @@ test_optimize_ir testCase = do
         assertEqual (prefix ++ " body") ebody' obody'
 
 test_critical_variables :: TestCase -> Assertion -- {{{1
-test_critical_variables testCase = do
+test_critical_variables tc = do
   let
-    ana = analyze (input testCase)
+    ana = analyze (input tc)
     funs = ast_2_ir (anaBlocking ana) (anaCritical ana)
-    expectedVars = M.fromList $ map (\(x, y, z) -> (x, (y, z))) (outCritical testCase)
+    expectedVars = M.fromList $ map (\(x, y, z) -> (x, (y, z))) (outCritical tc)
   assertEqual "set of critical functions" (M.keysSet expectedVars) (M.keysSet funs)
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedVars funs
 
