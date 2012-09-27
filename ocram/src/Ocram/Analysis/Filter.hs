@@ -112,14 +112,14 @@ check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` sane
           -- ...which must start with a statement...
           ((CBlockStmt stmt):_) <- Just items
           -- ...that has to be a case(es) or a default statement.
-          (guard . flt) stmt
+          guard $ flt stmt
 
           -- And finally make sure that there is at most one default
           -- statement and that no case(es) statement follows.
           let
              allcases = filter flt $ mapMaybe extract items
              dfltcases = findIndices isDefault allcases
-          guard (null dfltcases || head dfltcases == length allcases) 
+          guard (null dfltcases || head dfltcases == (length allcases) - 1) 
       in case test of
         Nothing -> [newError IllFormedSwitch Nothing (Just ni)]
         Just () -> []

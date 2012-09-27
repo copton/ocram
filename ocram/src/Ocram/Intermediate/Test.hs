@@ -96,6 +96,7 @@ data TaggedVar -- {{{3
 unit_tests :: Test -- {{{2
 unit_tests = testGroup "unit" [
     group "collect" test_collect_declarations unitTestsCollect
+  , group "desugar" test_desugar_control_structures unitTestsDesugar
   ]
   where
     group name fun cases = enumTestGroup name $ map (uncurry fun) cases
@@ -392,6 +393,363 @@ unitTestsCollect = [
   |]))
   ]
 
+unitTestsDesugar :: [(Input, OutputDesugarControlStructures)]  -- {{{2
+unitTestsDesugar = [
+  -- , 01 - while loop {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+        a();
+        while(1)
+          block();
+        b();
+      }
+  |], [paste|
+      void start() {
+        a();
+
+        ec_ctrlbl_0: ;
+        if (! 1) goto ec_ctrlbl_1;
+        block();
+        goto ec_ctrlbl_0;
+
+        ec_ctrlbl_1: ;
+        b();
+      }
+  |])
+  , -- 02 - do loop {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+        a();
+        do {
+          block();
+        } while(1);
+        b();
+      }
+  |], [paste|
+      void start() {
+        a();
+
+        ec_ctrlbl_0: ;
+        block();
+        if (1) goto ec_ctrlbl_0;
+
+        ec_ctrlbl_1: ;
+        b();
+      }
+  |])
+  , -- 03 - for loop {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+        a();
+        {
+          i=0;
+          for (; i<23; i++) {
+            block(i);
+          }
+        }
+        b();
+      }
+    |], [paste|
+      void start() {
+        a();
+        i = 0;
+
+        ec_ctrlbl_0: ;
+        if (! (i<23)) goto ec_ctrlbl_2;
+        block(i);
+
+        ec_ctrlbl_1: ;
+        i++;
+        goto ec_ctrlbl_0;
+
+        ec_ctrlbl_2: ;
+        b();
+      }
+    |])
+  , -- 04 - for loop - no break condition {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+        a();
+        {
+          i = 0;
+          for (; ; i++) {
+            block(i);
+          }
+        }
+        b();
+      }
+    |], [paste|
+      void start() {
+        a();
+        i = 0;
+
+        ec_ctrlbl_0: ;
+        block(i);
+
+        ec_ctrlbl_1: ;
+        i++;
+        goto ec_ctrlbl_0;
+
+        ec_ctrlbl_2: ;
+        b();
+      }
+    |])
+  , -- 05 - for loop - explicit break {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+        a();
+        {
+          i = 0;
+          for (; ; i++) {
+            if (i==23) break;
+            block(i);
+          }
+        }
+        b();
+      }
+    |], [paste|
+      void start() {
+        a();
+        i = 0;
+
+        ec_ctrlbl_0: ;
+        if (i==23) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+
+        ec_ctrlbl_3: ;
+        goto ec_ctrlbl_2;
+
+        ec_ctrlbl_4: ;
+        block(i);
+
+        ec_ctrlbl_1: ;
+        i++;
+        goto ec_ctrlbl_0;
+
+        ec_ctrlbl_2: ;
+        b();
+      }
+    |])
+  , -- 06 - do loop with continue and break {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+        a();
+        do {
+          continue;
+          block();
+          break;
+        } while(1);
+        b();
+      }
+  |], [paste|
+      void start() {
+        a();
+
+        ec_ctrlbl_0: ;
+        goto ec_ctrlbl_0;
+        block();
+        goto ec_ctrlbl_1;
+        if (1) goto ec_ctrlbl_0;
+
+        ec_ctrlbl_1: ;
+        b();
+      }
+  |])
+  , -- 07 - nested {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+        a();
+        while(1) {
+          b();
+          continue;
+          c();
+          do {
+            d();
+            continue;
+            e();
+            break;
+            f();
+          } while(23);
+          block();
+          break;
+          h();
+        }
+        i();
+      }
+    |], [paste|
+      void start() {
+        a();
+
+        ec_ctrlbl_0: ;
+        if (!1) goto ec_ctrlbl_1;
+        b();
+        goto ec_ctrlbl_0;
+        c();
+
+        ec_ctrlbl_2: ;
+        d();
+        goto ec_ctrlbl_2;
+        e();
+        goto ec_ctrlbl_3;
+        f();
+        if (23) goto ec_ctrlbl_2;
+
+        ec_ctrlbl_3: ;
+        block();
+        goto ec_ctrlbl_1;
+        h();
+        goto ec_ctrlbl_0;
+
+        ec_ctrlbl_1: ; 
+        i(); 
+      }
+    |])
+  , -- 08 - if statements {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      if (1) {
+        block();
+      }
+    } 
+  |], [paste|
+    void start() {
+      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+
+      ec_ctrlbl_0: ;
+      block();
+
+      ec_ctrlbl_1: ;
+    }
+  |])
+  , -- 09 - if statements with else block {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      if (1) {
+        block(1);
+        return;
+      } else {
+        block(2);
+        return;
+      }
+    } 
+  |], [paste|
+    void start() {
+      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+
+      ec_ctrlbl_0: ;
+      block(1);
+      return;
+      goto ec_ctrlbl_2;
+
+      ec_ctrlbl_1: ;
+      block(2);
+      return;
+
+      ec_ctrlbl_2: ;
+    }
+  |])
+  , -- 10 - if statements with else if {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      if (1) {
+        block(1);
+        return;
+      } else if (2) {
+        block(2);
+        return;
+      }
+    } 
+  |], [paste|
+    void start() {
+      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+
+      ec_ctrlbl_0: ;
+      block(1);
+      return;
+      goto ec_ctrlbl_2;
+      
+      ec_ctrlbl_1: ;
+      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+
+      ec_ctrlbl_3: ;
+      block(2);
+      return;
+
+      ec_ctrlbl_4: ;
+
+      ec_ctrlbl_2: ;
+    }
+  |])
+  , -- 11 - switch statement {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      switch (i) {
+        case 1: a(); b(); break;
+        case 2: c(); block();
+        case 3: e(); f(); return;
+      }
+    }
+  |], [paste|
+    void start() {
+      if (i==1) goto ec_ctrlbl_1;
+      if (i==2) goto ec_ctrlbl_2;
+      if (i==3) goto ec_ctrlbl_3;
+      goto ec_ctrlbl_0;
+      
+      ec_ctrlbl_1: ;
+      a(); b();
+      goto ec_ctrlbl_0;
+    
+      ec_ctrlbl_2: ;
+      c(); block();
+    
+      ec_ctrlbl_3: ;
+      e(); f(); return;
+
+      ec_ctrlbl_0: ;
+    }
+  |])
+  , -- 12 - switch statement with default {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      switch (i) {
+        case 1: a(); b(); break;
+        case 2: c(); block();
+        default: e(); f();
+      }
+    }
+  |], [paste|
+    void start() {
+      if (i==1) goto ec_ctrlbl_1;
+      if (i==2) goto ec_ctrlbl_2;
+      goto ec_ctrlbl_3;
+
+      ec_ctrlbl_1: ;
+      a(); b();
+      goto ec_ctrlbl_0;
+
+      ec_ctrlbl_2: ;
+      c(); block();
+
+      ec_ctrlbl_3: ;
+      e(); f();
+
+      ec_ctrlbl_0: ;
+    }
+  |])
+  -- end {{{3
+  ]
 -- integration tests {{{1
 integrationTestCases :: [TestCase] -- {{{2
 integrationTestCases = [
@@ -1122,272 +1480,6 @@ blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet
 
 -- old stuff -- {{{1
 {-
-test_collect_declarations :: Test -- {{{2
-test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
-  -- , 01 - nothing to do {{{3
-  ([lpaste|
-01: int foo(int i) {
-      return i;
-03: }  
-  |], [paste|
-    int foo(int i) {
-      return i;
-    }
-  |], [
-      ("int i", "i", 1, 3)
-  ], []) 
-  , -- 02 - local variable with initializer {{{3
-  ([lpaste|
-01: int foo(int i) {
-      int j = 23;
-      return i + j;
-04: }
-  |], [paste|
-    int foo(int i) {
-      j = 23;
-      return i + j;
-    }
-  |], [
-      ("int i", "i", 1, 4)
-    , ("int j", "j", 1, 4)
-  ], [])
-  , -- 03 - local variable shadowing {{{3
-  ([lpaste|
-01: void foo() {
-      int i = 23;
-03:   {
-        char i = 42;
-05:   }
-06: }
-  |], [paste|
-    void foo() {
-      i = 23;
-      {
-        ec_unique_i_0 = 42;
-      }
-    }
-  |], [
-      ("char i", "ec_unique_i_0", 3, 5)
-    , ("int i", "i", 1, 6)
-  ], [])
-  , -- 04 - local variable shadowing - with access {{{3
-  ([lpaste|
-01: void foo() {
-      int i = 23;
-03:   {
-        char i = 42;
-        i = 19;
-06:   }
-07: }
-  |], [paste|
-    void foo() {
-      i = 23;
-      {
-        ec_unique_i_0 = 42;
-        ec_unique_i_0 = 19;
-      }
-    }
-  |], [
-      ("char i", "ec_unique_i_0", 3, 6)
-    , ("int i", "i", 1, 7)
-  ], [])
-  , -- 05 - for loop with declaration {{{3
-  ([lpaste|
-01: void foo(int i) {
-02:   for (int i = 0; i < 23; i++) {
-03:   }
-04: } 
-  |], [paste|
-    void foo(int i) {
-      {
-        ec_unique_i_0 = 0;
-        for (; ec_unique_i_0 < 23; ec_unique_i_0++) { }
-      }
-    }
-  |], [
-      ("int i", "i", 1, 4)
-    , ("int i", "ec_unique_i_0", 2, 3)
-  ], [])
-  , -- 06 - multiple declarations {{{3
-  ([lpaste|
-01: int foo() {
-      int i=0, j=1;
-03:   {
-        int i=23, j=42;
-        return i + j;
-06:   }
-07: }
-  |], [paste|
-    int foo() {
-      i = 0;
-      j = 1;
-      {
-        ec_unique_i_0 = 23;
-        ec_unique_j_0 = 42;
-        return ec_unique_i_0 + ec_unique_j_0;
-      }
-    }
-  |], [
-      ("int i", "ec_unique_i_0", 3, 6)
-    , ("int j", "ec_unique_j_0", 3, 6)
-    , ("int i", "i", 1, 7)
-    , ("int j", "j", 1, 7)
-  ], [])
-  , -- 07 - static variable with initializer {{{3
-  ([lpaste|
-01: int foo(int i) {
-      static int j = 23;
-      return i + j;
-04: }
-  |], [paste|
-    int foo(int i) {
-      return i + ec_static_foo_j;
-    }
-  |], [
-      ("int i", "i", 1, 4)
-  ], [
-      ("static int j = 23", "ec_static_foo_j", 1, 4)
-  ])
-  , -- 08 - static variable shadowing {{{3
-  ([lpaste|
-01: void foo() {
-      static int i = 23;
-03:   {
-        static int i = 42;
-05:   }
-06: }
-  |], [paste|
-    void foo() {
-      {
-      }
-    }
-  |], [], [
-      ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 5)
-    , ("static int i = 23", "ec_static_foo_i", 1, 6)
-  ])
-  , -- 09 - static variable shadowing - with access {{{3
-  ([lpaste|
-01: void foo() {
-      static int i = 23;
-03:   {
-        static int i = 42;
-        i = 19;
-06:   }
-07: }
-  |], [paste|
-    void foo() {
-      {
-        ec_static_foo_ec_unique_i_0 = 19;
-      }
-    }
-  |], [], [
-      ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 6)
-    , ("static int i = 23", "ec_static_foo_i", 1, 7)
-  ])
-  , -- 10 - multiple declarations mixed {{{3
-  ([lpaste|
-01: int foo() {
-      static int i=0, j=1;
-03:   {
-        int i=23, j=42;
-        return i + j;
-06:   }
-07: }
-  |], [paste|
-    int foo() {
-      {
-        ec_unique_i_0 = 23;
-        ec_unique_j_0 = 42;
-        return ec_unique_i_0 + ec_unique_j_0;
-      }
-    }
-  |], [
-      ("int i", "ec_unique_i_0", 3, 6)
-    , ("int j", "ec_unique_j_0", 3, 6)
-  ], [
-      ("static int i = 0", "ec_static_foo_i", 1, 7)
-    , ("static int j = 1", "ec_static_foo_j", 1, 7)
-  ])
-  , -- 11 - reuse without shadowing {{{3
-  ([lpaste|
-    int foo() {
-02:   {
-        int i = 0;
-04:   }
-05:   {
-        int i = 1;
-07:   }
-    }
-  |], [paste|
-    int foo() {
-      {
-        i = 0;
-      }
-      {
-        ec_unique_i_0 = 1;
-      }
-    }
-  |], [
-      ("int i", "ec_unique_i_0", 5, 7)
-    , ("int i", "i", 2, 4)
-  ], [])
-  , -- 12 - substitution in initializer {{{3
-  ([lpaste|
-    void foo() {
-02:   if (0) {
-        int i = 0;
-04:   } else {
-        int i = 1;
-        int size = bar(i);
-07:   }
-    }
-  |], [paste|
-    void foo()
-    {
-        if (0)
-        {
-            i = 0;
-        }
-        else
-        {
-            ec_unique_i_0 = 1;
-            size = bar(ec_unique_i_0);
-        }
-    }
-  |], [
-      ("int size", "size", 4, 7)
-    , ("int i", "ec_unique_i_0", 4, 7)
-    , ("int i", "i", 2, 4)
-  ], [])
-  -- end {{{3
-  ]
-  where
-    runTest :: (String, String, [(String, String, Int, Int)], [(String, String, Int, Int)]) -> Assertion -- {{{3
-    runTest (inputCode, expectedCode, expectedAutoVars, expectedStaticVars) =
-      let
-        (CTranslUnit eds x7) = enrich inputCode :: CTranslUnit
-        (CFDefExt fd@(CFunDef x1 x2 x3 (CCompound x4 _ x5) x6)) = last eds
-        (outputBody, outputAutoVars, outputStaticVars) = collect_declarations fd
-        outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputBody x5) x6] x7
-        expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
-        outputCode = reduce outputAst
-      in do
-        assertEqual "output code" expectedCode' outputCode
-
-        assertEqual "number of auto variables" (length expectedAutoVars) (length outputAutoVars)
-        mapM_ (uncurry (cmpVar "auto")) (zip expectedAutoVars outputAutoVars)
-
-        assertEqual "number of static variables" (length expectedStaticVars) (length outputStaticVars)
-        mapM_ (uncurry (cmpVar "static")) (zip expectedStaticVars outputStaticVars)
-
-    cmpVar kind (tdecl, ename, start, end) var =
-      let prefix = printf "%s,  variable '%s', " kind ename in
-      do
-        assertEqual (prefix ++ "T-code decl") tdecl $ (show . pretty . var_decl) var
-        assertEqual (prefix ++ "E-code name") ename (var_unique var)
-        assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
-        assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
-
 test_desugar_control_structures:: Test -- {{{2
 test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ map runTest [
   -- , 01 - while loop {{{3
