@@ -3,7 +3,9 @@ module Ocram.Intermediate.Test (tests) where
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
+import Control.Monad (msum)
 import Compiler.Hoopl (showGraph)
+import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
 import Language.C.Data.Node (getLastTokenPos, posOfNode)
 import Language.C.Data.Node (undefNode)
@@ -32,31 +34,10 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 
 tests :: Test -- {{{1
-tests = _byCase
--- tests = _byFunction
-
-_byFunction :: Test -- {{{2
-_byFunction = testGroup "Intermediate" $ map (runTest testCases) allTests
-  where runTest ts (s, f) = enumTestGroup s $ map f ts
-
-_byCase :: Test -- {{{2
-_byCase = testGroup "Intermediate" $ zipWith runCase [(1::Int)..] testCases
-  where
-    runCase number tc = testGroup (printf "%.2d" number) $ map (runTest tc) allTests
-    runTest tc (name, fun) = testCase name (fun tc)
-
-allTests :: [(String, TestCase -> Assertion)] -- {{{2
-allTests = [
-    ("collect", test_collect_declarations)
-  , ("desugar", test_desugar_control_structures)
-  , ("shortCircuit", test_boolean_short_circuiting)
-  , ("normalize", test_normalize_critical_calls)
-  , ("basicBlocks", test_build_basic_blocks)
-  , ("optimize", test_optimize_ir)
-  , ("critical", test_critical_variables)
-  ]
+tests = testGroup "Intermediate" [unit_tests, integration_tests]
 
 -- types {{{1
+type Input = String -- {{{2
 type ScopedVariable = ( -- {{{2
     String   -- declaration
   , String   -- unique name
@@ -74,14 +55,14 @@ type OutputCollectDeclarations = ( -- {{{2
   )
 
 type OutputDesugarControlStructures = -- {{{2
-    Maybe String -- code
+    String -- code
 
 type OutputBooleanShortCircuiting = ( -- {{{2
     [(
       String    -- critical function name
     , [String]  -- declarations
     )]
-  , Maybe String   -- code
+  , String      -- code
   )
 
 type OutputNormalize = ( -- {{{2
@@ -89,7 +70,7 @@ type OutputNormalize = ( -- {{{2
       String   -- critical function name
     , [String] -- declarations
     )]
-  , Maybe String   -- code
+  , String     -- code
   )
 
 type OutputBasicBlocks = -- {{{2
@@ -100,37 +81,41 @@ type OutputBasicBlocks = -- {{{2
     )]
 
 type OutputOptimize = -- {{{2
-  Maybe OutputBasicBlocks
+  OutputBasicBlocks
 
 type OutputCriticalVariables = -- {{{2
   [(
-      String   -- critical function name
-    , [String] -- critical variables
-    , [String] -- uncritical variables
+      String      -- critical function name
+    , [TaggedVar] -- variables
   )] 
 
-data TestCase = TestCase { -- {{{2
-    input              :: String
-  , outCollect         :: OutputCollectDeclarations
-  , outDesugar         :: OutputDesugarControlStructures
-  , outShortCircuit    :: OutputBooleanShortCircuiting
-  , outNormalize       :: OutputNormalize
-  , outBasicBlocks     :: OutputBasicBlocks
-  , outOptimize        :: OutputOptimize
-  , outCritical        :: OutputCriticalVariables 
-  }
+data TaggedVar -- {{{3
+  = C String -- critical
+  | U String -- uncritical
 
-testCases :: [TestCase] -- {{{1
-testCases = [
-    TestCase { -- , 01 - setup {{{2
-    input           = -- {{{3
+-- unit tests {{{1
+unit_tests :: Test -- {{{2
+unit_tests = testGroup "unit tests" [
+    group "collect" test_collect_declarations unitTestsCollect
+  ]
+  where
+    group name fun cases = enumTestGroup name $ map (uncurry fun) cases
+
+unitTestsCollect :: [(Input, OutputCollectDeclarations)]
+unitTestsCollect = []
+
+-- integration tests {{{1
+integrationTestCases :: [TestCase] -- {{{2
+integrationTestCases = [
+    TestCase { -- , 01 - setup {{{3
+    input           = -- {{{4
       [lpaste|
         __attribute__((tc_blocking)) void block();
         __attribute__((tc_run_thread)) void start() {
           block();
         }
       |]
-  , outCollect      = ( -- {{{3
+  , outCollect      = ( -- {{{4
       [("start", [], [])]
     , [paste|
         void start() {
@@ -138,13 +123,10 @@ testCases = [
         }
       |]
     )
-  , outDesugar      = -- {{{3
-      Nothing
-  , outShortCircuit =  -- {{{3
-      ([("start", [])], Nothing)
-  , outNormalize    = -- {{{3
-      ([("start", [])], Nothing)
-  , outBasicBlocks  = [ -- {{{3
+  , outDesugar      = Nothing -- {{{4
+  , outShortCircuit = Nothing -- {{{4
+  , outNormalize    = Nothing -- {{{4
+  , outBasicBlocks  = [ -- {{{4
       ("start", "L1", [paste|
           L1:
           block(); GOTO L2
@@ -153,13 +135,11 @@ testCases = [
           RETURN
       |])
     ]
-  , outOptimize     = -- {{{3
-      Nothing
-  , outCritical     = -- {{{3
-      [("start", [], [])]
+  , outOptimize     = Nothing -- {{{4
+  , outCritical     = Nothing -- {{{4
   }
-  , TestCase { -- 02 - while loop {{{2
-    input           = -- {{{3
+  , TestCase { -- 02 - while loop {{{3
+    input           = -- {{{4
       [lpaste|
         __attribute__((tc_blocking)) void block();
         void a();
@@ -172,7 +152,7 @@ testCases = [
           b();
         }
       |]
-  , outCollect      = ( -- {{{3
+  , outCollect      = ( -- {{{4
       [("start", [], [])]
     , [paste|
         void start() {
@@ -184,7 +164,7 @@ testCases = [
         }
       |]
     )
-  , outDesugar      = Just -- {{{3
+  , outDesugar      = Just -- {{{4
       [paste|
         void start() {
           a();
@@ -196,10 +176,9 @@ testCases = [
           b();
         }
       |]
-  , outShortCircuit = -- {{{3
-      ([("start", [])], Nothing)
-  , outNormalize = ([("start", [])], Nothing)
-  , outBasicBlocks  = [ -- {{{3
+  , outShortCircuit = Nothing -- {{{4
+  , outNormalize    = Nothing -- {{{4
+  , outBasicBlocks  = [ -- {{{4
       ("start", "L1", [paste|
           L1:
           a();
@@ -219,7 +198,7 @@ testCases = [
           RETURN
       |])
     ]
-  , outOptimize     = Just [ -- {{{3
+  , outOptimize     = Just [ -- {{{4
       ("start", "L1", [paste|
           L1:
           a();
@@ -236,12 +215,10 @@ testCases = [
           RETURN
       |])
     ]
-  , outCritical     = [ -- {{{3
-      ("start", [], [])
-    ]
+  , outCritical     = Nothing -- {{{4
   }
-  , TestCase { -- 03 - do loop {{{2
-    input          = -- {{{3
+  , TestCase { -- 03 - do loop {{{3
+    input          = -- {{{4
       [lpaste|
         __attribute__((tc_blocking)) void block();
         void a();
@@ -254,7 +231,7 @@ testCases = [
           b();
         }
       |]
-  , outCollect     = ( -- {{{3
+  , outCollect     = ( -- {{{4
       [("start", [], [])]
     , [paste|
         void start() {
@@ -266,7 +243,7 @@ testCases = [
         }
       |]
     )
-  , outDesugar     = Just -- {{{3
+  , outDesugar     = Just -- {{{4
       [paste|
         void start() {
           a();
@@ -277,11 +254,9 @@ testCases = [
           b();
         }
       |]
-  , outShortCircuit =  -- {{{3
-      ([("start", [])], Nothing)
-  , outNormalize   = -- {{{3
-      ([("start", [])], Nothing)
-  , outBasicBlocks = [ -- {{{3
+  , outShortCircuit = Nothing -- {{{4
+  , outNormalize    = Nothing -- {{{4
+  , outBasicBlocks = [ -- {{{4
       ("start", "L1", [paste|
           L1:
           a();
@@ -298,13 +273,11 @@ testCases = [
           RETURN
       |])
     ]
-  , outOptimize = -- {{{3
-      Nothing
-  , outCritical = -- {{{3
-      [("start", [], [])]
+  , outOptimize = Nothing -- {{{4
+  , outCritical = Nothing -- {{{4
   }
-  , TestCase { -- 04 - for loop - with continue {{{2
-    input       = -- {{{3
+  , TestCase { -- 04 - for loop - with continue {{{3
+    input       = -- {{{4
       [lpaste|
         __attribute__((tc_blocking)) void block();
         void a();
@@ -318,7 +291,7 @@ testCases = [
           b();
         }
       |]
-    , outCollect = ( -- {{{3
+    , outCollect = ( -- {{{4
         [("start", [("int i", "i", 6, 9)], []) ]
       , [paste|
           void start() {
@@ -334,7 +307,7 @@ testCases = [
           }
         |]
       )
-    , outDesugar = Just  -- {{{3
+    , outDesugar = Just  -- {{{4
         [paste|
           void start() {
             a();
@@ -358,15 +331,9 @@ testCases = [
             b();
           }
         |]
-    , outShortCircuit = ( -- {{{3
-        [("start", [])]
-      , Nothing
-      )
-    , outNormalize   = ( -- {{{3
-        [("start", [])]
-      , Nothing
-      )
-    , outBasicBlocks = [ -- {{{3
+    , outShortCircuit = Nothing -- {{{4
+    , outNormalize    = Nothing -- {{{4
+    , outBasicBlocks = [ -- {{{4
         ("start", "L1", [paste|
           L1:
           a();
@@ -394,7 +361,7 @@ testCases = [
           RETURN
         |])
       ]
-    , outOptimize = Just [ -- {{{3
+    , outOptimize = Just [ -- {{{4
         ("start", "L1", [paste|
           L1:
           a();
@@ -419,12 +386,12 @@ testCases = [
           RETURN
         |])
       ]
-    , outCritical = [ -- {{{3
-        ("start", ["i"], [])
+    , outCritical = Just [ -- {{{4
+        ("start", [C "i"])
       ]
   }
-  , TestCase { -- 05 - for loop with explicit break {{{2
-    input       = -- {{{3
+  , TestCase { -- 05 - for loop with explicit break {{{3
+    input       = -- {{{4
       [lpaste|
         __attribute__((tc_blocking)) void block(int i);
         __attribute__((tc_run_thread)) void start() {
@@ -434,7 +401,7 @@ testCases = [
           }
         }
       |]
-    , outCollect = ( -- {{{3
+    , outCollect = ( -- {{{4
         [("start", [("int i", "i", 3, 6)], []) ]
       , [paste|
           void start() {
@@ -448,7 +415,7 @@ testCases = [
           }
         |]
       )
-    , outDesugar = Just  -- {{{3
+    , outDesugar = Just  -- {{{4
         [paste|
           void start() {
             i = 0;
@@ -464,15 +431,9 @@ testCases = [
             ec_ctrlbl_2: ;
           }
         |]
-    , outShortCircuit = ( -- {{{3
-        [("start", [])]
-      , Nothing
-      )
-    , outNormalize   = ( -- {{{3
-        [("start", [])]
-      , Nothing
-      )
-    , outBasicBlocks = [
+    , outShortCircuit = Nothing -- {{{4
+    , outNormalize    = Nothing -- {{{4
+    , outBasicBlocks  = [       -- {{{4
         ("start", "L1", [paste|
           L1:
           i = 0;
@@ -498,7 +459,7 @@ testCases = [
           RETURN
         |])
       ]
-    , outOptimize = Just [ -- {{{3
+    , outOptimize = Just [ -- {{{4
         ("start", "L1", [paste|
           L1:
           i = 0;
@@ -518,53 +479,121 @@ testCases = [
           RETURN
         |])
       ]
-    , outCritical = [ -- {{{3
-        ("start", ["i"], [])
+    , outCritical = Just [ -- {{{4
+        ("start", [C "i"])
       ]
   }
-  -- end {{{2
+  -- end {{{3
 {-  
-  , TestCase { -- {{{2
-    input       = -- {{{3
+  , TestCase { -- {{{3
+    input       = -- {{{4
       [lpaste|
         __attribute__((tc_blocking)) void block();
         __attribute__((tc_run_thread)) void start() {
         }
       |]
-    , outCollect = ( -- {{{3
+    , outCollect = ( -- {{{4
         [("start", [], []) ]
       , [paste|
         |]
       )
-    , outDesugar = Just  -- {{{3
+    , outDesugar = Just  -- {{{4
         [paste|
         |]
-    , outShortCircuit = ( -- {{{3
+    , outShortCircuit = ( -- {{{4
         [("start", [])]
       , Nothing
       )
-    , outNormalize   = ( -- {{{3
+    , outNormalize   = ( -- {{{4
         [("start", [])]
       , Nothing
       )
-    , outBasicBlocks = [ -- {{{3
+    , outBasicBlocks = [ -- {{{4
         ("start", "L1", [paste|
         |])
       ]
-    , outOptimize = -- {{{3
+    , outOptimize = -- {{{4
         Nothing
-    , outCritical = [ -- {{{3
+    , outCritical = [ -- {{{4
         ("start", [], [])
       ]
   }
 -}
   ]
 
-test_collect_declarations :: TestCase -> Assertion -- {{{1
-test_collect_declarations tc = do
+data TestCase = TestCase { -- {{{2
+    input              :: Input
+  , outCollect         :: OutputCollectDeclarations
+  , outDesugar         :: Maybe OutputDesugarControlStructures
+  , outShortCircuit    :: Maybe OutputBooleanShortCircuiting
+  , outNormalize       :: Maybe OutputNormalize
+  , outBasicBlocks     :: OutputBasicBlocks
+  , outOptimize        :: Maybe OutputOptimize
+  , outCritical        :: Maybe OutputCriticalVariables 
+  }
+
+-- wrappers {{{2
+testCollectDeclarations :: TestCase -> Assertion -- {{{3
+testCollectDeclarations = test_collect_declarations <$> input <*> outCollect
+
+testDesugarControlStructures :: TestCase -> Assertion -- {{{3
+testDesugarControlStructures = test_desugar_control_structures <$> input <*> output
+  where
+    output = fromMaybe <$> snd . outCollect <*> outDesugar
+
+testBooleanShortCircuiting :: TestCase -> Assertion -- {{{3
+testBooleanShortCircuiting = test_boolean_short_circuiting <$> input <*> output
+  where
+    output = (,) <$> emptyCfList <*> code
+    code = fromMaybe <$> snd . outCollect <*> msum . sequence [fmap snd . outShortCircuit, outDesugar]
+
+testNormalizeCriticalCalls :: TestCase -> Assertion -- {{{3
+testNormalizeCriticalCalls = test_normalize_critical_calls <$> input <*> output
+  where
+    output = (,) <$> emptyCfList <*> code
+    code   = fromMaybe <$> snd . outCollect <*> msum . sequence [fmap snd . outNormalize, fmap snd . outShortCircuit, outDesugar]
+
+testBuildBasicBlocks :: TestCase -> Assertion -- {{{3
+testBuildBasicBlocks = test_build_basic_blocks <$> input <*> outBasicBlocks
+
+testOptimizeIr :: TestCase -> Assertion -- {{{3
+testOptimizeIr = test_optimize_ir <$> input <*> output
+  where
+    output = fromMaybe <$> outBasicBlocks <*> outOptimize
+
+testCriticalVariables :: TestCase -> Assertion -- {{{3
+testCriticalVariables = test_critical_variables <$> input <*> emptyCfList
+
+emptyCfList :: TestCase -> [(String, [a])] -- {{{3
+emptyCfList = M.toList . M.map (\_ -> []) . anaCritical . analyze . input
+
+integration_tests :: Test -- {{{2
+integration_tests = testGroup "integration" $ _byCase
+  where
+    _byFunction = map runTest integrationTestFunctions
+      where runTest (s, f) = enumTestGroup s $ map f integrationTestCases
+    
+    _byCase = zipWith runCase [(1::Int)..] integrationTestCases
+      where
+        runCase number tc = testGroup (printf "%.2d" number) $ map (runTest tc) integrationTestFunctions
+        runTest tc (name, fun) = testCase name (fun tc)
+
+integrationTestFunctions :: [(String, TestCase -> Assertion)] -- {{{2
+integrationTestFunctions = [
+    ("collect"     , testCollectDeclarations)
+  , ("desugar"     , testDesugarControlStructures)
+  , ("shortCircuit", testBooleanShortCircuiting)
+  , ("normalize"   , testNormalizeCriticalCalls)
+  , ("basicBlocks" , testBuildBasicBlocks)
+  , ("optimize"    , testOptimizeIr)
+  , ("critical"    , testCriticalVariables)
+  ]
+
+-- test functions -- {{{1
+test_collect_declarations :: Input -> OutputCollectDeclarations -> Assertion -- {{{2
+test_collect_declarations inputCode (expectedVars', expectedCode) = do
   let
-    (expectedVars', expectedCode) = outCollect tc
-    ana = analyze (input tc)
+    ana = analyze inputCode
     items = pipeline ana (map (\(CBlockStmt s) -> s) . collectDeclarations)
     outputCode = printOutputCode ana items
   assertEqual "output code" (blurrSyntax expectedCode) outputCode
@@ -588,11 +617,10 @@ test_collect_declarations tc = do
         assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
         assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
 
-test_desugar_control_structures :: TestCase -> Assertion -- {{{1
-test_desugar_control_structures tc = 
+test_desugar_control_structures :: Input -> OutputDesugarControlStructures -> Assertion -- {{{2
+test_desugar_control_structures inputCode expectedCode = 
   let
-    expectedCode = getCodeDesugar tc
-    ana = analyze (input tc)
+    ana = analyze inputCode
     items = pipeline ana (
         desugarControlStructures
       . collectDeclarations
@@ -601,12 +629,11 @@ test_desugar_control_structures tc =
   in
     assertEqual "output code" (blurrSyntax expectedCode) outputCode
         
-test_boolean_short_circuiting :: TestCase -> Assertion -- {{{1
-test_boolean_short_circuiting tc = do
+test_boolean_short_circuiting :: Input -> OutputBooleanShortCircuiting -> Assertion -- {{{2
+test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
   let
-    expectedCode = getCodeShortCircuit tc
-    expectedDecls = M.fromList . fst . outShortCircuit $ tc
-    ana = analyze (input tc)
+    expectedDecls = M.fromList expectedDecls'
+    ana = analyze inputCode
     items = pipeline ana (
         booleanShortCircuiting ana
       . desugarControlStructures
@@ -630,12 +657,11 @@ test_boolean_short_circuiting tc = do
       let msg = printf "function: '%s', variable" fname in
       assertEqual msg decl ((show . pretty . var_decl) var)
 
-test_normalize_critical_calls :: TestCase -> Assertion -- {{{1
-test_normalize_critical_calls tc = do
+test_normalize_critical_calls :: Input -> OutputNormalize -> Assertion -- {{{2
+test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
   let
-    expectedCode = getCodeNormalize tc
-    expectedDecls = M.fromList . fst . outNormalize $ tc
-    ana = analyze (input tc)
+    expectedDecls = M.fromList expectedDecls'
+    ana = analyze inputCode
     stmts = pipeline ana (
         normalizeCriticalCalls ana
       . booleanShortCircuiting ana
@@ -662,11 +688,11 @@ test_normalize_critical_calls tc = do
       let msg = printf "function: '%s', variable" fname in
       assertEqual msg decl ((show . pretty . var_decl) var)
 
-test_build_basic_blocks :: TestCase -> Assertion -- {{{1
-test_build_basic_blocks tc = do
+test_build_basic_blocks :: Input -> OutputBasicBlocks -> Assertion -- {{{2
+test_build_basic_blocks inputCode expectedIrs' = do
   let
-    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ outBasicBlocks tc
-    ana = analyze (input tc)
+    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) expectedIrs'
+    ana = analyze inputCode
     result = pipeline ana (
         buildBasicBlocks ana
       . normalizeCriticalCalls ana
@@ -688,11 +714,11 @@ test_build_basic_blocks tc = do
         assertEqual (prefix ++ " entry") eentry (show oentry)
         assertEqual (prefix ++ " body") ebody' obody'
       
-test_optimize_ir :: TestCase -> Assertion -- {{{1
-test_optimize_ir tc = do
+test_optimize_ir :: Input -> OutputOptimize -> Assertion -- {{{2
+test_optimize_ir inputCode expectedIrs' = do
   let
-    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) $ getOutOptimize tc
-    ana = analyze (input tc)
+    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) expectedIrs'
+    ana = analyze inputCode
     result = pipeline ana (
         optimizeIr
       . buildBasicBlocks ana
@@ -715,84 +741,43 @@ test_optimize_ir tc = do
         assertEqual (prefix ++ " entry") eentry (show oentry)
         assertEqual (prefix ++ " body") ebody' obody'
 
-test_critical_variables :: TestCase -> Assertion -- {{{1
-test_critical_variables tc = do
+test_critical_variables :: Input -> OutputCriticalVariables -> Assertion -- {{{2
+test_critical_variables inputCode expectedVars' = do
   let
-    ana = analyze (input tc)
+    ana = analyze inputCode
     funs = ast_2_ir (anaBlocking ana) (anaCritical ana)
-    expectedVars = M.fromList $ map (\(x, y, z) -> (x, (y, z))) (outCritical tc)
+    expectedVars = M.fromList expectedVars'
   assertEqual "set of critical functions" (M.keysSet expectedVars) (M.keysSet funs)
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedVars funs
 
   where
-    cmpVars fname (ecs, eus) (Function ocs ous _ _ _ _) = do
-      mapM_ (cmpVar fname "critical")   $ zip ecs ocs
-      mapM_ (cmpVar fname "uncritical") $ zip eus ous
+    cmpVars fname evs (Function ocs ous _ _ _ _) =
+      let (ecs, eus) = partitionEithers $ map sep evs in
+      do
+        mapM_ (cmpVar fname "critical")   $ zip ecs ocs
+        mapM_ (cmpVar fname "uncritical") $ zip eus ous
+      where
+        sep (C v) = Left v
+        sep (U v) = Right v
 
     cmpVar fname kind (ev, ov) =
       let msg = printf "function: '%s', %s variable" fname kind in
       assertEqual msg ev (var_unique ov)
         
-
--- utils {{{1
-analyze :: String -> Analysis -- {{{2
+-- utils {{{2
+analyze :: String -> Analysis -- {{{3
 analyze code = case analysis (enrich code) of
   Left es -> $abort $ show_errors "test" es
   Right x -> x
 
-pipeline :: Analysis -> (CFunDef -> a) -> M.Map Symbol a -- {{{2
-pipeline ana pipe = M.map pipe (anaCritical ana)
-
-collectDeclarations :: CFunDef -> [CBlockItem] -- {{{3
-collectDeclarations = (\(x, _, _) -> x) . collect_declarations
-
-desugarControlStructures :: [CBlockItem] -> [CStat] -- {{{3
-desugarControlStructures = desugar_control_structures
-
-booleanShortCircuiting :: Analysis -> [CStat] -> [CStat] -- {{{3
-booleanShortCircuiting ana = fst . boolean_short_circuiting (criticalFunctions ana)
-
-normalizeCriticalCalls :: Analysis -> [CStat] -> [CStat] -- {{{3
-normalizeCriticalCalls ana = fst . normalize_critical_calls (returnTypes ana)
-
-buildBasicBlocks :: Analysis -> [CStat] -> (Label, Body) -- {{{3
-buildBasicBlocks ana = build_basic_blocks (blockingAndCriticalFunctions ana)
-
-optimizeIr :: (Label, Body) -> (Label, Body) -- {{{3
-optimizeIr = optimize_ir
-
--- preparation {{{2
-returnTypes :: Analysis -> M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -- {{{3
-returnTypes = M.union <$> M.map return_type_fd . anaCritical <*> M.map return_type_cd . anaBlocking
-
-criticalFunctions :: Analysis -> S.Set Symbol -- {{{3
-criticalFunctions = M.keysSet . anaCritical
-
-blockingAndCriticalFunctions :: Analysis -> S.Set Symbol -- {{{3
-blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet . anaBlocking
-
--- getters {{{2
-getCodeDesugar :: TestCase -> String -- {{{3
-getCodeDesugar = fromMaybe <$> snd . outCollect <*> outDesugar
-
-getCodeShortCircuit :: TestCase -> String -- {{{3
-getCodeShortCircuit = fromMaybe <$> getCodeDesugar <*> snd . outShortCircuit
-
-getCodeNormalize :: TestCase -> String -- {{{3
-getCodeNormalize = fromMaybe <$> getCodeShortCircuit <*> snd . outNormalize
-
-getOutOptimize :: TestCase -> OutputBasicBlocks -- {{{3
-getOutOptimize = fromMaybe <$> outBasicBlocks <*> outOptimize
-
-blurrSyntax :: String -> String -- {{{2
+blurrSyntax :: String -> String -- {{{3
 blurrSyntax code = reduce (enrich code :: CTranslUnit)
 
-printOutputCode :: Analysis -> M.Map Symbol [CStat] -> String
+printOutputCode :: Analysis -> M.Map Symbol [CStat] -> String -- {{{3
 printOutputCode ana items =
   let funs = M.elems $ M.intersectionWith replaceBody (anaCritical ana) items in
   reduce (CTranslUnit (map CFDefExt funs) undefNode)
   where
-    replaceBody :: CFunDef -> [CStat] -> CFunDef -- {{{2
     replaceBody (CFunDef x1 x2 x3 (CCompound x4 _ x5) x6) ss =
       CFunDef (filter (not . isAttr) x1) x2 x3 (CCompound x4 (map CBlockStmt ss) x5) x6
       where
@@ -800,10 +785,42 @@ printOutputCode ana items =
         isAttr _                         = False
     replaceBody _ _ = $abort "function without body"
 
+pipeline :: Analysis -> (CFunDef -> a) -> M.Map Symbol a -- {{{3
+pipeline ana pipe = M.map pipe (anaCritical ana)
+
+collectDeclarations :: CFunDef -> [CBlockItem] -- {{{4
+collectDeclarations = (\(x, _, _) -> x) . collect_declarations
+
+desugarControlStructures :: [CBlockItem] -> [CStat] -- {{{4
+desugarControlStructures = desugar_control_structures
+
+booleanShortCircuiting :: Analysis -> [CStat] -> [CStat] -- {{{4
+booleanShortCircuiting ana = fst . boolean_short_circuiting (criticalFunctions ana)
+
+normalizeCriticalCalls :: Analysis -> [CStat] -> [CStat] -- {{{4
+normalizeCriticalCalls ana = fst . normalize_critical_calls (returnTypes ana)
+
+buildBasicBlocks :: Analysis -> [CStat] -> (Label, Body) -- {{{4
+buildBasicBlocks ana = build_basic_blocks (blockingAndCriticalFunctions ana)
+
+optimizeIr :: (Label, Body) -> (Label, Body) -- {{{4
+optimizeIr = optimize_ir
+
+-- preparation {{{3
+returnTypes :: Analysis -> M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -- {{{4
+returnTypes = M.union <$> M.map return_type_fd . anaCritical <*> M.map return_type_cd . anaBlocking
+
+criticalFunctions :: Analysis -> S.Set Symbol -- {{{4
+criticalFunctions = M.keysSet . anaCritical
+
+blockingAndCriticalFunctions :: Analysis -> S.Set Symbol -- {{{4
+blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet . anaBlocking
+
+-- old stuff -- {{{1
 {-
-test_collect_declarations :: Test -- {{{1
+test_collect_declarations :: Test -- {{{2
 test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
-  -- , 01 - nothing to do {{{2
+  -- , 01 - nothing to do {{{3
   ([lpaste|
 01: int foo(int i) {
       return i;
@@ -815,7 +832,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
   |], [
       ("int i", "i", 1, 3)
   ], []) 
-  , -- 02 - local variable with initializer {{{2
+  , -- 02 - local variable with initializer {{{3
   ([lpaste|
 01: int foo(int i) {
       int j = 23;
@@ -830,7 +847,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("int i", "i", 1, 4)
     , ("int j", "j", 1, 4)
   ], [])
-  , -- 03 - local variable shadowing {{{2
+  , -- 03 - local variable shadowing {{{3
   ([lpaste|
 01: void foo() {
       int i = 23;
@@ -849,7 +866,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("char i", "ec_unique_i_0", 3, 5)
     , ("int i", "i", 1, 6)
   ], [])
-  , -- 04 - local variable shadowing - with access {{{2
+  , -- 04 - local variable shadowing - with access {{{3
   ([lpaste|
 01: void foo() {
       int i = 23;
@@ -870,7 +887,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("char i", "ec_unique_i_0", 3, 6)
     , ("int i", "i", 1, 7)
   ], [])
-  , -- 05 - for loop with declaration {{{2
+  , -- 05 - for loop with declaration {{{3
   ([lpaste|
 01: void foo(int i) {
 02:   for (int i = 0; i < 23; i++) {
@@ -887,7 +904,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("int i", "i", 1, 4)
     , ("int i", "ec_unique_i_0", 2, 3)
   ], [])
-  , -- 06 - multiple declarations {{{2
+  , -- 06 - multiple declarations {{{3
   ([lpaste|
 01: int foo() {
       int i=0, j=1;
@@ -912,7 +929,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
     , ("int i", "i", 1, 7)
     , ("int j", "j", 1, 7)
   ], [])
-  , -- 07 - static variable with initializer {{{2
+  , -- 07 - static variable with initializer {{{3
   ([lpaste|
 01: int foo(int i) {
       static int j = 23;
@@ -927,7 +944,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
   ], [
       ("static int j = 23", "ec_static_foo_j", 1, 4)
   ])
-  , -- 08 - static variable shadowing {{{2
+  , -- 08 - static variable shadowing {{{3
   ([lpaste|
 01: void foo() {
       static int i = 23;
@@ -944,7 +961,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 5)
     , ("static int i = 23", "ec_static_foo_i", 1, 6)
   ])
-  , -- 09 - static variable shadowing - with access {{{2
+  , -- 09 - static variable shadowing - with access {{{3
   ([lpaste|
 01: void foo() {
       static int i = 23;
@@ -963,7 +980,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 6)
     , ("static int i = 23", "ec_static_foo_i", 1, 7)
   ])
-  , -- 10 - multiple declarations mixed {{{2
+  , -- 10 - multiple declarations mixed {{{3
   ([lpaste|
 01: int foo() {
       static int i=0, j=1;
@@ -987,7 +1004,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("static int i = 0", "ec_static_foo_i", 1, 7)
     , ("static int j = 1", "ec_static_foo_j", 1, 7)
   ])
-  , -- 11 - reuse without shadowing {{{2
+  , -- 11 - reuse without shadowing {{{3
   ([lpaste|
     int foo() {
 02:   {
@@ -1010,7 +1027,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
       ("int i", "ec_unique_i_0", 5, 7)
     , ("int i", "i", 2, 4)
   ], [])
-  , -- 12 - substitution in initializer {{{2
+  , -- 12 - substitution in initializer {{{3
   ([lpaste|
     void foo() {
 02:   if (0) {
@@ -1038,10 +1055,10 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
     , ("int i", "ec_unique_i_0", 4, 7)
     , ("int i", "i", 2, 4)
   ], [])
-  -- end {{{2
+  -- end {{{3
   ]
   where
-    runTest :: (String, String, [(String, String, Int, Int)], [(String, String, Int, Int)]) -> Assertion -- {{{2
+    runTest :: (String, String, [(String, String, Int, Int)], [(String, String, Int, Int)]) -> Assertion -- {{{3
     runTest (inputCode, expectedCode, expectedAutoVars, expectedStaticVars) =
       let
         (CTranslUnit eds x7) = enrich inputCode :: CTranslUnit
@@ -1067,9 +1084,9 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
         assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
         assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
 
-test_desugar_control_structures:: Test -- {{{1
+test_desugar_control_structures:: Test -- {{{2
 test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ map runTest [
-  -- , 01 - while loop {{{2
+  -- , 01 - while loop {{{3
   ([paste|
       void foo() {
         a();
@@ -1091,7 +1108,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
   |])
-  , -- 02 - do loop {{{2
+  , -- 02 - do loop {{{3
   ([paste|
       void foo() {
         a();
@@ -1112,7 +1129,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
   |])
-  , -- 03 - for loop {{{2
+  , -- 03 - for loop {{{3
   ([paste|
       void foo() {
         a();
@@ -1141,7 +1158,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 04 - for loop - with declaration {{{2
+  , -- 04 - for loop - with declaration {{{3
   ([paste|
       void foo() {
         a();
@@ -1170,7 +1187,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 05 - for loop - no init expression {{{2
+  , -- 05 - for loop - no init expression {{{3
   ([paste|
       void foo() {
         a();
@@ -1193,7 +1210,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 06 - for loop - no break condition {{{2
+  , -- 06 - for loop - no break condition {{{3
   ([paste|
       void foo() {
         a();
@@ -1221,7 +1238,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 07 - for loop - no incr expression{{{2
+  , -- 07 - for loop - no incr expression{{{3
   ([paste|
       void foo() {
         a();
@@ -1244,7 +1261,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
     |])
-  , -- 08 - continue and break {{{2
+  , -- 08 - continue and break {{{3
   ([paste|
       void foo() {
         a();
@@ -1269,7 +1286,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         b();
       }
   |])
-  , -- 09 - nested {{{2
+  , -- 09 - nested {{{3
   ([paste|
       void foo() {
         a();
@@ -1318,7 +1335,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
         i(); 
       }
     |])
-  , -- 10 - if statements {{{2
+  , -- 10 - if statements {{{3
   ([paste|
     void foo() {
       if (1) {
@@ -1341,7 +1358,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 11 - if statements with else block {{{2
+  , -- 11 - if statements with else block {{{3
   ([paste|
     void foo() {
       if (1) {
@@ -1375,7 +1392,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 12 - if statements with else if {{{2
+  , -- 12 - if statements with else if {{{3
   ([paste|
     void foo() {
       if (1) {
@@ -1420,7 +1437,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 13 - chained else if {{{2
+  , -- 13 - chained else if {{{3
   ([paste|
     void foo() {
       if (0) {
@@ -1484,7 +1501,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 14 - switch statement {{{2
+  , -- 14 - switch statement {{{3
   ([paste|
     void foo(int i) {
       switch (i) {
@@ -1518,7 +1535,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 15 - switch statement with default {{{2
+  , -- 15 - switch statement with default {{{3
   ([paste|
     void foo(int i) {
       switch (i) {
@@ -1551,7 +1568,7 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  , -- 16 - regression test - do and if {{{2  
+  , -- 16 - regression test - do and if {{{3  
   ([paste|
     void foo() {
       if (0) {
@@ -1592,10 +1609,10 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       }
     }
   |])
-  -- end {{{2
+  -- end {{{3
   ]
   where
-    runTest :: (String, String) -> Assertion -- {{{2
+    runTest :: (String, String) -> Assertion -- {{{3
     runTest (inputCode, expectedCode) =
       let
         (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
@@ -1606,9 +1623,9 @@ test_desugar_control_structures = enumTestGroup "desugar_control_structures" $ m
       in
         expectedCode' @=? outputCode
         
-test_boolean_short_circuiting :: Test -- {{{1
+test_boolean_short_circuiting :: Test -- {{{2
 test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map runTest [
-  -- , 01 - no critical function {{{2
+  -- , 01 - no critical function {{{3
   ([],
   [paste|
     void foo() {
@@ -1619,7 +1636,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       if(g() || h()) ;
     }
   |], [])
-  , -- 02 - critical function on left hand side, or expression {{{2
+  , -- 02 - critical function on left hand side, or expression {{{3
   (["g"],
   [paste|
     void foo() {
@@ -1636,7 +1653,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       }
     }
   |], ["int ec_bool_0"])
-  , -- 03 - critical function on right hand side, and expression {{{2
+  , -- 03 - critical function on right hand side, and expression {{{3
   (["h"],
   [paste|
     void foo() {
@@ -1653,7 +1670,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       }
     }
   |], ["int ec_bool_0"])
-  , -- 04 - expression statement {{{2
+  , -- 04 - expression statement {{{3
   (["g"],
   [paste|
     void foo() {
@@ -1670,7 +1687,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       }
     }
   |], ["int ec_bool_0"])
-  , -- 05 - switch statement {{{2
+  , -- 05 - switch statement {{{3
   (["g"],
   [paste|
     void foo() {
@@ -1687,7 +1704,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       }
     }
   |], ["int ec_bool_0"])
-  , -- 06 - return statement {{{2
+  , -- 06 - return statement {{{3
   (["g"],
   [paste|
     int foo() {
@@ -1704,7 +1721,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       }
     }
   |], ["int ec_bool_0"])
-  , -- 07 - function call {{{2
+  , -- 07 - function call {{{3
   (["g"],
   [paste|
     void foo() {
@@ -1721,7 +1738,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       }
     }
   |], ["int ec_bool_0"])
-  , -- 08 - within algebraic expression {{{2
+  , -- 08 - within algebraic expression {{{3
   (["g"],
   [paste|
     void foo() {
@@ -1738,7 +1755,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       }
     }
   |], ["int ec_bool_0"])
-  , -- 09 - containing algebraic expression {{{2
+  , -- 09 - containing algebraic expression {{{3
   (["g"],
   [paste|
     void foo() {
@@ -1755,7 +1772,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
       }
     }
   |], ["int ec_bool_0"])
-  , -- 10 - nested {{{2
+  , -- 10 - nested {{{3
   (["g1", "g2"],
   [paste|
     void foo() {
@@ -1784,7 +1801,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
     , "int ec_bool_1"
     , "int ec_bool_0"
   ])
-  , -- 11 - generic case {{{2
+  , -- 11 - generic case {{{3
   (["g", "h"],
   [paste|
       void foo() {
@@ -1810,7 +1827,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
   ])
   ]
   where
-    runTest :: ([String], String, String, [String]) -> Assertion -- {{{2
+    runTest :: ([String], String, String, [String]) -> Assertion -- {{{3
     runTest (cf, inputCode, expectedCode, expectedDecls) =
       let
         (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7)
@@ -1827,9 +1844,9 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
         expectedCode' @=? outputCode
         expectedDecls @=? outputDecls
 
-test_sequencialize_body :: Test -- {{{1
+test_sequencialize_body :: Test -- {{{2
 test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
-  -- , 01 - while loop {{{2
+  -- , 01 - while loop {{{3
   ([paste|
     void foo() {
       a();
@@ -1853,7 +1870,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       b();
     }
   |])
-  , -- 02 - do loop {{{2
+  , -- 02 - do loop {{{3
   ([paste|
     void foo() {
       a();
@@ -1875,7 +1892,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       b();
     }
   |])
-  , -- 03 - for loop {{{2
+  , -- 03 - for loop {{{3
   ([paste|
     void foo() {
       a();
@@ -1905,7 +1922,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       b();
     }
   |])
-  , -- 04 - for loop - with declaration {{{2
+  , -- 04 - for loop - with declaration {{{3
   ([paste|
     void foo() {
       a();
@@ -1935,7 +1952,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       b();
     }
   |])
-  , -- 05 - for loop - no init expression {{{2
+  , -- 05 - for loop - no init expression {{{3
   ([paste|
       void foo() {
         a();
@@ -1961,7 +1978,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
         b();
       }
   |])
-  , -- 06 - for loop - no break condition {{{2
+  , -- 06 - for loop - no break condition {{{3
   ([paste|
     void foo() {
       a();
@@ -1989,7 +2006,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       b();
     }
   |])
-  , -- 07 - for loop - no incr expression{{{2
+  , -- 07 - for loop - no incr expression{{{3
   ([paste|
     void foo() {
       a();
@@ -2015,7 +2032,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       b();
     }
   |])
-  , -- 08 - continue and break {{{2
+  , -- 08 - continue and break {{{3
   ([paste|
     void foo() {
       a();
@@ -2041,7 +2058,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       b();
     }
   |])
-  , -- 09 - nested {{{2
+  , -- 09 - nested {{{3
   ([paste|
     void foo() {
       a();
@@ -2093,7 +2110,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       i(); 
     }
   |])
-  , -- 10 - if statements {{{2
+  , -- 10 - if statements {{{3
   ([paste|
     void foo() {
       {
@@ -2118,7 +2135,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_1: ;
     }
   |])
-  , -- 11 - if statements with else block {{{2
+  , -- 11 - if statements with else block {{{3
   ([paste|
     void foo() {
       {
@@ -2155,7 +2172,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_2: ;
     }
   |])
-  , -- 12 - if statement with else if {{{2
+  , -- 12 - if statement with else if {{{3
   ([paste|
     void foo() {
       {
@@ -2204,7 +2221,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_2: ;
     }
   |])
-  , -- 13 - chained else if {{{2
+  , -- 13 - chained else if {{{3
   ([paste|
     void foo() {
     {
@@ -2286,7 +2303,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_2: ;
     }
   |])
-  , -- 14 - switch statement {{{2
+  , -- 14 - switch statement {{{3
   ([paste|
     void foo(int i) {
       {
@@ -2325,7 +2342,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
     }
   |])
-  , -- 15 - switch statement with default {{{2
+  , -- 15 - switch statement with default {{{3
   ([paste|
     void foo(int i) {
       {
@@ -2364,7 +2381,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_0: ;
     }
   |])
-  , -- 16 - empty statements -- {{{2
+  , -- 16 - empty statements -- {{{3
   ([paste|
     void foo() {
       i++;
@@ -2387,7 +2404,7 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       i--;
     }
   |])
-  , -- 17 - regression test {{{2
+  , -- 17 - regression test {{{3
   ([paste|
     void foo() {
       {
@@ -2440,10 +2457,10 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       ec_ctrlbl_2: ;
     }
   |])
-  -- end {{{2
+  -- end {{{3
   ]
   where
-    runTest :: (String, String) -> Assertion -- {{{2
+    runTest :: (String, String) -> Assertion -- {{{3
     runTest (inputCode, expectedCode) =
       let
         (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
@@ -2454,9 +2471,9 @@ test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
       in
         expectedCode' @=? outputCode
 
-test_normalize_critical_calls :: Test -- {{{1
+test_normalize_critical_calls :: Test -- {{{2
 test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map runTest [
-  -- , 01 - critical call in return statement {{{2
+  -- , 01 - critical call in return statement {{{3
   ([paste|
     int foo() {
       return bar() + 23;
@@ -2471,7 +2488,7 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
   |], [
       "int ec_crit_0"
   ])
-  , -- 02 - critical call in condition of if statement {{{2
+  , -- 02 - critical call in condition of if statement {{{3
   ([paste|
     int foo() {
       if (bar() == 'a') return 0; else return 1;
@@ -2486,7 +2503,7 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
   |], [
       "char ec_crit_0"
   ])
-  , -- 03 - critical call in nested expressions {{{2
+  , -- 03 - critical call in nested expressions {{{3
   ([paste|
     void foo() {
       i = bar() + 23;
@@ -2501,9 +2518,9 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
   |], [
       "double ec_crit_0"
   ])
-  , -- 04 - empty function {{{2
+  , -- 04 - empty function {{{3
   ("void foo(){ }", "void foo() { }", [])
-  , -- 05 - first normal form {{{2
+  , -- 05 - first normal form {{{3
   ([paste|
     void foo() {
       g();
@@ -2514,7 +2531,7 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
       g();
     }
   |], [])  
-  , -- 06 - second normal form {{{2
+  , -- 06 - second normal form {{{3
   ([paste|
     void foo() {
       i = g();
@@ -2525,10 +2542,10 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
       i = g();
     }
   |], [])  
-  -- end {{{2
+  -- end {{{3
   ]
   where
-    runTest :: (String, String, [String]) -> Assertion -- {{{2
+    runTest :: (String, String, [String]) -> Assertion -- {{{3
     runTest (inputCode, expectedCode, expectedDecls) =
       let
         (CTranslUnit eds y) = enrich inputCode :: CTranslUnit
@@ -2552,9 +2569,9 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
     unwrapB (CBlockStmt s) = s
     unwrapB _              = error "unwrapB"
 
-test_build_basic_blocks :: Test -- {{{1
+test_build_basic_blocks :: Test -- {{{2
 test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
-  -- , 01 - just return {{{2
+  -- , 01 - just return {{{3
   ([],
   [paste|
     void foo() {
@@ -2564,7 +2581,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L1:
     RETURN
   |], "L1")
-  , -- 02 - while loop {{{2
+  , -- 02 - while loop {{{3
   ([],
   [paste|
     void foo() {
@@ -2592,7 +2609,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     b();
     RETURN
   |], "L1")
-  , -- 03 - do loop {{{2
+  , -- 03 - do loop {{{3
   ([], 
   [paste|
     void foo() {
@@ -2616,7 +2633,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     b();
     RETURN
   |], "L1")
-  , -- 04 - continue and break {{{2
+  , -- 04 - continue and break {{{3
   ([],
   [paste|
     void foo() {
@@ -2648,7 +2665,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     b();
     RETURN
   |], "L1")
-  , -- 05 - switch statement {{{2
+  , -- 05 - switch statement {{{3
   ([],
   [paste|
     void foo(int i) {
@@ -2696,7 +2713,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L8/ec_ctrlbl_0:
     RETURN
   |], "L1")
-  , -- 06 - critical call {{{2
+  , -- 06 - critical call {{{3
   (["g"],
   [paste|
     void foo() {
@@ -2719,7 +2736,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L4/ec_ctrlbl_1:
     RETURN
   |], "L1/ec_ctrlbl_0")
-  , -- 07 - trailing critical call {{{2
+  , -- 07 - trailing critical call {{{3
   (["g"],
   [paste|
     void foo() {
@@ -2732,7 +2749,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L2:
     RETURN
   |], "L1")
-  , -- 08 - trailing if {{{2
+  , -- 08 - trailing if {{{3
   (["g"],
   [paste|
     void foo() {
@@ -2750,7 +2767,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L3:
     RETURN
   |], "L1/ec_ctrlbl_0")
-  , -- 09 - trailing statement {{{2
+  , -- 09 - trailing statement {{{3
   (["g"],
   [paste|
     void foo() {
@@ -2765,7 +2782,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     h();
     RETURN
   |], "L1")
-  , -- 10 - first normal form {{{2
+  , -- 10 - first normal form {{{3
   (["g"],
   [paste|
     void foo() {
@@ -2778,7 +2795,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L2:
     RETURN
   |], "L1")
-  , -- 11 - second normal form {{{2
+  , -- 11 - second normal form {{{3
   (["g"],
   [paste|
     void foo() {
@@ -2791,7 +2808,7 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     L2:
     RETURN
   |], "L1")
-  , -- 12 - dead code {{{2
+  , -- 12 - dead code {{{3
   (["g"],
   [paste|
     void foo() {
@@ -2825,10 +2842,10 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
     RETURN
   |], "L1")
 
-  -- end {{{2
+  -- end {{{3
   ]
   where
-    runTest :: ([String], String, String, String) -> Assertion -- {{{2
+    runTest :: ([String], String, String, String) -> Assertion -- {{{3
     runTest (cf, inputCode, expectedIr, expectedEntry) = 
       let
         (CTranslUnit [CFDefExt fd] _) = enrich inputCode :: CTranslationUnit NodeInfo
@@ -2840,9 +2857,9 @@ test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
         expectedIr' @=? showGraph show outputIr
         expectedEntry @=? show outputEntry
 
-test_critical_variables :: Test  -- {{{1
+test_critical_variables :: Test  -- {{{2
 test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
-  -- , 01 - single critical variable {{{2
+  -- , 01 - single critical variable {{{3
   ([paste|
     int foo() {
       int i = 0;
@@ -2852,7 +2869,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
 
     void g() { }
   |], ["i"], [])
-  , -- 02 - single non-critical variable {{{2
+  , -- 02 - single non-critical variable {{{3
   ([paste|
     int foo() {
       for (int i=0; i<23; i++) ;
@@ -2862,7 +2879,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
 
     void g() { }
   |], [], ["i"])
-  , -- 03 - single critical variable in loop {{{2
+  , -- 03 - single critical variable in loop {{{3
   ([paste|
     void foo() {
       for (int i=0; i<23; i++) {
@@ -2872,7 +2889,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
 
     void g() { }
   |], ["i"], [])
-  , -- 04 - both critical and non-critical variables {{{2
+  , -- 04 - both critical and non-critical variables {{{3
   ([paste|
     void foo() {
       int j;
@@ -2884,7 +2901,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
 
     void g() { }
   |], ["i"], ["j"])
-  , -- 05 - kill liveness {{{2
+  , -- 05 - kill liveness {{{3
   ([paste|
     void foo() {
       int j = 23;
@@ -2894,7 +2911,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
     }
     void g() { }
   |], [], ["j"]) 
-  , -- 06 - don't reuse {{{2
+  , -- 06 - don't reuse {{{3
   ([paste|
     void foo() {
       int j = 23;
@@ -2902,7 +2919,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
     }
     void g() { }
   |], [], ["j"])
-  , -- 07 - take pointer {{{2
+  , -- 07 - take pointer {{{3
   ([paste|
     void foo() {
       int i = 23;
@@ -2911,7 +2928,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
     }
     void g() { }
   |], ["i"], ["j"])
-  , -- 08 - pointer to array element {{{2
+  , -- 08 - pointer to array element {{{3
   ([paste|
     void foo() {
       int a[23];
@@ -2920,7 +2937,7 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
     }
     void g() { }
    |], ["a"], ["j"])
-  , -- 09 - function parameters are always critical {{{2
+  , -- 09 - function parameters are always critical {{{3
   ([paste|
     void foo(int i) {
       g();
@@ -2928,14 +2945,14 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
     }
     void g() { }
   |], ["i"], [])
-  , -- 10 - second normal form {{{2
+  , -- 10 - second normal form {{{3
   ([paste|
     void foo() {
       int j = g(23);
     }
     int g(int i) { return 23; }
   |], [], ["j"])
-  , -- 11 - critical call in if-condition {{{2
+  , -- 11 - critical call in if-condition {{{3
   ([paste|
     void foo() {
       int i;
@@ -2945,10 +2962,10 @@ test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
     }
     int g() { return 23; }
   |], [], ["i", "ec_crit_0"])
-  -- end {{{2
+  -- end {{{3
   ]
   where
-    runTest :: (String, [String], [String]) -> Assertion -- {{{2
+    runTest :: (String, [String], [String]) -> Assertion -- {{{3
     runTest (inputCode, expectedCriticalVars, expecedUncriticalVars) =
       let
         (CTranslUnit eds _) = enrich inputCode :: CTranslUnit
