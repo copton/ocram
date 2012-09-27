@@ -71,10 +71,10 @@ normalize_critical_calls sf items =
           Ctx vars count inits <- get
           let
             decl       = newDecl callee count
-            name       = symbol decl
             ni         = annotation call
+            name       = symbol decl
             init       = CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) undefNode) call ni)) ni
-            var        = Variable decl name Nothing
+            var        = Variable decl Nothing
           put $ Ctx (var : vars) (count + 1) (init : inits)
           return $ CVar (internalIdent name) undefNode
 

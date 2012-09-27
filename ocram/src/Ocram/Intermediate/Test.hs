@@ -40,7 +40,6 @@ tests = testGroup "Intermediate" [unit_tests, integration_tests]
 type Input = String -- {{{2
 type ScopedVariable = ( -- {{{2
     String   -- declaration
-  , String   -- unique name
   , Int      -- first row of scope
   , Int      -- last row of scope
   )
@@ -95,14 +94,324 @@ data TaggedVar -- {{{3
 
 -- unit tests {{{1
 unit_tests :: Test -- {{{2
-unit_tests = testGroup "unit tests" [
+unit_tests = testGroup "unit" [
     group "collect" test_collect_declarations unitTestsCollect
   ]
   where
     group name fun cases = enumTestGroup name $ map (uncurry fun) cases
 
-unitTestsCollect :: [(Input, OutputCollectDeclarations)]
-unitTestsCollect = []
+unitTestsCollect :: [(Input, OutputCollectDeclarations)] -- {{{2
+unitTestsCollect = [
+  -- , 01 - nothing to do {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block();
+02: void c(int i) {
+      i++;
+      block();
+    }
+    __attribute__((tc_run_thread)) void start() {
+      c(23);
+    }  
+  |], ([
+    ("start", [], [])
+  , ("c", [("int i", 2, 5)], [])
+  ], [paste|
+    void c(int i) {
+      i++;
+      block();
+    }
+    void start () {
+      c(23);
+    }
+  |]))
+  , -- 02 - local variable with initializer {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block();
+02: int c(int i) {
+      int j = 42;
+      block();
+      return i + j;
+    }
+    __attribute__((tc_run_thread)) void start() {
+      c(23);
+    }  
+  |], ([
+    ("start", [], [])
+  , ("c", [
+        ("int i", 2, 6)
+      , ("int j", 2, 6)
+    ], [])
+  ], [paste|
+    int c(int i) {
+      j = 42;
+      block();
+      return i + j;
+    }
+    void start () {
+      c(23);
+    }
+  |]))
+  , -- 03 - local variable shadowing {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block();
+02: __attribute__((tc_run_thread)) void start() {
+      int i = 23;
+04:   {
+        char i = 42;
+        block();
+      }
+    }  
+  |], ([
+    ("start", [
+        ("char ec_unique_i_0", 4, 7)
+      , ("int i", 2, 8)
+    ], [])
+  ], [paste|
+    void start () {
+      i = 23;
+      {
+        ec_unique_i_0 = 42;
+        block();
+      }
+    }
+  |]))
+  , -- 04 - local variable shadowing - with access {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block();
+02: __attribute__((tc_run_thread)) void start() {
+      int i = 23;
+04:   {
+        char i = 42;
+        block();
+        i = 19;
+      }
+    }  
+  |], ([
+    ("start", [
+        ("char ec_unique_i_0", 4, 8)
+      , ("int i", 2, 9)
+    ], [])
+  ], [paste|
+    void start () {
+      i = 23;
+      {
+        ec_unique_i_0 = 42;
+        block();
+        ec_unique_i_0 = 19;
+      }
+    }
+  |]))
+  , -- 05 - for loop with declaration {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block();
+02: __attribute__((tc_run_thread)) void start() {
+      int i = 23;
+04:   for (int i=0; i<23; i++) {
+        block();
+      }
+    }
+  |], ([
+    ("start", [
+        ("int ec_unique_i_0", 4, 6)
+      , ("int i", 2, 7)
+    ], [])
+  ], [paste|
+    void start () {
+      i = 23;
+      {
+        ec_unique_i_0 = 0;
+        for (; ec_unique_i_0<23; ec_unique_i_0++) {
+          block();
+        }
+      }
+    }
+  |]))
+  , -- 06 - multiple declarations {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+02: __attribute__((tc_run_thread)) void start() {
+      int i = 23, j = 42;
+04:   {
+        char i = 0, j = 1;
+        block(i + j);
+      }
+08: }  
+  |], ([
+    ("start", [
+        ("char ec_unique_i_0", 4, 7)
+      , ("char ec_unique_j_0", 4, 7)
+      , ("int i", 2, 8)
+      , ("int j", 2, 8)
+    ], [])
+  ], [paste|
+    void start () {
+      i = 23;
+      j = 42;
+      {
+        ec_unique_i_0 = 0;
+        ec_unique_j_0 = 1;
+        block(ec_unique_i_0 + ec_unique_j_0);
+      }
+    }
+  |]))
+  , -- 07 - static variable with initializer {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+02: __attribute__((tc_run_thread)) void start() {
+      int j = 42;
+04:   {
+        static int i = 23;
+        block (i + j);
+07:   }
+    }  
+  |], ([
+    ("start", [
+        ("int j", 2, 8)
+    ], [
+        ("static int ec_static_start_i = 23", 4, 7)
+    ])
+  ], [paste|
+    void start () {
+      j = 42;
+      {
+        block(ec_static_start_i + j);
+      }
+    }
+  |]))
+  , -- 08 - static variable shadowing {{{3
+  ([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+02: __attribute__((tc_run_thread)) void start() {
+      static int i = 42;
+04:   {
+        static int i = 23;
+        block (i);
+07:   }
+    }  
+  |], ([
+    ("start", [], [
+        ("static int ec_static_start_ec_unique_i_0 = 23", 4, 7)
+    ])
+  ], [paste|
+    void start () {
+      {
+        block(ec_static_start_ec_unique_i_0);
+      }
+    }
+  |]))
+{-
+  ([lpaste|
+01: void foo() {
+      static int i = 23;
+03:   {
+        static int i = 42;
+05:   }
+06: }
+  |], [paste|
+    void foo() {
+      {
+      }
+    }
+  |], [], [
+      ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 5)
+    , ("static int i = 23", "ec_static_foo_i", 1, 6)
+  ])
+  , -- 09 - static variable shadowing - with access {{{3
+  ([lpaste|
+01: void foo() {
+      static int i = 23;
+03:   {
+        static int i = 42;
+        i = 19;
+06:   }
+07: }
+  |], [paste|
+    void foo() {
+      {
+        ec_static_foo_ec_unique_i_0 = 19;
+      }
+    }
+  |], [], [
+      ("static int i = 42", "ec_static_foo_ec_unique_i_0", 3, 6)
+    , ("static int i = 23", "ec_static_foo_i", 1, 7)
+  ])
+  , -- 10 - multiple declarations mixed {{{3
+  ([lpaste|
+01: int foo() {
+      static int i=0, j=1;
+03:   {
+        int i=23, j=42;
+        return i + j;
+06:   }
+07: }
+  |], [paste|
+    int foo() {
+      {
+        ec_unique_i_0 = 23;
+        ec_unique_j_0 = 42;
+        return ec_unique_i_0 + ec_unique_j_0;
+      }
+    }
+  |], [
+      ("int i", "ec_unique_i_0", 3, 6)
+    , ("int j", "ec_unique_j_0", 3, 6)
+  ], [
+      ("static int i = 0", "ec_static_foo_i", 1, 7)
+    , ("static int j = 1", "ec_static_foo_j", 1, 7)
+  ])
+  , -- 11 - reuse without shadowing {{{3
+  ([lpaste|
+    int foo() {
+02:   {
+        int i = 0;
+04:   }
+05:   {
+        int i = 1;
+07:   }
+    }
+  |], [paste|
+    int foo() {
+      {
+        i = 0;
+      }
+      {
+        ec_unique_i_0 = 1;
+      }
+    }
+  |], [
+      ("int i", "ec_unique_i_0", 5, 7)
+    , ("int i", "i", 2, 4)
+  ], [])
+  , -- 12 - substitution in initializer {{{3
+  ([lpaste|
+    void foo() {
+02:   if (0) {
+        int i = 0;
+04:   } else {
+        int i = 1;
+        int size = bar(i);
+07:   }
+    }
+  |], [paste|
+    void foo()
+    {
+        if (0)
+        {
+            i = 0;
+        }
+        else
+        {
+            ec_unique_i_0 = 1;
+            size = bar(ec_unique_i_0);
+        }
+    }
+  |], [
+      ("int size", "size", 4, 7)
+    , ("int i", "ec_unique_i_0", 4, 7)
+    , ("int i", "i", 2, 4)
+  ], [])
+-}
+  ]
 
 -- integration tests {{{1
 integrationTestCases :: [TestCase] -- {{{2
@@ -292,7 +601,7 @@ integrationTestCases = [
         }
       |]
     , outCollect = ( -- {{{4
-        [("start", [("int i", "i", 6, 9)], []) ]
+        [("start", [("int i", 6, 9)], []) ]
       , [paste|
           void start() {
             a();
@@ -402,7 +711,7 @@ integrationTestCases = [
         }
       |]
     , outCollect = ( -- {{{4
-        [("start", [("int i", "i", 3, 6)], []) ]
+        [("start", [("int i", 3, 6)], []) ]
       , [paste|
           void start() {
             {
@@ -609,11 +918,10 @@ test_collect_declarations inputCode (expectedVars', expectedCode) = do
       mapM_ (cmpVar fname "automatic") $ zip av av'
       mapM_ (cmpVar fname "static")    $ zip sv sv'
 
-    cmpVar fname kind ((tdecl, ename, start, end), var) =
-      let prefix = printf "function: '%s', %s variable: '%s'" fname kind ename in
+    cmpVar fname kind ((decl, start, end), var) =
+      let prefix = printf "function: '%s', %s variable: '%s', " fname kind decl in
       do
-        assertEqual (prefix ++ "T-code decl") tdecl $ (show . pretty . var_decl) var
-        assertEqual (prefix ++ "E-code name") ename (var_unique var)
+        assertEqual (prefix ++ "T-code decl") decl $ (show . pretty . var_decl) var
         assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
         assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
 
@@ -1077,7 +1385,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest [
         mapM_ (uncurry (cmpVar "static")) (zip expectedStaticVars outputStaticVars)
 
     cmpVar kind (tdecl, ename, start, end) var =
-      let prefix = kind ++ " variable " ++ ename ++ ": " in
+      let prefix = printf "%s,  variable '%s', " kind ename in
       do
         assertEqual (prefix ++ "T-code decl") tdecl $ (show . pretty . var_decl) var
         assertEqual (prefix ++ "E-code name") ename (var_unique var)

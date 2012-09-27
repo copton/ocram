@@ -204,7 +204,7 @@ substitute idx op ni lhs rhs =
   let
     iden = internalIdent (varBool idx)
     decl = CDecl [CTypeSpec (CIntType ni)] [(Just (CDeclr (Just iden) [] Nothing [] ni) , Nothing, Nothing)] ni
-    ivar = Variable decl (symbol decl) Nothing
+    ivar = Variable decl Nothing
     cvar = CVar iden ni
     [lhs_assign, rhs_assign] = map (CBlockStmt . (\x -> CExpr (Just x) (annotation x)) . (\x -> CAssign CAssignOp cvar ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
     cond = case op of

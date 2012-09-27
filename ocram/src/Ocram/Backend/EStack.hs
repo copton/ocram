@@ -9,8 +9,7 @@ module Ocram.Backend.EStack
 import Control.Monad ((<=<))
 import Data.Maybe (mapMaybe)
 import Ocram.Analysis (CallGraph, dependency_list, call_order, start_functions)
-import Ocram.Backend.Util (makeVarDecl)
-import Ocram.Intermediate (Function(..), fun_name)
+import Ocram.Intermediate (Function(..), fun_name, Variable(..))
 import Language.C.Data.Ident (Ident, internalIdent)
 import Language.C.Data.Node (undefNode, NodeInfo)
 import Language.C.Syntax.AST
@@ -50,7 +49,7 @@ estackFrame fun
     frame =
       CDecl [CStorageSpec (CTypedef un), CTypeSpec (CSUType (CStruct CStructTag Nothing (Just uncriticalVariables) [] un) un)] [(Just (CDeclr (Just (ii (eframe name))) [] Nothing [] un), Nothing, Nothing)] un
 
-    uncriticalVariables = map makeVarDecl (fun_ncVars fun)
+    uncriticalVariables = map var_decl (fun_ncVars fun)
 
 hasUncriticalVars :: Function -> Bool
 hasUncriticalVars = not . null . fun_ncVars

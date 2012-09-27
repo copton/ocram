@@ -14,10 +14,12 @@ import qualified Compiler.Hoopl as H
 data Variable -- {{{1
   -- |Local variables of functions, i.e. function parameters and automatic variables
   = Variable {
-    var_decl   :: CDecl          -- ^the T-code declaration
-  , var_unique :: Symbol         -- ^the unique variable name
+    var_decl   :: CDecl          -- ^the declaration using a unique variable name
   , var_scope  :: Maybe NodeInfo -- ^the node info of the surrounding T-code scope
   }
+
+var_unique :: Variable -> Symbol
+var_unique = symbol . var_decl
 
 instance Eq Variable where
   v1 == v2 = var_unique v1 == var_unique v2
