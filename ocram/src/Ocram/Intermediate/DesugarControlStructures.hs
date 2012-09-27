@@ -48,19 +48,19 @@ tStmt (CWhile cond block True ni) = do -- do loop {{{3
   return         $ (label start : []) ++ body' ++ (if_ : label end : [])
 
 tStmt (CFor init cond incr block ni) = do -- for loop {{{3
-  ids <- nextIds 2
+  ids <- nextIds 3
   body           <- tItems $ extractBody block
   let
-    [start, end]  = map (labelGotoPair ni) ids 
-    body'         = replaceBreakContinue start end body
-    exprStmt expr = CExpr (Just expr) ni
-    init'         = case init of
-                      Left Nothing -> Nothing
-                      Left (Just e) -> Just $ exprStmt e
-                      Right d -> $abort $ unexp d
+    [start, cont, end] = map (labelGotoPair ni) ids 
+    body'              = replaceBreakContinue cont end body
+    exprStmt expr      = CExpr (Just expr) ni
+    init'              = case init of
+                          Left Nothing -> Nothing
+                          Left (Just e) -> Just $ exprStmt e
+                          Right d -> $abort $ unexp d
     incr'         = fmap exprStmt incr
     if_           = fmap (\c -> CIf (CUnary CNegOp c ni) (goto end) Nothing ni) cond
-  return          $ (init' ?: label start : if_ ?: []) ++ body' ++ (incr' ?: goto start : label end : [])
+  return          $ (init' ?: label start : if_ ?: []) ++ body' ++ (label cont : incr' ?: goto start : label end : [])
 
 -- if statements {{{3
 tStmt o@(CIf _ (CGoto _ _) Nothing _)            = return [o]
@@ -151,8 +151,8 @@ replaceBreakContinue start end = everywhereBut (mkQ False blocks) (mkT trans)
     blocks _                = False
 
     trans :: CStat -> CStat
-    trans (CBreak ni) = (amap (const ni) . goto) end
-    trans (CCont ni)  = (amap (const ni) . goto) start
+    trans (CBreak ni) = amap (const ni) (goto end)
+    trans (CCont ni)  = amap (const ni) (goto start)
     trans o = o
 
 nextIds :: Int -> S [Int] -- {{{2

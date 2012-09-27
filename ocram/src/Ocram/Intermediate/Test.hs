@@ -33,17 +33,17 @@ import qualified Data.Set as S
 
 tests :: Test -- {{{1
 tests = _byCase
+-- tests = _byFunction
 
 _byFunction :: Test -- {{{2
-_byFunction = testGroup "Intermediate" $ map (runTest tcs) allTests
+_byFunction = testGroup "Intermediate" $ map (runTest testCases) allTests
   where runTest ts (s, f) = enumTestGroup s $ map f ts
 
 _byCase :: Test -- {{{2
-_byCase = testGroup "Intermediate" $ zipWith runCase [(1::Int)..] tcs
+_byCase = testGroup "Intermediate" $ zipWith runCase [(1::Int)..] testCases
   where
     runCase number tc = testGroup (printf "%.2d" number) $ map (runTest tc) allTests
     runTest tc (name, fun) = testCase name (fun tc)
-
 
 allTests :: [(String, TestCase -> Assertion)] -- {{{2
 allTests = [
@@ -120,8 +120,8 @@ data TestCase = TestCase { -- {{{2
   , outCritical        :: OutputCriticalVariables 
   }
 
-tcs :: [TestCase] -- {{{1
-tcs = [
+testCases :: [TestCase] -- {{{1
+testCases = [
     TestCase { -- , 01 - setup {{{2
     input           = -- {{{3
       [lpaste|
@@ -303,7 +303,7 @@ tcs = [
   , outCritical = -- {{{3
       [("start", [], [])]
   }
-  , TestCase { -- 04 - for loop {{{2
+  , TestCase { -- 04 - for loop - with continue {{{2
     input       = -- {{{3
       [lpaste|
         __attribute__((tc_blocking)) void block();
@@ -312,19 +312,21 @@ tcs = [
         __attribute__((tc_run_thread)) void start() {
           a();
 06:       for (int i=0; i<23; i++) {
+            if (i==2) continue;
             block(i);
           }
           b();
         }
       |]
     , outCollect = ( -- {{{3
-        [("start", [("int i", "i", 6, 8)], []) ]
+        [("start", [("int i", "i", 6, 9)], []) ]
       , [paste|
           void start() {
             a();
             {
               i=0;
               for (; i<23; i++) {
+                if (i==2) continue;
                 block(i);
               }
             }
@@ -336,13 +338,23 @@ tcs = [
         [paste|
           void start() {
             a();
-            i=0;
+            i = 0;
+
             ec_ctrlbl_0: ;
-            if (! (i<23)) goto ec_ctrlbl_1;
+            if (!(i < 23)) goto ec_ctrlbl_2;
+            if (i == 2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+
+            ec_ctrlbl_3: ;
+            goto ec_ctrlbl_1;
+
+            ec_ctrlbl_4: ;
             block(i);
+
+            ec_ctrlbl_1: ;
             i++;
             goto ec_ctrlbl_0;
-            ec_ctrlbl_1: ;
+
+            ec_ctrlbl_2: ;
             b();
           }
         |]
@@ -354,7 +366,7 @@ tcs = [
         [("start", [])]
       , Nothing
       )
-    , outBasicBlocks = [
+    , outBasicBlocks = [ -- {{{3
         ("start", "L1", [paste|
           L1:
           a();
@@ -362,22 +374,51 @@ tcs = [
           GOTO L2/ec_ctrlbl_0
 
           L2/ec_ctrlbl_0:
-          IF !(i < 23) THEN L5/ec_ctrlbl_1 ELSE L3
+          IF !(i < 23) THEN L7/ec_ctrlbl_2 ELSE L3
 
           L3:
-          block(i); GOTO L4
+          IF i == 2 THEN L4/ec_ctrlbl_3 ELSE L5/ec_ctrlbl_4
 
-          L4:
+          L4/ec_ctrlbl_3:
+          GOTO L6/ec_ctrlbl_1
+
+          L5/ec_ctrlbl_4:
+          block(i); GOTO L6/ec_ctrlbl_1
+
+          L6/ec_ctrlbl_1:
           i++;
           GOTO L2/ec_ctrlbl_0
 
-          L5/ec_ctrlbl_1:
+          L7/ec_ctrlbl_2:
           b();
           RETURN
         |])
       ]
-    , outOptimize = -- {{{3
-        Nothing
+    , outOptimize = Just [ -- {{{3
+        ("start", "L1", [paste|
+          L1:
+          a();
+          i = 0;
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          IF !(i < 23) THEN L7/ec_ctrlbl_2 ELSE L3
+
+          L3:
+          IF i == 2 THEN L6/ec_ctrlbl_1 ELSE L5/ec_ctrlbl_4
+
+          L5/ec_ctrlbl_4:
+          block(i); GOTO L6/ec_ctrlbl_1
+
+          L6/ec_ctrlbl_1:
+          i++;
+          GOTO L2/ec_ctrlbl_0
+
+          L7/ec_ctrlbl_2:
+          b();
+          RETURN
+        |])
+      ]
     , outCritical = [ -- {{{3
         ("start", ["i"], [])
       ]
@@ -413,13 +454,14 @@ tcs = [
             i = 0;
             ec_ctrlbl_0: ;
             block(i);
-            if (i==23) goto ec_ctrlbl_2; else goto ec_ctrlbl_3;
-            ec_ctrlbl_2: ;
-            goto ec_ctrlbl_1;
-            ec_ctrlbl_3: ;  
+            if (i==23) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+            ec_ctrlbl_3: ;
+            goto ec_ctrlbl_2;
+            ec_ctrlbl_4: ;  
+            ec_ctrlbl_1: ;  
             i++;
             goto ec_ctrlbl_0;
-            ec_ctrlbl_1: ;
+            ec_ctrlbl_2: ;
           }
         |]
     , outShortCircuit = ( -- {{{3
@@ -440,16 +482,19 @@ tcs = [
           block(i); GOTO L3
 
           L3:
-          IF i == 23 THEN L4/ec_ctrlbl_2 ELSE L5/ec_ctrlbl_3
+          IF i == 23 THEN L4/ec_ctrlbl_3 ELSE L5/ec_ctrlbl_4
 
-          L4/ec_ctrlbl_2:
+          L4/ec_ctrlbl_3:
+          GOTO L7/ec_ctrlbl_2
+
+          L5/ec_ctrlbl_4:
           GOTO L6/ec_ctrlbl_1
 
-          L5/ec_ctrlbl_3:
+          L6/ec_ctrlbl_1:
           i++;
           GOTO L2/ec_ctrlbl_0
 
-          L6/ec_ctrlbl_1:
+          L7/ec_ctrlbl_2:
           RETURN
         |])
       ]
@@ -463,13 +508,13 @@ tcs = [
           block(i); GOTO L3
 
           L3:
-          IF i == 23 THEN L6/ec_ctrlbl_1 ELSE L5/ec_ctrlbl_3
+          IF i == 23 THEN L7/ec_ctrlbl_2 ELSE L6/ec_ctrlbl_1
 
-          L5/ec_ctrlbl_3:
+          L6/ec_ctrlbl_1:
           i++;
           GOTO L2/ec_ctrlbl_0
 
-          L6/ec_ctrlbl_1:
+          L7/ec_ctrlbl_2:
           RETURN
         |])
       ]
@@ -502,7 +547,7 @@ tcs = [
         [("start", [])]
       , Nothing
       )
-    , outBasicBlocks = [
+    , outBasicBlocks = [ -- {{{3
         ("start", "L1", [paste|
         |])
       ]
