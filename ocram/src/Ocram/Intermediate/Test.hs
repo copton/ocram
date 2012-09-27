@@ -52,34 +52,34 @@ type ScopedVariable = ( -- {{{2
   )
   
 type OutputCollectDeclarations = ( -- {{{2
-    String                 -- code
-  , [(
+    [(
         String             -- critical function name
       , [ScopedVariable]   -- automatic variables
       , [ScopedVariable]   -- static variables
     )]
+  , String                 -- code
   )
 
 type OutputDesugarControlStructures = -- {{{2
     Maybe String -- code
 
 type OutputBooleanShortCircuiting = ( -- {{{2
-    Maybe String   -- code
-  , [(
+    [(
       String    -- critical function name
     , [String]  -- declarations
     )]
+  , Maybe String   -- code
   )
 
 type OutputSequentialize = -- {{{2
     Maybe String -- code
 
 type OutputNormalize = ( -- {{{2
-    Maybe String   -- code
-  , [(
+    [(
       String   -- critical function name
     , [String] -- declarations
     )]
+  , Maybe String   -- code
   )
 
 type OutputBasicBlocks = -- {{{2
@@ -89,15 +89,15 @@ type OutputBasicBlocks = -- {{{2
     , String -- intermediate representation
     )]
 
+type OutputOptimize = -- {{{2
+  Maybe OutputBasicBlocks
+
 type OutputCriticalVariables = -- {{{2
   [(
       String   -- critical function name
     , [String] -- critical variables
     , [String] -- uncritical variables
   )] 
-
-type OutputOptimize = -- {{{2
-  Maybe OutputBasicBlocks
 
 data TestCase = TestCase { -- {{{2
     input              :: String
@@ -113,33 +113,31 @@ data TestCase = TestCase { -- {{{2
 
 testCases :: [TestCase] -- {{{1
 testCases = [
-  -- , 01 - setup {{{2
-  TestCase {input = -- {{{3
-    [lpaste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
-        block();
-      }
-    |]
-  , outCollect = ( -- {{{3
-      [paste|
+    TestCase { -- , 01 - setup {{{2
+    input           = -- {{{3
+      [lpaste|
+        __attribute__((tc_blocking)) void block();
+        __attribute__((tc_run_thread)) void start() {
+          block();
+        }
+      |]
+  , outCollect      = ( -- {{{3
+      [("start", [], [])]
+    , [paste|
         void start() {
           block();
         }
-      |],
-      [("start", [], [])]
+      |]
     )
-  , outDesugar = -- {{{3
+  , outDesugar      = -- {{{3
       Nothing
-  , outShortCircuit = ( -- {{{3
-      Nothing, [("start", [])]
-    )
-  , outSequence = -- {{{3
+  , outShortCircuit =  -- {{{3
+      ([("start", [])], Nothing)
+  , outSequence     = -- {{{3
       Nothing 
-  , outNormalize = ( -- {{{3
-      Nothing, [("start", [])]
-    )
-  , outBasicBlocks = [ -- {{{3
+  , outNormalize    = -- {{{3
+      ([("start", [])], Nothing)
+  , outBasicBlocks  = [ -- {{{3
       ("start", "L1", [paste|
           L1:
           block(); GOTO L2
@@ -148,70 +146,67 @@ testCases = [
           RETURN
       |])
     ]
-  , outOptimize =  -- {{{3
-    Nothing
-  , outCritical = [ -- {{{3
-      ("start", [], [])
-    ]
+  , outOptimize     = -- {{{3
+      Nothing
+  , outCritical     = -- {{{3
+      [("start", [], [])]
   }
-  , -- 02 - while loop {{{2
-  TestCase {input = -- {{{3
-    [lpaste|
-      __attribute__((tc_blocking)) void block();
-      void a();
-      void b();
-      __attribute__((tc_run_thread)) void start() {
-        a();
-        while (1) {
-          block();
+  , TestCase { -- 02 - while loop {{{2
+    input           = -- {{{3
+      [lpaste|
+        __attribute__((tc_blocking)) void block();
+        void a();
+        void b();
+        __attribute__((tc_run_thread)) void start() {
+          a();
+          while (1) {
+            block();
+          }
+          b();
         }
-        b();
-      }
-    |]
-  , outCollect = ( -- {{{3
-    [paste|
-      void start() {
-        a();
-        while (1) {
-          block();
+      |]
+  , outCollect      = ( -- {{{3
+      [("start", [], [])]
+    , [paste|
+        void start() {
+          a();
+          while (1) {
+            block();
+          }
+          b();
         }
-        b();
-      }
-    |], [("start", [], [])]
+      |]
     )
-  , outDesugar = -- {{{3
-    Just [paste|
-      void start() {
-        a();
-        {
+  , outDesugar      = Just -- {{{3
+      [paste|
+        void start() {
+          a();
+          {
+            ec_ctrlbl_0: ;
+            if (! 1) goto ec_ctrlbl_1;
+            block();
+            goto ec_ctrlbl_0;
+            ec_ctrlbl_1: ;
+          } 
+          b();
+        }
+      |]
+  , outShortCircuit = -- {{{3
+      ([("start", [])], Nothing)
+  , outSequence     = Just -- {{{3
+      [paste|
+        void start() {
+          a();
           ec_ctrlbl_0: ;
           if (! 1) goto ec_ctrlbl_1;
           block();
           goto ec_ctrlbl_0;
           ec_ctrlbl_1: ;
-        } 
-        b();
-      }
-    |]
-  , outShortCircuit = ( -- {{{3
-      Nothing, [("start", [])]
-    )
-  , outSequence = -- {{{3
-    Just [paste|
-      void start() {
-        a();
-        ec_ctrlbl_0: ;
-        if (! 1) goto ec_ctrlbl_1;
-        block();
-        goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
-        b();
-      }
-    |]
-  , outNormalize = ( -- {{{3
-      Nothing, [("start", [])]
-    )
-  , outBasicBlocks = [ -- {{{3
+          b();
+        }
+      |]
+  , outNormalize = ([("start", [])], Nothing)
+  , outBasicBlocks  = [ -- {{{3
       ("start", "L1", [paste|
           L1:
           a();
@@ -231,8 +226,8 @@ testCases = [
           RETURN
       |])
     ]
-  , outOptimize = Just [ -- {{{3
-    ("start", "L1", [paste|
+  , outOptimize     = Just [ -- {{{3
+      ("start", "L1", [paste|
           L1:
           a();
           GOTO L2/ec_ctrlbl_0
@@ -246,67 +241,66 @@ testCases = [
           L5/ec_ctrlbl_1:
           b();
           RETURN
-    |])
+      |])
     ]
-  , outCritical = [ -- {{{3
+  , outCritical     = [ -- {{{3
       ("start", [], [])
     ]
   }
-  , -- 03 - do loop {{{2
-  TestCase {input = -- {{{3
-    [lpaste|
-      __attribute__((tc_blocking)) void block();
-      void a();
-      void b();
-      __attribute__((tc_run_thread)) void start() {
-        a();
-        do {
-          block();
-        } while(1);
-        b();
-      }
-    |]
-  , outCollect = ( -- {{{3
-    [paste|
-      void start() {
-        a();
-        do {
-          block();
-        } while(1);
-        b();
-      }
-    |], [("start", [], [])]
+  , TestCase { -- 03 - do loop {{{2
+    input          = -- {{{3
+      [lpaste|
+        __attribute__((tc_blocking)) void block();
+        void a();
+        void b();
+        __attribute__((tc_run_thread)) void start() {
+          a();
+          do {
+            block();
+          } while(1);
+          b();
+        }
+      |]
+  , outCollect     = ( -- {{{3
+      [("start", [], [])]
+    , [paste|
+        void start() {
+          a();
+          do {
+            block();
+          } while(1);
+          b();
+        }
+      |]
     )
-  , outDesugar = -- {{{3
-    Just [paste|
-      void start() {
-        a();
-        {
+  , outDesugar     = Just -- {{{3
+      [paste|
+        void start() {
+          a();
+          {
+            ec_ctrlbl_0: ;
+            block();
+            if (1) goto ec_ctrlbl_0;
+            ec_ctrlbl_1: ;
+          } 
+          b();
+        }
+      |]
+  , outShortCircuit =  -- {{{3
+      ([("start", [])], Nothing)
+  , outSequence    = Just -- {{{3
+      [paste|
+        void start() {
+          a();
           ec_ctrlbl_0: ;
           block();
           if (1) goto ec_ctrlbl_0;
           ec_ctrlbl_1: ;
-        } 
-        b();
-      }
-    |]
-  , outShortCircuit = ( -- {{{3
-      Nothing, [("start", [])]
-    )
-  , outSequence = -- {{{3
-    Just [paste|
-      void start() {
-        a();
-        ec_ctrlbl_0: ;
-        block();
-        if (1) goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
-        b();
-      }
-    |]
-  , outNormalize = ( -- {{{3
-      Nothing, [("start", [])]
-    )
+          b();
+        }
+      |]
+  , outNormalize   = -- {{{3
+      ([("start", [])], Nothing)
   , outBasicBlocks = [ -- {{{3
       ("start", "L1", [paste|
           L1:
@@ -326,9 +320,106 @@ testCases = [
     ]
   , outOptimize = -- {{{3
       Nothing
-  , outCritical = [ -- {{{3
-      ("start", [], [])
-    ]
+  , outCritical = -- {{{3
+      [("start", [], [])]
+  }
+  , -- 04 - for loop {{{2
+  TestCase {
+    input       = -- {{{3
+      [lpaste|
+        __attribute__((tc_blocking)) void block();
+        void a();
+        void b();
+        __attribute__((tc_run_thread)) void start() {
+          a();
+06:       for (int i=0; i<23; i++) {
+            block(i);
+          }
+          b();
+        }
+      |]
+    , outCollect = ( -- {{{3
+        [("start", [("int i", "i", 6, 8)], []) ]
+      , [paste|
+          void start() {
+            a();
+            {
+              i=0;
+              for (; i<23; i++) {
+                block(i);
+              }
+            }
+            b();
+          }
+        |]
+      )
+    , outDesugar = Just  -- {{{3
+        [paste|
+          void start() {
+            a();
+            {
+              i=0;
+              {
+                ec_ctrlbl_0: ;
+                if (! (i<23)) goto ec_ctrlbl_1;
+                block(i);
+                i++;
+                goto ec_ctrlbl_0;
+                ec_ctrlbl_1: ;
+              }
+            } 
+            b();
+          }
+        |]
+    , outShortCircuit = ( -- {{{3
+        [("start", [])]
+      , Nothing
+      )
+    , outSequence     = Just -- {{{3
+        [paste|
+          void start() {
+            a();
+            i=0;
+            ec_ctrlbl_0: ;
+            if (! (i<23)) goto ec_ctrlbl_1;
+            block(i);
+            i++;
+            goto ec_ctrlbl_0;
+            ec_ctrlbl_1: ;
+            b();
+          }
+        |]
+    , outNormalize   = ( -- {{{3
+        [("start", [])]
+      , Nothing
+      )
+    , outBasicBlocks = [
+        ("start", "L1", [paste|
+          L1:
+          a();
+          i = 0;
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          IF !(i < 23) THEN L5/ec_ctrlbl_1 ELSE L3
+
+          L3:
+          block(i); GOTO L4
+
+          L4:
+          i++;
+          GOTO L2/ec_ctrlbl_0
+
+          L5/ec_ctrlbl_1:
+          b();
+          RETURN
+        |])
+      ]
+    , outOptimize = -- {{{3
+        Nothing
+    , outCritical = [ -- {{{3
+        ("start", ["i"], [])
+      ]
   }
   -- end {{{2
   ]
@@ -338,7 +429,7 @@ test_collect_declarations = enumTestGroup "collect_declarations" $ map runTest t
   where
     runTest testCase = do
       let
-        (expectedCode, expectedVars') = outCollect testCase
+        (expectedVars', expectedCode) = outCollect testCase
         ana = analyze (input testCase)
         items = pipeline ana collectDeclarations
         outputCode = printOutputCode ana items
@@ -383,7 +474,7 @@ test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map r
     runTest testCase = do
       let
         expectedCode = getCodeShortCircuit testCase
-        expectedDecls = M.fromList . snd . outShortCircuit $ testCase
+        expectedDecls = M.fromList . fst . outShortCircuit $ testCase
         ana = analyze (input testCase)
         items = pipeline ana (
             booleanShortCircuiting ana
@@ -430,7 +521,7 @@ test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map r
     runTest testCase = do
       let
         expectedCode = getCodeNormalize testCase
-        expectedDecls = M.fromList . snd . outNormalize $ testCase
+        expectedDecls = M.fromList . fst . outNormalize $ testCase
         ana = analyze (input testCase)
         stmts = pipeline ana (
             normalizeCriticalCalls ana
@@ -578,16 +669,16 @@ blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet
 
 -- getters {{{2
 getCodeDesugar :: TestCase -> String -- {{{3
-getCodeDesugar = fromMaybe <$> fst . outCollect <*> outDesugar
+getCodeDesugar = fromMaybe <$> snd . outCollect <*> outDesugar
 
 getCodeShortCircuit :: TestCase -> String -- {{{3
-getCodeShortCircuit = fromMaybe <$> getCodeDesugar <*> fst . outShortCircuit
+getCodeShortCircuit = fromMaybe <$> getCodeDesugar <*> snd . outShortCircuit
 
 getCodeSequence :: TestCase -> String -- {{{3
 getCodeSequence = fromMaybe <$> getCodeShortCircuit <*> outSequence
 
 getCodeNormalize :: TestCase -> String -- {{{3
-getCodeNormalize = fromMaybe <$> getCodeSequence <*> fst . outNormalize
+getCodeNormalize = fromMaybe <$> getCodeSequence <*> snd . outNormalize
 
 getOutOptimize :: TestCase -> OutputBasicBlocks -- {{{3
 getOutOptimize = fromMaybe <$> outBasicBlocks <*> outOptimize
