@@ -894,13 +894,15 @@ test_collect_declarations :: Input -> OutputCollectDeclarations -> Assertion -- 
 test_collect_declarations inputCode (expectedVars', expectedCode) = do
   let
     ana = analyze inputCode
-    items = pipeline ana (map (\(CBlockStmt s) -> s) . collectDeclarations)
+    result = pipeline ana collect_declarations
+
+  let
+    items = M.map (map (\(CBlockStmt s) -> s) . (\(x, _, _) -> x)) result
     outputCode = printOutputCode ana items
   assertEqual "output code" (blurrSyntax expectedCode) outputCode
 
   let
     expectedVars = M.fromList . map (\(x, y, z) -> (x, (y, z))) $ expectedVars'
-    result = pipeline ana collect_declarations
   assertEqual "set of critical functions" (M.keysSet expectedVars) (M.keysSet result)
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedVars result
 
@@ -919,36 +921,35 @@ test_collect_declarations inputCode (expectedVars', expectedCode) = do
         assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
 
 test_desugar_control_structures :: Input -> OutputDesugarControlStructures -> Assertion -- {{{2
-test_desugar_control_structures inputCode expectedCode = 
+test_desugar_control_structures inputCode expectedCode = do
   let
     ana = analyze inputCode
-    items = pipeline ana (
+    result = pipeline ana (
         desugarControlStructures
       . collectDeclarations
       )
-    outputCode = printOutputCode ana items 
-  in
-    assertEqual "output code" (blurrSyntax expectedCode) outputCode
+
+  let
+    outputCode = printOutputCode ana result
+  assertEqual "output code" (blurrSyntax expectedCode) outputCode
         
 test_boolean_short_circuiting :: Input -> OutputBooleanShortCircuiting -> Assertion -- {{{2
 test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
   let
-    expectedDecls = M.fromList expectedDecls'
     ana = analyze inputCode
-    items = pipeline ana (
-        booleanShortCircuiting ana
-      . desugarControlStructures
-      . collectDeclarations
-      )
-    outputCode = printOutputCode ana items
-  assertEqual "output code" (blurrSyntax expectedCode) outputCode
-
-  let
     result = pipeline ana (
         boolean_short_circuiting (criticalFunctions ana)
       . desugarControlStructures
       . collectDeclarations
       )
+  
+  let
+    items = M.map fst result
+    outputCode = printOutputCode ana items
+  assertEqual "output code" (blurrSyntax expectedCode) outputCode
+
+  let
+    expectedDecls = M.fromList expectedDecls'
   assertEqual "set of critical functions" (M.keysSet expectedDecls) (M.keysSet result)
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedDecls result
 
@@ -964,18 +965,7 @@ test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
 test_normalize_critical_calls :: Input -> OutputNormalize -> Assertion -- {{{2
 test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
   let
-    expectedDecls = M.fromList expectedDecls'
     ana = analyze inputCode
-    stmts = pipeline ana (
-        normalizeCriticalCalls ana
-      . booleanShortCircuiting ana
-      . desugarControlStructures
-      . collectDeclarations
-      )
-    outputCode = printOutputCode ana stmts
-  assertEqual "output code" (blurrSyntax expectedCode) outputCode
-
-  let
     result = pipeline ana (
         normalize_critical_calls (returnTypes ana)
       . booleanShortCircuiting ana
@@ -983,6 +973,13 @@ test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
       . collectDeclarations
       )
 
+  let
+    stmts = M.map fst result
+    outputCode = printOutputCode ana stmts
+  assertEqual "output code" (blurrSyntax expectedCode) outputCode
+
+  let
+    expectedDecls = M.fromList expectedDecls'
   assertEqual "set of critical functions" (M.keysSet expectedDecls) (M.keysSet result)
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedDecls result
 
@@ -998,7 +995,6 @@ test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
 test_build_basic_blocks :: Input -> OutputBasicBlocks -> Assertion -- {{{2
 test_build_basic_blocks inputCode expectedIrs' = do
   let
-    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) expectedIrs'
     ana = analyze inputCode
     result = pipeline ana (
         buildBasicBlocks ana
@@ -1007,6 +1003,9 @@ test_build_basic_blocks inputCode expectedIrs' = do
       . desugarControlStructures
       . collectDeclarations
       )
+
+  let
+    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) expectedIrs'
   assertEqual "set of critical functions (bodies)" (M.keysSet expectedIrs) (M.keysSet result)
   sequence_ $ M.elems $ M.intersectionWithKey cmp expectedIrs result
 
@@ -1024,7 +1023,6 @@ test_build_basic_blocks inputCode expectedIrs' = do
 test_optimize_ir :: Input -> OutputOptimize -> Assertion -- {{{2
 test_optimize_ir inputCode expectedIrs' = do
   let
-    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) expectedIrs'
     ana = analyze inputCode
     result = pipeline ana (
         optimizeIr
@@ -1034,6 +1032,9 @@ test_optimize_ir inputCode expectedIrs' = do
       . desugarControlStructures
       . collectDeclarations
       )
+
+  let
+    expectedIrs = M.fromList $ map (\(x, y, z) -> (x, (y, z))) expectedIrs'
   assertEqual "set of critical functions (bodies)" (M.keysSet expectedIrs) (M.keysSet result)
   sequence_ $ M.elems $ M.intersectionWithKey cmp expectedIrs result
 
@@ -1053,6 +1054,8 @@ test_critical_variables inputCode expectedVars' = do
   let
     ana = analyze inputCode
     funs = ast_2_ir (anaBlocking ana) (anaCritical ana)
+
+  let
     expectedVars = M.fromList expectedVars'
   assertEqual "set of critical functions" (M.keysSet expectedVars) (M.keysSet funs)
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedVars funs
