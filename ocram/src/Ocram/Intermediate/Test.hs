@@ -95,11 +95,13 @@ data TaggedVar -- {{{3
 -- unit tests {{{1
 unit_tests :: Test -- {{{2
 unit_tests = testGroup "unit" [
-    group "collect" test_collect_declarations unitTestsCollect
-  , group "desugar" test_desugar_control_structures unitTestsDesugar
-  , group "boolean" test_boolean_short_circuiting unitTestsBoolean
-  , group "normalize" test_normalize_critical_calls unitTestsNormalize
-  , group "basicBlocks" test_build_basic_blocks unitTestsBasicBlocks
+    group "collect"     test_collect_declarations       unitTestsCollect
+  , group "desugar"     test_desugar_control_structures unitTestsDesugar
+  , group "boolean"     test_boolean_short_circuiting   unitTestsBoolean
+  , group "normalize"   test_normalize_critical_calls   unitTestsNormalize
+  , group "basicBlocks" test_build_basic_blocks         unitTestsBasicBlocks
+  , group "optimize"    test_optimize_ir                unitTestsOptimize
+  , group "critical"    test_critical_variables         unitTestsCritical
   ]
   where
     group name fun cases = enumTestGroup name $ map (uncurry fun) cases
@@ -1341,6 +1343,196 @@ unitTestsBasicBlocks = [
   |])])
   -- end {{{3
   ]
+
+unitTestsOptimize :: [(Input, OutputOptimize)] -- {{{2
+unitTestsOptimize = [
+  -- , 01 - mini blocks {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+
+      ec_ctrlbl_0: ;
+      block(1);
+      return;
+      goto ec_ctrlbl_2;
+      
+      ec_ctrlbl_1: ;
+      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+
+      ec_ctrlbl_3: ;
+      block(2);
+      return;
+
+      ec_ctrlbl_4: ;
+
+      ec_ctrlbl_2: ;
+    }
+  |]
+  , [("start", "L1", [paste|
+      L1:
+      IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
+
+      L2/ec_ctrlbl_0:
+      block(1); GOTO L3
+
+      L3:
+      RETURN
+
+      L5/ec_ctrlbl_1:
+      IF 2 THEN L6/ec_ctrlbl_3 ELSE L9/ec_ctrlbl_2
+
+      L6/ec_ctrlbl_3:
+      block(2); GOTO L7
+
+      L7:
+      RETURN
+
+      L9/ec_ctrlbl_2:
+      RETURN
+    |]
+  )]
+  )
+  -- end {{{3
+  ]
+
+unitTestsCritical :: [(Input, OutputCriticalVariables)]
+unitTestsCritical = [
+  -- , 01 - single critical variable {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int i = 0;
+      block();
+      i++;
+    }
+  |], [("start", [C "i"])]
+  )
+  , -- 02 - single non-critical variable {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      for (int i=0; i<23; i++) ;
+      block();
+      i = 1;
+    }
+  |], [("start", [U "i"])]
+  )
+  , -- 03 - single critical variable in loop {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      for (int i=0; i<23; i++) {
+        block();
+      }
+    }
+  |], [("start", [C "i"])]
+  )
+  , -- 04 - both critical and non-critical variables {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int j = 1;
+      for (int i=0; i<23; i++) {
+        block();
+      }
+      j = 2;
+    }
+  |], [("start", [C "i", U "j"])]
+  )
+  , -- 05 - kill liveness {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int i = 0;
+      block();
+      i = 1;
+      i++;
+    }
+  |], [("start", [U "i"])]
+  )
+  , -- 06 - don't reuse {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int i = 0;
+      block();
+    }
+  |], [("start", [U "i"])]
+  )
+  , -- 07 - take pointer {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int i = 0;
+      int* j = &i;
+      block();
+    }
+  |], [("start", [C "i", U "j"])]
+  )
+  , -- 08 - pointer to array element {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int a[23];
+      int* j = a + 1;
+      block();
+    }
+  |], [("start", [C "a", U "j"])]
+  )
+  , -- 09 - pointer to array element - 2nd variant {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int a[23];
+      int* j = &a[1];
+      block();
+    }
+  |], [("start", [C "a", U "j"])]
+  )
+  , -- 10 - function parameters are always critical {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    void c(int i) {
+      block();
+      i = 23;
+    }
+    __attribute__((tc_run_thread)) void start() {
+      c(42);
+    }
+  |], [
+      ("start", [])
+    , ("c", [C "i"])
+    ]
+  )
+  , -- 11 - second normal form (fails) {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int j = block();
+      j++;
+    }
+  |], [
+      ("start", [U "j"])
+    ]
+  )
+  , -- 12 - critical call in if-condition (fails) {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      int i = 0;
+      int j = 1;
+      if (block()) {
+        i=23;
+        j++;
+      }
+    }
+  |], [
+      ("start", [U "i", U "ec_crit_0", C "j"])
+    ]
+  )
+  -- end {{{3
+  ]
 -- integration tests {{{1
 integrationTestCases :: [TestCase] -- {{{2
 integrationTestCases = [
@@ -2325,132 +2517,3 @@ returnTypes = M.union <$> M.map return_type_fd . anaCritical <*> M.map return_ty
 blockingAndCriticalFunctions :: Analysis -> S.Set Symbol -- {{{4
 blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet . anaBlocking
 
--- old stuff -- {{{1
-{-
-test_critical_variables :: Test  -- {{{2
-test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
-  -- , 01 - single critical variable {{{3
-  ([paste|
-    int foo() {
-      int i = 0;
-      g();
-      return i;
-    }
-
-    void g() { }
-  |], ["i"], [])
-  , -- 02 - single non-critical variable {{{3
-  ([paste|
-    int foo() {
-      for (int i=0; i<23; i++) ;
-      g();
-      return 23;
-    }
-
-    void g() { }
-  |], [], ["i"])
-  , -- 03 - single critical variable in loop {{{3
-  ([paste|
-    void foo() {
-      for (int i=0; i<23; i++) {
-        g();
-      }
-    }
-
-    void g() { }
-  |], ["i"], [])
-  , -- 04 - both critical and non-critical variables {{{3
-  ([paste|
-    void foo() {
-      int j;
-      for (int i=0; i<23; i++) {
-        g();
-      }
-      j = 23;
-    }
-
-    void g() { }
-  |], ["i"], ["j"])
-  , -- 05 - kill liveness {{{3
-  ([paste|
-    void foo() {
-      int j = 23;
-      g();
-      j = 42;
-      j++;
-    }
-    void g() { }
-  |], [], ["j"]) 
-  , -- 06 - don't reuse {{{3
-  ([paste|
-    void foo() {
-      int j = 23;
-      g();
-    }
-    void g() { }
-  |], [], ["j"])
-  , -- 07 - take pointer {{{3
-  ([paste|
-    void foo() {
-      int i = 23;
-      int* j = &i;
-      g();
-    }
-    void g() { }
-  |], ["i"], ["j"])
-  , -- 08 - pointer to array element {{{3
-  ([paste|
-    void foo() {
-      int a[23];
-      int* j = a + 1;
-      g();
-    }
-    void g() { }
-   |], ["a"], ["j"])
-  , -- 09 - function parameters are always critical {{{3
-  ([paste|
-    void foo(int i) {
-      g();
-      i = 23;
-    }
-    void g() { }
-  |], ["i"], [])
-  , -- 10 - second normal form {{{3
-  ([paste|
-    void foo() {
-      int j = g(23);
-    }
-    int g(int i) { return 23; }
-  |], [], ["j"])
-  , -- 11 - critical call in if-condition {{{3
-  ([paste|
-    void foo() {
-      int i;
-      if (g()) {
-        i = 23;
-      } 
-    }
-    int g() { return 23; }
-  |], [], ["i", "ec_crit_0"])
-  -- end {{{3
-  ]
-  where
-    runTest :: (String, [String], [String]) -> Assertion -- {{{3
-    runTest (inputCode, expectedCriticalVars, expecedUncriticalVars) =
-      let
-        (CTranslUnit eds _) = enrich inputCode :: CTranslUnit
-        (cds, fds) = partitionEithers $ map unwrap eds
-        cf = M.fromList $ map (\fd -> (symbol fd, fd)) fds
-        bf = M.fromList $ map (\cd -> (symbol cd, cd)) cds
-        funs = ast_2_ir bf cf
-        (Function outputCriticalVars outputUncriticalVars _ _ _ _) = $fromJust_s $ M.lookup ((symbol . head) fds) funs
-        outputCriticalVars' = map var_unique outputCriticalVars
-        outputUncriticalVars' = map var_unique outputUncriticalVars
-      in do
-        assertEqual "critical variables" expectedCriticalVars outputCriticalVars'
-        assertEqual "uncritical variables" expecedUncriticalVars outputUncriticalVars'
-
-    unwrap (CFDefExt fd) = Right fd
-    unwrap (CDeclExt cd) = Left cd 
-    unwrap _             = error "unwrapFd"
--}
