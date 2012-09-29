@@ -1346,57 +1346,10 @@ unitTestsBasicBlocks = [
 
 unitTestsOptimize :: [(Input, OutputOptimize)] -- {{{2
 unitTestsOptimize = [
-  -- , 01 - mini blocks {{{3
-  ([paste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() {
-      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
-
-      ec_ctrlbl_0: ;
-      block(1);
-      return;
-      goto ec_ctrlbl_2;
-      
-      ec_ctrlbl_1: ;
-      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
-
-      ec_ctrlbl_3: ;
-      block(2);
-      return;
-
-      ec_ctrlbl_4: ;
-
-      ec_ctrlbl_2: ;
-    }
-  |]
-  , [("start", "L1", [paste|
-      L1:
-      IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
-
-      L2/ec_ctrlbl_0:
-      block(1); GOTO L3
-
-      L3:
-      RETURN
-
-      L5/ec_ctrlbl_1:
-      IF 2 THEN L6/ec_ctrlbl_3 ELSE L9/ec_ctrlbl_2
-
-      L6/ec_ctrlbl_3:
-      block(2); GOTO L7
-
-      L7:
-      RETURN
-
-      L9/ec_ctrlbl_2:
-      RETURN
-    |]
-  )]
-  )
   -- end {{{3
   ]
 
-unitTestsCritical :: [(Input, OutputCriticalVariables)]
+unitTestsCritical :: [(Input, OutputCriticalVariables)] -- {{{2
 unitTestsCritical = [
   -- , 01 - single critical variable {{{3
   ([paste|
@@ -1428,7 +1381,18 @@ unitTestsCritical = [
     }
   |], [("start", [C "i"])]
   )
-  , -- 04 - both critical and non-critical variables {{{3
+  , -- 04 - single critical variable in loop {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      int s = 23;
+      while (1) {
+        block(s);
+      }
+    }
+  |], [("start", [C "s"])]
+  )
+  , -- 05 - both critical and non-critical variables {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -1440,7 +1404,7 @@ unitTestsCritical = [
     }
   |], [("start", [C "i", U "j"])]
   )
-  , -- 05 - kill liveness {{{3
+  , -- 06 - kill liveness {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -1451,7 +1415,7 @@ unitTestsCritical = [
     }
   |], [("start", [U "i"])]
   )
-  , -- 06 - don't reuse {{{3
+  , -- 07 - don't reuse {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -1460,7 +1424,7 @@ unitTestsCritical = [
     }
   |], [("start", [U "i"])]
   )
-  , -- 07 - take pointer {{{3
+  , -- 08 - take pointer {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -1470,7 +1434,7 @@ unitTestsCritical = [
     }
   |], [("start", [C "i", U "j"])]
   )
-  , -- 08 - pointer to array element {{{3
+  , -- 09 - pointer to array element {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -1480,7 +1444,7 @@ unitTestsCritical = [
     }
   |], [("start", [C "a", U "j"])]
   )
-  , -- 09 - pointer to array element - 2nd variant {{{3
+  , -- 10 - pointer to array element - 2nd variant {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -1490,7 +1454,7 @@ unitTestsCritical = [
     }
   |], [("start", [C "a", U "j"])]
   )
-  , -- 10 - function parameters are always critical {{{3
+  , -- 11 - function parameters are always critical {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     void c(int i) {
@@ -1505,7 +1469,7 @@ unitTestsCritical = [
     , ("c", [C "i"])
     ]
   )
-  , -- 11 - second normal form (fails) {{{3
+  , -- 12 - second normal form (fails) {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -1516,7 +1480,7 @@ unitTestsCritical = [
       ("start", [U "j"])
     ]
   )
-  , -- 12 - critical call in if-condition (fails) {{{3
+  , -- 13 - critical call in if-condition (fails) {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -1627,23 +1591,7 @@ integrationTestCases = [
           RETURN
       |])
     ]
-  , outOptimize     = Just [ -- {{{4
-      ("start", "L1", [paste|
-          L1:
-          a();
-          GOTO L2/ec_ctrlbl_0
-
-          L2/ec_ctrlbl_0:
-          IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
-
-          L3:
-          block(); GOTO L2/ec_ctrlbl_0
-
-          L5/ec_ctrlbl_1:
-          b();
-          RETURN
-      |])
-    ]
+  , outOptimize     = Nothing -- {{{4
   , outCritical     = Nothing -- {{{4
   }
   , TestCase { -- 03 - do loop {{{3
@@ -1790,31 +1738,7 @@ integrationTestCases = [
           RETURN
         |])
       ]
-    , outOptimize = Just [ -- {{{4
-        ("start", "L1", [paste|
-          L1:
-          a();
-          i = 0;
-          GOTO L2/ec_ctrlbl_0
-
-          L2/ec_ctrlbl_0:
-          IF !(i < 23) THEN L7/ec_ctrlbl_2 ELSE L3
-
-          L3:
-          IF i == 2 THEN L6/ec_ctrlbl_1 ELSE L5/ec_ctrlbl_4
-
-          L5/ec_ctrlbl_4:
-          block(i); GOTO L6/ec_ctrlbl_1
-
-          L6/ec_ctrlbl_1:
-          i++;
-          GOTO L2/ec_ctrlbl_0
-
-          L7/ec_ctrlbl_2:
-          b();
-          RETURN
-        |])
-      ]
+    , outOptimize = Nothing -- {{{4
     , outCritical = Just [ -- {{{4
         ("start", [C "i"])
       ]
@@ -1888,26 +1812,7 @@ integrationTestCases = [
           RETURN
         |])
       ]
-    , outOptimize = Just [ -- {{{4
-        ("start", "L1", [paste|
-          L1:
-          i = 0;
-          GOTO L2/ec_ctrlbl_0
-
-          L2/ec_ctrlbl_0:
-          block(i); GOTO L3
-
-          L3:
-          IF i == 23 THEN L7/ec_ctrlbl_2 ELSE L6/ec_ctrlbl_1
-
-          L6/ec_ctrlbl_1:
-          i++;
-          GOTO L2/ec_ctrlbl_0
-
-          L7/ec_ctrlbl_2:
-          RETURN
-        |])
-      ]
+    , outOptimize = Nothing -- {{{4
     , outCritical = Just [ -- {{{4
         ("start", [C "i"])
       ]
@@ -2116,60 +2021,7 @@ integrationTestCases = [
           RETURN
         |])
       ]
-    , outOptimize = Just [ -- {{{4
-        ("start", "L1", [paste|
-          L1:
-          i = block(0); GOTO L2
-
-          L2:
-          IF i == 0 THEN L7/ec_ctrlbl_1 ELSE L3
-
-          L3:
-          IF i == 1 THEN L10/ec_ctrlbl_3 ELSE L4
-
-          L4:
-          IF i == 2 THEN L10/ec_ctrlbl_3 ELSE L5
-
-          L5:
-          IF i == 3 THEN L11/ec_ctrlbl_4 ELSE L16/ec_ctrlbl_5
-
-          L7/ec_ctrlbl_1:
-          ec_crit_0 = block(23); GOTO L8
-
-          L8:
-          j = ec_crit_0 > 0;
-          GOTO L17/ec_ctrlbl_0
-
-          L10/ec_ctrlbl_3:
-          i++;
-          GOTO L11/ec_ctrlbl_4
-
-          L11/ec_ctrlbl_4:
-          ec_crit_1 = block(i); GOTO L12
-
-          L12:
-          ec_bool_0 = ! (!ec_crit_1);
-          IF !ec_bool_0 THEN L13/ec_bool_1 ELSE L15/ec_bool_2
-
-          L13/ec_bool_1:
-          ec_crit_2 = block(i - 1); GOTO L14
-
-          L14:
-          ec_bool_0 = ! (!ec_crit_2);
-          GOTO L15/ec_bool_2
-
-          L15/ec_bool_2:
-          j = ec_bool_0;
-          GOTO L17/ec_ctrlbl_0
-
-          L16/ec_ctrlbl_5:
-          j = 0;
-          GOTO L17/ec_ctrlbl_0
-
-          L17/ec_ctrlbl_0:
-          RETURN
-        |])
-      ]
+    , outOptimize = Nothing -- {{{4
     , outCritical = Just [ -- {{{4
         ("start", [
             U "j"
@@ -2513,7 +2365,5 @@ buildBasicBlocks ana = build_basic_blocks (blockingAndCriticalFunctions ana)
 returnTypes :: Analysis -> M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -- {{{4
 returnTypes = M.union <$> M.map return_type_fd . anaCritical <*> M.map return_type_cd . anaBlocking
 
-
 blockingAndCriticalFunctions :: Analysis -> S.Set Symbol -- {{{4
 blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet . anaBlocking
-

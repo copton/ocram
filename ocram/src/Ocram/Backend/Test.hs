@@ -515,6 +515,38 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       goto *ec_tstack_run.ec_frames.crit.ec_cont;
     }
   |])
+  , -- 06 - regression test {{{2
+  ([paste|
+		__attribute__((tc_blocking)) void block(int b);
+
+		__attribute__((tc_run_thread)) void start() { 
+				int s = 23;
+				while (1) {
+					block(s);
+				}
+		}
+  |], [paste|
+    void ec_thread_0(void* ec_cont) {
+      if (ec_cont) goto *ec_cont;
+
+      ec_contlbl_L1_start: ;
+      ec_tstack_start.s = 23;
+      goto ec_ctrlbl_0_start;
+
+      ec_ctrlbl_0_start: ;
+      if (!1) {
+        return;
+      } else {
+        ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L4_start;
+        block(&ec_tstack_start.ec_frames.block);
+        return;
+
+        ec_contlbl_L4_start: ;
+        goto ec_ctrlbl_0_start;
+      }
+    }
+  |])
   -- end {{{2
   ]
   where
@@ -1539,12 +1571,15 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
             ec_tstack_start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
             if (!ec_tstack_start.ec_crit_0) {
               check();
-              goto ec_ctrlbl_4_start;
+              goto ec_ctrlbl_6_start;
             } else {
-              goto ec_ctrlbl_4_start;
+              goto ec_ctrlbl_6_start;
           }
         }
       }
+  ec_ctrlbl_6_start: ;
+    goto ec_ctrlbl_4_start;
+
   ec_ctrlbl_4_start: ;
     goto ec_ctrlbl_0_start;
     }
@@ -1623,5 +1658,5 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
         outputCode = reduce $ fmap nodeInfo $ fst $ tcode_2_ecode ana ir
         expectedCode' = (reduce (enrich expectedCode :: CTranslUnit) :: String)
-      in
+      in do
         expectedCode' @=? outputCode
