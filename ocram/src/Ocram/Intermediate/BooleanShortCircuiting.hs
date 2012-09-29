@@ -40,10 +40,12 @@ boolean_short_circuiting cf inputStmts =
       case subItems expr' of
         [] -> return [o]
         items -> return $ items ++ [CReturn (Just (subExpr expr')) ni]
-    tStat o@(CLabel _ _ _ _) = return [o]
-    tStat o@(CGoto _ _) = return [o]
-    tStat o@(CExpr Nothing _) = return [o]
-    tStat o = $abort $ unexp o
+
+    tStat o@(CLabel _ _ _ _)    = return [o]
+    tStat o@(CGoto _ _)         = return [o]
+    tStat o@(CExpr Nothing _)   = return [o]
+    tStat o@(CReturn Nothing _) = return [o]
+    tStat o                     = $abort $ unexp o
 
     traverse :: CExpr -> S (Substitution CExpr) -- {{{2
     traverse (CComma exprs ni) = do -- {{{3

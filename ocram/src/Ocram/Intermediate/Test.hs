@@ -99,6 +99,7 @@ unit_tests = testGroup "unit" [
   , group "desugar" test_desugar_control_structures unitTestsDesugar
   , group "boolean" test_boolean_short_circuiting unitTestsBoolean
   , group "normalize" test_normalize_critical_calls unitTestsNormalize
+  , group "basicBlocks" test_build_basic_blocks unitTestsBasicBlocks
   ]
   where
     group name fun cases = enumTestGroup name $ map (uncurry fun) cases
@@ -949,6 +950,7 @@ unitTestsBoolean = [
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
       int j = (block() || (i = x(), 1)) && h();
+      return;
     }
   |], ([
       ("start", [
@@ -973,6 +975,7 @@ unitTestsBoolean = [
         
         ec_bool_5: ;
         j = ec_bool_3;
+        return;
     }
   |]))
   -- end {{{3
@@ -1086,6 +1089,202 @@ unitTestsNormalize = [
   -- end {{{3
   ]
 
+unitTestsBasicBlocks :: [(Input, OutputBasicBlocks)] -- {{{2
+unitTestsBasicBlocks = [
+  -- , 01 - call and return {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      block(23);
+      return;
+    }
+  |], [("start", "L1", [paste|
+    L1:
+    block(23); GOTO L2
+
+    L2:
+    RETURN
+  |])])
+  , -- 02 - if statement - implicit return {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+        a();
+
+        ec_ctrlbl_0: ;
+        if (! 1) goto ec_ctrlbl_1;
+        block();
+        goto ec_ctrlbl_0;
+
+        ec_ctrlbl_1: ;
+        b();
+    }
+  |], [("start", "L1", [paste|
+    L1:
+    a();
+    GOTO L2/ec_ctrlbl_0
+
+    L2/ec_ctrlbl_0:
+    IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+
+    L3:
+    block(); GOTO L4
+
+    L4:
+    GOTO L2/ec_ctrlbl_0
+
+    L5/ec_ctrlbl_1:
+    b();
+    RETURN
+  |])])
+  , -- 03 - consequitive labels - trailing label {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+
+      ec_ctrlbl_0: ;
+      block(1);
+      return;
+      goto ec_ctrlbl_2;
+      
+      ec_ctrlbl_1: ;
+      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+
+      ec_ctrlbl_3: ;
+      block(2);
+      return;
+
+      ec_ctrlbl_4: ;
+
+      ec_ctrlbl_2: ;
+    }
+  |], [("start", "L1", [paste|
+    L1:
+    IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
+
+    L2/ec_ctrlbl_0:
+    block(1); GOTO L3
+
+    L3:
+    RETURN
+
+    L4:
+    GOTO L9/ec_ctrlbl_2
+    
+    L5/ec_ctrlbl_1:
+    IF 2 THEN L6/ec_ctrlbl_3 ELSE L8/ec_ctrlbl_4
+
+    L6/ec_ctrlbl_3:
+    block(2); GOTO L7
+
+    L7:
+    RETURN
+
+    L8/ec_ctrlbl_4:
+    GOTO L9/ec_ctrlbl_2
+
+    L9/ec_ctrlbl_2:
+    RETURN
+  |])])
+  , -- 04 - trailing expression - manual label {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      ec_ctrlbl_0: ;
+      block(1);
+      i++;
+    }
+  |], [("start", "L1/ec_ctrlbl_0", [paste|
+    L1/ec_ctrlbl_0:
+    block(1); GOTO L2
+
+    L2:
+    i++;
+    RETURN
+  |])])
+  , -- 05 - trailing if without else {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      ec_ctrlbl_0: ;
+      block(1);
+      i++;
+      if (i==23) goto ec_ctrlbl_0;
+    }
+  |], [("start", "L1/ec_ctrlbl_0", [paste|
+    L1/ec_ctrlbl_0:
+    block(1); GOTO L2
+
+    L2:
+    i++;
+    IF i == 23 THEN L1/ec_ctrlbl_0 ELSE L3
+
+    L3:
+    RETURN
+  |])])
+  , -- 06 - trailing criticall call{{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      block(1);
+    }
+  |], [("start", "L1", [paste|
+    L1:
+    block(1); GOTO L2
+
+    L2:
+    RETURN
+  |])])
+  , -- 07 - second normal form {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      int i = block(1);
+    }
+  |], [("start", "L1", [paste|
+    L1:
+    i = block(1); GOTO L2
+
+    L2:
+    RETURN
+  |])])
+  , -- 08 - dead code {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      ec_ctrlbl_0: ;
+      block();
+      return;
+      goto ec_ctrlbl_2;
+      ec_ctrlbl_1: ;
+      c();
+      return;
+      ec_ctrlbl_2: ;
+    }
+  |], [("start", "L1", [paste|
+    L1:
+    IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
+
+    L2/ec_ctrlbl_0:
+    block(); GOTO L3
+
+    L3:
+    RETURN
+
+    L4:
+    GOTO L6/ec_ctrlbl_2
+
+    L5/ec_ctrlbl_1:
+    c();
+    RETURN
+
+    L6/ec_ctrlbl_2:
+    RETURN
+  |])])
+  -- end {{{3
+  ]
 -- integration tests {{{1
 integrationTestCases :: [TestCase] -- {{{2
 integrationTestCases = [
@@ -1583,7 +1782,7 @@ test_collect_declarations inputCode (expectedVars', expectedCode) = do
   let
     items = M.map (map (\(CBlockStmt s) -> s) . (\(x, _, _) -> x)) result
     outputCode = printOutputCode ana items
-  assertEqual "output code" (blurrSyntax expectedCode) outputCode
+  assertEqual "output code" (blurrCSyntax expectedCode) outputCode
 
   let
     expectedVars = M.fromList . map (\(x, y, z) -> (x, (y, z))) $ expectedVars'
@@ -1615,7 +1814,7 @@ test_desugar_control_structures inputCode expectedCode = do
 
   let
     outputCode = printOutputCode ana result
-  assertEqual "output code" (blurrSyntax expectedCode) outputCode
+  assertEqual "output code" (blurrCSyntax expectedCode) outputCode
         
 test_boolean_short_circuiting :: Input -> OutputBooleanShortCircuiting -> Assertion -- {{{2
 test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
@@ -1630,7 +1829,7 @@ test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
   let
     items = M.map fst result
     outputCode = printOutputCode ana items
-  assertEqual "output code" (blurrSyntax expectedCode) outputCode
+  assertEqual "output code" (blurrCSyntax expectedCode) outputCode
 
   let
     expectedDecls = M.fromList expectedDecls'
@@ -1660,7 +1859,7 @@ test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
   let
     stmts = M.map fst result
     outputCode = printOutputCode ana stmts
-  assertEqual "output code" (blurrSyntax expectedCode) outputCode
+  assertEqual "output code" (blurrCSyntax expectedCode) outputCode
 
   let
     expectedDecls = M.fromList expectedDecls'
@@ -1698,11 +1897,10 @@ test_build_basic_blocks inputCode expectedIrs' = do
     cmp fname (eentry, ebody) (oentry, obody) =
       let
         prefix = printf "function: '%s', " fname
-        ebody' = (unlines . drop 1 . map (drop 10) . lines) ebody
         obody' = showGraph show obody
       in do
         assertEqual (prefix ++ " entry") eentry (show oentry)
-        assertEqual (prefix ++ " body") ebody' obody'
+        assertEqual (prefix ++ " body") (blurrIRSyntax ebody) obody'
       
 test_optimize_ir :: Input -> OutputOptimize -> Assertion -- {{{2
 test_optimize_ir inputCode expectedIrs' = do
@@ -1727,11 +1925,10 @@ test_optimize_ir inputCode expectedIrs' = do
     cmp fname (eentry, ebody) (oentry, obody) =
       let
         prefix = printf "function: '%s', " fname
-        ebody' = (unlines . drop 1 . map (drop 10) . lines) ebody
         obody' = showGraph show obody
       in do
         assertEqual (prefix ++ " entry") eentry (show oentry)
-        assertEqual (prefix ++ " body") ebody' obody'
+        assertEqual (prefix ++ " body") (blurrIRSyntax ebody) obody'
 
 test_critical_variables :: Input -> OutputCriticalVariables -> Assertion -- {{{2
 test_critical_variables inputCode expectedVars' = do
@@ -1768,8 +1965,11 @@ analyze code = case analysis (enrich code) of
   Left es -> $abort $ show_errors "test" es
   Right x -> x
 
-blurrSyntax :: String -> String -- {{{3
-blurrSyntax code = reduce (enrich code :: CTranslUnit)
+blurrCSyntax :: String -> String -- {{{3
+blurrCSyntax code = reduce (enrich code :: CTranslUnit)
+
+blurrIRSyntax :: String -> String -- {{{3
+blurrIRSyntax = unlines . drop 1 . map (reverse . dropWhile (==' ') . reverse . dropWhile (==' ')) . lines
 
 printOutputCode :: Analysis -> M.Map Symbol [CStat] -> String -- {{{3
 printOutputCode ana items =
@@ -1813,294 +2013,6 @@ blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet
 
 -- old stuff -- {{{1
 {-
-test_build_basic_blocks :: Test -- {{{2
-test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
-  -- , 01 - just return {{{3
-  ([],
-  [paste|
-    void foo() {
-      return;      
-    }
-  |], [paste|
-    L1:
-    RETURN
-  |], "L1")
-  , -- 02 - while loop {{{3
-  ([],
-  [paste|
-    void foo() {
-      a();
-      ec_ctrlbl_0: ;
-      if (! 1) goto ec_ctrlbl_1;
-      g();
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |], [paste|
-    L1:
-    a();
-    GOTO L2/ec_ctrlbl_0
-
-    L2/ec_ctrlbl_0:
-    IF !1 THEN L4/ec_ctrlbl_1 ELSE L3
-
-    L3:
-    g();
-    GOTO L2/ec_ctrlbl_0
-
-    L4/ec_ctrlbl_1:
-    b();
-    RETURN
-  |], "L1")
-  , -- 03 - do loop {{{3
-  ([], 
-  [paste|
-    void foo() {
-      a();
-      ec_ctrlbl_0: ;
-      g();
-      if (1) goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |], [paste|
-    L1:
-    a();
-    GOTO L2/ec_ctrlbl_0
-
-    L2/ec_ctrlbl_0:
-    g();
-    IF 1 THEN L2/ec_ctrlbl_0 ELSE L3/ec_ctrlbl_1
-
-    L3/ec_ctrlbl_1:
-    b();
-    RETURN
-  |], "L1")
-  , -- 04 - continue and break {{{3
-  ([],
-  [paste|
-    void foo() {
-      a();
-      ec_ctrlbl_0: ;
-      goto ec_ctrlbl_0;
-      g();
-      goto ec_ctrlbl_1;
-      if (1) goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |], [paste|
-    L1:
-    a();
-    GOTO L2/ec_ctrlbl_0
-
-    L2/ec_ctrlbl_0:
-    GOTO L2/ec_ctrlbl_0
-
-    L3:
-    g();
-    GOTO L5/ec_ctrlbl_1
-
-    L4:
-    IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
- 
-    L5/ec_ctrlbl_1:
-    b();
-    RETURN
-  |], "L1")
-  , -- 05 - switch statement {{{3
-  ([],
-  [paste|
-    void foo(int i) {
-      if (i==1) goto ec_ctrlbl_1;
-      if (i==2) goto ec_ctrlbl_2;
-      if (i==3) goto ec_ctrlbl_3;
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      a(); b();
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_2: ;
-      c(); d();
-      ec_ctrlbl_3: ;
-      e(); f(); return;
-      ec_ctrlbl_0: ;
-    }
-  |], [paste|
-    L1:
-    IF i == 1 THEN L5/ec_ctrlbl_1 ELSE L2
-
-    L2:
-    IF i == 2 THEN L6/ec_ctrlbl_2 ELSE L3
- 
-    L3:
-    IF i == 3 THEN L7/ec_ctrlbl_3 ELSE L4
-
-    L4:
-    GOTO L8/ec_ctrlbl_0
-
-    L5/ec_ctrlbl_1:
-    a();
-    b();
-    GOTO L8/ec_ctrlbl_0
-
-    L6/ec_ctrlbl_2:
-    c();
-    d();
-    GOTO L7/ec_ctrlbl_3
-
-    L7/ec_ctrlbl_3:
-    e();
-    f();
-    RETURN
-
-    L8/ec_ctrlbl_0:
-    RETURN
-  |], "L1")
-  , -- 06 - critical call {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      ec_ctrlbl_0: ;
-      if (! 1) goto ec_ctrlbl_1;
-      g();
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-    }
-  |], [paste| 
-    L1/ec_ctrlbl_0:
-    IF !1 THEN L4/ec_ctrlbl_1 ELSE L2
-    
-    L2:
-    g(); GOTO L3
-
-    L3:
-    GOTO L1/ec_ctrlbl_0
-
-    L4/ec_ctrlbl_1:
-    RETURN
-  |], "L1/ec_ctrlbl_0")
-  , -- 07 - trailing critical call {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      g();
-    }
-  |], [paste|
-    L1:
-    g(); GOTO L2
-    
-    L2:
-    RETURN
-  |], "L1")
-  , -- 08 - trailing if {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      ec_ctrlbl_0: ;
-      g();
-      if (1) goto ec_ctrlbl_0;
-    }
-  |], [paste|
-    L1/ec_ctrlbl_0:
-    g(); GOTO L2
-
-    L2:
-    IF 1 THEN L1/ec_ctrlbl_0 ELSE L3
-
-    L3:
-    RETURN
-  |], "L1/ec_ctrlbl_0")
-  , -- 09 - trailing statement {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      g();
-      h();
-    }
-  |], [paste|
-    L1:
-    g(); GOTO L2
-
-    L2:
-    h();
-    RETURN
-  |], "L1")
-  , -- 10 - first normal form {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      g();
-    }
-  |], [paste|
-    L1:
-    g(); GOTO L2
-
-    L2:
-    RETURN
-  |], "L1")
-  , -- 11 - second normal form {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      i = g();
-    }
-  |], [paste|
-    L1:
-    i = g(); GOTO L2
-
-    L2:
-    RETURN
-  |], "L1")
-  , -- 12 - dead code {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      if (1) goto ec_ctrlbl_0;
-      else goto ec_ctrlbl_1;
-      ec_ctrlbl_0: ;
-      b();
-      return;
-      goto ec_ctrlbl_2;
-      ec_ctrlbl_1: ;
-      c();
-      return;
-      ec_ctrlbl_2: ;
-    }
-  |], [paste|
-    L1:
-    IF 1 THEN L2/ec_ctrlbl_0 ELSE L4/ec_ctrlbl_1
-
-    L2/ec_ctrlbl_0:
-    b();
-    RETURN
-
-    L3:
-    GOTO L5/ec_ctrlbl_2
-
-    L4/ec_ctrlbl_1:
-    c();
-    RETURN
-
-    L5/ec_ctrlbl_2:
-    RETURN
-  |], "L1")
-
-  -- end {{{3
-  ]
-  where
-    runTest :: ([String], String, String, String) -> Assertion -- {{{3
-    runTest (cf, inputCode, expectedIr, expectedEntry) = 
-      let
-        (CTranslUnit [CFDefExt fd] _) = enrich inputCode :: CTranslationUnit NodeInfo
-        (CFunDef _ _ _ (CCompound _ bitems _) _) = fd
-        inputItems = map (\(CBlockStmt s) -> s) bitems
-        (outputEntry, outputIr) = build_basic_blocks (S.fromList cf) inputItems
-        expectedIr' = (unlines . drop 1 . map (drop 4) . lines) expectedIr
-      in do
-        expectedIr' @=? showGraph show outputIr
-        expectedEntry @=? show outputEntry
-
 test_critical_variables :: Test  -- {{{2
 test_critical_variables = enumTestGroup "critical_variables" $ map runTest [
   -- , 01 - single critical variable {{{3

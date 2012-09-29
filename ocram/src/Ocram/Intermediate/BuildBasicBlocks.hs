@@ -61,6 +61,7 @@ partition cf = part unused
       return $ [ProtoBlock ilabel [explicitReturn]]
 
     part previousStatement [] = case previousStatement of
+      -- handling "fall through" at the end of the function
       (Just SplitAfter, expr) -> 
         case expr of
           CIf _ _ Nothing _   -> sequel
@@ -80,7 +81,7 @@ partition cf = part unused
       let
         (prefix, suffix) = span (isNothing . fst) astmts
         (block, rest) = case suffix of
-          [] -> (prefix ++ [explicitReturn], [])
+          [] -> (prefix ++ [explicitReturn], []) -- handling implicit return
           (split:rest') -> case ($fromJust_s . fst) split of
             SplitBefore -> (prefix, suffix)
             SplitAfter  -> (prefix ++ [split], rest')
