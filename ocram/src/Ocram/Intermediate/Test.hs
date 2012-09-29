@@ -98,6 +98,7 @@ unit_tests = testGroup "unit" [
     group "collect" test_collect_declarations unitTestsCollect
   , group "desugar" test_desugar_control_structures unitTestsDesugar
   , group "boolean" test_boolean_short_circuiting unitTestsBoolean
+  , group "normalize" test_normalize_critical_calls unitTestsNormalize
   ]
   where
     group name fun cases = enumTestGroup name $ map (uncurry fun) cases
@@ -754,7 +755,7 @@ unitTestsDesugar = [
 
 unitTestsBoolean :: [(Input, OutputBooleanShortCircuiting)] -- {{{2
 unitTestsBoolean = [
-  -- 01 - critical function on left hand side, or expression {{{3
+  -- , 01 - critical function on left hand side, or expression {{{3
   ([paste|
     __attribute__((tc_blocking)) void block();
     __attribute__((tc_run_thread)) void start() {
@@ -976,6 +977,115 @@ unitTestsBoolean = [
   |]))
   -- end {{{3
   ]
+
+unitTestsNormalize :: [(Input, OutputNormalize)] -- {{{2
+unitTestsNormalize = [
+  -- , 01 - critical call in return statement {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block();
+    int c(int i) {
+      return block(i+1) + 2;
+    } 
+    __attribute__((tc_run_thread)) void start() {
+      int j = c(23);
+    }
+  |], ([
+      ("c", ["int ec_crit_0"])
+    , ("start", [])
+  ], [paste|
+    int c(int i) {
+      ec_crit_0 = block(i+1);
+      return ec_crit_0 + 2;
+    }
+    void start() {
+      j = c(23);
+    }
+  |]))
+  , -- 02 - critical call in condition of if statement {{{3
+  ([paste|
+    __attribute__((tc_blocking)) char block();
+    __attribute__((tc_run_thread)) void start() {
+      int j;
+      if (block() == 'a') j = 23; else j = 42;
+    }
+  |], ([
+      ("start", ["char ec_crit_0"])
+  ], [paste|
+    void start() {
+      ec_crit_0 = block();
+      if (ec_crit_0 == 'a') goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      ec_ctrlbl_0: ;
+      j = 23;
+      goto ec_ctrlbl_2;
+
+      ec_ctrlbl_1:;
+      j = 42;
+
+      ec_ctrlbl_2: ;
+    }
+  |]))
+  , -- 03 - critical call in nested expressions {{{3
+  ([paste|
+    __attribute__((tc_blocking)) char block();
+    __attribute__((tc_run_thread)) void start() {
+      int j;
+      j = block() + 23;
+    }
+  |], ([
+      ("start", ["char ec_crit_0"])
+  ], [paste|
+    void start() {
+      ec_crit_0 = block();
+      j = ec_crit_0 + 23;
+    }
+  |]))
+  , -- 04 - first normal form {{{3
+  ([paste|
+    __attribute__((tc_blocking)) char block(int i, int j);
+    __attribute__((tc_run_thread)) void start() {
+      int i = 0;
+      block(i, 23);
+    }
+  |], ([
+      ("start", [])
+  ], [paste|
+    void start() {
+      i = 0;
+      block(i, 23);
+    }
+  |]))
+  , -- 05 - second normal form {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i, int j);
+    __attribute__((tc_run_thread)) void start() {
+      int i = 0;
+      i = block(i, 23);
+    }
+  |], ([
+      ("start", [])
+  ], [paste|
+    void start() {
+      i = 0;
+      i = block(i, 23);
+    }
+  |]))
+  , -- 06 - critical call in initializer {{{3
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      int i = block(23), j = 0;
+    }
+  |], ([
+      ("start", [])
+  ], [paste|
+    void start() {
+      i = block(23);
+      j = 0;
+    }
+  |]))
+  -- end {{{3
+  ]
+
 -- integration tests {{{1
 integrationTestCases :: [TestCase] -- {{{2
 integrationTestCases = [
@@ -1703,952 +1813,6 @@ blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet
 
 -- old stuff -- {{{1
 {-
-test_boolean_short_circuiting :: Test -- {{{2
-test_boolean_short_circuiting = enumTestGroup "boolean_short_circuiting" $ map runTest [
-  -- , 01 - no critical function {{{3
-  ([],
-  [paste|
-    void foo() {
-      if(g() || h()) ;
-    }
-  |], [paste|
-    void foo() {
-      if(g() || h()) ;
-    }
-  |], [])
-  , -- 02 - critical function on left hand side, or expression {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      if(g() || h()) ;
-    }
-  |], [paste|
-    void foo() {
-      {
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
-        }
-        if (ec_bool_0) ;
-      }
-    }
-  |], ["int ec_bool_0"])
-  , -- 03 - critical function on right hand side, and expression {{{3
-  (["h"],
-  [paste|
-    void foo() {
-      if(g() && h()) ;
-    }
-  |], [paste|
-    void foo() {
-      {
-        ec_bool_0 = !!g();
-        if (ec_bool_0) {
-          ec_bool_0 = !!h();
-        }
-        if (ec_bool_0) ;
-      }
-    }
-  |], ["int ec_bool_0"])
-  , -- 04 - expression statement {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      g() || h();
-    }
-  |], [paste|
-    void foo() {
-      {
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
-        }
-        ec_bool_0;
-      }
-    }
-  |], ["int ec_bool_0"])
-  , -- 05 - switch statement {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      switch(g() || h()) ;
-    }
-  |], [paste|
-    void foo() {
-      {
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
-        }
-        switch(ec_bool_0) ;
-      }
-    }
-  |], ["int ec_bool_0"])
-  , -- 06 - return statement {{{3
-  (["g"],
-  [paste|
-    int foo() {
-      return (g() || h()) ;
-    }
-  |], [paste|
-    int foo() {
-      {
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
-        }
-        return ec_bool_0;
-      }
-    }
-  |], ["int ec_bool_0"])
-  , -- 07 - function call {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      h(k() || g());
-    }
-  |], [paste|
-    void foo() {
-      {
-        ec_bool_0 = !!k();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!g();
-        }
-        h(ec_bool_0);
-      }
-    }
-  |], ["int ec_bool_0"])
-  , -- 08 - within algebraic expression {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      if ((g() || 1) + 3);
-    }
-  |], [paste|
-    void foo() {
-      {
-        ec_bool_0 = !!g();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!1;
-        }
-        if (ec_bool_0 + 3);
-      }
-    }
-  |], ["int ec_bool_0"])
-  , -- 09 - containing algebraic expression {{{3
-  (["g"],
-  [paste|
-    void foo() {
-      if ((1+g()) || h());
-    }
-  |], [paste|
-    void foo() {
-      {
-        ec_bool_0 = !!(1 + g());
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h();
-        }
-        if (ec_bool_0);
-      }
-    }
-  |], ["int ec_bool_0"])
-  , -- 10 - nested {{{3
-  (["g1", "g2"],
-  [paste|
-    void foo() {
-      if ((g1() || h1()) && (h2() || g2()));
-    }
-  |], [paste|
-    void foo() {
-      {
-        ec_bool_0 = !!g1();
-        if (! ec_bool_0) {
-          ec_bool_0 = !!h1();
-        }
-        ec_bool_2 = !!ec_bool_0;
-        if (ec_bool_2) {
-          ec_bool_1 = !!h2();
-          if (!ec_bool_1) {
-            ec_bool_1 = !!g2();
-          }
-          ec_bool_2 = !!ec_bool_1;
-        }
-        if (ec_bool_2);
-      }
-    }
-  |], [
-      "int ec_bool_2"
-    , "int ec_bool_1"
-    , "int ec_bool_0"
-  ])
-  , -- 11 - generic case {{{3
-  (["g", "h"],
-  [paste|
-      void foo() {
-        if ((g() || (i = x(), 1)) && h());
-      }
-  |], [paste|
-      void foo() {
-        {
-          ec_bool_0 = !!g();
-          if (! ec_bool_0) {
-            ec_bool_0 = !! (i = x(), 1);
-          }
-          ec_bool_1 = !!ec_bool_0;
-          if (ec_bool_1) {
-            ec_bool_1 = !!h();
-          }
-          if (ec_bool_1);
-        }
-      }
-  |], [
-      "int ec_bool_1"
-    , "int ec_bool_0"
-  ])
-  ]
-  where
-    runTest :: ([String], String, String, [String]) -> Assertion -- {{{3
-    runTest (cf, inputCode, expectedCode, expectedDecls) =
-      let
-        (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7)
-           = enrich inputCode
-
-        outputAst                           
-            = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputItems x5) x6] (x7 :: NodeInfo)
-
-        (outputItems, outputVariables) = boolean_short_circuiting (S.fromList cf) inputItems
-        expectedCode'                       = reduce $ (enrich expectedCode :: CTranslUnit) :: String
-        outputCode                          = reduce $ outputAst
-        outputDecls                         = map (show . pretty . var_decl) outputVariables
-      in do
-        expectedCode' @=? outputCode
-        expectedDecls @=? outputDecls
-
-test_sequencialize_body :: Test -- {{{2
-test_sequencialize_body = enumTestGroup "sequencialize_body" $ map runTest [
-  -- , 01 - while loop {{{3
-  ([paste|
-    void foo() {
-      a();
-      {
-        ec_ctrlbl_0: ;
-        if (! 1) goto ec_ctrlbl_1;
-        g();
-        goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
-      }
-      b();
-    }
-  |], [paste|
-    void foo() {
-      a();
-      ec_ctrlbl_0: ;
-      if (! 1) goto ec_ctrlbl_1;
-      g();
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |])
-  , -- 02 - do loop {{{3
-  ([paste|
-    void foo() {
-      a();
-      {
-        ec_ctrlbl_0: ;
-        g();
-        if (1) goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
-      }
-      b();
-    }
-  |], [paste|
-    void foo() {
-      a();
-      ec_ctrlbl_0: ;
-      g();
-      if (1) goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |])
-  , -- 03 - for loop {{{3
-  ([paste|
-    void foo() {
-      a();
-      {
-        i = 0;
-        {
-          ec_ctrlbl_0: ;
-          if (! (i<23)) goto ec_ctrlbl_1;
-          g(i);
-          i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-      }
-      b();
-    }
-  |], [paste|
-    void foo() {
-      a();
-      i = 0;
-      ec_ctrlbl_0: ;
-      if (! (i<23)) goto ec_ctrlbl_1;
-      g(i);
-      i++;
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |])
-  , -- 04 - for loop - with declaration {{{3
-  ([paste|
-    void foo() {
-      a();
-      {
-        i = 0;
-        {
-          ec_ctrlbl_0: ;
-          if (! (i<23)) goto ec_ctrlbl_1;
-          g(i);
-          i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-      }
-      b();
-    }
-  |], [paste|
-    void foo() {
-      a();
-      i = 0;
-      ec_ctrlbl_0: ;
-      if (! (i<23)) goto ec_ctrlbl_1;
-      g(i);
-      i++;
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |])
-  , -- 05 - for loop - no init expression {{{3
-  ([paste|
-      void foo() {
-        a();
-        {
-          ec_ctrlbl_0: ;
-          if (! (i<23)) goto ec_ctrlbl_1;
-          g(i);
-          i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-        b();
-      }
-  |], [paste|
-      void foo() {
-        a();
-        ec_ctrlbl_0: ;
-        if (! (i<23)) goto ec_ctrlbl_1;
-        g(i);
-        i++;
-        goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
-        b();
-      }
-  |])
-  , -- 06 - for loop - no break condition {{{3
-  ([paste|
-    void foo() {
-      a();
-      {
-        i = 0;
-        {
-          ec_ctrlbl_0: ;
-          g(i);
-          i++;
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
-        }
-      }
-      b();
-    }
-  |], [paste|
-    void foo() {
-      a();
-      i = 0;
-      ec_ctrlbl_0: ;
-      g(i);
-      i++;
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |])
-  , -- 07 - for loop - no incr expression{{{3
-  ([paste|
-    void foo() {
-      a();
-      {
-        i = 0;
-        ec_ctrlbl_0: ;
-        if (! (i<23)) goto ec_ctrlbl_1;
-        g(i);
-        goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
-      }
-      b();
-    }
-  |], [paste|
-    void foo() {
-      a();
-      i = 0;
-      ec_ctrlbl_0: ;
-      if (! (i<23)) goto ec_ctrlbl_1;
-      g(i);
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |])
-  , -- 08 - continue and break {{{3
-  ([paste|
-    void foo() {
-      a();
-      {
-        ec_ctrlbl_0: ;
-        goto ec_ctrlbl_0;
-        g();
-        goto ec_ctrlbl_1;
-        if (1) goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ;
-      }
-      b();
-    }
-  |], [paste|
-    void foo() {
-      a();
-      ec_ctrlbl_0: ;
-      goto ec_ctrlbl_0;
-      g();
-      goto ec_ctrlbl_1;
-      if (1) goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ;
-      b();
-    }
-  |])
-  , -- 09 - nested {{{3
-  ([paste|
-    void foo() {
-      a();
-      {
-        ec_ctrlbl_0: ;
-        if (!1) goto ec_ctrlbl_1;
-        b();
-        goto ec_ctrlbl_0;
-        c();
-        {
-          ec_ctrlbl_2: ;
-          d();
-          goto ec_ctrlbl_2;
-          e();
-          goto ec_ctrlbl_3;
-          f();
-          if (23) goto ec_ctrlbl_2;
-          ec_ctrlbl_3: ;
-        }
-        g();
-        goto ec_ctrlbl_1;
-        h();
-        goto ec_ctrlbl_0;
-        ec_ctrlbl_1: ; 
-      }
-      i(); 
-    }
-  |], [paste|
-    void foo() {
-      a();
-      ec_ctrlbl_0: ;
-      if (!1) goto ec_ctrlbl_1;
-      b();
-      goto ec_ctrlbl_0;
-      c();
-      ec_ctrlbl_2: ;
-      d();
-      goto ec_ctrlbl_2;
-      e();
-      goto ec_ctrlbl_3;
-      f();
-      if (23) goto ec_ctrlbl_2;
-      ec_ctrlbl_3: ;
-      g();
-      goto ec_ctrlbl_1;
-      h();
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_1: ; 
-      i(); 
-    }
-  |])
-  , -- 10 - if statements {{{3
-  ([paste|
-    void foo() {
-      {
-        if (1) {
-          goto ec_ctrlbl_0;
-        } else {
-          goto ec_ctrlbl_1;
-        }
-        {
-          ec_ctrlbl_0: ;
-          b();
-        }
-        ec_ctrlbl_1: ;
-      }
-    }
-  |], [paste|
-    void foo() {
-      if (1) goto ec_ctrlbl_0;
-      else goto ec_ctrlbl_1;
-      ec_ctrlbl_0: ;
-      b();
-      ec_ctrlbl_1: ;
-    }
-  |])
-  , -- 11 - if statements with else block {{{3
-  ([paste|
-    void foo() {
-      {
-        if (1) {
-          goto ec_ctrlbl_0;
-        } else {
-          goto ec_ctrlbl_1;
-        }
-        {
-          ec_ctrlbl_0: ;
-          b();
-          return;
-          goto ec_ctrlbl_2;
-        }
-        {
-          ec_ctrlbl_1: ;
-          c();
-          return;
-        }
-        ec_ctrlbl_2: ;
-      }
-    }
-  |], [paste|
-    void foo() {
-      if (1) goto ec_ctrlbl_0;
-      else goto ec_ctrlbl_1;
-      ec_ctrlbl_0: ;
-      b();
-      return;
-      goto ec_ctrlbl_2;
-      ec_ctrlbl_1: ;
-      c();
-      return;
-      ec_ctrlbl_2: ;
-    }
-  |])
-  , -- 12 - if statement with else if {{{3
-  ([paste|
-    void foo() {
-      {
-        if (1) {
-          goto ec_ctrlbl_0;
-        } else {
-          goto ec_ctrlbl_1;
-        }
-        {
-          ec_ctrlbl_0: ;
-          b();
-          return;
-          goto ec_ctrlbl_2;
-        }
-        {
-          ec_ctrlbl_1: ;
-          {
-            if (2) {
-              goto ec_ctrlbl_3;
-            } else {
-              goto ec_ctrlbl_4;
-            }
-            {
-              ec_ctrlbl_3: ;
-              c();
-              return;
-            }
-            ec_ctrlbl_4: ;
-          }
-        }
-        ec_ctrlbl_2: ;
-      }
-    }
-  |], [paste|
-    void foo() {
-      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
-      ec_ctrlbl_0: ;
-      b();
-      return;
-      goto ec_ctrlbl_2;
-      ec_ctrlbl_1: ;
-      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_2;
-      ec_ctrlbl_3: ;
-      c();
-      return;
-      ec_ctrlbl_2: ;
-    }
-  |])
-  , -- 13 - chained else if {{{3
-  ([paste|
-    void foo() {
-    {
-      if (0) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
-      {
-        ec_ctrlbl_0: ;
-        goto ec_ctrlbl_2;
-      }
-      {
-        ec_ctrlbl_1: ;
-        {
-          if (1) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
-          {
-            ec_ctrlbl_3: ;
-            a();
-            goto ec_ctrlbl_5;
-          }
-          {
-            ec_ctrlbl_4: ;
-            {
-              if (2) goto ec_ctrlbl_6; else goto ec_ctrlbl_7;
-              {
-                ec_ctrlbl_6: ;
-                b();
-                goto ec_ctrlbl_8;
-              }
-              {
-                ec_ctrlbl_7: ;
-                {
-                  if (3) goto ec_ctrlbl_9; else goto ec_ctrlbl_10;
-                  {
-                    ec_ctrlbl_9: ;
-                    c();
-                    goto ec_ctrlbl_11;
-                  }
-                  {
-                    ec_ctrlbl_10: ;
-                  }
-                  ec_ctrlbl_11: ;
-                }
-              }
-              ec_ctrlbl_8: ;
-              }
-            }
-            ec_ctrlbl_5: ;
-            }
-          }
-        ec_ctrlbl_2: ;
-      }
-    }
-  |], [paste|
-    void foo() {
-      if (0) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
-
-      ec_ctrlbl_0: ;
-      goto ec_ctrlbl_2;
-
-      ec_ctrlbl_1: ;
-      if (1) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
-
-      ec_ctrlbl_3: ;
-      a();
-      goto ec_ctrlbl_2;
-
-      ec_ctrlbl_4: ;
-      if (2) goto ec_ctrlbl_6; else goto ec_ctrlbl_7;
-
-      ec_ctrlbl_6: ;
-      b();
-      goto ec_ctrlbl_2;
-
-      ec_ctrlbl_7: ;
-      if (3) goto ec_ctrlbl_9; else goto ec_ctrlbl_2;
-
-      ec_ctrlbl_9: ;
-      c();
-      goto ec_ctrlbl_2;
-
-      ec_ctrlbl_2: ;
-    }
-  |])
-  , -- 14 - switch statement {{{3
-  ([paste|
-    void foo(int i) {
-      {
-        if (i==1) goto ec_ctrlbl_1;
-        if (i==2) goto ec_ctrlbl_2;
-        if (i==3) goto ec_ctrlbl_3;
-        
-        {
-          ec_ctrlbl_1: ;
-          a(); b();
-          goto ec_ctrlbl_0;
-        }
-        {
-          ec_ctrlbl_2: ;
-          c(); d();
-        }
-        {
-          ec_ctrlbl_3: ;
-          e(); f(); return;
-        }
-        ec_ctrlbl_0: ;
-      }
-    }
-  |], [paste|
-    void foo(int i) {
-      if (i==1) goto ec_ctrlbl_1;
-      if (i==2) goto ec_ctrlbl_2;
-      if (i==3) goto ec_ctrlbl_3;
-      ec_ctrlbl_1: ;
-      a(); b();
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_2: ;
-      c(); d();
-      ec_ctrlbl_3: ;
-      e(); f(); return;
-      ec_ctrlbl_0: ;
-    }
-  |])
-  , -- 15 - switch statement with default {{{3
-  ([paste|
-    void foo(int i) {
-      {
-        if (i==1) goto ec_ctrlbl_1;
-        if (i==2) goto ec_ctrlbl_2;
-        goto ec_ctrlbl_3;
-        
-        {
-          ec_ctrlbl_1: ;
-          a(); b();
-          goto ec_ctrlbl_0;
-        }
-        {
-          ec_ctrlbl_2: ;
-          c(); d();
-        }
-        {
-          ec_ctrlbl_3: ;
-          e(); f();
-        }
-        ec_ctrlbl_0: ;
-      }
-    }
-  |], [paste|
-    void foo(int i) {
-      if (i==1) goto ec_ctrlbl_1;
-      if (i==2) goto ec_ctrlbl_2;
-      goto ec_ctrlbl_3;
-      ec_ctrlbl_1: ;
-      a(); b();
-      goto ec_ctrlbl_0;
-      ec_ctrlbl_2: ;
-      c(); d();
-      ec_ctrlbl_3: ;
-      e(); f();
-      ec_ctrlbl_0: ;
-    }
-  |])
-  , -- 16 - empty statements -- {{{3
-  ([paste|
-    void foo() {
-      i++;
-      ;
-      {
-        i*=2;
-        ;
-      }
-      i/=2;
-      {
-        ;
-      }
-      i--;
-    }
-  |], [paste|
-    void foo () {
-      i++;
-      i*=2;
-      i/=2;
-      i--;
-    }
-  |])
-  , -- 17 - regression test {{{3
-  ([paste|
-    void foo() {
-      {
-          if (23) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
-          {
-          ec_ctrlbl_0: ;
-              goto ec_ctrlbl_2;
-          }
-          {
-          ec_ctrlbl_1: ;
-              {
-              ec_ctrlbl_3: ;
-                  {
-                      if (!0) goto ec_ctrlbl_5; else goto ec_ctrlbl_6;
-                      {
-                      ec_ctrlbl_5: ;
-                          debug_file = "app-tc.c";
-                          debug_line = 66;
-                          debug_mark = 0xffff;
-                      }
-                  ec_ctrlbl_6: ;
-                  }
-                  if (0)
-                  {
-                      goto ec_ctrlbl_3;
-                  }
-              ec_ctrlbl_4: ;
-              }
-          }
-      ec_ctrlbl_2: ;
-      }
-    }
-  |], [paste|
-    void foo() {
-        if (23) goto ec_ctrlbl_0; else goto ec_ctrlbl_3;
-
-      ec_ctrlbl_0: ;
-        goto ec_ctrlbl_2;
-
-      ec_ctrlbl_3: ;
-        if (!0) goto ec_ctrlbl_5; else goto ec_ctrlbl_6;
-
-      ec_ctrlbl_5: ;
-        debug_file = "app-tc.c";
-        debug_line = 66;
-        debug_mark = 0xffff;
-
-      ec_ctrlbl_6: ;
-        if (0) goto ec_ctrlbl_3;
-      ec_ctrlbl_2: ;
-    }
-  |])
-  -- end {{{3
-  ]
-  where
-    runTest :: (String, String) -> Assertion -- {{{3
-    runTest (inputCode, expectedCode) =
-      let
-        (CTranslUnit [CFDefExt (CFunDef x1 x2 x3 (CCompound x4 inputItems x5) x6)] x7) = enrich inputCode
-        outputItems = map CBlockStmt $ sequencialize_body inputItems
-        outputAst = CTranslUnit [CFDefExt $ CFunDef x1 x2 x3 (CCompound x4 outputItems x5) x6] x7
-        expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
-        outputCode = reduce outputAst
-      in
-        expectedCode' @=? outputCode
-
-test_normalize_critical_calls :: Test -- {{{2
-test_normalize_critical_calls = enumTestGroup "normalize_critical_calls" $ map runTest [
-  -- , 01 - critical call in return statement {{{3
-  ([paste|
-    int foo() {
-      return bar() + 23;
-    } 
-
-    int bar() { return 0; }
-  |], [paste|
-    int foo() {
-      ec_crit_0 = bar();
-      return ec_crit_0 + 23;
-    }
-  |], [
-      "int ec_crit_0"
-  ])
-  , -- 02 - critical call in condition of if statement {{{3
-  ([paste|
-    int foo() {
-      if (bar() == 'a') return 0; else return 1;
-    } 
-
-    char bar() { return 0; }
-  |], [paste|
-    int foo() {
-      ec_crit_0 = bar();
-      if (ec_crit_0 == 'a') return 0; else return 1;
-    }
-  |], [
-      "char ec_crit_0"
-  ])
-  , -- 03 - critical call in nested expressions {{{3
-  ([paste|
-    void foo() {
-      i = bar() + 23;
-    } 
-
-    double bar() { return 0; }
-  |], [paste|
-    void foo() {
-      ec_crit_0 = bar();
-      i = ec_crit_0 + 23;
-    }
-  |], [
-      "double ec_crit_0"
-  ])
-  , -- 04 - empty function {{{3
-  ("void foo(){ }", "void foo() { }", [])
-  , -- 05 - first normal form {{{3
-  ([paste|
-    void foo() {
-      g();
-    }
-    void g() { }
-  |], [paste|
-    void foo() {
-      g();
-    }
-  |], [])  
-  , -- 06 - second normal form {{{3
-  ([paste|
-    void foo() {
-      i = g();
-    }
-    void g() { }
-  |], [paste|
-    void foo() {
-      i = g();
-    }
-  |], [])  
-  -- end {{{3
-  ]
-  where
-    runTest :: (String, String, [String]) -> Assertion -- {{{3
-    runTest (inputCode, expectedCode, expectedDecls) =
-      let
-        (CTranslUnit eds y) = enrich inputCode :: CTranslUnit
-        (fd:fds) = map unwrapFd eds
-        sf       = M.fromList $ zip (map symbol fds) (map return_type_fd fds)
-        (CFunDef x1 x2 x3 (CCompound x4 bitems x5) x6) = fd
-        inputItems = map unwrapB bitems
-        (outputItems, outputVariables) = normalize_critical_calls sf inputItems
-        outputFd = CFunDef x1 x2 x3 (CCompound x4 (map CBlockStmt outputItems) x5) x6
-        outputAst = CTranslUnit [CFDefExt outputFd] y
-        outputCode = reduce outputAst
-        expectedCode' = reduce (enrich expectedCode :: CTranslUnit) :: String
-        outputDecls = map (show . pretty . var_decl) outputVariables
-      in do
-        expectedCode' @=? outputCode
-        expectedDecls @=? outputDecls
-
-    unwrapFd (CFDefExt fd) = fd
-    unwrapFd _             = error "unwrapFd"
-
-    unwrapB (CBlockStmt s) = s
-    unwrapB _              = error "unwrapB"
-
 test_build_basic_blocks :: Test -- {{{2
 test_build_basic_blocks = enumTestGroup "build_basic_blocks" $ map runTest [
   -- , 01 - just return {{{3
