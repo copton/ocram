@@ -20,7 +20,7 @@ import qualified Compiler.Hoopl as H
 
 build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
 build_basic_blocks cf stmts = runM $ do
-  protoblocks <- partition cf (annotate cf stmts)
+  protoblocks <- partition cf . annotate cf . removeEmptyExpressions $ stmts
   let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undef]
   blocks <- mapM convert blockcont
   let body = foldl splice H.emptyClosedGraph blocks
@@ -28,6 +28,12 @@ build_basic_blocks cf stmts = runM $ do
   where
     splice = (H.|*><*|)
     undef = $abort "undefined"
+
+removeEmptyExpressions :: [CStat] -> [CStat]
+removeEmptyExpressions = foldr rm []
+  where
+    rm (CExpr Nothing _) ss = ss
+    rm o                 ss = o : ss
 
 annotate :: S.Set Symbol -> [CStat] -> [AnnotatedStmt] -- {{{2
 annotate cf stmts = zip (map splitPoint stmts) stmts

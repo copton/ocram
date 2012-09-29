@@ -1720,7 +1720,7 @@ integrationTestCases = [
         ("start", [C "i"])
       ]
   }
-{-  , TestCase { -- 06 - generic fuck up {{{3
+  , TestCase { -- 06 - generic fuck up {{{3
     input       = -- {{{4
       [lpaste|
         __attribute__((tc_blocking)) int block(int i);
@@ -1783,15 +1783,212 @@ integrationTestCases = [
             ec_ctrlbl_0: ;
           }
         |]
-    , outShortCircuit = Nothing -- {{{4
-    , outNormalize    = Nothing -- {{{4
+    , outShortCircuit = Just (-- {{{4
+        [("start", ["int ec_bool_0"])]
+      , [paste|
+        void start() {
+          i = block(0);
+          if (i == 0) goto ec_ctrlbl_1;
+          if (i == 1) goto ec_ctrlbl_2;
+          if (i == 2) goto ec_ctrlbl_3;
+          if (i == 3) goto ec_ctrlbl_4;
+          goto ec_ctrlbl_5; 
+
+          ec_ctrlbl_1: ;
+          j = block(23) > 0;
+          goto ec_ctrlbl_0;
+
+          ec_ctrlbl_2: ;
+          ;
+
+          ec_ctrlbl_3: ;
+          i++;
+
+          ec_ctrlbl_4: ;
+          ec_bool_0 = !!block(i);
+          if (!ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
+          ec_bool_1: ;
+          ec_bool_0 = !!block(i-1);
+          ec_bool_2: ;
+          j = ec_bool_0;
+          goto ec_ctrlbl_0;
+
+          ec_ctrlbl_5: ;
+          j = 0;
+
+          ec_ctrlbl_0: ;
+        }
+        |]
+      )
+    , outNormalize    = Just (-- {{{4
+        [("start", [
+            "int ec_crit_2"
+          , "int ec_crit_1"
+          , "int ec_crit_0"
+        ])]
+      , [paste|
+        void start() {
+          i = block(0);
+          if (i == 0) goto ec_ctrlbl_1;
+          if (i == 1) goto ec_ctrlbl_2;
+          if (i == 2) goto ec_ctrlbl_3;
+          if (i == 3) goto ec_ctrlbl_4;
+          goto ec_ctrlbl_5; 
+
+          ec_ctrlbl_1: ;
+          ec_crit_0 = block(23);
+          j = ec_crit_0 > 0;
+          goto ec_ctrlbl_0;
+
+          ec_ctrlbl_2: ;
+          ;
+
+          ec_ctrlbl_3: ;
+          i++;
+
+          ec_ctrlbl_4: ;
+          ec_crit_1 = block(i);
+          ec_bool_0 = !!ec_crit_1;
+          if (!ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
+          ec_bool_1: ;
+          ec_crit_2 = block(i-1);
+          ec_bool_0 = !!ec_crit_2;
+          ec_bool_2: ;
+          j = ec_bool_0;
+          goto ec_ctrlbl_0;
+
+          ec_ctrlbl_5: ;
+          j = 0;
+
+          ec_ctrlbl_0: ;
+        }
+        |]
+      )
     , outBasicBlocks = [ -- {{{4
         ("start", "L1", [paste|
+          L1:
+          i = block(0); GOTO L2
+
+          L2:
+          IF i == 0 THEN L7/ec_ctrlbl_1 ELSE L3
+
+          L3:
+          IF i == 1 THEN L9/ec_ctrlbl_2 ELSE L4
+
+          L4:
+          IF i == 2 THEN L10/ec_ctrlbl_3 ELSE L5
+
+          L5:
+          IF i == 3 THEN L11/ec_ctrlbl_4 ELSE L6
+
+          L6:
+          GOTO L16/ec_ctrlbl_5
+
+          L7/ec_ctrlbl_1:
+          ec_crit_0 = block(23); GOTO L8
+
+          L8:
+          j = ec_crit_0 > 0;
+          GOTO L17/ec_ctrlbl_0
+
+          L9/ec_ctrlbl_2:
+          GOTO L10/ec_ctrlbl_3
+
+          L10/ec_ctrlbl_3:
+          i++;
+          GOTO L11/ec_ctrlbl_4
+
+          L11/ec_ctrlbl_4:
+          ec_crit_1 = block(i); GOTO L12
+
+          L12:
+          ec_bool_0 = ! (!ec_crit_1);
+          IF !ec_bool_0 THEN L13/ec_bool_1 ELSE L15/ec_bool_2
+
+          L13/ec_bool_1:
+          ec_crit_2 = block(i - 1); GOTO L14
+
+          L14:
+          ec_bool_0 = ! (!ec_crit_2);
+          GOTO L15/ec_bool_2
+
+          L15/ec_bool_2:
+          j = ec_bool_0;
+          GOTO L17/ec_ctrlbl_0
+
+          L16/ec_ctrlbl_5:
+          j = 0;
+          GOTO L17/ec_ctrlbl_0
+
+          L17/ec_ctrlbl_0:
+          RETURN
         |])
       ]
-    , outOptimize = Nothing -- {{{4
-    , outCritical = Nothing -- {{{4
-  }-}
+    , outOptimize = Just [ -- {{{4
+        ("start", "L1", [paste|
+          L1:
+          i = block(0); GOTO L2
+
+          L2:
+          IF i == 0 THEN L7/ec_ctrlbl_1 ELSE L3
+
+          L3:
+          IF i == 1 THEN L10/ec_ctrlbl_3 ELSE L4
+
+          L4:
+          IF i == 2 THEN L10/ec_ctrlbl_3 ELSE L5
+
+          L5:
+          IF i == 3 THEN L11/ec_ctrlbl_4 ELSE L16/ec_ctrlbl_5
+
+          L7/ec_ctrlbl_1:
+          ec_crit_0 = block(23); GOTO L8
+
+          L8:
+          j = ec_crit_0 > 0;
+          GOTO L17/ec_ctrlbl_0
+
+          L10/ec_ctrlbl_3:
+          i++;
+          GOTO L11/ec_ctrlbl_4
+
+          L11/ec_ctrlbl_4:
+          ec_crit_1 = block(i); GOTO L12
+
+          L12:
+          ec_bool_0 = ! (!ec_crit_1);
+          IF !ec_bool_0 THEN L13/ec_bool_1 ELSE L15/ec_bool_2
+
+          L13/ec_bool_1:
+          ec_crit_2 = block(i - 1); GOTO L14
+
+          L14:
+          ec_bool_0 = ! (!ec_crit_2);
+          GOTO L15/ec_bool_2
+
+          L15/ec_bool_2:
+          j = ec_bool_0;
+          GOTO L17/ec_ctrlbl_0
+
+          L16/ec_ctrlbl_5:
+          j = 0;
+          GOTO L17/ec_ctrlbl_0
+
+          L17/ec_ctrlbl_0:
+          RETURN
+        |])
+      ]
+    , outCritical = Just [ -- {{{4
+        ("start", [
+            U "j"
+          , U "ec_bool_0"
+          , C "i"
+          , C "ec_crit_2"
+          , C "ec_crit_1"
+          , C "ec_crit_0"
+        ])
+      ]
+  }
   {-, TestCase { -- switch statement {{{3
     input       = -- {{{4
       [lpaste|
@@ -1842,14 +2039,16 @@ testDesugarControlStructures = test_desugar_control_structures <$> input <*> out
 testBooleanShortCircuiting :: TestCase -> Assertion -- {{{3
 testBooleanShortCircuiting = test_boolean_short_circuiting <$> input <*> output
   where
-    output = (,) <$> emptyCfList <*> code
+    output = (,) <$> cflist <*> code
     code = fromMaybe <$> snd . outCollect <*> msum . sequence [fmap snd . outShortCircuit, outDesugar]
+    cflist = fromMaybe <$> emptyCfList <*> fmap fst . outShortCircuit
 
 testNormalizeCriticalCalls :: TestCase -> Assertion -- {{{3
 testNormalizeCriticalCalls = test_normalize_critical_calls <$> input <*> output
   where
-    output = (,) <$> emptyCfList <*> code
+    output = (,) <$> cflist <*> code
     code   = fromMaybe <$> snd . outCollect <*> msum . sequence [fmap snd . outNormalize, fmap snd . outShortCircuit, outDesugar]
+    cflist = fromMaybe <$> emptyCfList <*> fmap fst . outNormalize
 
 testBuildBasicBlocks :: TestCase -> Assertion -- {{{3
 testBuildBasicBlocks = test_build_basic_blocks <$> input <*> outBasicBlocks
@@ -2110,7 +2309,7 @@ desugarControlStructures :: [CBlockItem] -> [CStat] -- {{{4
 desugarControlStructures = desugar_control_structures
 
 booleanShortCircuiting :: Analysis -> [CStat] -> [CStat] -- {{{4
-booleanShortCircuiting ana = fst . boolean_short_circuiting (criticalFunctions ana)
+booleanShortCircuiting ana = fst . boolean_short_circuiting (blockingAndCriticalFunctions ana)
 
 normalizeCriticalCalls :: Analysis -> [CStat] -> [CStat] -- {{{4
 normalizeCriticalCalls ana = fst . normalize_critical_calls (returnTypes ana)
@@ -2122,8 +2321,6 @@ buildBasicBlocks ana = build_basic_blocks (blockingAndCriticalFunctions ana)
 returnTypes :: Analysis -> M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -- {{{4
 returnTypes = M.union <$> M.map return_type_fd . anaCritical <*> M.map return_type_cd . anaBlocking
 
-criticalFunctions :: Analysis -> S.Set Symbol -- {{{4
-criticalFunctions = M.keysSet . anaCritical
 
 blockingAndCriticalFunctions :: Analysis -> S.Set Symbol -- {{{4
 blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet . anaBlocking
