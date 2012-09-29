@@ -111,8 +111,12 @@ groupCases xs = case xs of
   [] -> []
   (CBlockStmt item):rest -> case item of
     CCase expr stmt _ ->
-      let (block, others) = span (not . isCaseDefault) rest in
-      (Just expr, CBlockStmt stmt : block) : groupCases others
+      let stmt' = CBlockStmt stmt in
+      if isCaseDefault stmt'
+        then (Just expr, [CBlockStmt (CExpr Nothing undefNode)]) : groupCases (stmt':rest)
+        else 
+          let (block, others) = span (not . isCaseDefault) rest in
+          (Just expr, CBlockStmt stmt : block) : groupCases others
     CDefault stmt _   ->
       let (block, others) = span (not . isCaseDefault) rest in
       (Nothing, CBlockStmt stmt : block) : groupCases others

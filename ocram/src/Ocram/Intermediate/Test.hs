@@ -751,6 +751,62 @@ unitTestsDesugar = [
       ec_ctrlbl_0: ;
     }
   |])
+  , -- 13 - switch statement with empty case {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      switch (i) {
+        case 1:
+        case 2: c(); block();
+        default: e(); f();
+      }
+    }
+  |], [paste|
+    void start() {
+      if (i==1) goto ec_ctrlbl_1;
+      if (i==2) goto ec_ctrlbl_2;
+      goto ec_ctrlbl_3;
+
+      ec_ctrlbl_1: ;
+      ;
+
+      ec_ctrlbl_2: ;
+      c(); block();
+
+      ec_ctrlbl_3: ;
+      e(); f();
+
+      ec_ctrlbl_0: ;
+    }
+  |])
+  , -- 14 - switch statement with empty case before default {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_run_thread)) void start() {
+      switch (i) {
+        case 2: c(); block();
+        case 1:
+        default: e(); f();
+      }
+    }
+  |], [paste|
+    void start() {
+      if (i==2) goto ec_ctrlbl_1;
+      if (i==1) goto ec_ctrlbl_2;
+      goto ec_ctrlbl_3;
+
+      ec_ctrlbl_1: ;
+      c(); block();
+
+      ec_ctrlbl_2: ;
+      ;
+
+      ec_ctrlbl_3: ;
+      e(); f();
+
+      ec_ctrlbl_0: ;
+    }
+  |])
   -- end {{{3
   ]
 
@@ -1664,9 +1720,79 @@ integrationTestCases = [
         ("start", [C "i"])
       ]
   }
-  -- end {{{3
-{-  
-  , TestCase { -- {{{3
+{-  , TestCase { -- 06 - generic fuck up {{{3
+    input       = -- {{{4
+      [lpaste|
+        __attribute__((tc_blocking)) int block(int i);
+02:     __attribute__((tc_run_thread)) void start() {
+          int i = block(0); 
+          int j;
+          switch (i) {
+            case 0: j = block(23) > 0; break;
+            case 1:
+            case 2: i++;
+            case 3: j = block(i) || block(i-1); break;
+            default: j = 0;
+          }
+12:     }
+      |]
+    , outCollect = ( -- {{{4
+        [("start", [
+            ("int j", 2, 12)
+          , ("int i", 2, 12)
+        ], []) ]
+      , [paste|
+          void start() {
+            i = block(0); 
+            switch (i) {
+              case 0: j = block(23) > 0; break;
+              case 1:
+              case 2: i++;
+              case 3: j = block(i) || block(i-1); break;
+              default: j = 0;
+            }
+          }
+        |]
+      )
+    , outDesugar = Just  -- {{{4
+        [paste|
+          void start() {
+            i = block(0);
+            if (i == 0) goto ec_ctrlbl_1;
+            if (i == 1) goto ec_ctrlbl_2;
+            if (i == 2) goto ec_ctrlbl_3;
+            if (i == 3) goto ec_ctrlbl_4;
+            goto ec_ctrlbl_5; 
+
+            ec_ctrlbl_1: ;
+            j = block(23) > 0;
+            goto ec_ctrlbl_0;
+
+            ec_ctrlbl_2: ;
+            ;
+
+            ec_ctrlbl_3: ;
+            i++;
+            ec_ctrlbl_4: ;
+            j = block(i) || block(i-1);
+            goto ec_ctrlbl_0;
+
+            ec_ctrlbl_5: ;
+            j = 0;
+
+            ec_ctrlbl_0: ;
+          }
+        |]
+    , outShortCircuit = Nothing -- {{{4
+    , outNormalize    = Nothing -- {{{4
+    , outBasicBlocks = [ -- {{{4
+        ("start", "L1", [paste|
+        |])
+      ]
+    , outOptimize = Nothing -- {{{4
+    , outCritical = Nothing -- {{{4
+  }-}
+  {-, TestCase { -- switch statement {{{3
     input       = -- {{{4
       [lpaste|
         __attribute__((tc_blocking)) void block();
@@ -1681,25 +1807,16 @@ integrationTestCases = [
     , outDesugar = Just  -- {{{4
         [paste|
         |]
-    , outShortCircuit = ( -- {{{4
-        [("start", [])]
-      , Nothing
-      )
-    , outNormalize   = ( -- {{{4
-        [("start", [])]
-      , Nothing
-      )
+    , outShortCircuit = Nothing -- {{{4
+    , outNormalize    = Nothing -- {{{4
     , outBasicBlocks = [ -- {{{4
         ("start", "L1", [paste|
         |])
       ]
-    , outOptimize = -- {{{4
-        Nothing
-    , outCritical = [ -- {{{4
-        ("start", [], [])
-      ]
-  }
--}
+    , outOptimize = Nothing -- {{{4
+    , outCritical = Nothing -- {{{4
+  }-}
+  -- end {{{3
   ]
 
 data TestCase = TestCase { -- {{{2
