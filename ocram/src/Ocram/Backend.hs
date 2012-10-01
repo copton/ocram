@@ -12,9 +12,8 @@ import Ocram.Analysis (Analysis(..))
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
 import Ocram.Backend.TStack
-import Ocram.Backend.Util (makeVarDecl)
 import Ocram.Debug (enrich_node_info, CTranslUnit')
-import Ocram.Intermediate (Function(..))
+import Ocram.Intermediate (Function(..), Variable(..))
 import Ocram.Names (tframe)
 import Ocram.Symbols (Symbol, symbol)
 
@@ -55,4 +54,4 @@ blockingFunctionDeclarations = map go . M.elems
       declr' = CDeclr Nothing [CPtrDeclr [] un] Nothing [] un
 
 staticVariables :: M.Map Symbol Function -> [CDecl] -- {{{2
-staticVariables = map makeVarDecl . M.fold (\fun vs -> fun_stVars fun ++ vs) []
+staticVariables = M.fold (\fun vs -> map var_decl (fun_stVars fun) ++ vs) []

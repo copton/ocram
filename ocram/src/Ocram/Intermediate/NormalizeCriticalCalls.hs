@@ -36,13 +36,11 @@ normalize_critical_calls sf items =
       | isInNormalForm expr = return [o]
       | otherwise = keepOrReplace [expr] o (\[expr'] -> CExpr (Just expr') ni)
 
-    tStmt o@(CGoto _ _) = return [o]
-
+    tStmt o@(CExpr Nothing _)                = return [o]
+    tStmt o@(CGoto _ _)                      = return [o]
     tStmt o@(CLabel _ (CExpr Nothing _) _ _) = return [o]
-
-    tStmt o@(CReturn Nothing _) = return [o]
-
-    tStmt x = $abort $ unexp x
+    tStmt o@(CReturn Nothing _)              = return [o]
+    tStmt x                                  = $abort $ unexp x
 
     keepOrReplace :: [CExpr] -> CStat -> ([CExpr] -> CStat) -> S [CStat] -- {{{2
     keepOrReplace es s f = do
@@ -71,10 +69,10 @@ normalize_critical_calls sf items =
           Ctx vars count inits <- get
           let
             decl       = newDecl callee count
-            name       = symbol decl
             ni         = annotation call
+            name       = symbol decl
             init       = CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) undefNode) call ni)) ni
-            var        = Variable decl name Nothing
+            var        = Variable decl Nothing
           put $ Ctx (var : vars) (count + 1) (init : inits)
           return $ CVar (internalIdent name) undefNode
 

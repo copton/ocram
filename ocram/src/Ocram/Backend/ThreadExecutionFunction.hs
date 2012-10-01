@@ -66,9 +66,8 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
 
     cBlock :: Block -> [CBlockItem]
     cBlock block =
-      let (Label entry, middles, last) = block_components block in
-        CBlockStmt (CLabel (lblIdent entry fname) (CExpr Nothing un) [] un)
-      : map cMiddle middles ++ cLast last
+      let (first, middles, last) = block_components block in
+        cFirst first ++ map cMiddle middles ++ cLast last
 
     inlineBlock :: Label -> [CBlockItem]
     inlineBlock lbl = 
@@ -77,6 +76,17 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
         (_, middles, last) = block_components block
       in
         map cMiddle middles ++ cLast last
+
+    cFirst :: Node C O -> [CBlockItem]
+    cFirst (Label entry) = [CBlockStmt (CLabel (lblIdent entry fname) (CExpr Nothing un) [] un)]
+
+    cFirst (Cont lbl (FirstNormalForm _ _)) = cFirst (Label lbl)
+    cFirst (Cont lbl (SecondNormalForm lhs op callee _)) =
+      let 
+        callChain' = callChain ++ [callee] 
+        lhs'       = rewriteLocalVariableAccess lhs
+        resultExpr = CExpr (Just (CAssign op lhs' (tstackAccess callChain' (Just resVar) un) un)) un
+      in cFirst (Label lbl) ++ [CBlockStmt resultExpr]
 
     cMiddle :: Node O O -> CBlockItem
     cMiddle (Stmt expr) = CBlockStmt $ CExpr (Just (cExpr expr)) un 
@@ -97,12 +107,10 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
     cLast (If cond t e) = [CBlockStmt $ CIf (cExpr cond) (cBranch t) (Just (cBranch e)) un]
 
     cLast (Call (FirstNormalForm callee params) lbl) =
-         criticalCallSequence callee (map cExpr params) lbl Nothing
-      ++ inlineBlock lbl
+         criticalCallSequence callee (map cExpr params) lbl
 
-    cLast (Call (SecondNormalForm  lhs op callee params) lbl) =
-         criticalCallSequence callee (map cExpr params) lbl (Just (cExpr lhs, op)) 
-      ++ inlineBlock lbl
+    cLast (Call (SecondNormalForm  _ _ callee params) lbl) =
+         criticalCallSequence callee (map cExpr params) lbl
 
     cBranch lbl
       | S.member (hLabel lbl) suls = CCompound [] (inlineBlock lbl) un 
@@ -110,8 +118,8 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
 
     cExpr = rewriteLocalVariableAccess
 
-    criticalCallSequence callee params lbl nf2 = -- {{{3
-      map CBlockStmt $ parameters ++ continuation : callExp : returnExp ?: label : resultExpr ?: []
+    criticalCallSequence callee params lbl = -- {{{3
+      map CBlockStmt $ parameters ++ continuation : callExp : returnExp ?: []
       where
         callChain' = callChain ++ [callee]
         blocking   = is_blocking cg callee
@@ -124,20 +132,13 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
           | blocking  = CExpr (Just (CCall (CVar (ii callee) un) [CUnary CAdrOp (tstackAccess callChain' Nothing un) un] un)) un 
           | otherwise = CGoto (lblIdent ($lookup_s entries callee) callee) un
 
-        label = CLabel (lblIdent lbl fname) (CExpr Nothing un) [] un
-
         returnExp
           | blocking  = Just $ CReturn Nothing un
           | otherwise = Nothing
 
-        resultExpr = case nf2 of
-          Nothing -> Nothing
-          Just (lhs, op) -> Just $
-            CExpr (Just (CAssign op lhs (tstackAccess callChain' (Just resVar) un) un)) un
-
         paramAssign e decl = assign (tstackAccess callChain' (Just (symbol decl)) un) e 
         assign lhs rhs = CExpr (Just (CAssign CAssignOp lhs rhs un)) un
-    
+
     rewriteLocalVariableAccess :: CExpr -> CExpr -- {{{3
     rewriteLocalVariableAccess = everywhere (mkT rewrite)
       where
@@ -152,17 +153,29 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
         rewrite o = o
 
 singleUsageLabels :: Label -> Body -> S.Set H.Label
-singleUsageLabels entry body = M.keysSet $ M.filterWithKey (\_ v -> v == (1 :: Int)) $ foldGraphNodes count body $ M.singleton (hLabel entry) 2
+-- | set of labels that are only used by a single goto
+-- | excluding the entry label and continuations
+singleUsageLabels entry body = suls `S.difference` (S.insert (hLabel entry) continuations)
+
   where
-    count (Label _) m = m
-    count (Stmt  _) m = m
-    count n@(Goto _) m = foldr (M.alter alter) m (successors n)
+    suls :: S.Set H.Label
+    suls  = S.fromList . map fst . filter ((==1) . snd) . M.toList . foldGraphNodes count body $ M.empty
+
+    count (Label _)    m = m
+    count (Cont _ _)   m = m
+    count (Stmt  _)    m = m
+    count n@(Goto _)   m = foldr (M.alter alter) m (successors n)
     count n@(If _ _ _) m = foldr (M.alter alter) m (successors n)
-    count n@(Call _ _) m = foldr (M.alter alter) m (successors n)
+    count (Call _ _)   m = m
     count n@(Return _) m = foldr (M.alter alter) m (successors n)
 --    count n m = foldr (M.alter alter) m (successors n) XXX why doesn't this work?
-    alter Nothing  = Just 1
+    alter Nothing  = Just (1::Int)
     alter (Just x) = Just (x+1)
+
+    continuations :: S.Set H.Label
+    continuations = foldGraphNodes count' body $ S.empty
+    count' n@(Call _ _) s = foldr S.insert s (successors n) 
+    count' _            s = s
 
 lblIdent :: Label -> Symbol -> Ident -- {{{2
 lblIdent lbl fname = ii $ case lbl of

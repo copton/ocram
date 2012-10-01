@@ -33,7 +33,7 @@ collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
     initialState  = Ctx initialIdents funScope [] [] (symbol fd)
     (statements, state) = runState (mapM mItem items) initialState
 
-    params = map (\cd -> Variable cd (symbol cd) (Just funScope)) ps
+    params = map (\cd -> Variable cd (Just funScope)) ps
 
     body = concat statements
     autoVars = params ++ ctxAutoVars state
@@ -122,7 +122,7 @@ trDecl decl = do
     isStaticSpec (CStorageSpec (CStatic _)) = True
     isStaticSpec _                          = False
 
-    mkVar scope (cd, name) = Variable cd name (Just scope)
+    mkVar scope (cd, name) = Variable (renameDecl name cd) (Just scope)
 
     mkInit Nothing    _    = return Nothing
     mkInit (Just rhs) name = do
@@ -158,3 +158,15 @@ addIdentifier :: (String -> String) -> Identifiers -> Symbol -> Identifiers -- {
 addIdentifier mangle (Identifiers es rt) identifier = case M.lookup identifier es of
   Nothing -> Identifiers (M.insert identifier 0 es) (M.insert identifier (mangle identifier) rt)
   Just count -> Identifiers (M.adjust (+1) identifier es) (M.insert identifier (mangle (varUnique identifier count)) rt)
+
+
+renameDecl :: Symbol -> CDecl -> CDecl
+renameDecl newName (CDecl x1 [(Just declr, x2, x3)] x4) =
+  CDecl x1 [(Just (renameDeclr newName declr), x2, x3)] x4
+  where
+    renameDeclr newName' (CDeclr (Just _) y1 y2 y3 y4) =
+      CDeclr (Just (internalIdent newName')) y1 y2 y3 y4
+    renameDeclr _ x = $abort $ unexp x
+
+renameDecl _ x = $abort $ unexp x
+

@@ -6,11 +6,10 @@ module Ocram.Intermediate.BooleanShortCircuiting
 ) where
 
 -- imports {{{1
-import Control.Monad.State (State, runState, get, put)
-import Data.Generics (everywhereM, mkM)
+import Control.Monad.State (State, runState, get, put, modify)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (internalIdent)
-import Language.C.Data.Node (NodeInfo)
+import Language.C.Data.Node (NodeInfo, undefNode)
 import Ocram.Intermediate.Representation (Variable(..))
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Names (varBool)
@@ -18,39 +17,35 @@ import Ocram.Util (abort, unexp, unexp')
 
 import qualified Data.Set as S
 
-boolean_short_circuiting :: S.Set Symbol -> [CBlockItem] -> ([CBlockItem], [Variable]) -- {{{1
-boolean_short_circuiting cf inputItems =
+boolean_short_circuiting :: S.Set Symbol -> [CStat] -> ([CStat], [Variable]) -- {{{1
+boolean_short_circuiting cf inputStmts =
   let
-    inputStmts = map (\(CBlockStmt s) -> s) inputItems
-    (outputStmts, (Ctx _ vars)) = runState (mapM (everywhereM (mkM tStat)) inputStmts) (Ctx 0 [])
-    outputItems = map CBlockStmt outputStmts
+    (outputStmts, (Ctx _ vars)) = runState (mapM tStat inputStmts) (Ctx 0 [])
   in
-    (outputItems, vars)
+    (concat outputStmts, vars)
   where
-    tStat :: CStat -> S CStat -- {{{2
+    tStat :: CStat -> S [CStat] -- {{{2
     tStat o@(CIf cond then_ else_ ni) = do
       cond' <- traverse cond
       case subItems cond' of
-        [] -> return o
-        items -> return $ block ni items $ CIf (subExpr cond') then_ else_ ni
+        [] -> return [o]
+        items -> return $ items ++ [CIf (subExpr cond') then_ else_ ni]
     tStat o@(CExpr (Just expr) ni) = do
       expr' <- traverse expr
       case subItems expr' of
-        [] -> return o
-        items -> return $ block ni items $ CExpr (Just (subExpr expr')) ni
-    tStat o@(CSwitch expr body ni) = do
-      expr' <- traverse expr
-      case subItems expr' of
-        [] -> return o
-        items -> return $ block ni items $ CSwitch (subExpr expr') body ni
+        [] -> return [o]
+        items -> return $ items ++ [CExpr (Just (subExpr expr')) ni]
     tStat o@(CReturn (Just expr) ni) = do
       expr' <- traverse expr
       case subItems expr' of
-        [] -> return o
-        items -> return $ block ni items $ CReturn (Just (subExpr expr')) ni
-    tStat o = return o 
+        [] -> return [o]
+        items -> return $ items ++ [CReturn (Just (subExpr expr')) ni]
 
-    block ni items stat = CCompound [] (items ++ [CBlockStmt stat]) ni
+    tStat o@(CLabel _ _ _ _)    = return [o]
+    tStat o@(CGoto _ _)         = return [o]
+    tStat o@(CExpr Nothing _)   = return [o]
+    tStat o@(CReturn Nothing _) = return [o]
+    tStat o                     = $abort $ unexp o
 
     traverse :: CExpr -> S (Substitution CExpr) -- {{{2
     traverse (CComma exprs ni) = do -- {{{3
@@ -202,23 +197,27 @@ boolean_short_circuiting cf inputItems =
     traverse o = $abort $ unexp o -- {{{3
  
 substitute :: Int -> CBinaryOp -> NodeInfo -> Substitution CExpr -> Substitution CExpr -> S (Substitution CExpr) -- {{{2
-substitute idx op ni lhs rhs =
+substitute idx op ni lhs rhs = do
   let
     iden = internalIdent (varBool idx)
     decl = CDecl [CTypeSpec (CIntType ni)] [(Just (CDeclr (Just iden) [] Nothing [] ni) , Nothing, Nothing)] ni
-    ivar = Variable decl (symbol decl) Nothing
+    ivar = Variable decl Nothing
     cvar = CVar iden ni
-    [lhs_assign, rhs_assign] = map (CBlockStmt . (\x -> CExpr (Just x) (annotation x)) . (\x -> CAssign CAssignOp cvar ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
+    [lhs_assign, rhs_assign] = map ((\x -> CExpr (Just x) (annotation x)) . (\x -> CAssign CAssignOp cvar ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
     cond = case op of
       CLorOp -> neg cvar
       CLndOp -> cvar
       o -> $abort $ unexp' o
-    if_ = CBlockStmt $ CIf cond (CCompound [] (subItems rhs ++ [rhs_assign]) ni) Nothing ni
-    items = subItems lhs ++ [lhs_assign, if_]
-  in do
-    Ctx count vars <- get
-    put $ Ctx count (ivar : vars)
-    return $ Substitution cvar items True
+  thenTarget <- next
+  elseTarget <- next
+  modify (\ctx -> ctx {ctxVars = ivar : ctxVars ctx})
+  let
+    if_ = CIf cond (mkGoto thenTarget) (Just (mkGoto elseTarget)) ni
+    items = subItems lhs ++ (lhs_assign : if_ : mkLabel thenTarget : []) ++ subItems rhs ++ (rhs_assign : mkLabel elseTarget : [])
+  return $ Substitution cvar items True
+  where
+    mkLabel i = CLabel (internalIdent (varBool i)) (CExpr Nothing undefNode) [] undefNode
+    mkGoto  i = CGoto (internalIdent (varBool i)) undefNode
 
 neg :: CExpr -> CExpr -- {{{2
 neg expr = CUnary CNegOp expr (annotation expr)
@@ -244,6 +243,6 @@ type S = State Ctx -- {{{2
 data Substitution a =  -- {{{2
   Substitution {
       subExpr :: a
-    , subItems :: [CBlockItem]
+    , subItems :: [CStat]
     , subCritical :: Bool
   }

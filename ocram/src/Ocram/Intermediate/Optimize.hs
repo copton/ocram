@@ -4,20 +4,12 @@ module Ocram.Intermediate.Optimize
   optimize_ir
 ) where
 
-import Control.Monad (mplus)
-import Compiler.Hoopl (graphMapBlocks, blockMapNodes3, mapFold, mapDelete, mapMap, O, C)
 import Ocram.Intermediate.Representation
+import Control.Monad (mplus)
+import Compiler.Hoopl (blockMapNodes3, mapFold, mapDelete, mapMap, O, C)
 
 optimize_ir :: (Label, Body) -> (Label, Body)
-optimize_ir = dissolveMiniBlocks . ifElseFusion
-
-ifElseFusion :: (Label, Body) -> (Label, Body)
-ifElseFusion (lbl, body) = (lbl, graphMapBlocks (blockMapNodes3 (id, id, replace)) body)
-  where
-    replace o@(If _ tl el)
-      | hLabel tl == hLabel el = Goto tl
-      | otherwise              = o
-    replace o = o
+optimize_ir = dissolveMiniBlocks
 
 dissolveMiniBlocks :: (Label, Body) -> (Label, Body)
 dissolveMiniBlocks (lbl, body) =
@@ -39,7 +31,8 @@ dissolveMiniBlocks (lbl, body) =
 
     scan block s = s `mplus` isMiniBlock (block_components block)
 
-    isMiniBlock (Label oldLbl, [], Goto newLblb) = Just (oldLbl, newLblb)
+    isMiniBlock (Label oldLbl  , [], Goto newLbl) = Just (oldLbl, newLbl)
+    isMiniBlock (Cont oldLblb (FirstNormalForm _ _), [], Goto newLbl) = Just (oldLblb, newLbl)
     isMiniBlock _ = Nothing
 
     replace :: Label -> Label -> Node O C -> Node O C

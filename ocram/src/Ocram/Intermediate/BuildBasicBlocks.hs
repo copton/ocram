@@ -7,7 +7,8 @@ module Ocram.Intermediate.BuildBasicBlocks
 
 -- imports {{{1
 import Compiler.Hoopl (C, O)
-import Data.Maybe (isNothing)
+import Data.Maybe (isNothing, catMaybes)
+import Data.Foldable (foldrM)
 import Ocram.Symbols (Symbol, symbol)
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
@@ -20,14 +21,20 @@ import qualified Compiler.Hoopl as H
 
 build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
 build_basic_blocks cf stmts = runM $ do
-  protoblocks <- partition cf (annotate cf stmts)
+  protoblocks <- partition cf . annotate cf . removeEmptyExpressions $ stmts
   let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undef]
-  blocks <- mapM convert blockcont
+  (blocks, _) <- foldrM convert ([], Nothing) (reverse blockcont)
   let body = foldl splice H.emptyClosedGraph blocks
   return ((pbLabel . $head_s) protoblocks, body)
   where
     splice = (H.|*><*|)
     undef = $abort "undefined"
+
+removeEmptyExpressions :: [CStat] -> [CStat]
+removeEmptyExpressions = foldr rm []
+  where
+    rm (CExpr Nothing _) ss = ss
+    rm o                 ss = o : ss
 
 annotate :: S.Set Symbol -> [CStat] -> [AnnotatedStmt] -- {{{2
 annotate cf stmts = zip (map splitPoint stmts) stmts
@@ -61,13 +68,13 @@ partition cf = part unused
       return $ [ProtoBlock ilabel [explicitReturn]]
 
     part previousStatement [] = case previousStatement of
+      -- handling "fall through" at the end of the function
       (Just SplitAfter, expr) -> 
         case expr of
-          CIf _ _ Nothing _                -> sequel
-          CExpr (Just (CCall _ _ _)) _     -> sequel
-          CExpr (Just (CAssign _ _ _ _)) _ -> sequel
-          _                                -> return []
-      (x, y)                               -> $abort $ unexp y ++ ", " ++ show x
+          CIf _ _ Nothing _   -> sequel
+          CExpr _ _           -> sequel
+          _                   -> return []
+      (x, y)                  -> $abort $ unexp y ++ ", " ++ show x
       
     part _ astmts = case head astmts of
       (_, CLabel name _ _ _) -> do
@@ -81,7 +88,7 @@ partition cf = part unused
       let
         (prefix, suffix) = span (isNothing . fst) astmts
         (block, rest) = case suffix of
-          [] -> (prefix ++ [explicitReturn], [])
+          [] -> (prefix ++ [explicitReturn], []) -- handling implicit return
           (split:rest') -> case ($fromJust_s . fst) split of
             SplitBefore -> (prefix, suffix)
             SplitAfter  -> (prefix ++ [split], rest')
@@ -89,47 +96,56 @@ partition cf = part unused
         subsequentBlocks <- part (last block) rest
         return $ ProtoBlock ilabel block : subsequentBlocks
 
-convert :: (ProtoBlock, I.Label) -> M I.Body -- {{{2
-convert ((ProtoBlock thisBlock body), nextBlock) = do
-  let nfirst = I.Label thisBlock
-  nmiddles <- mapM convM (init body)
-  (lastMiddle, nlast) <- convL (last body)
-  let
-    nmiddles' = case lastMiddle of
-      Nothing -> nmiddles
-      Just x  -> nmiddles ++ [x]
-  return $ H.mkFirst nfirst `splice` H.mkMiddles nmiddles' `splice` H.mkLast nlast
+
+convert :: (ProtoBlock, I.Label) -> ([I.Body], Maybe I.CriticalCall) -> M ([I.Body], Maybe I.CriticalCall) -- {{{2
+convert (ProtoBlock thisBlock body, nextBlock) (blocks, mcall) 
+  | null body = return (H.mkFirst entry `splice` H.mkLast (I.Goto nextBlock) : blocks, Nothing)
+  | otherwise = do
+      nmiddles                   <- mapM convM (init body)
+      (lastMiddles, nlast, call) <- convL (last body)
+      let block                  = H.mkFirst entry
+                          `splice` H.mkMiddles (catMaybes nmiddles ++ lastMiddles)
+                          `splice` H.mkLast nlast
+      return (block : blocks, call)
   where
     splice = (H.<*>)
+
+    entry = case mcall of
+      Nothing   -> I.Label thisBlock
+      Just call -> I.Cont thisBlock call
  
-    convM :: AnnotatedStmt -> M (I.Node O O)
-    convM (Nothing, CExpr (Just e) _) = return $ I.Stmt e
+    convM :: AnnotatedStmt -> M (Maybe (I.Node O O))
+    convM (Nothing, CExpr (Just e) _) = return $ Just $ I.Stmt e
+    convM (Nothing, CExpr Nothing _)  = return Nothing
     convM (x, y)                      = $abort $ unexp y ++ ", " ++ show x
 
-    convL :: AnnotatedStmt -> M (Maybe (I.Node O O), I.Node O C)
+    convL :: AnnotatedStmt -> M ([I.Node O O], I.Node O C, Maybe I.CriticalCall)
     convL (Just SplitAfter, CIf cond (CGoto target _) Nothing _) = do
       itarget <- labelFor (symbol target)
-      return (Nothing, I.If cond itarget nextBlock)
+      return ([], I.If cond itarget nextBlock, Nothing)
 
     convL (Just SplitAfter, CIf cond (CGoto ttarget _) (Just (CGoto etarget _)) _) = do
       ittarget <- labelFor (symbol ttarget)
       ietarget <- labelFor (symbol etarget)
-      return (Nothing, I.If cond ittarget ietarget)
+      return ([], I.If cond ittarget ietarget, Nothing)
 
     convL (Nothing, CExpr (Just expr) _) =
-      return (Just (I.Stmt expr), I.Goto nextBlock)
+      return ([I.Stmt expr], I.Goto nextBlock, Nothing)
 
     convL (Just SplitAfter, CExpr (Just (CCall (CVar callee _) params _)) _) =
-      return (Nothing, I.Call (I.FirstNormalForm (symbol callee) params) nextBlock)
+      let call = I.FirstNormalForm (symbol callee) params in
+      return ([], I.Call call nextBlock, Just call)
 
     convL (Just SplitAfter, CExpr (Just (CAssign op lhs (CCall (CVar callee _) params _) _)) _) =
-      return (Nothing, I.Call (I.SecondNormalForm lhs op (symbol callee) params) nextBlock)
+      let call = I.SecondNormalForm lhs op (symbol callee) params in
+      return ([], I.Call call nextBlock, Just call)
+
     convL (Just SplitAfter, CReturn expr _) =
-      return (Nothing, I.Return expr)
+      return ([] , I.Return expr, Nothing)
 
     convL (Just SplitAfter, CGoto target _) = do
       itarget <- labelFor (symbol target)
-      return (Nothing, I.Goto itarget)
+      return ([] , I.Goto itarget, Nothing)
 
     convL (x, y) = $abort $ unexp y ++ ", " ++ show x
       
