@@ -71,6 +71,7 @@ instance Show CriticalCall where -- {{{2
 data Node e x where -- {{{1
   -- |Constitutes of basic blocks
   Label  :: Label                   -> Node C O  -- ^'lbl: ;'. Entry point to a basic block
+  Cont   :: Label -> CriticalCall   -> Node C O  -- ^continuation of a critical call
   Stmt   :: CExpr                   -> Node O O  -- ^any expression. The only middle parts of basic blocks
   Goto   :: Label                   -> Node O C  -- ^'goto label;'
   If     :: CExpr -> Label -> Label -> Node O C  -- ^'if (cond) {goto label1;} else {goto label2;}'
@@ -79,6 +80,7 @@ data Node e x where -- {{{1
 
 instance H.NonLocal Node where -- {{{2
   entryLabel (Label l)    = hLabel l
+  entryLabel (Cont l _)   = hLabel l
   successors (Goto l)     = [hLabel l]
   successors (If _ tl el) = map hLabel [tl, el]
   successors (Call _ l)   = [hLabel l]
@@ -88,6 +90,12 @@ instance Show (Node e x) where -- {{{2
   showsPrec _ (Label l) =
       shows l
     . showString ":"
+    . showChar '\n'
+
+  showsPrec _ (Cont l call) =
+      shows l
+    . showString ": "
+    . shows call
     . showChar '\n'
 
   showsPrec _ (Stmt expr) =

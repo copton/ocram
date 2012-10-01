@@ -154,9 +154,10 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
 singleUsageLabels :: Label -> Body -> S.Set H.Label
 singleUsageLabels entry body = M.keysSet $ M.filterWithKey (\_ v -> v == (1 :: Int)) $ foldGraphNodes count body $ M.singleton (hLabel entry) 2
   where
-    count (Label _) m = m
-    count (Stmt  _) m = m
-    count n@(Goto _) m = foldr (M.alter alter) m (successors n)
+    count (Label _)    m = m
+    count (Cont _ _)   m = m
+    count (Stmt  _)    m = m
+    count n@(Goto _)   m = foldr (M.alter alter) m (successors n)
     count n@(If _ _ _) m = foldr (M.alter alter) m (successors n)
     count n@(Call _ _) m = foldr (M.alter alter) m (successors n)
     count n@(Return _) m = foldr (M.alter alter) m (successors n)

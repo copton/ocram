@@ -1160,7 +1160,7 @@ unitTestsBasicBlocks = [
     L1:
     block(23); GOTO L2
 
-    L2:
+    L2: block(23)
     RETURN
   |])])
   , -- 02 - if statement - implicit return {{{3
@@ -1188,7 +1188,7 @@ unitTestsBasicBlocks = [
     L3:
     block(); GOTO L4
 
-    L4:
+    L4: block()
     GOTO L2/ec_ctrlbl_0
 
     L5/ec_ctrlbl_1:
@@ -1224,7 +1224,7 @@ unitTestsBasicBlocks = [
     L2/ec_ctrlbl_0:
     block(1); GOTO L3
 
-    L3:
+    L3: block(1)
     RETURN
 
     L4:
@@ -1236,7 +1236,7 @@ unitTestsBasicBlocks = [
     L6/ec_ctrlbl_3:
     block(2); GOTO L7
 
-    L7:
+    L7: block(2)
     RETURN
 
     L8/ec_ctrlbl_4:
@@ -1257,7 +1257,7 @@ unitTestsBasicBlocks = [
     L1/ec_ctrlbl_0:
     block(1); GOTO L2
 
-    L2:
+    L2: block(1)
     i++;
     RETURN
   |])])
@@ -1274,7 +1274,7 @@ unitTestsBasicBlocks = [
     L1/ec_ctrlbl_0:
     block(1); GOTO L2
 
-    L2:
+    L2: block(1)
     i++;
     IF i == 23 THEN L1/ec_ctrlbl_0 ELSE L3
 
@@ -1291,7 +1291,7 @@ unitTestsBasicBlocks = [
     L1:
     block(1); GOTO L2
 
-    L2:
+    L2: block(1)
     RETURN
   |])])
   , -- 07 - second normal form {{{3
@@ -1304,7 +1304,7 @@ unitTestsBasicBlocks = [
     L1:
     i = block(1); GOTO L2
 
-    L2:
+    L2: i = block(1)
     RETURN
   |])])
   , -- 08 - dead code {{{3
@@ -1328,7 +1328,7 @@ unitTestsBasicBlocks = [
     L2/ec_ctrlbl_0:
     block(); GOTO L3
 
-    L3:
+    L3: block()
     RETURN
 
     L4:
@@ -1524,7 +1524,7 @@ integrationTestCases = [
           L1:
           block(); GOTO L2
 
-          L2:
+          L2: block()
           RETURN
       |])
     ]
@@ -1583,7 +1583,7 @@ integrationTestCases = [
           L3:
           block(); GOTO L4
 
-          L4:
+          L4: block()
           GOTO L2/ec_ctrlbl_0
 
           L5/ec_ctrlbl_1:
@@ -1642,7 +1642,7 @@ integrationTestCases = [
           L2/ec_ctrlbl_0:
           block(); GOTO L3
 
-          L3:
+          L3: block()
           IF 1 THEN L2/ec_ctrlbl_0 ELSE L4/ec_ctrlbl_1
 
           L4/ec_ctrlbl_1:
@@ -1729,7 +1729,7 @@ integrationTestCases = [
           L5/ec_ctrlbl_4:
           block(i); GOTO L6/ec_ctrlbl_1
 
-          L6/ec_ctrlbl_1:
+          L6/ec_ctrlbl_1: block(i)
           i++;
           GOTO L2/ec_ctrlbl_0
 
@@ -1795,7 +1795,7 @@ integrationTestCases = [
           L2/ec_ctrlbl_0:
           block(i); GOTO L3
 
-          L3:
+          L3: block(i)
           IF i == 23 THEN L4/ec_ctrlbl_3 ELSE L5/ec_ctrlbl_4
 
           L4/ec_ctrlbl_3:
@@ -1966,7 +1966,7 @@ integrationTestCases = [
           L1:
           i = block(0); GOTO L2
 
-          L2:
+          L2: i = block(0)
           IF i == 0 THEN L7/ec_ctrlbl_1 ELSE L3
 
           L3:
@@ -1984,7 +1984,7 @@ integrationTestCases = [
           L7/ec_ctrlbl_1:
           ec_crit_0 = block(23); GOTO L8
 
-          L8:
+          L8: ec_crit_0 = block(23)
           j = ec_crit_0 > 0;
           GOTO L17/ec_ctrlbl_0
 
@@ -1998,14 +1998,14 @@ integrationTestCases = [
           L11/ec_ctrlbl_4:
           ec_crit_1 = block(i); GOTO L12
 
-          L12:
+          L12: ec_crit_1 = block(i)
           ec_bool_0 = ! (!ec_crit_1);
           IF !ec_bool_0 THEN L13/ec_bool_1 ELSE L15/ec_bool_2
 
           L13/ec_bool_1:
           ec_crit_2 = block(i - 1); GOTO L14
 
-          L14:
+          L14: ec_crit_2 = block(i - 1)
           ec_bool_0 = ! (!ec_crit_2);
           GOTO L15/ec_bool_2
 
@@ -2027,9 +2027,9 @@ integrationTestCases = [
             U "j"
           , U "ec_bool_0"
           , C "i"
-          , C "ec_crit_2"
-          , C "ec_crit_1"
-          , C "ec_crit_0"
+          , U "ec_crit_2"
+          , U "ec_crit_1"
+          , U "ec_crit_0"
         ])
       ]
   }

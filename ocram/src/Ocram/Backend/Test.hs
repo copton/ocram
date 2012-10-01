@@ -1017,7 +1017,6 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 				ec_tframe_block_t block;
 			} ec_frames;
 			int c;	
-      int ec_crit_0;
 		} ec_tframe_critical_t;
 
 		typedef struct {
@@ -1028,10 +1027,18 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 		
 		ec_tframe_start_t ec_tstack_start;
 
+    typedef struct {
+      int ec_crit_0;
+    } ec_eframe_critical_t;
+
 		void block(ec_tframe_block_t*);
 
 		void ec_thread_0(void* ec_cont)
 		{
+      union {
+        ec_eframe_critical_t critical;
+      } ec_estack;
+
 			if (ec_cont)
 				goto *ec_cont;
 
@@ -1049,8 +1056,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 				return;
 
       ec_contlbl_L2_critical: ;
-        ec_tstack_start.ec_frames.critical.ec_crit_0 = ec_tstack_start.ec_frames.critical.ec_frames.block.ec_result;
-        ec_tstack_start.ec_frames.critical.ec_result = ec_tstack_start.ec_frames.critical.ec_crit_0;
+        ec_estack.critical.ec_crit_0 = ec_tstack_start.ec_frames.critical.ec_frames.block.ec_result;
+        ec_tstack_start.ec_frames.critical.ec_result = ec_estack.critical.ec_crit_0;
 				goto *ec_tstack_start.ec_frames.critical.ec_cont;
 		}
 	|])
@@ -1297,7 +1304,6 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       union {
         ec_tframe_block_t block;
       } ec_frames;
-      int ec_crit_0;
     } ec_tframe_start_t;
 
     ec_tframe_start_t ec_tstack_start;
@@ -1306,6 +1312,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       int i;
       int j;
       int k;
+      int ec_crit_0;
     } ec_eframe_start_t;
 
     void block(ec_tframe_block_t *);
@@ -1325,8 +1332,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       return;
 
     ec_contlbl_L2_start: ;
-      ec_tstack_start.ec_crit_0 = ec_tstack_start.ec_frames.block.ec_result;
-      ec_estack.start.j = ec_tstack_start.ec_crit_0 + 3;
+      ec_estack.start.ec_crit_0 = ec_tstack_start.ec_frames.block.ec_result;
+      ec_estack.start.j = ec_estack.start.ec_crit_0 + 3;
       ec_estack.start.k = 23;
       return;
     }
@@ -1536,16 +1543,23 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       union {
           ec_tframe_wait_t wait; ec_tframe_sleep_t sleep;
       } ec_frames;
-      void ec_crit_0;
     } ec_tframe_start_t;
 
     ec_tframe_start_t ec_tstack_start;
+
+    typedef struct {
+      void ec_crit_0;
+    } ec_eframe_start_t;
 
     void sleep(ec_tframe_sleep_t *);
     void wait(ec_tframe_wait_t *);
 
     void ec_thread_0(void * ec_cont)
     {
+        union {
+            ec_eframe_start_t start;
+        } ec_estack;
+
         if (ec_cont) goto * ec_cont;
 
     ec_ctrlbl_0_start: ;
@@ -1568,8 +1582,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
             return;
 
         ec_contlbl_L6_start: ;
-            ec_tstack_start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
-            if (!ec_tstack_start.ec_crit_0) {
+            ec_estack.start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
+            if (!ec_estack.start.ec_crit_0) {
               check();
               goto ec_ctrlbl_6_start;
             } else {

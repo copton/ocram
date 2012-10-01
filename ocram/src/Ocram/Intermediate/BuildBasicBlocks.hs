@@ -8,6 +8,7 @@ module Ocram.Intermediate.BuildBasicBlocks
 -- imports {{{1
 import Compiler.Hoopl (C, O)
 import Data.Maybe (isNothing, catMaybes)
+import Data.Foldable (foldrM)
 import Ocram.Symbols (Symbol, symbol)
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
@@ -22,7 +23,7 @@ build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
 build_basic_blocks cf stmts = runM $ do
   protoblocks <- partition cf . annotate cf . removeEmptyExpressions $ stmts
   let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undef]
-  blocks <- mapM convert blockcont
+  (blocks, _) <- foldrM convert ([], Nothing) (reverse blockcont)
   let body = foldl splice H.emptyClosedGraph blocks
   return ((pbLabel . $head_s) protoblocks, body)
   where
@@ -95,48 +96,56 @@ partition cf = part unused
         subsequentBlocks <- part (last block) rest
         return $ ProtoBlock ilabel block : subsequentBlocks
 
-convert :: (ProtoBlock, I.Label) -> M I.Body -- {{{2
-convert ((ProtoBlock thisBlock body), nextBlock)
-  | null body = return      $ H.mkFirst (I.Label thisBlock) `splice` H.mkLast (I.Goto nextBlock)
+
+convert :: (ProtoBlock, I.Label) -> ([I.Body], Maybe I.CriticalCall) -> M ([I.Body], Maybe I.CriticalCall) -- {{{2
+convert (ProtoBlock thisBlock body, nextBlock) (blocks, mcall) 
+  | null body = return (H.mkFirst entry `splice` H.mkLast (I.Goto nextBlock) : blocks, Nothing)
   | otherwise = do
-      nmiddles             <- mapM convM (init body)
-      (lastMiddles, nlast) <- convL (last body)
-      return                $ H.mkFirst (I.Label thisBlock)
-                     `splice` H.mkMiddles (catMaybes nmiddles ++ lastMiddles)
-                     `splice` H.mkLast nlast
+      nmiddles                   <- mapM convM (init body)
+      (lastMiddles, nlast, call) <- convL (last body)
+      let block                  = H.mkFirst entry
+                          `splice` H.mkMiddles (catMaybes nmiddles ++ lastMiddles)
+                          `splice` H.mkLast nlast
+      return (block : blocks, call)
   where
     splice = (H.<*>)
+
+    entry = case mcall of
+      Nothing   -> I.Label thisBlock
+      Just call -> I.Cont thisBlock call
  
     convM :: AnnotatedStmt -> M (Maybe (I.Node O O))
     convM (Nothing, CExpr (Just e) _) = return $ Just $ I.Stmt e
     convM (Nothing, CExpr Nothing _)  = return Nothing
     convM (x, y)                      = $abort $ unexp y ++ ", " ++ show x
 
-    convL :: AnnotatedStmt -> M ([I.Node O O], I.Node O C)
+    convL :: AnnotatedStmt -> M ([I.Node O O], I.Node O C, Maybe I.CriticalCall)
     convL (Just SplitAfter, CIf cond (CGoto target _) Nothing _) = do
       itarget <- labelFor (symbol target)
-      return ([], I.If cond itarget nextBlock)
+      return ([], I.If cond itarget nextBlock, Nothing)
 
     convL (Just SplitAfter, CIf cond (CGoto ttarget _) (Just (CGoto etarget _)) _) = do
       ittarget <- labelFor (symbol ttarget)
       ietarget <- labelFor (symbol etarget)
-      return ([], I.If cond ittarget ietarget)
+      return ([], I.If cond ittarget ietarget, Nothing)
 
     convL (Nothing, CExpr (Just expr) _) =
-      return ([I.Stmt expr], I.Goto nextBlock)
+      return ([I.Stmt expr], I.Goto nextBlock, Nothing)
 
     convL (Just SplitAfter, CExpr (Just (CCall (CVar callee _) params _)) _) =
-      return ([], I.Call (I.FirstNormalForm (symbol callee) params) nextBlock)
+      let call = I.FirstNormalForm (symbol callee) params in
+      return ([], I.Call call nextBlock, Just call)
 
     convL (Just SplitAfter, CExpr (Just (CAssign op lhs (CCall (CVar callee _) params _) _)) _) =
-      return ([], I.Call (I.SecondNormalForm lhs op (symbol callee) params) nextBlock)
+      let call = I.SecondNormalForm lhs op (symbol callee) params in
+      return ([], I.Call call nextBlock, Just call)
 
     convL (Just SplitAfter, CReturn expr _) =
-      return ([] , I.Return expr)
+      return ([] , I.Return expr, Nothing)
 
     convL (Just SplitAfter, CGoto target _) = do
       itarget <- labelFor (symbol target)
-      return ([] , I.Goto itarget)
+      return ([] , I.Goto itarget, Nothing)
 
     convL (x, y) = $abort $ unexp y ++ ", " ++ show x
       

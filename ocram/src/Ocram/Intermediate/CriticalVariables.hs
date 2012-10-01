@@ -11,6 +11,8 @@ import Data.Generics (everything, mkQ)
 import Data.Maybe (fromMaybe)
 import Compiler.Hoopl hiding ((<*>), Label, Body)
 import Language.C.Syntax.AST
+import Language.C.Syntax.Constants (cInteger)
+import Language.C.Data.Node (undefNode)
 import Ocram.Intermediate.Representation
 import Ocram.Util (abort, (?:), (?++), unexp)
 import Ocram.Symbols (Symbol, symbol)
@@ -58,7 +60,11 @@ liveness :: BwdTransfer Node LiveFact -- {{{1
 liveness = mkBTransfer3 firstLive middleLive lastLive
   where
     firstLive :: Node C O -> LiveFact -> LiveFact
-    firstLive (Label _)   = id
+    firstLive (Label _)                              = id
+    firstLive (Cont _ (FirstNormalForm _ _))         = id
+    firstLive (Cont _ (SecondNormalForm lhs op _ _)) = addUses expr . delUses expr
+      where expr = CAssign op lhs (CConst (CIntConst (cInteger 0) undefNode)) undefNode
+      
 
     middleLive :: Node O O -> LiveFact -> LiveFact
     middleLive (Stmt expr) = addUses expr . delUses expr
@@ -73,11 +79,8 @@ liveness = mkBTransfer3 firstLive middleLive lastLive
     lastLive (Call (FirstNormalForm _ ps) l) f =
       foldr addUses (fact l f) ps
 
-    lastLive (Call (SecondNormalForm lhs CAssignOp _  ps) l) f =
-      flip (foldr addUses) ps $ delUses lhs $ fact l f
-
-    lastLive (Call (SecondNormalForm lhs _ _  ps) l) f =
-      addUses lhs $ flip (foldr addUses) ps $ delUses lhs $ fact l f
+    lastLive (Call (SecondNormalForm _ _ _  ps) l) f =
+      foldr addUses (fact l f) ps
 
     lastLive (Return Nothing)   _ =
       fact_bot liveLattice
@@ -156,6 +159,7 @@ undecidable vars body = addrof
 
     addrof' :: Node e x -> [Symbol] -> [Symbol]
     addrof' (Label _)                                  p = p
+    addrof' (Cont _ _)                                 p = p -- covered by preceding Call
     addrof' (Stmt e)                                   p = addrof'' e ++ p
     addrof' (Goto _)                                   p = p
     addrof' (If e _ _)                                 p = addrof'' e ++ p
