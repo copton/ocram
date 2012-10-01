@@ -2,7 +2,7 @@
 cpu
 ===
 overhead: tl: max: 11.80
-overhead: gen: max: 1.71
+overhead: gen: max: 1.70
 
 loc
 ===
@@ -24,10 +24,10 @@ slope: gen_nopal: 559.33
 
 ram
 ===
-overhead: bss: max: 1.02
-overhead: ram: max: 1.03
+overhead: bss: max: 0.99
+overhead: ram: max: 1.00
 
 text
 ====
-overhead: nopal: max: 0.72
-overhead: pal: max: 2.88
+overhead: nopal: max: 0.70
+overhead: pal: max: 2.86
