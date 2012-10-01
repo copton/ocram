@@ -1346,6 +1346,51 @@ unitTestsBasicBlocks = [
 
 unitTestsOptimize :: [(Input, OutputOptimize)] -- {{{2
 unitTestsOptimize = [
+  -- , 01 mini blocks {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+
+      ec_ctrlbl_0: ;
+      block(1);
+      return;
+      goto ec_ctrlbl_2;
+      
+      ec_ctrlbl_1: ;
+      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+
+      ec_ctrlbl_3: ;
+      block(2);
+      return;
+
+      ec_ctrlbl_4: ;
+
+      ec_ctrlbl_2: ;
+    }
+  |], [("start", "L1", [paste|
+      L1:
+      IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
+
+      L2/ec_ctrlbl_0:
+      block(1); GOTO L3
+
+      L3: block(1)
+      RETURN
+
+      L5/ec_ctrlbl_1:
+      IF 2 THEN L6/ec_ctrlbl_3 ELSE L9/ec_ctrlbl_2
+
+      L6/ec_ctrlbl_3:
+      block(2); GOTO L7
+
+      L7: block(2)
+      RETURN
+
+      L9/ec_ctrlbl_2:
+      RETURN
+  |])]
+  )
   -- end {{{3
   ]
 
@@ -1591,7 +1636,23 @@ integrationTestCases = [
           RETURN
       |])
     ]
-  , outOptimize     = Nothing -- {{{4
+  , outOptimize     = Just [ -- {{{4
+      ("start", "L1", [paste|
+          L1:
+          a();
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+
+          L3:
+          block(); GOTO L2/ec_ctrlbl_0
+
+          L5/ec_ctrlbl_1:
+          b();
+          RETURN
+      |])
+    ]
   , outCritical     = Nothing -- {{{4
   }
   , TestCase { -- 03 - do loop {{{3
@@ -1738,7 +1799,31 @@ integrationTestCases = [
           RETURN
         |])
       ]
-    , outOptimize = Nothing -- {{{4
+    , outOptimize = Just [ -- {{{4
+        ("start", "L1", [paste|
+          L1:
+          a();
+          i = 0;
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          IF !(i < 23) THEN L7/ec_ctrlbl_2 ELSE L3
+
+          L3:
+          IF i == 2 THEN L6/ec_ctrlbl_1 ELSE L5/ec_ctrlbl_4
+
+          L5/ec_ctrlbl_4:
+          block(i); GOTO L6/ec_ctrlbl_1
+
+          L6/ec_ctrlbl_1: block(i)
+          i++;
+          GOTO L2/ec_ctrlbl_0
+
+          L7/ec_ctrlbl_2:
+          b();
+          RETURN
+        |])
+      ]
     , outCritical = Just [ -- {{{4
         ("start", [C "i"])
       ]
@@ -1812,7 +1897,26 @@ integrationTestCases = [
           RETURN
         |])
       ]
-    , outOptimize = Nothing -- {{{4
+    , outOptimize = Just [ -- {{{4
+        ("start", "L1", [paste|
+          L1:
+          i = 0;
+          GOTO L2/ec_ctrlbl_0
+
+          L2/ec_ctrlbl_0:
+          block(i); GOTO L3
+
+          L3: block(i)
+          IF i == 23 THEN L7/ec_ctrlbl_2 ELSE L6/ec_ctrlbl_1
+
+          L6/ec_ctrlbl_1:
+          i++;
+          GOTO L2/ec_ctrlbl_0
+
+          L7/ec_ctrlbl_2:
+          RETURN
+        |])
+      ]
     , outCritical = Just [ -- {{{4
         ("start", [C "i"])
       ]
@@ -2021,7 +2125,60 @@ integrationTestCases = [
           RETURN
         |])
       ]
-    , outOptimize = Nothing -- {{{4
+    , outOptimize = Just [ -- {{{4
+        ("start", "L1", [paste|
+          L1:
+          i = block(0); GOTO L2
+
+          L2: i = block(0)
+          IF i == 0 THEN L7/ec_ctrlbl_1 ELSE L3
+
+          L3:
+          IF i == 1 THEN L10/ec_ctrlbl_3 ELSE L4
+
+          L4:
+          IF i == 2 THEN L10/ec_ctrlbl_3 ELSE L5
+
+          L5:
+          IF i == 3 THEN L11/ec_ctrlbl_4 ELSE L16/ec_ctrlbl_5
+
+          L7/ec_ctrlbl_1:
+          ec_crit_0 = block(23); GOTO L8
+
+          L8: ec_crit_0 = block(23)
+          j = ec_crit_0 > 0;
+          GOTO L17/ec_ctrlbl_0
+
+          L10/ec_ctrlbl_3:
+          i++;
+          GOTO L11/ec_ctrlbl_4
+
+          L11/ec_ctrlbl_4:
+          ec_crit_1 = block(i); GOTO L12
+
+          L12: ec_crit_1 = block(i)
+          ec_bool_0 = ! (!ec_crit_1);
+          IF !ec_bool_0 THEN L13/ec_bool_1 ELSE L15/ec_bool_2
+
+          L13/ec_bool_1:
+          ec_crit_2 = block(i - 1); GOTO L14
+
+          L14: ec_crit_2 = block(i - 1)
+          ec_bool_0 = ! (!ec_crit_2);
+          GOTO L15/ec_bool_2
+
+          L15/ec_bool_2:
+          j = ec_bool_0;
+          GOTO L17/ec_ctrlbl_0
+
+          L16/ec_ctrlbl_5:
+          j = 0;
+          GOTO L17/ec_ctrlbl_0
+
+          L17/ec_ctrlbl_0:
+          RETURN
+        |])
+      ]
     , outCritical = Just [ -- {{{4
         ("start", [
             U "j"

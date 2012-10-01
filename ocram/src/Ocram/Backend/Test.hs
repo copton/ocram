@@ -538,12 +538,9 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
         return;
       } else {
         ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
-        ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L4_start;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_ctrlbl_0_start;
         block(&ec_tstack_start.ec_frames.block);
         return;
-
-        ec_contlbl_L4_start: ;
-        goto ec_ctrlbl_0_start;
       }
     }
   |])
@@ -909,10 +906,10 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L4_start;
         block(&ec_tstack_start.ec_frames.block);
         return;
-      ec_contlbl_L4_start: ;
-        ec_tstack_start.i++;
-        goto ec_ctrlbl_0_start;
       }
+      ec_contlbl_L4_start: ;
+      ec_tstack_start.i++;
+      goto ec_ctrlbl_0_start;
 		}
 	|])
   , -- 09 - critical function {{{2
@@ -1116,12 +1113,9 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
           return;
         } else {
           ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
-          ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L4_start;
+          ec_tstack_start.ec_frames.block.ec_cont = &&ec_ctrlbl_0_start;
           block(&ec_tstack_start.ec_frames.block);
           return;
-
-        ec_contlbl_L4_start: ;
-          goto ec_ctrlbl_0_start;
         }
     }
 
@@ -1138,12 +1132,9 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
           return;
         } else {
           ec_tstack_run.ec_frames.block.b = ec_tstack_run.r;
-          ec_tstack_run.ec_frames.block.ec_cont = &&ec_contlbl_L4_run;
+          ec_tstack_run.ec_frames.block.ec_cont = &&ec_ctrlbl_0_run;
           block(&ec_tstack_run.ec_frames.block);
           return;
-
-        ec_contlbl_L4_run: ;
-          goto ec_ctrlbl_0_run;
         }
     }
 	|])
@@ -1401,11 +1392,10 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
           ec_tstack_start.ec_frames.critical.ec_frames.block.ec_cont = &&ec_contlbl_L5_critical;
           block(&ec_tstack_start.ec_frames.critical.ec_frames.block);
           return;
-          
+        } 
         ec_contlbl_L5_critical: ;
-          ec_tstack_start.ec_frames.critical.ec_result = 42;
-          goto * (ec_tstack_start.ec_frames.critical.ec_cont);
-        }
+        ec_tstack_start.ec_frames.critical.ec_result = 42;
+        goto * (ec_tstack_start.ec_frames.critical.ec_cont);
     }
   |])
   , -- 16 - struct {{{2
@@ -1562,40 +1552,32 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
         if (ec_cont) goto * ec_cont;
 
-    ec_ctrlbl_0_start: ;
+        ec_ctrlbl_0_start: ;
         if (!1) {
           return;
         } else {
           if (next == -1) {
             ec_tstack_start.ec_frames.wait.c = &c;
-            ec_tstack_start.ec_frames.wait.ec_cont = &&ec_contlbl_L4_start;
+            ec_tstack_start.ec_frames.wait.ec_cont = &&ec_ctrlbl_0_start;
             wait(&ec_tstack_start.ec_frames.wait);
             return;
-
-          ec_contlbl_L4_start: ;
-              goto ec_ctrlbl_4_start;
           } else {
             ec_tstack_start.ec_frames.sleep.t = next;
             ec_tstack_start.ec_frames.sleep.c = &c;
             ec_tstack_start.ec_frames.sleep.ec_cont = &&ec_contlbl_L6_start;
             sleep(&ec_tstack_start.ec_frames.sleep);
             return;
-
-        ec_contlbl_L6_start: ;
-            ec_estack.start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
-            if (!ec_estack.start.ec_crit_0) {
-              check();
-              goto ec_ctrlbl_6_start;
-            } else {
-              goto ec_ctrlbl_6_start;
           }
         }
-      }
-  ec_ctrlbl_6_start: ;
-    goto ec_ctrlbl_4_start;
 
-  ec_ctrlbl_4_start: ;
-    goto ec_ctrlbl_0_start;
+        ec_contlbl_L6_start: ;
+        ec_estack.start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
+        if (!ec_estack.start.ec_crit_0) {
+          check();
+          goto ec_ctrlbl_0_start;
+        } else {
+          goto ec_ctrlbl_0_start;
+        }
     }
   |])
   , -- 19 - regression test - estack access {{{2
