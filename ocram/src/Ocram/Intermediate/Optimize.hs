@@ -32,7 +32,7 @@ dissolveMiniBlocks (lbl, body) =
     scan block s = s `mplus` isMiniBlock (block_components block)
 
     isMiniBlock (Label oldLbl  , [], Goto newLbl) = Just (oldLbl, newLbl)
-    isMiniBlock (Cont oldLblb _, [], Goto newLbl) = Just (oldLblb, newLbl)
+    isMiniBlock (Cont oldLblb (FirstNormalForm _ _), [], Goto newLbl) = Just (oldLblb, newLbl)
     isMiniBlock _ = Nothing
 
     replace :: Label -> Label -> Node O C -> Node O C

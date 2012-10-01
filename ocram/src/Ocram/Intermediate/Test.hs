@@ -1346,7 +1346,7 @@ unitTestsBasicBlocks = [
 
 unitTestsOptimize :: [(Input, OutputOptimize)] -- {{{2
 unitTestsOptimize = [
-  -- , 01 mini blocks {{{3
+  -- , 01 - susequent labels {{{3
   ([paste|
     __attribute__((tc_blocking)) void block(int i);
     __attribute__((tc_run_thread)) void start() {
@@ -1389,8 +1389,56 @@ unitTestsOptimize = [
 
       L9/ec_ctrlbl_2:
       RETURN
-  |])]
-  )
+  |])])
+  , -- 02 - 1st normal form {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      int s = 23;
+      while (1) {
+        block(s);
+      }
+    }
+  |], [("start", "L1", [paste|
+      L1:
+      s = 23;
+      GOTO L2/ec_ctrlbl_0
+
+      L2/ec_ctrlbl_0:
+      IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+
+      L3:
+      block(s); GOTO L2/ec_ctrlbl_0
+
+      L5/ec_ctrlbl_1:
+      RETURN
+  |])])
+  , -- 03 - 2nd normal form {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      int s = 23;
+      while (1) {
+        s = block(s);
+      }
+    }
+  |], [("start", "L1", [paste|
+      L1:
+      s = 23;
+      GOTO L2/ec_ctrlbl_0
+
+      L2/ec_ctrlbl_0:
+      IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+
+      L3:
+      s = block(s); GOTO L4
+
+      L4: s = block(s)
+      GOTO L2/ec_ctrlbl_0
+
+      L5/ec_ctrlbl_1:
+      RETURN
+  |])])
   -- end {{{3
   ]
 
