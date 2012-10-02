@@ -1,7 +1,7 @@
-From d44c7d31a91d2cda71d52538f98162eb7caca448 Mon Sep 17 00:00:00 2001
+From 03d48388deafe23774fbd3bc5c6947c3671f802a Mon Sep 17 00:00:00 2001
 From: Alexander Bernauer <alex@copton.net>
 Date: Mon, 4 Jun 2012 15:52:22 +0200
-Subject: [PATCH 4/5] detailed CPU cycle tracking for processes
+Subject: [PATCH 4/4] detailed CPU cycle tracking for processes
 
 Conflicts:
 

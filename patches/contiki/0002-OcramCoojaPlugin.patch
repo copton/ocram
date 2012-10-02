@@ -1,18 +1,18 @@
-From 3e7e4bf8e2ef280952f409c38cf52e9aee70a99a Mon Sep 17 00:00:00 2001
+From 99f2a8754d8e0df85cfb9d6866fdc570fad903b8 Mon Sep 17 00:00:00 2001
 From: Alexander Bernauer <alex@copton.net>
 Date: Thu, 9 Feb 2012 15:40:06 +0100
-Subject: [PATCH 2/5] OcramCoojaPlugin
+Subject: [PATCH 2/4] OcramCoojaPlugin
 
 ---
- .../se/sics/cooja/mspmote/OcramCoojaPlugin.java    |    1 +
+ .../cooja/mspmote/plugins/OcramCoojaPlugin.java    |    1 +
  1 files changed, 1 insertions(+), 0 deletions(-)
- create mode 120000 tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/OcramCoojaPlugin.java
+ create mode 120000 tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/plugins/OcramCoojaPlugin.java
 
-diff --git a/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/OcramCoojaPlugin.java b/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/OcramCoojaPlugin.java
+diff --git a/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/plugins/OcramCoojaPlugin.java b/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/plugins/OcramCoojaPlugin.java
 new file mode 120000
 index 0000000..cd798fd
 --- /dev/null
-+++ b/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/OcramCoojaPlugin.java
++++ b/tools/cooja/apps/mspsim/src/se/sics/cooja/mspmote/plugins/OcramCoojaPlugin.java
 @@ -0,0 +1 @@
 +/home/alex/scm/ocram/applications/contiki/OcramCoojaPlugin.java
 \ No newline at end of file

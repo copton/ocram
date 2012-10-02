@@ -1,7 +1,7 @@
 From 861e6f075466054ecf148010f06b75afd8990391 Mon Sep 17 00:00:00 2001
 From: Alexander Bernauer <alex@copton.net>
 Date: Thu, 9 Feb 2012 15:16:54 +0100
-Subject: [PATCH 1/5] local modifications
+Subject: [PATCH 1/4] local modifications
 
 ---
  examples/ipv6/rpl-border-router/project-conf.h |    3 +++
