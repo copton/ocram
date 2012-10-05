@@ -10,12 +10,12 @@ module Ocram.Print.Test
 --import Data.List (intercalate)
 --import Ocram.Debug (ENodeInfo(..))
 --import Language.C.Syntax.AST (annotation)
-import Ocram.Analysis (analysis, Analysis(anaCallgraph))
+import Ocram.Analysis (analysis, Analysis(..))
 import Ocram.Print (print_with_log)
-import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TstLocations, TBlockingCalls)
+import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TBreakpoint)
 import Ocram.Text (show_errors)
-import Ocram.Transformation (transformation)
---import Ocram.Transformation.Types (CExpr', CStat')
+import Ocram.Backend (tcode_2_ecode)
+import Ocram.Intermediate (ast_2_ir)
 import Test.Framework (Test, testGroup)
 import Test.HUnit (Assertion, assertFailure, assertEqual)
 
@@ -26,7 +26,7 @@ tests = testGroup "Print" [test_print_with_log]
 
 test_print_with_log :: Test -- {{{1
 test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
--- setup {{{2
+-- , 01 - setup {{{2
   ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
 02: __attribute__((tc_run_thread)) void start() { 
@@ -58,16 +58,15 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 23:     return;
     }
     |], [
-        (3, 17, Just 0)
-      , (3, 18, Just 0)
-      , (3, 19, Just 0)
-      , (3, 20, Just 0)
-      , (2, 23, Just 0)
-    ], [
-      (3, 19, 0)
-    ])
--- function static variable {{{2
-  , ([lpaste|
+        (3, 17, Just 0, False)
+      , (3, 18, Just 0, False)
+      , (3, 19, Just 0, True)
+      , (3, 20, Just 0, False)
+      , (2, 23, Just 0, False)
+    ]
+  )
+  , -- 02 - function static variable {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
 02: __attribute__((tc_run_thread)) void start() {
 03:   static int i = 0;
@@ -100,17 +99,15 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 24:     return;
     }
   |], [
-      (3, 17, Just 0)
-    , (4, 18, Just 0)
-    , (4, 19, Just 0)
-    , (4, 20, Just 0)
-    , (4, 21, Just 0)
-    , (2, 24, Just 0)
-  ], [
-      (4, 20, 0)
+      (3, 17, Just 0, False)
+    , (4, 18, Just 0, False)
+    , (4, 19, Just 0, False)
+    , (4, 20, Just 0, True)
+    , (4, 21, Just 0, False)
+    , (2, 24, Just 0, False)
   ])
--- global variable {{{2
-  , ([lpaste|
+  , -- 03 - global variable {{{2
+  ([lpaste|
     int k;
     __attribute__((tc_blocking)) void block(int i);
 03: __attribute__((tc_run_thread)) void start() {
@@ -145,17 +142,15 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 25:     return;
     }
   |], [
-      (4, 18, Just 0)
-    , (5, 19, Just 0)
-    , (5, 20, Just 0)
-    , (5, 21, Just 0)
-    , (5, 22, Just 0)
-    , (3, 25, Just 0)
-  ], [
-      (5, 21, 0)
+      (4, 18, Just 0, False)
+    , (5, 19, Just 0, False)
+    , (5, 20, Just 0, False)
+    , (5, 21, Just 0, True)
+    , (5, 22, Just 0, False)
+    , (3, 25, Just 0, False)
   ])
--- non-critical function call {{{2
-  ,([lpaste|
+  , -- 04 - non-critical function call {{{2
+  ([lpaste|
     int k;
     void f() {
 03:   k = 23; 
@@ -197,18 +192,16 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 29:     return;
     }
   |], [
-      (3,  4, Nothing)
-    , (7, 22, Just 0)
-    , (8, 23, Just 0)
-    , (8, 24, Just 0)
-    , (8, 25, Just 0)
-    , (8, 26, Just 0)
-    , (6, 29, Just 0)
-  ], [
-      (8, 25, 0)
+      (3,  4, Nothing, False)
+    , (7, 22, Just 0, False)
+    , (8, 23, Just 0, False)
+    , (8, 24, Just 0, False)
+    , (8, 25, Just 0, True)
+    , (8, 26, Just 0, False)
+    , (6, 29, Just 0, False)
   ])
--- critical function call {{{2
-  ,([lpaste|
+  , -- 05 - critical function call {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
 02: void c(int i) {
 03:   block(i+1);
@@ -257,20 +250,18 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 38:     goto * (ec_stack_start.ec_frames.c.ec_cont);
     }
   |], [
-      (6, 24, Just 0)
-    , (6, 25, Just 0)
-    , (6, 26, Just 0)
-    , (5, 29, Just 0)
-    , (3, 32, Just 0)
-    , (3, 33, Just 0)
-    , (3, 34, Just 0)
-    , (3, 35, Just 0)
-    , (2, 38, Just 0)
-  ], [
-      (3, 34, 0)
+      (6, 24, Just 0, False)
+    , (6, 25, Just 0, False)
+    , (6, 26, Just 0, False)
+    , (5, 29, Just 0, False)
+    , (3, 32, Just 0, False)
+    , (3, 33, Just 0, False)
+    , (3, 34, Just 0, True)
+    , (3, 35, Just 0, False)
+    , (2, 38, Just 0, False)
   ])
--- re-entrance {{{2
-  ,([lpaste|
+  , -- 06 - re-entrance {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
 02: void c(int i) {
 03:   block(i+1);
@@ -350,30 +341,27 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 66:     goto * (ec_stack_s2.ec_frames.c.ec_cont);
     }
   |], [
-      (6, 30, Just 0)
-    , (6, 31, Just 0)
-    , (6, 32, Just 0)
-    , (5, 35, Just 0)
-    , (3, 38, Just 0)
-    , (3, 39, Just 0)
-    , (3, 40, Just 0)
-    , (3, 41, Just 0)
-    , (2, 44, Just 0)
-    , (9, 52, Just 1)
-    , (9, 53, Just 1)
-    , (9, 54, Just 1)
-    , (8, 57, Just 1)
-    , (3, 60, Just 1)
-    , (3, 61, Just 1)
-    , (3, 62, Just 1)
-    , (3, 63, Just 1)
-    , (2, 66, Just 1)
-  ], [
-      (3, 40, 0)
-    , (3, 62, 1)
+      (6, 30, Just 0, False)
+    , (6, 31, Just 0, False)
+    , (6, 32, Just 0, False)
+    , (5, 35, Just 0, False)
+    , (3, 38, Just 0, False)
+    , (3, 39, Just 0, False)
+    , (3, 40, Just 0, True)
+    , (3, 41, Just 0, False)
+    , (2, 44, Just 0, False)
+    , (9, 52, Just 1, False)
+    , (9, 53, Just 1, False)
+    , (9, 54, Just 1, False)
+    , (8, 57, Just 1, False)
+    , (3, 60, Just 1, False)
+    , (3, 61, Just 1, False)
+    , (3, 62, Just 1, True)
+    , (3, 63, Just 1, False)
+    , (2, 66, Just 1, False)
   ])
--- multiple statements in a row {{{2
-  ,([lpaste|
+  , -- 07 - multiple statements in a row {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
 02: __attribute__((tc_run_thread)) void start() {
 03:   block(23); block(42);
@@ -410,21 +398,18 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 29:     return;
     }
   |], [
-      (3, 17, Just 0)
-    , (3, 18, Just 0)
-    , (3, 19, Just 0)
-    , (3, 20, Just 0)
-    , (3, 23, Just 0)
-    , (3, 24, Just 0)
-    , (3, 25, Just 0)
-    , (3, 26, Just 0)
-    , (2, 29, Just 0)
-  ], [
-      (3, 19, 0)
-    , (3, 25, 0)
+      (3, 17, Just 0, False)
+    , (3, 18, Just 0, False)
+    , (3, 19, Just 0, True)
+    , (3, 20, Just 0, False)
+    , (3, 23, Just 0, False)
+    , (3, 24, Just 0, False)
+    , (3, 25, Just 0, True)
+    , (3, 26, Just 0, False)
+    , (2, 29, Just 0, False)
   ])
--- return {{{2
-  ,([lpaste|
+  , -- 08 - return {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
     int c(int i) {
 03:   if (i ==0) {
@@ -501,31 +486,28 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         }
     }
   |], [
-      (10, 27, Just 0)
-    , (10, 28, Just 0)
-    , (10, 29, Just 0)
-    , ( 9, 32, Just 0)
-    , ( 3, 35, Just 0)
-    , ( 4, 37, Just 0)
-    , ( 4, 38, Just 0)
-    , ( 4, 39, Just 0)
-    , ( 4, 40, Just 0)
-    , ( 4, 43, Just 0)
-    , ( 4, 45, Just 0)
-    , ( 4, 46, Just 0)
-    , ( 6, 51, Just 0)
-    , ( 6, 52, Just 0)
-    , ( 6, 53, Just 0)
-    , ( 6, 54, Just 0)
-    , ( 6, 57, Just 0)
-    , ( 6, 59, Just 0)
-    , ( 6, 60, Just 0)
-  ], [
-      (4, 39, 0)
-    , (6, 53, 0)
+      (10, 27, Just 0, False)
+    , (10, 28, Just 0, False)
+    , (10, 29, Just 0, False)
+    , ( 9, 32, Just 0, False)
+    , ( 3, 35, Just 0, False)
+    , ( 4, 37, Just 0, False)
+    , ( 4, 38, Just 0, False)
+    , ( 4, 39, Just 0, True)
+    , ( 4, 40, Just 0, False)
+    , ( 4, 43, Just 0, False)
+    , ( 4, 45, Just 0, False)
+    , ( 4, 46, Just 0, False)
+    , ( 6, 51, Just 0, False)
+    , ( 6, 52, Just 0, False)
+    , ( 6, 53, Just 0, True)
+    , ( 6, 54, Just 0, False)
+    , ( 6, 57, Just 0, False)
+    , ( 6, 59, Just 0, False)
+    , ( 6, 60, Just 0, False)
   ])
--- while loops {{{2
-  ,([lpaste|
+  , -- 09 - while loops {{{2
+  ([lpaste|
       __attribute__((tc_blocking)) int block(int i);
 02:   void c(int i) {
 03:     while (block(i) != 0);
@@ -588,24 +570,22 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 52:     goto * (ec_stack_start.ec_frames.c.ec_cont);
     }
   |], [
-      ( 6, 25, Just 0)
-    , ( 6, 26, Just 0)
-    , ( 6, 27, Just 0)
-    , ( 5, 30, Just 0)
-    , ( 3, 36, Just 0)
-    , ( 3, 37, Just 0)
-    , ( 3, 38, Just 0)
-    , ( 3, 39, Just 0)
-    , ( 3, 42, Just 0)
-    , ( 3, 43, Just 0)
-    , ( 3, 45, Just 0)
-    , ( 3, 48, Just 0)
-    , ( 2, 52, Just 0)
-  ], [
-      (3, 38, 0)
+      ( 6, 25, Just 0, False)
+    , ( 6, 26, Just 0, False)
+    , ( 6, 27, Just 0, False)
+    , ( 5, 30, Just 0, False)
+    , ( 3, 36, Just 0, False)
+    , ( 3, 37, Just 0, False)
+    , ( 3, 38, Just 0, True)
+    , ( 3, 39, Just 0, False)
+    , ( 3, 42, Just 0, False)
+    , ( 3, 43, Just 0, False)
+    , ( 3, 45, Just 0, False)
+    , ( 3, 48, Just 0, False)
+    , ( 2, 52, Just 0, False)
   ])
--- declaration with initializer {{{2
-  ,([lpaste|
+  , -- 10 - declaration with initializer {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
     int f();
 03: __attribute__((tc_run_thread)) void start() {
@@ -644,18 +624,16 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 28:     return;
     }
   |], [
-      ( 4, 20, Just 0)
-    , ( 5, 21, Just 0)
-    , ( 6, 22, Just 0)
-    , ( 6, 23, Just 0)
-    , ( 6, 24, Just 0)
-    , ( 6, 25, Just 0)
-    , ( 3, 28, Just 0)
-  ], [
-      ( 6, 24, 0)
+      ( 4, 20, Just 0, False)
+    , ( 5, 21, Just 0, False)
+    , ( 6, 22, Just 0, False)
+    , ( 6, 23, Just 0, False)
+    , ( 6, 24, Just 0, True)
+    , ( 6, 25, Just 0, False)
+    , ( 3, 28, Just 0, False)
   ])
--- declaration with critical initializer {{{2
-  ,([lpaste|
+  , -- 11 - declaration with critical initializer {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) int block();
 02: __attribute__((tc_run_thread)) void start() {
 03:   int i = block();
@@ -687,16 +665,14 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 24:     return;
     }
   |], [
-      ( 3, 18, Just 0)
-    , ( 3, 19, Just 0)
-    , ( 3, 20, Just 0)
-    , ( 3, 23, Just 0)
-    , ( 2, 24, Just 0)
-  ], [
-      ( 3, 19, 0)
+      ( 3, 18, Just 0, False)
+    , ( 3, 19, Just 0, True)
+    , ( 3, 20, Just 0, False)
+    , ( 3, 23, Just 0, False)
+    , ( 2, 24, Just 0, False)
   ])
--- declaration in non-critical function {{{2
-  ,([lpaste|
+  , -- 12 - declaration in non-critical function {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
     int f() {
 03:   int i = 0;
@@ -736,36 +712,34 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 28:     return;
     }
   |], [
-      ( 3,  3, Nothing)
-    , ( 4,  4, Nothing)
-    , ( 7, 22, Just 0)
-    , ( 7, 23, Just 0)
-    , ( 7, 24, Just 0)
-    , ( 7, 25, Just 0)
-    , ( 6, 28, Just 0)
-  ], [
-      ( 7, 24, 0)
+      ( 3,  3, Nothing, False)
+    , ( 4,  4, Nothing, False)
+    , ( 7, 22, Just 0, False)
+    , ( 7, 23, Just 0, False)
+    , ( 7, 24, Just 0, True)
+    , ( 7, 25, Just 0, False)
+    , ( 6, 28, Just 0, False)
   ])
+  -- end {{{2
   ]
 
-runTest :: (String, String, TstLocations, TBlockingCalls) -> Assertion -- {{{1
-runTest (inputCode, expectedCode, expectedBps, expectedBcs) =
-  let ast = enrich inputCode in
-  case analysis ast of
+runTest :: (String, String, [TBreakpoint]) -> Assertion -- {{{1
+runTest (inputCode, expectedCode, expectedBps) =
+  let tAst = enrich inputCode in
+  case analysis tAst of
     Left es -> assertFailure $ show_errors "analysis" es
     Right ana ->
       let
-        cg           = anaCallgraph ana
-        (ast', _, _) = transformation cg ast
-        (resultCode, resultBps, resultBcs) = print_with_log ast'
+        cfs          = ast_2_ir  (anaBlocking ana) (anaCritical ana)
+        
+        (eAst, _)    = tcode_2_ecode ana cfs
+        (resultCode, resultBps) = print_with_log eAst
         resultCode' = BS.unpack resultCode
         resultBps'  = reduce resultBps
-        resultBcs'  = reduce resultBcs
       in do
 --        let dbg = debug ast' -- needed for debugging the test cases
         assertEqual "code"           expectedCode resultCode'
         assertEqual "breakpoints: "  expectedBps  resultBps'
-        assertEqual "blocking calls" expectedBcs  resultBcs'
 
 --   where
 --     debug ast = intercalate "\n\n" $ map show $ everything (++) (mkQ [] traceExpr `extQ` traceStat) ast

@@ -3,18 +3,20 @@ module Ocram.Main (main) where
 -- imports {{{1
 import Ocram.Analysis (analysis, Analysis(anaCritical, anaBlocking, anaCallgraph), footprint)
 import Ocram.Backend (tcode_2_ecode)
---import Ocram.Debug (create_debug_info)
+import Ocram.Debug (create_debug_info)
 import Ocram.Intermediate (ast_2_ir)
 import Ocram.Options (options)
-import Ocram.IO (parse, generate_pal, dump_ecode, {-dump_debug_info-})
+import Ocram.IO (parse, generate_pal, dump_ecode, dump_debug_info)
 import Ocram.Print (print_with_log)
---import Ocram.Ruab (encode_debug_info)
+import Ocram.Ruab (encode_debug_info)
 import Ocram.Text (OcramError, show_errors)
 import Ocram.Test (runTests)
 import System.Directory (getCurrentDirectory)
 import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
+
+import qualified Data.Map as M
 
 main :: IO () -- {{{1
 main = do
@@ -25,21 +27,21 @@ main = do
 
 runCompiler :: [String] -> IO () -- {{{1
 runCompiler argv = do
-  prg                 <- getProgName
-  cwd                 <- getCurrentDirectory
+  prg                   <- getProgName
+  cwd                   <- getCurrentDirectory
 
-  opt                 <- exitOnError "options"  $ options prg cwd argv 
-  (_, _, tAst)        <- exitOnError "parser" =<< parse opt
-  ana                 <- exitOnError "analysis" $ analysis tAst
+  opt                   <- exitOnError "options"  $ options prg cwd argv 
+  (tcode, pcode, tAst)  <- exitOnError "parser" =<< parse opt
+  ana                   <- exitOnError "analysis" $ analysis tAst
 
-  let ir              = ast_2_ir (anaBlocking ana) (anaCritical ana)
-  let (eAst, pal)     = tcode_2_ecode ana ir
-  let (ecode, _, _)   = print_with_log eAst
---   let di              = encode_debug_info $ create_debug_info opt ast cg tcode pcode ecode vm lm bl
+  let cfs                = ast_2_ir (anaBlocking ana) (anaCritical ana)
+  let (eAst, pal)        = tcode_2_ecode ana cfs
+  let (ecode, bps)       = print_with_log eAst
+  let di                 = encode_debug_info $ create_debug_info opt tcode pcode ana (M.elems cfs) bps ecode
 
   exitOnError "output" =<< generate_pal opt (footprint (anaCallgraph ana)) pal
   exitOnError "output" =<< dump_ecode opt ecode
---   exitOnError "output" =<< dump_debug_info opt di
+  exitOnError "output" =<< dump_debug_info opt di
 
   return ()
 

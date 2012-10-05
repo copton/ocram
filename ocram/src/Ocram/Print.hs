@@ -41,51 +41,38 @@ module Ocram.Print
 ) where
 
 -- import {{{1
-import Data.Maybe (fromMaybe)
-import Language.C.Data.Position (posRow, posColumn, posFile)
+import Language.C.Data.Position (posRow)
 import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
-import Language.C.Data.Node (posOfNode, lengthOfNode, isUndefNode)
+import Language.C.Data.Node (posOfNode, isUndefNode)
 import Text.PrettyPrint
-import Ocram.Debug (ENodeInfo(..), Location(..), Locations)
-import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), BlockingCalls, ERow(..), TRow(..))
-import Ocram.Util (abort, fromJust_s)
+import Ocram.Debug (ENodeInfo(..), Breakpoint(..), Breakpoints)
+import Ocram.Ruab (ERow(..), TRow(..))
+import Ocram.Util (abort)
 import Prelude hiding (log)
 
 import qualified Data.ByteString.Char8 as BS
 
-print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, Locations, BlockingCalls) -- {{{1
+print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, Breakpoints) -- {{{1
 print_with_log tu =
   let
     (code, log) = renderWithLog (pretty tu)
-    (bps, bcs) = foldr split ([], []) log
-    split (Left x)  (bps', bcs') = (x:bps', bcs')
-    split (Right x) (bps', bcs') = (bps', x:bcs')
   in
-    (BS.pack code, bps, bcs)
+    (BS.pack code, log)
 
-type Log = [Either Location BlockingCall] -- {{{2
+type Log = Breakpoints -- {{{2
 
 marker :: ENodeInfo -> DocL Log -> DocL Log -- {{{2
 marker eni doc =
   let
     doc' = if enLocation eni then here bpLogger doc else doc
-    doc'' = if enBlockingCall eni then here bcLogger doc' else doc'
   in
     if (isUndefNode . enTnodeInfo) eni
       then doc
-      else doc''
+      else doc'
   where
-    bpLogger (Position r c) = [Left $ Location tlocation (ELocation (ERow r) c) (enThreadId eni)]
-
-    bcLogger (Position r c) = [Right $ BlockingCall tlocation (ELocation (ERow r) c) (($fromJust_s . enThreadId) eni)]
-
-    tlocation =
-      let
-        ni = enTnodeInfo eni
-        pos = posOfNode ni
-      in
-        TLocation ((TRow . posRow) pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
+    bpLogger (Position r _) = [Breakpoint trow (ERow r) (enThreadId eni) (enBlockingCall eni)]
+    trow = TRow . posRow . posOfNode . enTnodeInfo $ eni
     
 class PrettyLog a where -- {{{2
   pretty :: a -> DocL Log

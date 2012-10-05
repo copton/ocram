@@ -2,6 +2,8 @@
 module Ocram.Test.Lib where
 
 -- imports {{{1
+import Control.Applicative ((<$>), (<*>))
+import Control.Arrow ((***))
 import Data.ByteString.Char8 (pack)
 import Language.C.Data.Position (initPos)
 import Language.C.Parser (parseC)
@@ -10,15 +12,13 @@ import Language.C.Syntax.AST (CTranslUnit)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
-import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), TRow(..), ERow(..), VarMap(..), Variable(..), FunMap(..))
-import Ocram.Debug (Location(..))
+import Ocram.Ruab
+import Ocram.Debug (Breakpoint(..))
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework (testGroup, Test)
 import Test.HUnit (Assertion)
 import Text.Printf (printf)
-import qualified Data.Set as S
 import qualified Data.List as L
-import qualified Data.Map as M
 
 parse :: String -> CTranslUnit -- {{{1
 parse code = case parseC code' pos of
@@ -51,49 +51,48 @@ class TestData d t where -- {{{1
 	reduce :: d -> t
 	enrich :: t -> d
 
-instance TestData CallGraph TCallGraph where
+instance TestData CallGraph TCallGraph where -- {{{2
 	reduce cg = L.sort $ to_test_graph cg
 	enrich cg = from_test_graph cg
 
-instance TestData CTranslUnit String where
+instance TestData CTranslUnit String where -- {{{2
 	reduce = show . pretty
 	enrich = parse
 
-instance TestData Location TstLocation where
-  reduce bp = ((getTRow . tlocRow . bpTloc) bp, (getERow . elocRow . bpEloc) bp, bpThreadId bp)
-  enrich (trow, erow, tid) = Location (TLocation (TRow trow) 1 1 "test") (ELocation (ERow erow) 1) tid
+instance TestData VarMap TVarMap where -- {{{2
+  reduce = map tr
+    where
+      tr (scope, vars) = ((getPRow . scStart) scope, (getPRow . scEnd) scope, map tr' vars)
+      tr' (var, fqn)   = (thread var, varTName var, fqn)
+      thread v@(AutomaticVariable _ _) = Just (varThread v)
+      thread   (StaticVariable _)      = Nothing
 
-instance TestData BlockingCall TBlockingCall where
-  reduce bc = ((getTRow . tlocRow . bcTloc) bc, (getERow . elocRow . bcEloc) bc, bcThreadId bc)
-  enrich (trow, erow, tid) = BlockingCall (TLocation (TRow trow) 1 1 "test") (ELocation (ERow erow) 1) tid
+  enrich = map tr
+    where
+      tr (start, end, vars) = (Scope (PRow start) (PRow end), map tr' vars)
+      tr' (Nothing, name, fqn) = (StaticVariable name, fqn)
+      tr' (Just tid, name, fqn) = (AutomaticVariable tid name, fqn)
 
-instance TestData VarMap TVarMap where
-  reduce = map tr . M.toList . getVarMap
-    where tr (var, evar) = (varThread var, varFunction var, varSymbol var, evar)
-  enrich = VarMap . M.fromList . map tr
-    where tr (tid, fun, tvar, evar) = (Variable tid fun tvar, evar)
+instance TestData MapTP TMapTP where -- {{{2
+  reduce (MapTP (TRow mtr) (PRow mpr) ma) = (mtr, mpr, map (getTRow *** getPRow) ma)
+  enrich (mtr, mpr, ma) = MapTP (TRow mtr) (PRow mpr) (map (TRow *** PRow) ma)
 
-instance TestData FunMap TFunMap where
-  reduce = map tr . getFunMap
-    where tr ((start, end), fun) = (fun, getTRow start, getTRow end)
-  enrich = FunMap . map tr
-    where tr (fun, start, end) = ((TRow start, TRow end), fun)
+instance TestData Breakpoint TBreakpoint where -- {{{2
+  reduce = (,,,) <$> getTRow . bpTRow <*> getERow . bpERow <*> bpThread <*> bpBlocking
 
-instance TestData Char Char where
+  enrich (tr, er, tid, bl) = Breakpoint (TRow tr) (ERow er) tid bl
+
+instance TestData Char Char where -- {{{2
 	reduce = id
 	enrich = id
 
-instance TestData ErrorCode Int where
+instance TestData ErrorCode Int where -- {{{2
 	reduce = fromEnum
 	enrich = toEnum
 
-instance Ord a => TestData (S.Set a) [a] where
-	reduce set = S.toList set
-	enrich list = S.fromList list
-
-instance (TestData a b) => TestData [a] [b] where
-	reduce = map reduce
-	enrich = map enrich
+instance (TestData a b) => TestData [a] [b] where -- {{{2
+  reduce = map reduce
+  enrich = map enrich
 
 -- types {{{1
 type TCode              = String
@@ -103,11 +102,6 @@ type TStartFunctions    = [String]
 type TCriticalFunctions = [String]
 type TErrorCodes        = [ErrorCode]
 type TCallChain         = [String]
-type TstLocation        = (Int, Int, Maybe Int)
-type TstLocations       = [TstLocation]
-type TBlockingCall      = (Int, Int, Int)
-type TBlockingCalls     = [TBlockingCall]
-type TVarMapEntry       = (Int, String, String, String)
-type TVarMap            = [TVarMapEntry]
-type TFunMapEntry       = (String, Int, Int)
-type TFunMap            = [TFunMapEntry]
+type TVarMap            = [(Int, Int, [(Maybe Int, String, String)])]
+type TMapTP             = (Int, Int, [(Int, Int)])
+type TBreakpoint        = (Int, Int, Maybe Int, Bool)

@@ -1,84 +1,44 @@
-{-# LANGUAGE DeriveDataTypeable, TemplateHaskell #-}
-module Ocram.Debug where
+{-# LANGUAGE TemplateHaskell #-}
+module Ocram.Debug (
+    ENodeInfo(..), enrich_node_info
+  , Breakpoint(..), Breakpoints
+  , create_debug_info
+  , module Ocram.Debug.Enriched
+) where
 
 -- import {{{1
-import Data.Data (Data)
 import Data.Digest.OpenSSL.MD5 (md5sum)
-import Data.Typeable (Typeable)
-import Language.C.Data.Node (CNode(nodeInfo), NodeInfo, undefNode)
-import Language.C.Syntax.AST
-import Ocram.Analysis (CallGraph, start_functions, blocking_functions, call_order, critical_functions)
-import Ocram.Options (Options(optInput, optOutput))
+import Language.C.Data.Node (NodeInfo)
+import Ocram.Analysis (Analysis(..))
+import Ocram.Debug.Enriched
 import Ocram.Debug.Internal
+import Ocram.Intermediate (Function)
+import Ocram.Options (Options(optInput, optOutput))
 import Ocram.Ruab
-import Ocram.Symbols (Symbol)
-import Ocram.Names (tfunction)
-import Ocram.Util (fromJust_s)
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
 
-data ENodeInfo = ENodeInfo { -- {{{1
-    enTnodeInfo     :: NodeInfo
-  , enThreadId      :: Maybe Int
-  , enLocation      :: Bool
-  , enBlockingCall  :: Bool
-  , enSubst         :: [Substitution]
-  } deriving (Data, Typeable, Show)
-
-instance CNode ENodeInfo where
-  nodeInfo = enTnodeInfo
-
-data Substitution = Substitution { -- {{{1
-    substTVar :: Symbol
-  , substEVar :: Symbol
-  , substFunc :: Symbol
-  } deriving (Data, Typeable, Show)
-
-
-un :: ENodeInfo -- {{{1
-un = enrich_node_info undefNode
-
 enrich_node_info :: NodeInfo -> ENodeInfo -- {{{1
-enrich_node_info ni = ENodeInfo ni Nothing False False []
+enrich_node_info ni = ENodeInfo ni Nothing False False
 
-data Location = Location { -- {{{1
-    bpTloc           :: TLocation
-  , bpEloc           :: ELocation
-  , bpThreadId       :: Maybe ThreadId
-  } deriving (Show)
-
-type Locations = [Location] -- {{{1
-
-create_debug_info :: Options -> CTranslUnit -> CallGraph -> BS.ByteString -> BS.ByteString -> BS.ByteString -> VarMap -> Locations -> BlockingCalls -> DebugInfo -- {{{1
-create_debug_info opt ast cg tcode pcode ecode vm bps bcs =
+create_debug_info :: -- {{{1
+     Options       -- command line options
+  -> BS.ByteString -- T-code
+  -> BS.ByteString -- P-code
+  -> Analysis      -- result of analysis
+  -> [Function]    -- result of intermediate
+  -> Breakpoints   -- breakpoints
+  -> BS.ByteString -- E-code      
+  -> DebugInfo
+create_debug_info opt tcode pcode ana cfs bps ecode =
   let
     tfile = File (optInput opt) (md5sum tcode)
     efile = File (optOutput opt) (md5sum ecode)
-    ts = zipWith createThreadInfo [0..] (start_functions cg)
-    ppm = preproc_map tcode pcode
-    oa = blocking_functions cg
-    lm = createLocMap bps
-    cf = critical_functions cg
-    fm = fun_map ast
-  in
-    DebugInfo tfile pcode efile ppm lm bcs vm fm ts oa cf
-  where
-    createThreadInfo tid sf = Thread tid sf (tfunction tid) ($fromJust_s $ call_order cg sf)
-
-    createLocMap = LocMap . foldr insert M.empty
-    insert bp = M.alter (alter (bpEloc bp)) $ LocKey (bpThreadId bp) (bpTloc bp)
-    alter eloc Nothing = Just [eloc]
-    alter eloc (Just elocs) = Just $ eloc : elocs
-
--- types {{{1
-type CTranslUnit' = CTranslationUnit ENodeInfo
-type CExpr' = CExpression ENodeInfo
-type CBlockItem' = CCompoundBlockItem ENodeInfo
-type CStat' = CStatement ENodeInfo
-type CFunDef' = CFunctionDef ENodeInfo
-type CDesignator' = CPartDesignator ENodeInfo
-type CInit' = CInitializer ENodeInfo
-type CDecl' = CDeclaration ENodeInfo
-type CDeclr' = CDeclarator ENodeInfo
-type CExtDecl' = CExternalDeclaration ENodeInfo
+    mtp   = t2p_map tcode pcode
+    mpe   = p2e_map mtp bps
+    vm    = var_map cfs
+    ts    = all_threads (anaCallgraph ana)
+    os    = M.keys (anaBlocking ana)
+  in 
+    DebugInfo tfile pcode efile mtp mpe vm ts os

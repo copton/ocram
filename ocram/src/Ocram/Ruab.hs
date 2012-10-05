@@ -5,9 +5,9 @@ module Ocram.Ruab where
 import Text.JSON
 import Control.Applicative ((<$>))
 import Control.Arrow ((***))
+import Control.Monad (guard)
 
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.Map as M
 
 encode_debug_info :: DebugInfo -> BS.ByteString -- {{{1
 encode_debug_info = BS.pack . encodeStrict
@@ -30,58 +30,57 @@ newtype ERow -- {{{2
 
 type ThreadId = Int
 
-data TLocation = TLocation { -- {{{2
-    tlocRow  :: TRow
-  , tlocCol  :: Int
-  , tlocLen  :: Int
-  , tlocFile :: String
-  } deriving (Show, Ord, Eq)
 
-data ELocation = ELocation { -- {{{2
-    elocRow  :: ERow
-  , elocCol  :: Int
-  } deriving Show
-
-data LocKey = LocKey { -- {{{2
-    locKeyThread :: Maybe ThreadId
-  , locKeyTloc   :: TLocation
+data PLocation = PLocation { -- {{{2
+  -- |A location in the P-code
+    plThread       :: Maybe ThreadId
+  , plRow          :: PRow
+  , plBlockingCall :: Bool
   } deriving (Eq, Ord)
 
-newtype LocMap -- {{{2
-  = LocMap { getLocMap :: M.Map LocKey [ELocation] }
+type MapPE -- {{{2
+  -- |Map between P-rows and E-rows
+  = [(PLocation, [ERow])]
 
-data BlockingCall = BlockingCall { -- {{{2
-    bcTloc     :: TLocation -- TODO not required any more, because every blocking call is included in the LocationMap
-  , bcEloc     :: ELocation
-  , bcThreadId :: ThreadId
-  } deriving Show
-
-type BlockingCalls = [BlockingCall] -- {{{2
-
-data Variable = Variable { -- {{{2
-    varThread    :: ThreadId
-  , varFunction  :: String
-  , varSymbol    :: String
-  } deriving (Ord, Eq)
-
-newtype VarMap -- {{{2
-  = VarMap { getVarMap :: M.Map Variable String}
-
-newtype FunMap -- {{{2
-  = FunMap { getFunMap :: [((TRow, TRow), String)] }
-
-data PreprocMap = PreprocMap { -- {{{2
-    ppmMaxTRow :: TRow
-  , ppmMaxPRow :: PRow
-  , ppmMapping :: [(TRow, PRow)]
+data MapTP = -- {{{2
+  -- |Map between T-rows and P-rows
+  MapTP {
+    mtpMaxTRow :: TRow
+  , mtpMaxPRow :: PRow
+  , mtpMapping :: [(TRow, PRow)]
   }
 
+data Scope =  -- {{{2
+  Scope {
+    scStart :: PRow
+  , scEnd   :: PRow
+  } deriving (Eq, Ord)
+
+data Variable -- {{{2
+  = AutomaticVariable {
+    varThread :: ThreadId
+  , varTName  :: String
+  }
+  | StaticVariable {
+    varTName  :: String
+  }  
+
+type FQN -- {{{2
+  -- |A fully qualified name of a variable
+  = String
+
+type VarMap -- {{{2
+  -- |Mapping of Variable names
+  = [(Scope, [(Variable, FQN)])]
+
 data File = File { -- {{{2
+  -- |Information about a source file
     fileName     :: FilePath
   , fileChecksum :: String
   }
 
 data Thread = Thread { -- {{{2
+  -- |Information about a T-thread
     threadId        :: Int
   , threadStart     :: String
   , threadExecution :: String
@@ -89,17 +88,15 @@ data Thread = Thread { -- {{{2
   } deriving Show
   
 data DebugInfo = DebugInfo { -- {{{2
+  -- |The debugging information that is exchanged between Ocram and Ruab
     diTcode     :: File
   , diPcode     :: BS.ByteString
   , diEcode     :: File
-  , diPpm       :: PreprocMap
-  , diLm        :: LocMap
-  , diBcs       :: BlockingCalls
+  , diMtp       :: MapTP
+  , diMpe       :: MapPE
   , diVm        :: VarMap
-  , diFm        :: FunMap -- TODO no needed any more (with new VarMap)
   , diThreads   :: [Thread]
   , diOsApi     :: [String]
-  , diCf        :: [String]
   }
 
 -- instances {{{1
@@ -115,73 +112,50 @@ instance JSON ERow where -- {{{2
   readJSON val = ERow <$> readJSON val
   showJSON = showJSON . getERow
 
-instance JSON TLocation where -- {{{2
+instance JSON PLocation where -- {{{2
   readJSON val = do
-    (r, c, l, f) <- readJSON val
-    return $ TLocation r c l f
+    (t, r, b) <- readJSON val
+    return $ PLocation (decodeTid t) r b
 
-  showJSON (TLocation r c l f) = showJSON (r, c, l, f)
+  showJSON (PLocation t r b) = showJSON (encodeTid t, r, b)
 
-instance JSON ELocation where -- {{{2
-  readJSON val = do
-    (r, c) <- readJSON val
-    return $ ELocation r c
 
-  showJSON (ELocation r c) = showJSON (r, c)
-
-instance JSON LocKey where -- {{{2
-  readJSON val = do
-    (tid, tloc) <- readJSON val
-    return $ LocKey (decodeTid tid) tloc
-
-  showJSON (LocKey tid tloc) = showJSON (encodeTid tid, tloc)
-
-instance JSON LocMap where -- {{{2
-  readJSON val = (LocMap . M.fromList) <$> readJSON val
-
-  showJSON = showJSON . M.toList . getLocMap
-
-instance JSON Variable where -- {{{2
-  readJSON val = do
-    (tid, func, sym) <- readJSON val
-    return $ Variable tid func sym
-
-  showJSON (Variable tid func sym) = showJSON (tid, func, sym)
-    
-instance JSON VarMap where -- {{{2
-  readJSON val = VarMap . M.fromList <$> readJSON val
-  
-  showJSON = showJSON . M.toList . getVarMap
-
-instance JSON BlockingCall where -- {{{2
-  readJSON val = do
-    (t, e, tid) <- readJSON val
-    return $ BlockingCall t e tid
-
-  showJSON (BlockingCall t e tid) = showJSON (t, e, tid)
-
-instance JSON FunMap where -- {{{2
-  readJSON val = do
-    entries <- readJSON val
-    entries' <- mapM readJSON entries
-    return $ FunMap $ map (\(s, e, f) -> ((s, e), f)) entries'
-
-  showJSON (FunMap entries) = showJSON . map (showJSON . (\((s,e),f) -> (s,e,f))) $ entries
-
-instance JSON PreprocMap where  -- {{{2
-  showJSON (PreprocMap (TRow mtr) (PRow mpr) ma) = (JSObject . toJSObject) [
-        ("maxrow",  showJSON (mtr, mpr))
-      , ("mapping", showJSON (map (getTRow *** getPRow) ma))
-    ]
-
+instance JSON MapTP where  -- {{{2
   readJSON (JSObject obj) = do
     let [mr, ma] = map snd $ fromJSObject obj
     (mtr, mpr) <- readJSON mr
     ma' <- readJSON ma
-    return $ PreprocMap (TRow mtr) (PRow mpr) (map (TRow *** PRow) ma')
+    return $ MapTP (TRow mtr) (PRow mpr) (map (TRow *** PRow) ma')
 
-  readJSON x = readFail "PreprocMap" x
+  readJSON x = readFail "MapTP" x
 
+  showJSON (MapTP (TRow mtr) (PRow mpr) ma) = (JSObject . toJSObject) [
+        ("max",  showJSON (mtr, mpr))
+      , ("map", showJSON (map (getTRow *** getPRow) ma))
+    ]
+
+instance JSON Scope where  -- {{{2
+  readJSON val = do
+    (s, e) <- readJSON val
+    return $ Scope s e
+
+  showJSON (Scope s e) = showJSON (s, e)
+
+instance JSON Variable where -- {{{2
+  readJSON val = do
+    (c, o) <- readJSON val
+    case c :: Int of
+      0 -> do
+        (t, n) <- readJSON o
+        return $ AutomaticVariable t n
+      1 -> do
+        n <- readJSON o
+        return $ StaticVariable n
+      _ -> readFail "Variable" val
+
+  showJSON (AutomaticVariable t n) = showJSON (0 :: Int, showJSON (t, n))
+  showJSON (StaticVariable n)      = showJSON (1 :: Int, showJSON n)
+    
 instance JSON File where -- {{{2
   readJSON val = readJSON val >>= \[n,c] -> return $ File n c
   showJSON (File n c) = showJSON [n, c]
@@ -205,33 +179,27 @@ instance JSON Thread where -- {{{2
   readJSON x = readFail "Thread" x
 
 instance JSON DebugInfo where -- {{{2
-  showJSON (DebugInfo tcode pcode ecode ppm lm bcs vm fm ts oa cf) = (JSObject . toJSObject) [
+  showJSON (DebugInfo tcode pcode ecode mtp mpe vm ts api) = (JSObject . toJSObject) [
       ("tcode",   showJSON tcode)
     , ("pcode",   showJSON pcode)
     , ("ecode",   showJSON ecode)
-    , ("ppm",     showJSON ppm)
-    , ("lm",      showJSON lm)
-    , ("bcs",     showJSON bcs)
+    , ("mtp",     showJSON mtp)
+    , ("mpe",     showJSON mpe)
     , ("vm",      showJSON vm)
-    , ("fm",      showJSON fm)
     , ("threads", showJSON ts)
-    , ("osapi",   showJSON oa)
-    , ("cf",      showJSON cf)
+    , ("api",     showJSON api)
     ]
 
   readJSON (JSObject obj) = do
-    let [tcode, pcode, ecode, ppm, lm, bcs, vm, fm, ts, oa, cf] = map snd $ fromJSObject obj
+    let [tcode, pcode, ecode, mtp, mpe, vm, ts, api] = map snd $ fromJSObject obj
     [tcode', ecode'] <- mapM readJSON [tcode, ecode]
     pcode'           <- readJSON pcode
-    ppm'             <- readJSON ppm
-    lm'              <- readJSON lm
-    bcs'             <- readJSON bcs
+    mtp'             <- readJSON mtp
+    mpe'             <- readJSON mpe
     vm'              <- readJSON vm
-    fm'              <- readJSON fm
     ts'              <- readJSON ts
-    oa'              <- readJSON oa
-    cf'              <- readJSON cf
-    return $ DebugInfo tcode' pcode' ecode' ppm' lm' bcs' vm' fm' ts' oa' cf'
+    api'             <- readJSON api
+    return $ DebugInfo tcode' pcode' ecode' mtp' mpe' vm' ts' api'
 
   readJSON x = readFail "DebugInfo" x
 
@@ -244,7 +212,7 @@ instance Show ERow where -- {{{2
 instance Show PRow where -- {{{2
   show (PRow x) = show x
 
--- utils {{{2
+-- utils {{{1
 readFail :: String -> JSValue -> Result a
 readFail type_ x = Error $ "unexpected JSON value for " ++ type_ ++ " type: '" ++ show x ++ "'"
 
@@ -255,3 +223,23 @@ encodeTid (Just tid) = tid
 decodeTid :: Int -> Maybe ThreadId
 decodeTid (-1) = Nothing
 decodeTid tid = Just tid
+
+-- mapper {{{1
+t2p_row :: MapTP -> TRow -> Maybe PRow -- {{{2
+t2p_row (MapTP _ prows locs) trow = do
+  guard (trow > 0)
+  let (src, dst) = (last . takeWhile ((<=trow) . fst)) locs
+  let prow = dst + (PRow . getTRow) (trow - src + 1)
+  guard (prow <= prows)
+  return prow
+
+p2t_row :: MapTP -> PRow -> Maybe TRow -- {{{2
+p2t_row mtp@(MapTP trows _ locs) prow = do
+  guard (prow > 0)
+  let (src, dst) = (last . takeWhile ((<=prow) . snd)) locs
+  let trow = src + (TRow . getPRow) (prow - dst - 1)
+  guard (trow <= trows)
+  prow' <- t2p_row mtp trow
+  guard (prow' == prow)
+  return trow
+

@@ -23,8 +23,7 @@ import Control.Applicative ((<$>), (<*>), pure)
 import Control.Monad (forM, when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
-import Data.List (intercalate, find, nub)
-import Data.Ix (inRange)
+import Data.List (intercalate, find)
 import Data.Maybe (catMaybes, fromJust, isJust)
 import Prelude hiding (catch)
 import Ruab.Actor (new_actor, update, monitor_async)
@@ -49,8 +48,8 @@ data Context = Context { -- {{{2
     ctxDebugInfo     :: R.DebugInfo
   , ctxTcode         :: BS.ByteString
   , ctxEcode         :: BS.ByteString
-  , ctxTtoE          :: M.Map R.TRow ERowMatch
-  , ctxEtoT          :: M.Map R.ERow R.TRow
+  , ctxPtoE          :: M.Map R.PRow ERowMatch
+  , ctxEtoP          :: M.Map R.ERow R.PRow
   }
 
 data Command -- {{{2
@@ -202,12 +201,8 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
             )
 
         BkptBlockingCall tid erow ->
-          let
-            prow = $fromJust_s $ do
-              bc <- find ((==erow) . R.elocRow . R.bcEloc) ((R.diBcs . ctxDebugInfo) ctx)
-              let trow = R.tlocRow . R.bcTloc $ bc
-              t2p_row ctx trow
-          in do
+          let prow = $fromJust_s $ e2p_row ctx erow in
+          do
             B.continue backend
             return $ hide True . updateThread tid (\thread ->
                 thread {thStatus = Blocked, thProw = Just $ prow}
@@ -361,13 +356,8 @@ handleCommand ctx backend fResponse command state = do
           let 
             di           = ctxDebugInfo ctx
             erow         = (R.ERow . B.frameLine . $head_s . B.stackFrames) stack
-            inRange' (R.TRow x, R.TRow y) (R.TRow z) = (x, y) `inRange` z
-            (Just fname) = do
-              prow <- e2p_row ctx erow
-              trow <- p2t_row ctx prow
-              entry <- find ((`inRange'` trow) . fst) ((R.getFunMap . R.diFm) di)
-              return (snd entry)
-          case t2e_expr (R.diCf di) (R.diVm di) (thId thread) fname texpr of
+            prow         = $fromJust_s $ e2p_row ctx erow
+          case t2e_expr (R.diVm di) (thId thread) prow texpr of
             Left err -> failed err
             Right eexpr -> do
               res <- B.evaluate_expression backend eexpr
@@ -414,11 +404,10 @@ setup opt = do
   di <- loadDebugInfo
   (tcode, ecode) <- loadFiles di
   let
-    tfile = (R.fileName . R.diTcode) di
-    lm = R.getLocMap . R.diLm $ di
-    t2em = t2e tfile lm
-    e2tm = e2t tfile lm
-  return $ Context di tcode ecode t2em e2tm
+    mpe  = R.diMpe di
+    p2em = p2e mpe
+    e2pm = e2p mpe
+  return $ Context di tcode ecode p2em e2pm
   where
     loadFiles di = do
       let files = [R.diTcode di, R.diEcode di]
@@ -438,17 +427,14 @@ setup opt = do
       | otherwise = Just $ failed $ R.fileName file
     failed file = "checksum for '" ++ file ++ "' differs"
 
-    t2e tfile = foldr go M.empty . M.toList
+    p2e = foldr go M.empty
       where
-        go (key, elocs) m =
+        go (ploc, erows) m =
           let
-            erow   = minimum . map R.elocRow $ elocs
-            tid    = R.locKeyThread key
-            trow   = (R.tlocRow . R.locKeyTloc) key
-            tfile' = (R.tlocFile . R.locKeyTloc) key
-          in if tfile == tfile'
-            then M.alter (alter erow tid) trow m
-            else m
+            erow   = minimum erows
+            tid    = R.plThread ploc
+            prow   = R.plRow ploc
+          in M.alter (alter erow tid) prow m
 
         alter erow Nothing    Nothing                    = Just $ NonCritical erow
         alter erow Nothing    (Just (NonCritical erow')) = Just $ NonCritical $ min erow erow'
@@ -460,15 +446,9 @@ setup opt = do
         alter' erow Nothing       = Just erow
         alter' erow (Just erow')  = Just $ min erow erow'
 
-    e2t tfile = M.fromList . foldr go [] . M.toList
+    e2p = M.fromList . concatMap go
       where
-        go (key, elocs) xs =
-          let
-            trow = R.tlocRow . R.locKeyTloc $ key
-            tfile' = R.tlocFile . R.locKeyTloc $ key
-          in if tfile == tfile'
-            then map ((, trow) . R.elocRow) elocs ++ xs
-            else xs
+        go (ploc, erows) = map (, R.plRow ploc) erows
 
 setupBreakpoints :: Context -> B.Context -> State -> IO State -- {{{2
 setupBreakpoints ctx backend state = do
@@ -477,9 +457,16 @@ setupBreakpoints ctx backend state = do
   let bbm = M.fromList $ map (\b -> (bkptNumber b, b)) (teb ++ ccb)
   return $ state {stateBreakpoints = bbm}
   where
-    threads = (R.diThreads . ctxDebugInfo) ctx
-    blockingCalls = (R.diBcs . ctxDebugInfo) ctx
-    efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
+    di            = ctxDebugInfo ctx
+    threads       = R.diThreads di
+    blockingCalls = concatMap toBlockingCall (R.diMpe di)
+    efile         = (R.fileName . R.diEcode) di
+    toBlockingCall (ploc, erows)
+      | R.plBlockingCall ploc =
+          let tid = $fromJust_s (R.plThread ploc) in 
+          map (, tid) erows
+      | otherwise             = []      
+
     threadExecutionBreakpoints = forM threads (\thread ->
         let
           function = R.threadExecution thread
@@ -488,12 +475,9 @@ setupBreakpoints ctx backend state = do
           breakpoint <- B.set_breakpoint backend location
           return $ Breakpoint (B.bkptNumber breakpoint) (BkptThreadExecution (R.threadId thread))
       )
-    blockingCallBreakpoints = forM blockingCalls (\bc ->
-        let
-          erow = (R.elocRow . R.bcEloc) bc
-          location = B.file_line_location efile (R.getERow erow)
-          tid = R.bcThreadId bc
-        in do
+    blockingCallBreakpoints = forM blockingCalls (\(erow, tid)->
+        let location = B.file_line_location efile (R.getERow erow) in
+        do
           breakpoint <- B.set_breakpoint backend location
           return $ Breakpoint (B.bkptNumber breakpoint) (BkptBlockingCall tid erow)
       )
@@ -514,23 +498,19 @@ t_file = R.fileName . R.diTcode . ctxDebugInfo
 e_file = R.fileName . R.diEcode . ctxDebugInfo
 
 possible_breakpoints :: Context -> [R.PRow] -- {{{2
-possible_breakpoints ctx = nub . map ($fromJust_s . t2p_row ctx) . M.keys . ctxTtoE $ ctx
+possible_breakpoints ctx = M.keys . ctxPtoE $ ctx
 
 os_api :: Context -> [String] -- {{{2
 os_api = R.diOsApi . ctxDebugInfo
 
 t2p_row :: Context -> R.TRow -> Maybe R.PRow -- {{{2
-t2p_row ctx row = t2p_row' ((R.diPpm . ctxDebugInfo) ctx) row
+t2p_row ctx trow = R.t2p_row ((R.diMtp . ctxDebugInfo) ctx) trow
 
 p2t_row :: Context -> R.PRow -> Maybe R.TRow -- {{{2
-p2t_row ctx prow = p2t_row' ((R.diPpm . ctxDebugInfo) ctx) prow
+p2t_row ctx prow = R.p2t_row ((R.diMtp . ctxDebugInfo) ctx) prow
 
 e2p_row :: Context -> R.ERow -> Maybe R.PRow -- {{{2
-e2p_row ctx erow = do
-  trow <- M.lookup erow (ctxEtoT ctx)
-  t2p_row' ((R.diPpm . ctxDebugInfo) ctx) trow
+e2p_row ctx erow = M.lookup erow (ctxEtoP ctx)
 
 p2e_row :: Context -> R.PRow -> Maybe ERowMatch -- {{{2
-p2e_row ctx prow =
-      p2t_row' ((R.diPpm . ctxDebugInfo) ctx) prow
-  >>= flip M.lookup (ctxTtoE ctx)
+p2e_row ctx prow = M.lookup prow (ctxPtoE ctx)

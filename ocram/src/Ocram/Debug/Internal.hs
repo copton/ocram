@@ -1,22 +1,33 @@
 {-# LANGUAGE TemplateHaskell, ViewPatterns #-}
 module Ocram.Debug.Internal where
 
-import Data.Maybe (mapMaybe)
-import Language.C.Syntax.AST (CTranslUnit, CTranslationUnit(CTranslUnit), CExternalDeclaration(CFDefExt), annotation)
-import Ocram.Ruab (PreprocMap(..), TRow(..), FunMap(..))
-import Ocram.Symbols (symbol)
-import Language.C.Data.Position (posRow)
-import Language.C.Data.Node (posOfNode, getLastTokenPos)
-import Ocram.Util (abort)
+-- imports {{{1
+import Control.Applicative ((<$>), (<*>))
+import Ocram.Ruab
+import Ocram.Intermediate (Function(..))
+import Ocram.Analysis (CallGraph, start_functions, call_order)
+import Ocram.Util (abort, fromJust_s)
+import Ocram.Names (tfunction)
 import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.Map as M
 
-preproc_map :: BS.ByteString -> BS.ByteString -> PreprocMap -- {{{1
-preproc_map tcode pcode
-  | BS.null pcode = PreprocMap 0 0 []
+-- types {{{1
+data Breakpoint = Breakpoint { -- {{{2
+    bpTRow     :: TRow
+  , bpERow     :: ERow
+  , bpThread   :: Maybe ThreadId
+  , bpBlocking :: Bool
+  } deriving (Show)
+
+type Breakpoints = [Breakpoint] -- {{{2
+
+t2p_map :: BS.ByteString -> BS.ByteString -> MapTP -- {{{1
+t2p_map tcode pcode
+  | BS.null pcode = MapTP 0 0 []
   | BS.last pcode /= '\n' = $abort "pre-processed file should be terminated by a newline"
-  | otherwise = PreprocMap (trows) (prows - 1) (reverse ppm)
+  | otherwise = MapTP (trows) (prows - 1) (reverse ppm)
   where
     trows = TRow $ length $ BS.split '\n' tcode
     (first:rest) = init $ BS.split '\n' pcode
@@ -36,15 +47,23 @@ preproc_map tcode pcode
         else (ppm', row + 1)
       x -> $abort $ "unexpected parameter:" ++ show x
 
-fun_map :: CTranslUnit -> FunMap -- {{{1
-fun_map (CTranslUnit ds _) = (FunMap . mapMaybe extend) ds
+p2e_map :: MapTP -> Breakpoints -> MapPE -- {{{1
+p2e_map mtp = M.toList . foldr insert M.empty
   where
-    extend (CFDefExt fd) = 
-      let
-        ni = annotation fd
-        start = (TRow . posRow . posOfNode) ni
-        end = (TRow . posRow . fst . getLastTokenPos) ni
-      in
-        Just ((start, end), symbol fd)
-     
-    extend _ = Nothing
+    insert bp = M.alter (alter (bpERow bp)) (ploc bp)
+    alter erow Nothing      = Just [erow]
+    alter erow (Just erows) = Just $ erow : erows
+    ploc = PLocation <$> bpThread <*> $fromJust_s . t2p_row mtp . bpTRow <*> bpBlocking
+
+var_map :: [Function] -> VarMap -- {{{1
+var_map = M.toList . foldr insert M.empty
+  where
+    insert fun m = foldr insert' m (allVars fun)
+    allVars = concat . sequence [fun_cVars, fun_ncVars, fun_stVars]
+    insert' = undefined
+
+all_threads :: CallGraph -> [Thread] -- {{{1
+all_threads cg = zipWith create [0..] (start_functions cg)
+  where
+    co = $fromJust_s . call_order cg
+    create tid sf = Thread tid sf (tfunction tid) (co sf)
