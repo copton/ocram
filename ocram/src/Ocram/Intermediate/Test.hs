@@ -274,7 +274,7 @@ unitTestsCollect = [
     ("start", [
         ("int j", 2, 8)
     ], [
-        ("static int ec_static_start_i = 23", 4, 7)
+        ("int ec_static_start_i = 23", 4, 7)
     ])
   ], [paste|
     void start () {
@@ -298,8 +298,8 @@ unitTestsCollect = [
     }  
   |], ([
     ("start", [], [
-      ("static int ec_static_start_ec_unique_i_0 = 23", 4, 8)
-    , ("static int ec_static_start_i = 42", 2, 10)
+      ("int ec_static_start_ec_unique_i_0 = 23", 4, 8)
+    , ("int ec_static_start_i = 42", 2, 10)
     ])
   ], [paste|
     void start () {
@@ -327,7 +327,7 @@ unitTestsCollect = [
       ("int ec_unique_i_0", 5, 8)
     , ("int j", 2, 10)
     ], [
-      ("static int ec_static_start_i = 42", 2, 10)
+      ("int ec_static_start_i = 42", 2, 10)
     ])
   ], [paste|
     void start () {

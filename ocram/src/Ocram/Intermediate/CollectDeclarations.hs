@@ -103,7 +103,7 @@ trDecl decl = do
     (autoDeclsOnly, autoInitExpr) = unzip $ map split autoDecls
 
     autoVars'      = map (mkVar scope) $ zip autoDeclsOnly newAutoNames
-    staticVars'    = map (mkVar scope) $ zip staticDecls newStaticNames
+    staticVars'    = map (mkVar scope) $ zip (map rmStatic staticDecls) newStaticNames
 
   autoInitStmt   <- mapM (uncurry mkInit) $ zip autoInitExpr newAutoNames
   put $ Ctx ids'' scope (autoVars' ++ autoVars) (staticVars' ++ staticVars) fun
@@ -121,6 +121,8 @@ trDecl decl = do
     isStatic (CDecl ds _ _) = any isStaticSpec ds
     isStaticSpec (CStorageSpec (CStatic _)) = True
     isStaticSpec _                          = False
+
+    rmStatic (CDecl ds x1 x2) = CDecl (filter (not . isStaticSpec) ds) x1 x2
 
     mkVar scope (cd, name) = Variable (renameDecl name cd) (Just scope)
 

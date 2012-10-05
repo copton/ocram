@@ -515,7 +515,32 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
       goto *ec_tstack_run.ec_frames.crit.ec_cont;
     }
   |])
-  , -- 06 - regression test {{{2
+  , -- 06 - static variable {{{2
+  ([paste|
+		__attribute__((tc_blocking)) void block(int b);
+
+		__attribute__((tc_run_thread)) void start() { 
+				static int s = 23;
+				while (1) {
+					block(s);
+				}
+		}
+  |], [paste|
+    void ec_thread_0(void* ec_cont) {
+      if (ec_cont) goto *ec_cont;
+
+      ec_ctrlbl_0_start: ;
+      if (!1) {
+        return;
+      } else {
+        ec_tstack_start.ec_frames.block.b = ec_static_start_s;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_ctrlbl_0_start;
+        block(&ec_tstack_start.ec_frames.block);
+        return;
+      }
+    }
+  |])
+  , -- 07 - regression test {{{2
   ([paste|
 		__attribute__((tc_blocking)) void block(int b);
 
@@ -789,7 +814,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
 		void block(ec_tframe_block_t*);
 
-    static int ec_static_start_i = 0;
+    int ec_static_start_i = 0;
 
 		void ec_thread_0(void* ec_cont)
 		{
@@ -1494,7 +1519,50 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         return;
     }
   |])
-  , -- 18 - regression test - else if {{{2
+  , -- 18 - static variable {{{2
+  ([paste|
+    __attribute__((tc_blocking)) int block(int i);
+
+    __attribute__((tc_run_thread)) void start() 
+    {
+      static int i = 23;
+      i = block(i);
+    }
+  |],[paste|
+    typedef struct {
+      void * ec_cont;
+      int ec_result;
+      int i;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      union {
+        ec_tframe_block_t block;
+      } ec_frames;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+
+    void block(ec_tframe_block_t *);
+
+    int ec_static_start_i = 23;
+
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont) goto * ec_cont;
+
+    ec_contlbl_L1_start: ;
+        ec_tstack_start.ec_frames.block.i = ec_static_start_i;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+        block(&ec_tstack_start.ec_frames.block);
+        return;
+
+    ec_contlbl_L2_start: ;
+        ec_static_start_i = ec_tstack_start.ec_frames.block.ec_result;
+        return;
+    }
+  |])
+  , -- 19 - regression test - else if {{{2
   ([paste|
     int c;
     int next;
@@ -1580,7 +1648,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         }
     }
   |])
-  , -- 19 - regression test - estack access {{{2
+  , -- 20 - regression test - estack access {{{2
   ([paste|
     __attribute__((tc_blocking)) void block();
     void critical() {

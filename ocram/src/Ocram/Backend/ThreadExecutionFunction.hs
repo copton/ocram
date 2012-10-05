@@ -146,6 +146,7 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
         rewrite o@(CVar iden _)
           | test fun_cVars  = tstackAccess callChain (Just vname) un
           | test fun_ncVars = estackAccess (fun_name inlinedFunction) vname
+          | test fun_stVars = staticAccess vname
           | otherwise       = o
           where
             vname = symbol iden
@@ -193,6 +194,9 @@ tstackAccess [] _ _ = $abort "called tstackAccess with empty call chain"
 
 estackAccess :: Symbol -> Symbol -> CExpr -- {{{2
 estackAccess function variable = CMember (CMember (CVar (ii estackVar) un) (ii function) False un) (ii variable) False un
+
+staticAccess :: Symbol -> CExpr  -- {{{2
+staticAccess variable = CVar (ii variable) un
 
 un :: NodeInfo -- {{{2
 un = undefNode
