@@ -7,9 +7,7 @@ import Control.Monad (msum)
 import Compiler.Hoopl (showGraph)
 import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
-import Language.C.Data.Node (getLastTokenPos, posOfNode)
 import Language.C.Data.Node (undefNode)
-import Language.C.Data.Position (posRow)
 import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST
 import Ocram.Analysis (Analysis(..), analysis)
@@ -23,7 +21,7 @@ import Ocram.Intermediate.Optimize
 import Ocram.Symbols (Symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Text (show_errors)
-import Ocram.Util (fromJust_s, abort)
+import Ocram.Util (abort)
 import Ocram.Query (return_type_fd, return_type_cd)
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
@@ -2365,8 +2363,8 @@ test_collect_declarations inputCode (expectedVars', expectedCode) = do
       let prefix = printf "function: '%s', %s variable: '%s', " fname kind decl in
       do
         assertEqual (prefix ++ "T-code decl") decl $ (show . pretty . var_decl) var
-        assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
-        assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
+        assertEqual (prefix ++ "start of scope")  start ((reduce . fst . var_scope) var)
+        assertEqual (prefix ++ "end of scope") end ((reduce . snd . var_scope) var)
 
 test_desugar_control_structures :: Input -> OutputDesugarControlStructures -> Assertion -- {{{2
 test_desugar_control_structures inputCode expectedCode = do

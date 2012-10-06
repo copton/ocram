@@ -4,7 +4,6 @@ module Ocram.Debug.Internal where
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
 import Ocram.Ruab
-import Ocram.Intermediate (Function(..))
 import Ocram.Analysis (CallGraph, start_functions, call_order)
 import Ocram.Util (abort, fromJust_s)
 import Ocram.Names (tfunction)
@@ -22,6 +21,12 @@ data Breakpoint = Breakpoint { -- {{{2
   } deriving (Show)
 
 type Breakpoints = [Breakpoint] -- {{{2
+
+type VarMap' = [( -- {{{2
+    Variable
+  , (TRow, TRow) -- scope
+  , FQN
+  )]
 
 t2p_map :: BS.ByteString -> BS.ByteString -> MapTP -- {{{1
 t2p_map tcode pcode
@@ -55,12 +60,13 @@ p2e_map mtp = M.toList . foldr insert M.empty
     alter erow (Just erows) = Just $ erow : erows
     ploc = PLocation <$> bpThread <*> $fromJust_s . t2p_row mtp . bpTRow <*> bpBlocking
 
-var_map :: [Function] -> VarMap -- {{{1
-var_map = M.toList . foldr insert M.empty
+var_map :: MapTP -> VarMap' -> VarMap -- {{{1
+var_map mtp = M.toList . foldr insert M.empty
   where
-    insert fun m = foldr insert' m (allVars fun)
-    allVars = concat . sequence [fun_cVars, fun_ncVars, fun_stVars]
-    insert' = undefined
+    t2p = $fromJust_s . t2p_row mtp
+    insert (var, (start, end), fqn) = M.alter (alter var fqn) (Scope (t2p start) (t2p end))
+    alter var fqn Nothing    = Just [(var, fqn)]
+    alter var fqn (Just rm)  = Just $ (var, fqn) : rm
 
 all_threads :: CallGraph -> [Thread] -- {{{1
 all_threads cg = zipWith create [0..] (start_functions cg)

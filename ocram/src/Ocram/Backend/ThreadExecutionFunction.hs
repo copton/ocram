@@ -7,14 +7,18 @@ module Ocram.Backend.ThreadExecutionFunction
 
 -- imports {{{1
 import Compiler.Hoopl (postorder_dfs_from, foldGraphNodes, successors, entryLabel, O, C, mapLookup)
+import Control.Arrow (second)
 import Data.Generics (everywhere, mkT)
 import Data.Maybe (mapMaybe, maybeToList)
 import Language.C.Data.Ident (Ident, internalIdent)
 import Language.C.Data.Node (undefNode, NodeInfo)
 import Language.C.Syntax.AST
+import Language.C.Pretty (pretty)
 import Ocram.Analysis (CallGraph, call_order, start_functions, call_chain, is_blocking)
 import Ocram.Query (function_parameters_fd, function_parameters_cd)
 import Ocram.Intermediate
+import Ocram.Debug (VarMap')
+import Ocram.Ruab (Variable(AutomaticVariable), FQN)
 import Ocram.Names (mangleFun, contLbl, tfunction, contVar, frameUnion, tstackVar, resVar, estackVar)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Util ((?:), fromJust_s, abort, lookup_s)
@@ -24,13 +28,13 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Compiler.Hoopl as H
 
-thread_execution_functions :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> M.Map Symbol (Maybe CDecl) -> [CFunDef] -- {{{1
-thread_execution_functions cg bf cf estacks = map tef $ zip [0..] (start_functions cg)
+thread_execution_functions :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> M.Map Symbol (Maybe CDecl) -> ([CFunDef], VarMap') -- {{{1
+thread_execution_functions cg bf cf estacks = second concat $ unzip $ zipWith tef [0..] (start_functions cg)
   where
-    tef (tid, sf) = threadExecutionFunction cg bf cf ($lookup_s estacks sf) tid sf
+    tef tid sf = threadExecutionFunction cg bf cf ($lookup_s estacks sf) tid sf
 
-threadExecutionFunction :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> Maybe CDecl -> Int -> Symbol -> CFunDef -- {{{2
-threadExecutionFunction cg bf cf estack tid name = fun
+threadExecutionFunction :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Function -> Maybe CDecl -> Int -> Symbol -> (CFunDef, VarMap') -- {{{2
+threadExecutionFunction cg bf cf estack tid name = (fun, concat vms)
   where
     fun =
       CFunDef [CTypeSpec (CVoidType un)] (CDeclr (Just (ii (tfunction tid))) [fdeclr] Nothing [] un) [] body un
@@ -39,23 +43,29 @@ threadExecutionFunction cg bf cf estack tid name = fun
       CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType un)] [(Just (CDeclr (Just (ii contVar)) [CPtrDeclr [] un] Nothing [] un), Nothing, Nothing)] un], False)) [] un
 
     body =
-      CCompound [] (fmap CBlockDecl estack ?: intro : functions) un
+      CCompound [] (fmap CBlockDecl estack ?: intro : concat functions) un
 
     intro =
       CBlockStmt (CIf (CVar (ii contVar) un) (CGotoPtr (CVar (ii contVar) un) un) Nothing un)
 
-    functions = concatMap (inlineCriticalFunction cg callees entries name) . mapMaybe (flip M.lookup cf) . $fromJust_s . call_order cg $ name
+    (functions, vms) =  unzip . map (inlineCriticalFunction cg tid callees entries name) . mapMaybe (flip M.lookup cf) . $fromJust_s . call_order cg $ name
 
     callees = M.map function_parameters_cd bf `M.union` M.map (function_parameters_fd . fun_def) cf
     entries = M.map fun_entry cf
 
-inlineCriticalFunction :: CallGraph -> M.Map Symbol [CDecl] -> M.Map Symbol Label -> Symbol -> Function -> [CBlockItem] -- {{{2
-inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph blocks
+inlineCriticalFunction :: CallGraph -> Int -> M.Map Symbol [CDecl] -> M.Map Symbol Label -> Symbol -> Function -> ([CBlockItem], VarMap') -- {{{2
+inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (cGraph blocks, vm)
   where
     fname     = fun_name inlinedFunction
     callChain = $fromJust_s $ call_chain cg startFunction fname
     suls      = singleUsageLabels (fun_entry inlinedFunction) (fun_body inlinedFunction)
     blocks    = block_map $ fun_body inlinedFunction
+
+    vm = map vmEntry $ filter isTVar $ (fun_cVars inlinedFunction ++ fun_ncVars inlinedFunction)
+    vmEntry var = (AutomaticVariable tid (var_tname var), var_scope var, symbol2fqn (var_tname var))
+
+    isTVar (TVariable _ _ _) = True
+    isTVar _                 = False
 
     cGraph :: BlockMap -> [CBlockItem]
     cGraph lm =
@@ -116,7 +126,8 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
       | S.member (hLabel lbl) suls = CCompound [] (inlineBlock lbl) un 
       | otherwise = CCompound [] [CBlockStmt (CGoto (lblIdent lbl fname) un)] un 
 
-    cExpr = rewriteLocalVariableAccess
+    cExpr :: CExpr -> CExpr
+    cExpr = everywhere (mkT rewriteLocalVariableAccess)
 
     criticalCallSequence callee params lbl = -- {{{3
       map CBlockStmt $ parameters ++ continuation : callExp : returnExp ?: []
@@ -140,18 +151,19 @@ inlineCriticalFunction cg callees entries startFunction inlinedFunction = cGraph
         assign lhs rhs = CExpr (Just (CAssign CAssignOp lhs rhs un)) un
 
     rewriteLocalVariableAccess :: CExpr -> CExpr -- {{{3
-    rewriteLocalVariableAccess = everywhere (mkT rewrite)
+    rewriteLocalVariableAccess o@(CVar iden _)
+      | test fun_cVars  = tstackAccess callChain (Just vname) un
+      | test fun_ncVars = estackAccess (fun_name inlinedFunction) vname
+      | test fun_stVars = staticAccess vname
+      | otherwise       = o
       where
-        rewrite :: CExpr -> CExpr
-        rewrite o@(CVar iden _)
-          | test fun_cVars  = tstackAccess callChain (Just vname) un
-          | test fun_ncVars = estackAccess (fun_name inlinedFunction) vname
-          | test fun_stVars = staticAccess vname
-          | otherwise       = o
-          where
-            vname = symbol iden
-            test f = vname `elem` map var_unique (f inlinedFunction)
-        rewrite o = o
+        vname = symbol iden
+        test f = vname `elem` map var_unique (f inlinedFunction)
+    rewriteLocalVariableAccess o = o
+
+    symbol2fqn :: Symbol -> FQN -- {{{3
+    symbol2fqn name =
+      show $ pretty $ rewriteLocalVariableAccess (CVar (internalIdent name) undefNode)
 
 singleUsageLabels :: Label -> Body -> S.Set H.Label
 -- | set of labels that are only used by a single goto

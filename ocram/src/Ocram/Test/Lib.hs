@@ -59,28 +59,35 @@ instance TestData CTranslUnit String where -- {{{2
 	reduce = show . pretty
 	enrich = parse
 
-instance TestData VarMap TVarMap where -- {{{2
-  reduce = map tr
-    where
-      tr (scope, vars) = ((getPRow . scStart) scope, (getPRow . scEnd) scope, map tr' vars)
-      tr' (var, fqn)   = (thread var, varTName var, fqn)
-      thread v@(AutomaticVariable _ _) = Just (varThread v)
-      thread   (StaticVariable _)      = Nothing
+instance TestData (Variable, (TRow, TRow), FQN) TVarMapEntry where -- {{{2
+  reduce (StaticVariable tname, (start, end), fqn) =
+    (tname, reduce start, reduce end, Nothing, fqn)
 
-  enrich = map tr
-    where
-      tr (start, end, vars) = (Scope (PRow start) (PRow end), map tr' vars)
-      tr' (Nothing, name, fqn) = (StaticVariable name, fqn)
-      tr' (Just tid, name, fqn) = (AutomaticVariable tid name, fqn)
+  reduce (AutomaticVariable tid tname, (start, end), fqn) =
+    (tname, reduce start, reduce end, Just tid, fqn)
+
+  enrich (tname, start, end, Nothing, fqn) =
+    (StaticVariable tname, (enrich start, enrich end), fqn)
+
+  enrich (tname, start, end, Just tid, fqn) =
+    (AutomaticVariable tid tname, (enrich start, enrich end), fqn)
 
 instance TestData MapTP TMapTP where -- {{{2
-  reduce (MapTP (TRow mtr) (PRow mpr) ma) = (mtr, mpr, map (getTRow *** getPRow) ma)
-  enrich (mtr, mpr, ma) = MapTP (TRow mtr) (PRow mpr) (map (TRow *** PRow) ma)
+  reduce (MapTP mtr mpr ma) = (reduce mtr, reduce mpr, map (reduce *** reduce) ma)
+  enrich (mtr, mpr, ma) = MapTP (enrich mtr) (enrich mpr) (map (enrich *** enrich) ma)
 
 instance TestData Breakpoint TBreakpoint where -- {{{2
   reduce = (,,,) <$> getTRow . bpTRow <*> getERow . bpERow <*> bpThread <*> bpBlocking
 
   enrich (tr, er, tid, bl) = Breakpoint (TRow tr) (ERow er) tid bl
+
+instance TestData TRow Int where -- {{{2
+  reduce = getTRow
+  enrich = TRow
+
+instance TestData PRow Int where -- {{{2
+  reduce = getPRow
+  enrich = PRow
 
 instance TestData Char Char where -- {{{2
 	reduce = id
@@ -102,6 +109,6 @@ type TStartFunctions    = [String]
 type TCriticalFunctions = [String]
 type TErrorCodes        = [ErrorCode]
 type TCallChain         = [String]
-type TVarMap            = [(Int, Int, [(Maybe Int, String, String)])]
+type TVarMapEntry       = (String, Int, Int, Maybe Int, String) -- tname, scope start, scope end, thread id, fqn
 type TMapTP             = (Int, Int, [(Int, Int)])
 type TBreakpoint        = (Int, Int, Maybe Int, Bool)

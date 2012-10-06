@@ -6,16 +6,23 @@ import Compiler.Hoopl (C, O)
 import Language.C.Syntax.AST
 import Language.C.Pretty (pretty)
 import Language.C.Data.Ident (internalIdent)
-import Language.C.Data.Node (NodeInfo, undefNode)
+import Language.C.Data.Node (undefNode)
+import Ocram.Ruab (TRow)
 import Ocram.Symbols (symbol, Symbol)
 
 import qualified Compiler.Hoopl as H
 
 data Variable -- {{{1
-  -- |Local variables of functions, i.e. function parameters and automatic variables
-  = Variable {
-    var_decl   :: CDecl          -- ^the declaration using a unique variable name
-  , var_scope  :: Maybe NodeInfo -- ^the node info of the surrounding T-code scope
+  -- Variables declared within a function
+  = TVariable {
+  -- |Variables declared in the T-code
+    var_tname  :: Symbol       -- ^the original name of the varialbe
+  , var_decl   :: CDecl        -- ^the declaration using a unique variable name
+  , var_scope  :: (TRow, TRow) -- ^the first and last row of the surrounding T-code scope
+  }
+  | EVariable {
+  -- |Variable originating from transformation
+    var_decl   :: CDecl        -- ^the declaration using a unique variable name
   }
 
 var_unique :: Variable -> Symbol

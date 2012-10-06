@@ -16,8 +16,6 @@ import System.Environment (getArgs, getProgName)
 import System.Exit (exitWith, ExitCode(ExitFailure))
 import System.IO (stderr, hPutStrLn)
 
-import qualified Data.Map as M
-
 main :: IO () -- {{{1
 main = do
   argv <- getArgs 
@@ -35,9 +33,9 @@ runCompiler argv = do
   ana                   <- exitOnError "analysis" $ analysis tAst
 
   let cfs                = ast_2_ir (anaBlocking ana) (anaCritical ana)
-  let (eAst, pal)        = tcode_2_ecode ana cfs
+  let (eAst, pal, vm)    = tcode_2_ecode ana cfs
   let (ecode, bps)       = print_with_log eAst
-  let di                 = encode_debug_info $ create_debug_info opt tcode pcode ana (M.elems cfs) bps ecode
+  let di                 = encode_debug_info $ create_debug_info opt tcode pcode ana vm bps ecode
 
   exitOnError "output" =<< generate_pal opt (footprint (anaCallgraph ana)) pal
   exitOnError "output" =<< dump_ecode opt ecode

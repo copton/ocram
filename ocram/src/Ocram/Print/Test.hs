@@ -733,12 +733,12 @@ runTest (inputCode, expectedCode, expectedBps) =
     Left es -> assertFailure $ show_errors "analysis" es
     Right ana ->
       let
-        cfs          = ast_2_ir  (anaBlocking ana) (anaCritical ana)
+        cfs                     = ast_2_ir  (anaBlocking ana) (anaCritical ana)
         
-        (eAst, _)    = tcode_2_ecode ana cfs
+        (eAst, _, _)            = tcode_2_ecode ana cfs
         (resultCode, resultBps) = print_with_log eAst
-        resultCode' = BS.unpack resultCode
-        resultBps'  = reduce resultBps
+        resultCode'             = BS.unpack resultCode
+        resultBps'              = reduce resultBps
       in do
 --        let dbg = debug ast' -- needed for debugging the test cases
         assertEqual "code"           expectedCode resultCode'

@@ -72,7 +72,7 @@ normalize_critical_calls sf items =
             ni         = annotation call
             name       = symbol decl
             init       = CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) undefNode) call ni)) ni
-            var        = Variable decl Nothing
+            var        = EVariable decl
           put $ Ctx (var : vars) (count + 1) (init : inits)
           return $ CVar (internalIdent name) undefNode
 

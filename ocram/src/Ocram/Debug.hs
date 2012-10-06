@@ -2,6 +2,7 @@
 module Ocram.Debug (
     ENodeInfo(..), enrich_node_info
   , Breakpoint(..), Breakpoints
+  , VarMap'
   , create_debug_info
   , module Ocram.Debug.Enriched
 ) where
@@ -12,7 +13,6 @@ import Language.C.Data.Node (NodeInfo)
 import Ocram.Analysis (Analysis(..))
 import Ocram.Debug.Enriched
 import Ocram.Debug.Internal
-import Ocram.Intermediate (Function)
 import Ocram.Options (Options(optInput, optOutput))
 import Ocram.Ruab
 
@@ -27,17 +27,17 @@ create_debug_info :: -- {{{1
   -> BS.ByteString -- T-code
   -> BS.ByteString -- P-code
   -> Analysis      -- result of analysis
-  -> [Function]    -- result of intermediate
+  -> VarMap'       -- result of intermediate
   -> Breakpoints   -- breakpoints
   -> BS.ByteString -- E-code      
   -> DebugInfo
-create_debug_info opt tcode pcode ana cfs bps ecode =
+create_debug_info opt tcode pcode ana vm' bps ecode =
   let
     tfile = File (optInput opt) (md5sum tcode)
     efile = File (optOutput opt) (md5sum ecode)
     mtp   = t2p_map tcode pcode
     mpe   = p2e_map mtp bps
-    vm    = var_map cfs
+    vm    = var_map mtp vm'
     ts    = all_threads (anaCallgraph ana)
     os    = M.keys (anaBlocking ana)
   in 

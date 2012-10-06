@@ -65,13 +65,15 @@ data Variable -- {{{2
     varTName  :: String
   }  
 
+type RenameMap = [(Variable, FQN)] -- {{{2
+
 type FQN -- {{{2
   -- |A fully qualified name of a variable
   = String
 
 type VarMap -- {{{2
   -- |Mapping of Variable names
-  = [(Scope, [(Variable, FQN)])]
+  = [(Scope, RenameMap)]
 
 data File = File { -- {{{2
   -- |Information about a source file
