@@ -1,0 +1,18 @@
+#!/bin/bash
+
+file=`xclip -o`
+IFS=:
+set $file
+
+if [ -z $2 -o -z $3 ]; then
+	echo "illegal selection '$file'" >&2
+	exit 1
+fi
+
+if [ ! -e $1 ]; then
+	echo "file '$1' does not exist" >&2
+	exit 1
+fi
+
+
+/usr/bin/vim $1  "+call cursor($2, $3)" -c "foldopen!"
