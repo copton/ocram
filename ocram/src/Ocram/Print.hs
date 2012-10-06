@@ -65,7 +65,7 @@ type Log = Breakpoints -- {{{2
 marker :: ENodeInfo -> DocL Log -> DocL Log -- {{{2
 marker eni doc =
   let
-    doc' = if enLocation eni then here bpLogger doc else doc
+    doc' = if enBreakpoint eni then here bpLogger doc else doc
   in
     if (isUndefNode . enTnodeInfo) eni
       then doc

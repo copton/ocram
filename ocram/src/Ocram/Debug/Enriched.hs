@@ -11,7 +11,7 @@ import Language.C.Data.Node (CNode(nodeInfo), NodeInfo)
 data ENodeInfo = ENodeInfo { -- {{{1
     enTnodeInfo     :: NodeInfo
   , enThreadId      :: Maybe ThreadId
-  , enLocation      :: Bool
+  , enBreakpoint    :: Bool
   , enBlockingCall  :: Bool
   } deriving (Data, Typeable, Show)
 
