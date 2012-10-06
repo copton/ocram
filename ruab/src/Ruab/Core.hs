@@ -356,14 +356,15 @@ handleCommand ctx backend fResponse command state = do
           let 
             di           = ctxDebugInfo ctx
             erow         = (R.ERow . B.frameLine . $head_s . B.stackFrames) stack
-            prow         = $fromJust_s $ e2p_row ctx erow
-          case t2e_expr (R.diVm di) (thId thread) prow texpr of
-            Left err -> failed err
-            Right eexpr -> do
-              res <- B.evaluate_expression backend eexpr
-              case res of
-                Left err -> failed err
-                Right value -> return (Just (ResEvaluate value), id)
+          case e2p_row ctx erow of
+            Nothing -> failed "could not determine current row number"
+            Just prow -> case t2e_expr (R.diVm di) (thId thread) prow texpr of
+              Left err -> failed err
+              Right eexpr -> do
+                res <- B.evaluate_expression backend eexpr
+                case res of
+                  Left err -> failed err
+                  Right value -> return (Just (ResEvaluate value), id)
         x -> $abort $ "illegal state of threads: " ++ show x
     
     --utils {{{3
