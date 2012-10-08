@@ -807,6 +807,24 @@ unitTestsDesugar = [
       ec_ctrlbl_0: ;
     }
   |])
+  , -- 15 - label with statement {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      i = 0;
+      start: i++;
+      block(i);
+      goto start;
+    }
+  |], [paste|
+    void start() {
+      i = 0;
+      start: ;
+      i++;
+      block(i);
+      goto start;
+    }
+  |])
   -- end {{{3
   ]
 

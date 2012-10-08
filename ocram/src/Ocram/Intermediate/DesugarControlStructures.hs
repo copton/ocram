@@ -83,6 +83,10 @@ tStmt (CIf cond thenBlock (Just elseBlock) ni) = do
     if_                   = CIf cond (goto thenLG) (Just (goto elseLG)) ni
   return                  $ (if_ : label thenLG : []) ++ thenBlock' ++ (goto end : label elseLG : []) ++ elseBlock' ++ (label end : [])
 
+-- labels {{{3
+tStmt o@(CLabel _ (CExpr Nothing _) _ _) = return [o]
+tStmt (CLabel x1 stmt x2 x3) = return [CLabel x1 (CExpr Nothing undefNode) x2 x3, stmt]
+
 tStmt (CSwitch switchExpr (CCompound _ items _) ni) =  -- {{{3
   -- the possible structures of switch statements is limited. See Analysis.Filter 
   let
