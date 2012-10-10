@@ -10,8 +10,9 @@ import Data.Generics (everywhereM, mkM)
 import Control.Monad (liftM)
 import Control.Monad.State (State, runState, put, get, modify)
 import Language.C.Syntax.AST
-import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (internalIdent, Ident)
+import Language.C.Data.Node (undefNode)
+import Ocram.Debug (CStat', CExpr', eun, aset)
 import Ocram.Intermediate.Representation (Variable(..))
 import Ocram.Names (varCrit)
 import Ocram.Symbols (Symbol, symbol)
@@ -20,12 +21,12 @@ import Prelude hiding (init)
 
 import qualified Data.Map as M
 
-normalize_critical_calls :: M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -> [CStat] -> ([CStat], [Variable]) -- {{{1
+normalize_critical_calls :: M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -> [CStat'] -> ([CStat'], [Variable]) -- {{{1
 normalize_critical_calls sf items =
   let (items', Ctx vars _ _) = runState (mapM tStmt items) (Ctx [] 0 [])
   in (concat items', vars)
   where
-    tStmt :: CStat -> S [CStat] -- {{{2
+    tStmt :: CStat' -> S [CStat'] -- {{{2
     tStmt o@(CIf cond t e ni) =
       keepOrReplace [cond] o (\[cond'] -> CIf cond' t e ni) 
 
@@ -42,7 +43,7 @@ normalize_critical_calls sf items =
     tStmt o@(CReturn Nothing _)              = return [o]
     tStmt x                                  = $abort $ unexp x
 
-    keepOrReplace :: [CExpr] -> CStat -> ([CExpr] -> CStat) -> S [CStat] -- {{{2
+    keepOrReplace :: [CExpr'] -> CStat' -> ([CExpr'] -> CStat') -> S [CStat'] -- {{{2
     keepOrReplace es s f = do
       (inits, es') <- liftM unzip $ mapM extractCriticalCalls es
       let allInits = concat inits
@@ -50,20 +51,20 @@ normalize_critical_calls sf items =
         then return [s]
         else
           let s' = f es' in
-          return $ allInits ++ [s']
+          return $ map (aset (annotation s)) $ allInits ++ [s']
 
     isInNormalForm (CCall _ _ _)                 = True -- {{{2
     isInNormalForm (CAssign _ _ (CCall _ _ _) _) = True
     isInNormalForm _                             = False
 
-    extractCriticalCalls :: CExpr -> S ([CStat], CExpr) -- {{{2
+    extractCriticalCalls :: CExpr' -> S ([CStat'], CExpr') -- {{{2
     extractCriticalCalls expr = do
       modify (\(Ctx v c _) -> Ctx v c [])
       expr' <- everywhereM (mkM tExpr) expr
       (Ctx _ _ inits) <- get
       return (inits, expr')
       
-    tExpr :: CExpr -> S CExpr -- {{{2
+    tExpr :: CExpr' -> S CExpr' -- {{{2
     tExpr call@(CCall (CVar callee _) _ _)
       | M.member (symbol callee) sf = do
           Ctx vars count inits <- get
@@ -71,10 +72,10 @@ normalize_critical_calls sf items =
             decl       = newDecl callee count
             ni         = annotation call
             name       = symbol decl
-            init       = CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) undefNode) call ni)) ni
+            init       = CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) eun) call ni)) ni
             var        = EVariable decl
           put $ Ctx (var : vars) (count + 1) (init : inits)
-          return $ CVar (internalIdent name) undefNode
+          return $ CVar (internalIdent name) eun
 
       | otherwise = return call
   
@@ -91,7 +92,7 @@ normalize_critical_calls sf items =
 data Ctx = Ctx { -- {{{2
     ctxVars  :: [Variable]
   , ctxCount :: Int
-  , ctxInits :: [CStat]
+  , ctxInits :: [CStat']
   }
 
 type S a = State Ctx a -- {{{2
