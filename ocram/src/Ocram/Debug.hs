@@ -1,7 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Ocram.Debug (
-    ENodeInfo(..), enrich_node_info
-  , Breakpoint(..), Breakpoints
+    Breakpoint(..), Breakpoints
   , VarMap'
   , create_debug_info
   , module Ocram.Debug.Enriched
@@ -9,7 +8,6 @@ module Ocram.Debug (
 
 -- import {{{1
 import Data.Digest.OpenSSL.MD5 (md5sum)
-import Language.C.Data.Node (NodeInfo)
 import Ocram.Analysis (Analysis(..))
 import Ocram.Debug.Enriched
 import Ocram.Debug.Internal
@@ -18,9 +16,6 @@ import Ocram.Ruab
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
-
-enrich_node_info :: NodeInfo -> ENodeInfo -- {{{1
-enrich_node_info ni = ENodeInfo ni Nothing False False
 
 create_debug_info :: -- {{{1
      Options       -- command line options

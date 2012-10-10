@@ -30,7 +30,7 @@ runCompiler argv = do
 
   opt                   <- exitOnError "options"  $ options prg cwd argv 
   (tcode, pcode, tAst)  <- exitOnError "parser" =<< parse opt
-  ana                   <- exitOnError "analysis" $ analysis tAst
+  ana                   <- exitOnError "analysis" $ analysis
 
   let cfs                = ast_2_ir (anaBlocking ana) (anaCritical ana)
   let (eAst, pal, vm)    = tcode_2_ecode ana cfs

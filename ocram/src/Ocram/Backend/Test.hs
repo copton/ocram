@@ -4,13 +4,13 @@ module Ocram.Backend.Test (tests) where
 -- imports {{{1
 import Language.C.Data.Node (undefNode, nodeInfo)
 import Language.C.Syntax.AST
-import Language.C.Pretty (pretty)
 import Ocram.Analysis (analysis, Analysis(..))
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
 import Ocram.Backend.TStack
 import Ocram.Backend
 import Ocram.Intermediate (ast_2_ir)
+import Ocram.Print (render)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, paste, lpaste, TVarMapEntry)
 import Ocram.Text (show_errors)
 import Test.Framework (Test, testGroup)
@@ -340,7 +340,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
         (frames, stacks) = create_estacks (anaCallgraph ana) ir        
         expectedFrames' = reduce (enrich expectedFrames :: CTranslUnit) :: String
         outputFrames = reduce (CTranslUnit (map CDeclExt frames) undefNode) :: String
-        outputStacks = M.toList . M.map (fmap (show . pretty)) $ stacks 
+        outputStacks = M.toList . M.map (fmap render) $ stacks 
       in do
         assertEqual "frames" expectedFrames' outputFrames
         assertEqual "stacks" expectedStacks outputStacks

@@ -3,10 +3,10 @@ module Ocram.Intermediate.Representation where
 
 -- imports {{{1
 import Compiler.Hoopl (C, O)
-import Language.C.Syntax.AST
-import Language.C.Pretty (pretty)
+import Language.C.Syntax.AST (CAssignOp, CExpression(CCall, CAssign, CVar), CDecl)
 import Language.C.Data.Ident (internalIdent)
-import Language.C.Data.Node (undefNode)
+import Ocram.Debug (CExpr', eun, CFunDef')
+import Ocram.Print (render)
 import Ocram.Ruab (TRow)
 import Ocram.Symbols (symbol, Symbol)
 
@@ -43,7 +43,7 @@ data Function -- {{{1
     fun_cVars  :: [Variable] -- ^the function's critical variables
   , fun_ncVars :: [Variable] -- ^the function's non-critical variables
   , fun_stVars :: [Variable] -- ^the function's static variables
-  , fun_def    :: CFunDef    -- ^the original AST node
+  , fun_def    :: CFunDef'   -- ^the original AST node with enriched node info
   , fun_body   :: Body       -- ^the function's body as graph of basic blocks
   , fun_entry  :: Label      -- ^the entry point to the function
   }
@@ -65,25 +65,25 @@ hLabel (TLabel _ l) = l
 hLabel (ILabel l)   = l
 
 data CriticalCall -- {{{1
-  = FirstNormalForm Symbol [CExpr]
-  | SecondNormalForm CExpr CAssignOp Symbol [CExpr]
+  = FirstNormalForm Symbol [CExpr']
+  | SecondNormalForm CExpr' CAssignOp Symbol [CExpr']
 
 instance Show CriticalCall where -- {{{2
   show (FirstNormalForm callee params) =
-    (show . pretty) (CCall (CVar (internalIdent callee) undefNode) params undefNode)
+    render (CCall (CVar (internalIdent callee) eun) params eun)
 
   show (SecondNormalForm lhs op callee params) =
-    (show . pretty) (CAssign op lhs (CCall (CVar (internalIdent callee) undefNode) params undefNode) undefNode)
+    render (CAssign op lhs (CCall (CVar (internalIdent callee) eun) params eun) eun)
 
 data Node e x where -- {{{1
   -- |Constitutes of basic blocks
-  Label  :: Label                   -> Node C O  -- ^'lbl: ;'. Entry point to a basic block
-  Cont   :: Label -> CriticalCall   -> Node C O  -- ^continuation of a critical call
-  Stmt   :: CExpr                   -> Node O O  -- ^any expression. The only middle parts of basic blocks
-  Goto   :: Label                   -> Node O C  -- ^'goto label;'
-  If     :: CExpr -> Label -> Label -> Node O C  -- ^'if (cond) {goto label1;} else {goto label2;}'
-  Call   :: CriticalCall -> Label   -> Node O C  -- ^a critical call in normal form. The label belongs to the subsequent basic block.
-  Return :: Maybe CExpr             -> Node O C  -- ^'return;' or 'return expr;'
+  Label  :: Label                    -> Node C O  -- ^'lbl: ;'. Entry point to a basic block
+  Cont   :: Label -> CriticalCall    -> Node C O  -- ^continuation of a critical call
+  Stmt   :: CExpr'                   -> Node O O  -- ^any expression. The only middle parts of basic blocks
+  Goto   :: Label                    -> Node O C  -- ^'goto label;'
+  If     :: CExpr' -> Label -> Label -> Node O C  -- ^'if (cond) {goto label1;} else {goto label2;}'
+  Call   :: CriticalCall -> Label    -> Node O C  -- ^a critical call in normal form. The label belongs to the subsequent basic block.
+  Return :: Maybe CExpr'             -> Node O C  -- ^'return;' or 'return expr;'
 
 instance H.NonLocal Node where -- {{{2
   entryLabel (Label l)    = hLabel l
@@ -106,7 +106,7 @@ instance Show (Node e x) where -- {{{2
     . showChar '\n'
 
   showsPrec _ (Stmt expr) =
-      (shows . pretty) expr
+      (showString . render) expr
     . showChar ';'
 
   showsPrec _ (Goto l) =
@@ -116,7 +116,7 @@ instance Show (Node e x) where -- {{{2
 
   showsPrec _ (If cond tl el) =
       showString "IF "
-    . (shows . pretty) cond
+    . (showString . render) cond
     . showString " THEN "
     . shows tl
     . showString " ELSE "
@@ -135,7 +135,7 @@ instance Show (Node e x) where -- {{{2
 
   showsPrec _ (Return (Just expr)) =
       showString "RETURN "
-    . (shows . pretty) expr
+    . (showString . render) expr
     . showChar '\n'
 
 type Body = H.Graph Node C C -- {{{1

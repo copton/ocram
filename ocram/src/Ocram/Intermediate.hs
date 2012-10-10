@@ -10,6 +10,7 @@ module Ocram.Intermediate
 import Control.Monad.Writer (runWriter, Writer, tell)
 import Data.Either (partitionEithers)
 import Language.C.Syntax.AST
+import Ocram.Debug (CFunDef', CDecl', ENodeInfo(EnNothing))
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
 import Ocram.Intermediate.CollectDeclarations

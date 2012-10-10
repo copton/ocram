@@ -8,7 +8,6 @@ import Compiler.Hoopl (showGraph)
 import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
 import Language.C.Data.Node (undefNode)
-import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST
 import Ocram.Analysis (Analysis(..), analysis)
 import Ocram.Intermediate
@@ -18,6 +17,7 @@ import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.Optimize
+import Ocram.Print (render)
 import Ocram.Symbols (Symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Text (show_errors)
@@ -2380,7 +2380,7 @@ test_collect_declarations inputCode (expectedVars', expectedCode) = do
     cmpVar fname kind ((decl, start, end), var) =
       let prefix = printf "function: '%s', %s variable: '%s', " fname kind decl in
       do
-        assertEqual (prefix ++ "T-code decl") decl $ (show . pretty . var_decl) var
+        assertEqual (prefix ++ "T-code decl") decl $ (render . var_decl) var
         assertEqual (prefix ++ "start of scope")  start ((reduce . fst . var_scope) var)
         assertEqual (prefix ++ "end of scope") end ((reduce . snd . var_scope) var)
 
@@ -2424,7 +2424,7 @@ test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
 
     cmpVar fname (decl, var) = 
       let msg = printf "function: '%s', variable" fname in
-      assertEqual msg decl ((show . pretty . var_decl) var)
+      assertEqual msg decl ((render . var_decl) var)
 
 test_normalize_critical_calls :: Input -> OutputNormalize -> Assertion -- {{{2
 test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
@@ -2454,7 +2454,7 @@ test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
 
     cmpVar fname (decl, var) = 
       let msg = printf "function: '%s', variable" fname in
-      assertEqual msg decl ((show . pretty . var_decl) var)
+      assertEqual msg decl ((render . var_decl) var)
 
 test_build_basic_blocks :: Input -> OutputBasicBlocks -> Assertion -- {{{2
 test_build_basic_blocks inputCode expectedIrs' = do

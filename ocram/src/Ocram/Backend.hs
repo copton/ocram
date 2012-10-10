@@ -12,7 +12,7 @@ import Ocram.Analysis (Analysis(..))
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
 import Ocram.Backend.TStack
-import Ocram.Debug (enrich_node_info, CTranslUnit', VarMap')
+import Ocram.Debug (CTranslUnit', VarMap')
 import Ocram.Intermediate (Function(..), Variable(..))
 import Ocram.Names (tframe)
 import Ocram.Ruab (Variable(StaticVariable))
@@ -36,7 +36,7 @@ tcode_2_ecode ana cfs =
     bfframes           = M.elems $ M.fromList tframes `M.intersection` (anaBlocking ana)
     pal                = CTranslUnit (map CDeclExt (bfframes ++ bfds)) undefNode
   in
-    (fmap enrich_node_info ecode, pal, stVm ++ vm)
+    (ecode, pal, stVm ++ vm)
 
 blockingFunctionDeclarations :: M.Map Symbol CDecl -> [CDecl] -- {{{2
 blockingFunctionDeclarations = map go . M.elems

@@ -12,6 +12,7 @@ import Data.Foldable (foldrM)
 import Ocram.Symbols (Symbol, symbol)
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
+import Ocram.Debug (CStat')
 import Ocram.Util (fromJust_s, head_s, abort, unexp)
 
 import qualified Ocram.Intermediate.Representation as I
@@ -19,7 +20,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Compiler.Hoopl as H
 
-build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
+build_basic_blocks :: S.Set Symbol -> [CStat'] -> (I.Label, I.Body) -- {{{1
 build_basic_blocks cf stmts = runM $ do
   protoblocks <- partition cf . annotate cf . removeEmptyExpressions $ stmts
   let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undef]

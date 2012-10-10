@@ -14,11 +14,12 @@ import Data.Maybe (fromMaybe)
 import Data.List (intersperse)
 import Language.C.Data.Position (initPos)
 import Language.C.Parser (parseC)
-import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (Footprint)
 import Ocram.Options (Options(..))
+import Ocram.Debug (CTranslUnit')
 import Ocram.Text (OcramError, new_error)
+import Ocram.Print (render')
 import Ocram.Util (fromJust_s, abort)
 import System.Exit (ExitCode(..))
 import System.IO (openFile, IOMode(WriteMode), hClose, hGetContents)
@@ -49,14 +50,14 @@ dump_debug_info opt di = case optDebugFile opt of
   Nothing -> (return . Right) ()
   Just file -> write file di
 
-generate_pal :: Options -> Footprint -> CTranslUnit -> IO (Either [OcramError] ()) -- {{{1
+generate_pal :: Options -> Footprint -> CTranslUnit' -> IO (Either [OcramError] ()) -- {{{1
 generate_pal options fpr header = case optPalGenerator options of
   Nothing -> (return . Right) ()
   Just generator ->
     let
       target = $fromJust_s (optPalFile options) 
       args = map (concat . intersperse ",") fpr
-      input = (BS.pack . show . pretty) header
+      input = render' header
     in
       runOcramError $ do
         pal <- IoOcramError $ exec (generator:args) (Just input)

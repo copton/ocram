@@ -13,11 +13,11 @@ import Data.Maybe (mapMaybe, maybeToList)
 import Language.C.Data.Ident (Ident, internalIdent)
 import Language.C.Data.Node (undefNode, NodeInfo)
 import Language.C.Syntax.AST
-import Language.C.Pretty (pretty)
 import Ocram.Analysis (CallGraph, call_order, start_functions, call_chain, is_blocking)
 import Ocram.Query (function_parameters_fd, function_parameters_cd)
 import Ocram.Intermediate
 import Ocram.Debug (VarMap')
+import Ocram.Print (render)
 import Ocram.Ruab (Variable(AutomaticVariable), FQN)
 import Ocram.Names (mangleFun, contLbl, tfunction, contVar, frameUnion, tstackVar, resVar, estackVar)
 import Ocram.Symbols (Symbol, symbol)
@@ -163,7 +163,7 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
 
     symbol2fqn :: Symbol -> FQN -- {{{3
     symbol2fqn name =
-      show $ pretty $ rewriteLocalVariableAccess (CVar (internalIdent name) undefNode)
+      render $ rewriteLocalVariableAccess (CVar (internalIdent name) undefNode)
 
 singleUsageLabels :: Label -> Body -> S.Set H.Label
 -- | set of labels that are only used by a single goto

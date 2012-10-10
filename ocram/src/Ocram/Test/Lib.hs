@@ -7,11 +7,11 @@ import Control.Arrow ((***))
 import Data.ByteString.Char8 (pack)
 import Language.C.Data.Position (initPos)
 import Language.C.Parser (parseC)
-import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST (CTranslUnit)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
+import Ocram.Print (render)
 import Ocram.Ruab
 import Ocram.Debug (Breakpoint(..))
 import Test.Framework.Providers.HUnit (testCase)
@@ -56,7 +56,7 @@ instance TestData CallGraph TCallGraph where -- {{{2
 	enrich cg = from_test_graph cg
 
 instance TestData CTranslUnit String where -- {{{2
-	reduce = show . pretty
+	reduce = render
 	enrich = parse
 
 instance TestData (Variable, (TRow, TRow), FQN) TVarMapEntry where -- {{{2
