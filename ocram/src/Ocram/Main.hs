@@ -47,8 +47,6 @@ exitOnError :: String -> Either [OcramError] a -> IO a -- {{{2
 exitOnError module_ (Left es) = hPutStrLn stderr (show_errors module_ es) >> exitWith (ExitFailure 1)
 exitOnError _ (Right x) = return x
 
-_tests :: IO ()  -- {{{1
-_tests = tests []
 
-tests :: [String] -> IO () -- {{{1
-tests args = runTests $ words "--hide-successes --plain  -j 3" ++ args
+_tests :: String -> IO () -- {{{1
+_tests args = runTests $ words $ "--hide-successes --plain  -j 3" ++ args

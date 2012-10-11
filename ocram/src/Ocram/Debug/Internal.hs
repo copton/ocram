@@ -3,6 +3,7 @@ module Ocram.Debug.Internal where
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
+import Data.List (nub)
 import Ocram.Ruab
 import Ocram.Analysis (CallGraph, start_functions, call_order)
 import Ocram.Util (abort, fromJust_s)
@@ -18,6 +19,7 @@ data Breakpoint = Breakpoint { -- {{{2
   , bpERow     :: ERow
   , bpThread   :: Maybe ThreadId
   , bpBlocking :: Bool
+  , bpFile     :: Maybe FilePath
   } deriving (Show, Eq)
 
 type Breakpoints = [Breakpoint] -- {{{2
@@ -52,8 +54,8 @@ t2p_map tcode pcode
         else (ppm', row + 1)
       x -> $abort $ "unexpected parameter:" ++ show x
 
-p2e_map :: MapTP -> Breakpoints -> MapPE -- {{{1
-p2e_map mtp = M.toList . foldr insert M.empty
+p2e_map :: MapTP -> FilePath -> Breakpoints -> MapPE -- {{{1
+p2e_map mtp tfile = M.toList . foldr insert M.empty . nub . filter ((==(Just tfile)) . bpFile)
   where
     insert bp = M.alter (alter (bpERow bp)) (ploc bp)
     alter erow Nothing      = Just [erow]

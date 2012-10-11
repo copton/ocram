@@ -25,8 +25,5 @@ runDebugger argv = do
   where
     exit (ec, why) = hPutStrLn stderr why >> exitWith ec
 
-tests :: IO () -- {{{2
-tests = testsWith []
-
-testsWith :: [String] -> IO () -- {{{1
-testsWith args = runTests $ words "--hide-successes --plain  -j 3" ++ args
+_tests :: String -> IO () -- {{{1
+_tests args = runTests $ words $ "--hide-successes --plain  -j 3" ++ args

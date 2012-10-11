@@ -79,7 +79,7 @@ instance TestData MapTP TMapTP where -- {{{2
 instance TestData Breakpoint TBreakpoint where -- {{{2
   reduce = (,,,) <$> getTRow . bpTRow <*> getERow . bpERow <*> bpThread <*> bpBlocking
 
-  enrich (tr, er, tid, bl) = Breakpoint (TRow tr) (ERow er) tid bl
+  enrich (tr, er, tid, bl) = Breakpoint (TRow tr) (ERow er) tid bl Nothing
 
 instance TestData TRow Int where -- {{{2
   reduce = getTRow
