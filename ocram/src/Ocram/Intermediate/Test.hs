@@ -7,9 +7,10 @@ import Control.Monad (msum)
 import Compiler.Hoopl (showGraph)
 import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
-import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
+import Language.C.Data.Node (undefNode, CNode(nodeInfo))
 import Ocram.Analysis (Analysis(..), analysis)
+import Ocram.Debug (ENodeInfo(..), CStat')
 import Ocram.Intermediate
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
@@ -2461,7 +2462,7 @@ test_build_basic_blocks inputCode expectedIrs' = do
   let
     ana = analyze inputCode
     result = pipeline ana (
-        build_basic_blocks (blockingAndCriticalFunctions ana)
+        build_basic_blocks (blockingAndCriticalFunctions ana) EnUndefined
       . normalizeCriticalCalls ana
       . booleanShortCircuiting ana
       . desugarControlStructures
@@ -2552,13 +2553,13 @@ blurrCSyntax code = reduce (enrich code :: CTranslUnit)
 blurrIRSyntax :: String -> String -- {{{3
 blurrIRSyntax = unlines . drop 1 . map (reverse . dropWhile (==' ') . reverse . dropWhile (==' ')) . lines
 
-printOutputCode :: Analysis -> M.Map Symbol [CStat] -> String -- {{{3
+printOutputCode :: CNode a => Analysis -> M.Map Symbol [CStatement a] -> String -- {{{3
 printOutputCode ana items =
   let funs = M.elems $ M.intersectionWith replaceBody (anaCritical ana) items in
   reduce (CTranslUnit (map CFDefExt funs) undefNode)
   where
-    replaceBody (CFunDef x1 x2 x3 (CCompound x4 _ x5) x6) ss =
-      CFunDef (filter (not . isAttr) x1) x2 x3 (CCompound x4 (map CBlockStmt ss) x5) x6
+    replaceBody (CFunDef x1 x2 x3 (CCompound x4 _ _) _) ss =
+      CFunDef (filter (not . isAttr) x1) x2 x3 (CCompound x4 (map (CBlockStmt . fmap nodeInfo) ss) undefNode) undefNode
       where
         isAttr (CTypeQual (CAttrQual _)) = True
         isAttr _                         = False
@@ -2570,17 +2571,17 @@ pipeline ana pipe = M.map pipe (anaCritical ana)
 collectDeclarations :: CFunDef -> [CBlockItem] -- {{{4
 collectDeclarations = (\(x, _, _) -> x) . collect_declarations
 
-desugarControlStructures :: [CBlockItem] -> [CStat] -- {{{4
+desugarControlStructures :: [CBlockItem] -> [CStat'] -- {{{4
 desugarControlStructures = desugar_control_structures
 
-booleanShortCircuiting :: Analysis -> [CStat] -> [CStat] -- {{{4
+booleanShortCircuiting :: Analysis -> [CStat'] -> [CStat'] -- {{{4
 booleanShortCircuiting ana = fst . boolean_short_circuiting (blockingAndCriticalFunctions ana)
 
-normalizeCriticalCalls :: Analysis -> [CStat] -> [CStat] -- {{{4
+normalizeCriticalCalls :: Analysis -> [CStat'] -> [CStat'] -- {{{4
 normalizeCriticalCalls ana = fst . normalize_critical_calls (returnTypes ana)
 
-buildBasicBlocks :: Analysis -> [CStat] -> (Label, Body) -- {{{4
-buildBasicBlocks ana = build_basic_blocks (blockingAndCriticalFunctions ana)
+buildBasicBlocks :: Analysis -> [CStat'] -> (Label, Body) -- {{{4
+buildBasicBlocks ana = build_basic_blocks (blockingAndCriticalFunctions ana) EnUndefined
 
 -- preparation {{{3
 returnTypes :: Analysis -> M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -- {{{4

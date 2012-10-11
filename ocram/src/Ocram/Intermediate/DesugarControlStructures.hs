@@ -103,9 +103,9 @@ tStmt o@(CIf cond thenBlock (Just elseBlock) _) = do
 
 -- labels {{{3
 tStmt o@(CLabel _ (CExpr Nothing _) _ _) = return [aset eun o]
-tStmt o@(CLabel _ stmt _ _) = do
+tStmt (CLabel x1 stmt x2 _) = do
   stmt' <- tStmt stmt
-  return $ [aset eun o] ++ stmt'
+  return $ [CLabel x1 (CExpr Nothing eun) (map (aset eun) x2) eun] ++ stmt'
 
 tStmt o@(CSwitch switchExpr (CCompound _ items _) _) =  -- {{{3
   -- the possible structures of switch statements is limited. See Analysis.Filter 

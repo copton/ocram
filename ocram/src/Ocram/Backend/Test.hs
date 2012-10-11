@@ -590,7 +590,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
         ir                   = ast_2_ir (anaBlocking ana) (anaCritical ana)
         (frames, stacks)     = create_estacks (anaCallgraph ana) ir
         (funs, outputVarMap) = thread_execution_functions (anaCallgraph ana) (anaBlocking ana) ir stacks
-        outputCode           = reduce (CTranslUnit ((map CDeclExt frames) ++ (map CFDefExt funs)) undefNode) :: String
+        outputCode           = reduce (CTranslUnit ((map CDeclExt frames) ++ (map (CFDefExt . fmap (const undefNode)) funs)) undefNode) :: String
         expectedCode'        = (reduce (enrich expectedCode :: CTranslUnit) :: String)
       in do
         expectedCode'  @=? outputCode

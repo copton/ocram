@@ -64,15 +64,16 @@ render = fst . render_with_log
 render' :: PrettyLog a => a -> BS.ByteString -- {{{1
 render' = fst . render_with_log'
 
+-- logging {{{1
 type Log = Breakpoints -- {{{2
 
-class MarkerInfo a where
+class MarkerInfo a where -- {{{2
   mrkGetInfo      :: a -> Maybe (Maybe ThreadId, TRow, Bool)
 
-instance MarkerInfo NodeInfo where
+instance MarkerInfo NodeInfo where -- {{{3
   mrkGetInfo _ = Nothing
 
-instance MarkerInfo ENodeInfo where
+instance MarkerInfo ENodeInfo where -- {{{3
   mrkGetInfo (EnBreakpoint tid trow bc) = Just (tid, TRow trow, bc)
   mrkGetInfo _                          = Nothing
 
@@ -90,58 +91,7 @@ class PrettyLog a where -- {{{2
   pretty = prettyPrec 0
   prettyPrec _ = pretty
 
--- utils {{{2
-maybeP :: (p -> DocL Log) -> Maybe p -> DocL Log -- {{{3
--- pretty print optional chunk
-maybeP = maybe empty
-
-ifP :: Bool -> DocL Log -> DocL Log -- {{{3
--- pretty print when flag is true
-ifP flag doc = if flag then doc else empty
-
-mlistP :: ([p] -> DocL Log) -> [p] -> DocL Log -- {{{3
--- pretty print _optional_ list, i.e. [] ~ Nothing and (x:xs) ~ Just (x:xs)
-mlistP pp xs = maybeP pp (if null xs then Nothing else Just xs)
-
-identP :: Ident -> DocL Log -- {{{3
--- pretty print identifier
-identP = text . identToString
-
-attrlistP :: (MarkerInfo ni) => [CAttribute ni] -> DocL Log -- {{{3
--- pretty print attribute annotations
-attrlistP [] = empty
-attrlistP attrs = text "__attribute__" <> parens (parens (hcat . punctuate comma . map pretty $ attrs))
-
-parenPrec :: Int -> Int -> DocL Log -> DocL Log -- {{{3
--- analogous to showParen
-parenPrec prec prec2 t = if prec <= prec2 then t else parens t
-
-ii :: DocL Log -> DocL Log -- {{{3
--- indent a chunk of code
-ii = nest 4
-
-binPrec :: CBinaryOp -> Int -- {{{3
--- precedence of C operators
-binPrec CMulOp = 20
-binPrec CDivOp = 20
-binPrec CRmdOp = 20
-binPrec CAddOp = 19
-binPrec CSubOp = 19
-binPrec CShlOp = 18
-binPrec CShrOp = 18
-binPrec CLeOp  = 17
-binPrec CGrOp  = 17
-binPrec CLeqOp = 17
-binPrec CGeqOp = 17
-binPrec CEqOp  = 16
-binPrec CNeqOp = 16
-binPrec CAndOp = 15
-binPrec CXorOp = 14
-binPrec COrOp  = 13
-binPrec CLndOp = 12
-binPrec CLorOp = 11
-
--- PrettyLog instances {{{2
+-- printing {{{1
 instance (MarkerInfo ni) => PrettyLog (CTranslationUnit ni) where -- {{{3
   pretty (CTranslUnit edecls ni) = marker ni $ vcat (map pretty edecls)
 
@@ -533,4 +483,55 @@ instance (MarkerInfo ni) => PrettyLog (CConstant ni) where -- {{{3
 
 instance (MarkerInfo ni) => PrettyLog (CStringLiteral ni) where -- {{{3
     pretty (CStrLit   str _) = text (show str)
+
+-- utils {{{2
+maybeP :: (p -> DocL Log) -> Maybe p -> DocL Log -- {{{3
+-- pretty print optional chunk
+maybeP = maybe empty
+
+ifP :: Bool -> DocL Log -> DocL Log -- {{{3
+-- pretty print when flag is true
+ifP flag doc = if flag then doc else empty
+
+mlistP :: ([p] -> DocL Log) -> [p] -> DocL Log -- {{{3
+-- pretty print _optional_ list, i.e. [] ~ Nothing and (x:xs) ~ Just (x:xs)
+mlistP pp xs = maybeP pp (if null xs then Nothing else Just xs)
+
+identP :: Ident -> DocL Log -- {{{3
+-- pretty print identifier
+identP = text . identToString
+
+attrlistP :: (MarkerInfo ni) => [CAttribute ni] -> DocL Log -- {{{3
+-- pretty print attribute annotations
+attrlistP [] = empty
+attrlistP attrs = text "__attribute__" <> parens (parens (hcat . punctuate comma . map pretty $ attrs))
+
+parenPrec :: Int -> Int -> DocL Log -> DocL Log -- {{{3
+-- analogous to showParen
+parenPrec prec prec2 t = if prec <= prec2 then t else parens t
+
+ii :: DocL Log -> DocL Log -- {{{3
+-- indent a chunk of code
+ii = nest 4
+
+binPrec :: CBinaryOp -> Int -- {{{3
+-- precedence of C operators
+binPrec CMulOp = 20
+binPrec CDivOp = 20
+binPrec CRmdOp = 20
+binPrec CAddOp = 19
+binPrec CSubOp = 19
+binPrec CShlOp = 18
+binPrec CShrOp = 18
+binPrec CLeOp  = 17
+binPrec CGrOp  = 17
+binPrec CLeqOp = 17
+binPrec CGeqOp = 17
+binPrec CEqOp  = 16
+binPrec CNeqOp = 16
+binPrec CAndOp = 15
+binPrec CXorOp = 14
+binPrec COrOp  = 13
+binPrec CLndOp = 12
+binPrec CLorOp = 11
 

@@ -17,7 +17,6 @@ import Language.C.Parser (parseC)
 import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (Footprint)
 import Ocram.Options (Options(..))
-import Ocram.Debug (CTranslUnit')
 import Ocram.Text (OcramError, new_error)
 import Ocram.Print (render')
 import Ocram.Util (fromJust_s, abort)
@@ -50,7 +49,7 @@ dump_debug_info opt di = case optDebugFile opt of
   Nothing -> (return . Right) ()
   Just file -> write file di
 
-generate_pal :: Options -> Footprint -> CTranslUnit' -> IO (Either [OcramError] ()) -- {{{1
+generate_pal :: Options -> Footprint -> CTranslUnit -> IO (Either [OcramError] ()) -- {{{1
 generate_pal options fpr header = case optPalGenerator options of
   Nothing -> (return . Right) ()
   Just generator ->

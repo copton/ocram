@@ -7,7 +7,7 @@ import Ocram.Debug (create_debug_info)
 import Ocram.Intermediate (ast_2_ir)
 import Ocram.Options (options)
 import Ocram.IO (parse, generate_pal, dump_ecode, dump_debug_info)
-import Ocram.Print (print_with_log)
+import Ocram.Print (render_with_log')
 import Ocram.Ruab (encode_debug_info)
 import Ocram.Text (OcramError, show_errors)
 import Ocram.Test (runTests)
@@ -30,11 +30,11 @@ runCompiler argv = do
 
   opt                   <- exitOnError "options"  $ options prg cwd argv 
   (tcode, pcode, tAst)  <- exitOnError "parser" =<< parse opt
-  ana                   <- exitOnError "analysis" $ analysis
+  ana                   <- exitOnError "analysis" $ analysis tAst
 
   let cfs                = ast_2_ir (anaBlocking ana) (anaCritical ana)
   let (eAst, pal, vm)    = tcode_2_ecode ana cfs
-  let (ecode, bps)       = print_with_log eAst
+  let (ecode, bps)       = render_with_log' eAst
   let di                 = encode_debug_info $ create_debug_info opt tcode pcode ana vm bps ecode
 
   exitOnError "output" =<< generate_pal opt (footprint (anaCallgraph ana)) pal

@@ -12,7 +12,7 @@ import Ocram.Analysis (Analysis(..))
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
 import Ocram.Backend.TStack
-import Ocram.Debug (CTranslUnit', VarMap')
+import Ocram.Debug (CTranslUnit', VarMap', eun, aset, ENodeInfo(..))
 import Ocram.Intermediate (Function(..), Variable(..))
 import Ocram.Names (tframe)
 import Ocram.Ruab (Variable(StaticVariable))
@@ -29,9 +29,9 @@ tcode_2_ecode ana cfs =
     (stDecls, stVm)    = staticVariables cfs
     (tefs, vm)         = thread_execution_functions (anaCallgraph ana) (anaBlocking ana) cfs estacks
 
-    decls              = anaNonCritical ana ++ map CDeclExt (map snd tframes ++ tstacks ++ eframes ++ bfds ++ stDecls)
+    decls              = map (aset EnUndefined) $ anaNonCritical ana ++ map CDeclExt (map snd tframes ++ tstacks ++ eframes ++ bfds ++ stDecls)
     fundefs            = map CFDefExt tefs
-    ecode              = CTranslUnit (decls ++ fundefs) undefNode
+    ecode              = CTranslUnit (decls ++ fundefs) eun
 
     bfframes           = M.elems $ M.fromList tframes `M.intersection` (anaBlocking ana)
     pal                = CTranslUnit (map CDeclExt (bfframes ++ bfds)) undefNode

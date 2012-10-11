@@ -10,7 +10,7 @@ module Ocram.Intermediate
 import Control.Monad.Writer (runWriter, Writer, tell)
 import Data.Either (partitionEithers)
 import Language.C.Syntax.AST
-import Ocram.Debug (CFunDef', CDecl', ENodeInfo(EnNothing))
+import Ocram.Debug (node_end)
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
 import Ocram.Intermediate.CollectDeclarations
@@ -36,7 +36,7 @@ ast_2_ir bf cf = M.map (critical_variables . convert) cf
       let
         (items, vars) = runWriter $ process fd 
         (autoVars, staticVars) = partitionEithers vars
-        (entry, body) = build_basic_blocks sf items
+        (entry, body) = build_basic_blocks sf (node_end fd) items
         (entry', body') = optimize_ir (entry, body)
       in
         Function autoVars [] staticVars fd body' entry'

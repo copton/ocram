@@ -12,7 +12,7 @@ import Data.Maybe (fromMaybe)
 import Compiler.Hoopl hiding ((<*>), Label, Body)
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants (cInteger)
-import Language.C.Data.Node (undefNode)
+import Ocram.Debug (eun, CExpr')
 import Ocram.Intermediate.Representation
 import Ocram.Util (abort, (?:), (?++), unexp)
 import Ocram.Symbols (Symbol, symbol)
@@ -60,10 +60,10 @@ liveness :: BwdTransfer Node LiveFact -- {{{1
 liveness = mkBTransfer3 firstLive middleLive lastLive
   where
     firstLive :: Node C O -> LiveFact -> LiveFact
-    firstLive (Label _)                              = id
-    firstLive (Cont _ (FirstNormalForm _ _))         = id
-    firstLive (Cont _ (SecondNormalForm lhs op _ _)) = addUses expr . delUses expr
-      where expr = CAssign op lhs (CConst (CIntConst (cInteger 0) undefNode)) undefNode
+    firstLive (Label _)                                = id
+    firstLive (Cont _ (FirstNormalForm _ _ _))         = id
+    firstLive (Cont _ (SecondNormalForm lhs op _ _ _)) = addUses expr . delUses expr
+      where expr = CAssign op lhs (CConst (CIntConst (cInteger 0) eun)) eun
       
 
     middleLive :: Node O O -> LiveFact -> LiveFact
@@ -73,31 +73,31 @@ liveness = mkBTransfer3 firstLive middleLive lastLive
     lastLive (Goto l)     f =
       fact l f
 
-    lastLive (If e tl el) f =
+    lastLive (If e tl el _) f =
       addUses e . (S.union <$> fact tl <*> fact el) $ f
 
-    lastLive (Call (FirstNormalForm _ ps) l) f =
+    lastLive (Call (FirstNormalForm _ ps _) l) f =
       foldr addUses (fact l f) ps
 
-    lastLive (Call (SecondNormalForm _ _ _  ps) l) f =
+    lastLive (Call (SecondNormalForm _ _ _  ps _) l) f =
       foldr addUses (fact l f) ps
 
-    lastLive (Return Nothing)   _ =
+    lastLive (Return Nothing _)  _ =
       fact_bot liveLattice
 
-    lastLive (Return (Just e))  _ =
+    lastLive (Return (Just e) _) _ =
       addUses e (fact_bot liveLattice)
 
     fact :: Label -> FactBase LiveFact -> LiveFact
     fact l = fromMaybe S.empty . lookupFact (hLabel l)
 
-    addUses :: CExpr -> LiveFact -> LiveFact
+    addUses :: CExpr' -> LiveFact -> LiveFact
     addUses expr facts = foldr S.insert facts $ readAccess expr
 
-    delUses :: CExpr -> LiveFact -> LiveFact
+    delUses :: CExpr' -> LiveFact -> LiveFact
     delUses expr facts = foldr S.delete facts $ writeAccess expr
 
-readAccess :: CExpr -> [Symbol] -- {{{1
+readAccess :: CExpr' -> [Symbol] -- {{{1
 readAccess (CComma es _)                 = concatMap readAccess es
 readAccess (CAssign CAssignOp _   rhs _) = readAccess rhs
 readAccess (CAssign _         lhs rhs _) = concatMap readAccess [lhs, rhs]
@@ -121,7 +121,7 @@ readAccess o@(CStatExpr _ _)             = $abort $ unexp o
 readAccess o@(CLabAddrExpr _ _)          = $abort $ unexp o
 readAccess o@(CBuiltinExpr _)            = $abort $ unexp o
 
-writeAccess :: CExpr -> [Symbol] -- {{{1
+writeAccess :: CExpr' -> [Symbol] -- {{{1
 writeAccess (CComma es _)                    = concatMap writeAccess es
 writeAccess (CAssign _ (CVar ident _) rhs _) = symbol ident : writeAccess rhs
 writeAccess (CAssign _ lhs rhs _)            = concatMap writeAccess [lhs, rhs]
@@ -158,19 +158,19 @@ undecidable vars body = addrof
     addrof = foldGraphNodes addrof' body []
 
     addrof' :: Node e x -> [Symbol] -> [Symbol]
-    addrof' (Label _)                                  p = p
-    addrof' (Cont _ _)                                 p = p -- covered by preceding Call
-    addrof' (Stmt e)                                   p = addrof'' e ++ p
-    addrof' (Goto _)                                   p = p
-    addrof' (If e _ _)                                 p = addrof'' e ++ p
-    addrof' (Call (FirstNormalForm _ params) _)        p = concatMap addrof'' params ++ p
-    addrof' (Call (SecondNormalForm lhs _ _ params) _) p = concatMap addrof'' (lhs : params) ++ p
-    addrof' (Return e)                                 p = fmap addrof'' e ?++ p
+    addrof' (Label _)                                    p = p
+    addrof' (Cont _ _)                                   p = p -- covered by preceding Call
+    addrof' (Stmt e)                                     p = addrof'' e ++ p
+    addrof' (Goto _)                                     p = p
+    addrof' (If e _ _ _)                                 p = addrof'' e ++ p
+    addrof' (Call (FirstNormalForm _ params _) _)        p = concatMap addrof'' params ++ p
+    addrof' (Call (SecondNormalForm lhs _ _ params _) _) p = concatMap addrof'' (lhs : params) ++ p
+    addrof' (Return e _)                                 p = fmap addrof'' e ?++ p
 
-    addrof'' :: CExpr -> [Symbol]
+    addrof'' :: CExpr' -> [Symbol]
     addrof'' = everything (++) (mkQ [] pquery)
 
-    pquery :: CExpr -> [Symbol]
+    pquery :: CExpr' -> [Symbol]
     pquery (CUnary CAdrOp expr _) = pbase expr
     pquery (CBinary op (CVar lhs _) _ _)
       | S.member (symbol lhs) arrays

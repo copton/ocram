@@ -33,7 +33,7 @@ node_end n = EnBreakpoint Nothing ((posRow . fst . getLastTokenPos . nodeInfo) n
 aset :: Annotated a => ENodeInfo -> a b -> a ENodeInfo -- {{{1
 aset eni = fmap (const eni)
 
-set_thread :: ThreadId -> ENodeInfo -> ENodeInfo
+set_thread :: ThreadId -> ENodeInfo -> ENodeInfo -- {{{1
 set_thread tid (EnBreakpoint _ r b) = EnBreakpoint (Just tid) r b
 set_thread _   EnUndefined          = EnUndefined
 

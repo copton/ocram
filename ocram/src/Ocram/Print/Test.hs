@@ -11,15 +11,13 @@ module Ocram.Print.Test
 --import Ocram.Debug (ENodeInfo(..))
 --import Language.C.Syntax.AST (annotation)
 import Ocram.Analysis (analysis, Analysis(..))
-import Ocram.Print (print_with_log)
+import Ocram.Print (render_with_log)
 import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TBreakpoint)
 import Ocram.Text (show_errors)
 import Ocram.Backend (tcode_2_ecode)
 import Ocram.Intermediate (ast_2_ir)
 import Test.Framework (Test, testGroup)
 import Test.HUnit (Assertion, assertFailure, assertEqual)
-
-import qualified Data.ByteString.Char8 as BS
 
 tests :: Test -- {{{1
 tests = testGroup "Print" [test_print_with_log]
@@ -736,12 +734,11 @@ runTest (inputCode, expectedCode, expectedBps) =
         cfs                     = ast_2_ir  (anaBlocking ana) (anaCritical ana)
         
         (eAst, _, _)            = tcode_2_ecode ana cfs
-        (resultCode, resultBps) = print_with_log eAst
-        resultCode'             = BS.unpack resultCode
+        (resultCode, resultBps) = render_with_log eAst
         resultBps'              = reduce resultBps
       in do
 --        let dbg = debug ast' -- needed for debugging the test cases
-        assertEqual "code"           expectedCode resultCode'
+        assertEqual "code"           expectedCode resultCode
         assertEqual "breakpoints: "  expectedBps  resultBps'
 
 --   where
