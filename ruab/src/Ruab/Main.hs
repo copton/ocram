@@ -1,4 +1,4 @@
-module Ruab.Main (main, tests) where
+module Ruab.Main (main) where
 
 -- imports {{{1
 import Ruab.Options (options)
