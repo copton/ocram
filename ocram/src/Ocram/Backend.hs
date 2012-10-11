@@ -5,6 +5,7 @@ module Ocram.Backend
 ) where
 
 -- imports {{{1
+import Data.Generics (everywhere, mkT, extT)
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
@@ -12,7 +13,7 @@ import Ocram.Analysis (Analysis(..))
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
 import Ocram.Backend.TStack
-import Ocram.Debug (CTranslUnit', VarMap', eun, aset, ENodeInfo(..))
+import Ocram.Debug (CTranslUnit', CExtDecl', CStat', CDecl', VarMap', eun, aset, node_start, ENodeInfo(EnWrapper))
 import Ocram.Intermediate (Function(..), Variable(..))
 import Ocram.Names (tframe)
 import Ocram.Ruab (Variable(StaticVariable))
@@ -29,9 +30,10 @@ tcode_2_ecode ana cfs =
     (stDecls, stVm)    = staticVariables cfs
     (tefs, vm)         = thread_execution_functions (anaCallgraph ana) (anaBlocking ana) cfs estacks
 
-    decls              = map (aset EnUndefined) $ anaNonCritical ana ++ map CDeclExt (map snd tframes ++ tstacks ++ eframes ++ bfds ++ stDecls)
+    nonCrit            = map setBreakpoints (anaNonCritical ana)
+    decls              = map (CDeclExt . aset eun) $ map snd tframes ++ tstacks ++ eframes ++ bfds ++ stDecls
     fundefs            = map CFDefExt tefs
-    ecode              = CTranslUnit (decls ++ fundefs) eun
+    ecode              = CTranslUnit (nonCrit ++ decls ++ fundefs) eun
 
     bfframes           = M.elems $ M.fromList tframes `M.intersection` (anaBlocking ana)
     pal                = CTranslUnit (map CDeclExt (bfframes ++ bfds)) undefNode
@@ -63,3 +65,18 @@ staticVariables = M.fold update ([], [])
 
     create (EVariable _) = ([], [])
     create (TVariable tname decl scope) = ([decl], [(StaticVariable tname, scope, symbol decl)])
+
+setBreakpoints :: CExtDecl  -> CExtDecl'
+setBreakpoints = everywhere (mkT tStat `extT` tInitDecl) . fmap EnWrapper
+  where
+    tStat :: CStat' -> CStat'
+    tStat o@(CCompound _ _ _) = o
+    tStat o@(CExpr Nothing _) = o
+    tStat o@(CLabel _ _ _ _) = o
+    tStat s = amap node_start s
+
+    tInitDecl :: CDecl' -> CDecl'
+    tInitDecl (CDecl x1 decls x2) = CDecl x1 (map tr decls) x2
+      where
+        tr (y1, Just y2, y3) = (y1, Just (fmap node_start y2), y3)
+        tr x = x

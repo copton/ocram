@@ -6,20 +6,24 @@ import Data.Data (Data)
 import Data.Typeable (Typeable)
 import Language.C.Syntax.AST
 import Ocram.Ruab (ThreadId)
-import Language.C.Data.Node (CNode(nodeInfo), undefNode, getLastTokenPos, posOfNode)
+import Language.C.Data.Node (NodeInfo, CNode(nodeInfo), undefNode, getLastTokenPos, posOfNode)
 import Language.C.Data.Position (posRow)
 
 data ENodeInfo  -- {{{1
   = EnUndefined
+  | EnWrapper {
+    enNodeInfo       :: NodeInfo
+  }
   | EnBreakpoint {
       enThreadId     :: Maybe ThreadId
     , enTRow         :: Int
     , enBlockingCall :: Bool
   }
-  deriving (Data, Typeable)
+  deriving (Data, Typeable, Show)
 
 instance CNode ENodeInfo where -- {{{2
-  nodeInfo _ = undefNode
+  nodeInfo (EnWrapper n) = n
+  nodeInfo _             = undefNode
 
 eun :: ENodeInfo  -- {{{1
 eun = EnUndefined
@@ -35,7 +39,11 @@ aset eni = fmap (const eni)
 
 set_thread :: ThreadId -> ENodeInfo -> ENodeInfo -- {{{1
 set_thread tid (EnBreakpoint _ r b) = EnBreakpoint (Just tid) r b
-set_thread _   EnUndefined          = EnUndefined
+set_thread _   o                    = o
+
+set_blocking :: ENodeInfo -> ENodeInfo -- {{{1
+set_blocking (EnBreakpoint t r _) = EnBreakpoint t r True
+set_blocking o                    = o
 
 -- AST -- {{{1
 type CTranslUnit' = CTranslationUnit ENodeInfo

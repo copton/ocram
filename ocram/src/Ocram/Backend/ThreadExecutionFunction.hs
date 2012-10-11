@@ -15,7 +15,7 @@ import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, call_order, start_functions, call_chain, is_blocking)
 import Ocram.Query (function_parameters_fd, function_parameters_cd)
 import Ocram.Intermediate
-import Ocram.Debug (CExpr', VarMap', eun, CBlockItem', set_thread, CFunDef', node_start, ENodeInfo(..), aset)
+import Ocram.Debug (CExpr', VarMap', eun, CBlockItem', set_thread, CFunDef', ENodeInfo(..), aset, set_blocking)
 import Ocram.Print (render)
 import Ocram.Ruab (Variable(AutomaticVariable), FQN)
 import Ocram.Names (mangleFun, contLbl, tfunction, contVar, frameUnion, tstackVar, resVar, estackVar)
@@ -36,20 +36,19 @@ threadExecutionFunction :: CallGraph -> M.Map Symbol CDecl -> M.Map Symbol Funct
 threadExecutionFunction cg bf cf estack tid name = (fmap (set_thread tid) fun, concat vms)
   where
     tsf = $lookup_s cf name
-    fs = node_start (fun_def tsf)
     estack' = fmap (aset EnUndefined) estack
 
     fun =
-      CFunDef [CTypeSpec (CVoidType fs)] (CDeclr (Just (ii (tfunction tid))) [fdeclr] Nothing [] fs) [] body fs
+      CFunDef [CTypeSpec (CVoidType eun)] (CDeclr (Just (ii (tfunction tid))) [fdeclr] Nothing [] eun) [] body eun
 
     fdeclr =
-      CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType fs)] [(Just (CDeclr (Just (ii contVar)) [CPtrDeclr [] fs] Nothing [] fs), Nothing, Nothing)] fs], False)) []fs 
+      CFunDeclr (Right ([CDecl [CTypeSpec (CVoidType eun)] [(Just (CDeclr (Just (ii contVar)) [CPtrDeclr [] eun] Nothing [] eun), Nothing, Nothing)] eun], False)) [] eun
 
     body =
-      CCompound [] (fmap CBlockDecl estack' ?: intro : concat functions) fs
+      CCompound [] (fmap CBlockDecl estack' ?: intro : concat functions) eun
 
     intro =
-      CBlockStmt (CIf (CVar (ii contVar) fs) (CGotoPtr (CVar (ii contVar) fs) fs) Nothing fs)
+      CBlockStmt (CIf (CVar (ii contVar) eun) (CGotoPtr (CVar (ii contVar) eun) eun) Nothing eun)
 
     (functions, vms) =  unzip . map (inlineCriticalFunction cg tid callees entries name) . mapMaybe (flip M.lookup cf) . $fromJust_s . call_order cg $ name
 
@@ -126,8 +125,8 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
          criticalCallSequence callee (map cExpr params) eni lbl
 
     cBranch eni lbl
-      | S.member (hLabel lbl) suls = CCompound [] (inlineBlock lbl) eni
-      | otherwise = CCompound [] [CBlockStmt (CGoto (lblIdent lbl fname) eni)] eni
+      | S.member (hLabel lbl) suls = CCompound [] (inlineBlock lbl) eun
+      | otherwise = CCompound [] [CBlockStmt (CGoto (lblIdent lbl fname) eni)] eun
 
     cExpr :: CExpr' -> CExpr'
     cExpr = everywhere (mkT rewriteLocalVariableAccess)
@@ -143,7 +142,7 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
         continuation = assign (tstackAccess callChain' (Just contVar) eni) (CLabAddrExpr (lblIdent lbl fname) eni)
 
         callExp
-          | blocking  = CExpr (Just (CCall (CVar (ii callee) eni) [CUnary CAdrOp (tstackAccess callChain' Nothing eni) eni] eni)) eni
+          | blocking  = CExpr (Just (CCall (CVar (ii callee) eun) [CUnary CAdrOp (tstackAccess callChain' Nothing eun) eun] eun)) (set_blocking eni)
           | otherwise = CGoto (lblIdent ($lookup_s entries callee) callee) eni
 
         returnExp

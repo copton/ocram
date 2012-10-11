@@ -18,7 +18,7 @@ data Breakpoint = Breakpoint { -- {{{2
   , bpERow     :: ERow
   , bpThread   :: Maybe ThreadId
   , bpBlocking :: Bool
-  } deriving (Show)
+  } deriving (Show, Eq)
 
 type Breakpoints = [Breakpoint] -- {{{2
 
