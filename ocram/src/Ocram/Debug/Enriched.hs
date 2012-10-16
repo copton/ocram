@@ -4,10 +4,10 @@ module Ocram.Debug.Enriched where
 -- imports {{{1
 import Data.Data (Data)
 import Data.Typeable (Typeable)
-import Language.C.Syntax.AST
-import Ocram.Ruab (ThreadId)
 import Language.C.Data.Node (NodeInfo, CNode(nodeInfo), undefNode, getLastTokenPos, posOfNode, fileOfNode)
 import Language.C.Data.Position (posRow)
+import Language.C.Syntax.AST
+import Ocram.Ruab (ThreadId)
 
 data ENodeInfo  -- {{{1
   = EnUndefined

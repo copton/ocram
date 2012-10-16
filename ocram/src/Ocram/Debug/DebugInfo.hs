@@ -1,34 +1,20 @@
 {-# LANGUAGE TemplateHaskell, ViewPatterns #-}
-module Ocram.Debug.Internal where
+module Ocram.Debug.DebugInfo where
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
 import Data.List (nub)
 import Ocram.Ruab
 import Ocram.Analysis (CallGraph, start_functions, call_order)
+import Ocram.Debug.Types (Breakpoints, Breakpoint(..), VarMap')
+import Ocram.Intermediate (Function)
 import Ocram.Util (abort, fromJust_s)
 import Ocram.Names (tfunction)
+import Ocram.Symbols (Symbol)
 import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
-
--- types {{{1
-data Breakpoint = Breakpoint { -- {{{2
-    bpTRow     :: TRow
-  , bpERow     :: ERow
-  , bpThread   :: Maybe ThreadId
-  , bpBlocking :: Bool
-  , bpFile     :: Maybe FilePath
-  } deriving (Show, Eq)
-
-type Breakpoints = [Breakpoint] -- {{{2
-
-type VarMap' = [( -- {{{2
-    Variable
-  , (TRow, TRow) -- scope
-  , FQN
-  )]
 
 t2p_map :: BS.ByteString -> BS.ByteString -> MapTP -- {{{1
 t2p_map tcode pcode
@@ -75,3 +61,6 @@ all_threads cg = zipWith create [0..] (start_functions cg)
   where
     co = $fromJust_s . call_order cg
     create tid sf = Thread tid sf (tfunction tid) (co sf)
+
+step_map :: CallGraph -> M.Map Symbol Function -> StepMap -- {{{1
+step_map = undefined

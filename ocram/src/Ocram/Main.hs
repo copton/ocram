@@ -35,7 +35,7 @@ runCompiler argv = do
   let cfs                = ast_2_ir (anaBlocking ana) (anaCritical ana)
   let (eAst, pal, vm)    = tcode_2_ecode ana cfs
   let (ecode, bps)       = render_with_log' eAst
-  let di                 = encode_debug_info $ create_debug_info opt tcode pcode ana vm bps ecode
+  let di                 = encode_debug_info $ create_debug_info opt tcode pcode ana cfs vm bps ecode
 
   exitOnError "output" =<< generate_pal opt (footprint (anaCallgraph ana)) pal
   exitOnError "output" =<< dump_ecode opt ecode

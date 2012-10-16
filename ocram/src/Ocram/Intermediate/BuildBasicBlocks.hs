@@ -10,7 +10,7 @@ import Compiler.Hoopl (C, O)
 import Data.Foldable (foldrM)
 import Data.Maybe (isNothing, catMaybes)
 import Language.C.Syntax.AST
-import Ocram.Debug (CStat', ENodeInfo)
+import Ocram.Debug.Enriched (CStat', ENodeInfo)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Util (fromJust_s, head_s, abort, unexp)
 

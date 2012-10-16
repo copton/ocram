@@ -47,7 +47,7 @@ import Language.C.Data.Ident (Ident, identToString)
 import Language.C.Data.Node (NodeInfo)
 import Text.PrettyPrint hiding (render)
 import Ocram.Debug.Enriched (ENodeInfo(..))
-import Ocram.Debug.Breakpoint (Breakpoint(..), Breakpoints) 
+import Ocram.Debug.Types (Breakpoint(..), Breakpoints) 
 import Ocram.Ruab (ERow(..), TRow(..))
 import Prelude hiding (log)
 

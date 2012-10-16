@@ -12,7 +12,7 @@ import Data.Maybe (fromMaybe)
 import Compiler.Hoopl hiding ((<*>), Label, Body)
 import Language.C.Syntax.AST
 import Language.C.Syntax.Constants (cInteger)
-import Ocram.Debug (eun, CExpr')
+import Ocram.Debug.Enriched (eun, CExpr')
 import Ocram.Intermediate.Representation
 import Ocram.Util (abort, (?:), (?++), unexp)
 import Ocram.Symbols (Symbol, symbol)

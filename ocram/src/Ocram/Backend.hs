@@ -13,7 +13,8 @@ import Ocram.Analysis (Analysis(..))
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
 import Ocram.Backend.TStack
-import Ocram.Debug (CTranslUnit', CExtDecl', CStat', CDecl', VarMap', eun, aset, node_start, ENodeInfo(EnWrapper))
+import Ocram.Debug.Enriched (CTranslUnit', CExtDecl', CStat', CDecl', eun, aset, node_start, ENodeInfo(EnWrapper))
+import Ocram.Debug.Types (VarMap')
 import Ocram.Intermediate (Function(..), Variable(..))
 import Ocram.Names (tframe)
 import Ocram.Ruab (Variable(StaticVariable))

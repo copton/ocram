@@ -11,7 +11,7 @@ import Data.Generics (everywhereBut, mkQ, mkT)
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
-import Ocram.Debug (ENodeInfo, CStat', node_start, node_end, eun, aset)
+import Ocram.Debug.Enriched (ENodeInfo, CStat', node_start, node_end, eun, aset)
 import Ocram.Util (abort, unexp, (?:))
 import Ocram.Names (ctrLbl)
 import Prelude hiding (init)

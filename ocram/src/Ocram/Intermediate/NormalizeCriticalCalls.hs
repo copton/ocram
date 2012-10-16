@@ -12,7 +12,7 @@ import Control.Monad.State (State, runState, put, get, modify)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (internalIdent, Ident)
 import Language.C.Data.Node (undefNode)
-import Ocram.Debug (CStat', CExpr', eun, aset)
+import Ocram.Debug.Enriched (CStat', CExpr', eun, aset)
 import Ocram.Intermediate.Representation (Variable(..))
 import Ocram.Names (varCrit)
 import Ocram.Symbols (Symbol, symbol)

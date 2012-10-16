@@ -1,39 +1,49 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Ocram.Debug (
-    Breakpoint(..), Breakpoints
-  , VarMap'
-  , create_debug_info
-  , module Ocram.Debug.Enriched
+  create_debug_info
+-- this module cannot be a facade for its submodules due to dependency cycles.
+-- Import the following submodule directly instead:
+--  - Ocram.Debug.Enriched
+--  - Ocram.Debug.Breakpoint
+--  - Ocram.Debug.VarMap
 ) where
 
 -- import {{{1
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Ocram.Analysis (Analysis(..))
-import Ocram.Debug.Enriched
-import Ocram.Debug.Internal
+import Ocram.Debug.DebugInfo
 import Ocram.Options (Options(optInput, optOutput))
-import Ocram.Ruab
+import Ocram.Intermediate (Function)
+import Ocram.Debug.Types (Breakpoints, VarMap')
+import Ocram.Symbols (Symbol)
+import Ocram.Ruab (DebugInfo(..), File(..))
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
 
 create_debug_info :: -- {{{1
-     Options       -- command line options
-  -> BS.ByteString -- T-code
-  -> BS.ByteString -- P-code
-  -> Analysis      -- result of analysis
-  -> VarMap'       -- result of intermediate
-  -> Breakpoints   -- breakpoints
-  -> BS.ByteString -- E-code      
+     Options       
+  -> TCode
+  -> PCode
+  -> Analysis      
+  -> M.Map Symbol Function 
+  -> VarMap'      
+  -> Breakpoints
+  -> ECode
   -> DebugInfo
-create_debug_info opt tcode pcode ana vm' bps ecode =
+create_debug_info opt tcode pcode ana cfs vm' bps ecode =
   let
     tfile = File (optInput opt) (md5sum tcode)
     efile = File (optOutput opt) (md5sum ecode)
     mtp   = t2p_map tcode pcode
     mpe   = p2e_map mtp (optInput opt) bps
     vm    = var_map mtp vm'
+    sm    = step_map (anaCallgraph ana) cfs 
     ts    = all_threads (anaCallgraph ana)
     os    = M.keys (anaBlocking ana)
   in 
-    DebugInfo tfile pcode efile mtp mpe vm ts os
+    DebugInfo tfile pcode efile mtp mpe vm sm ts os
+
+type TCode = BS.ByteString
+type PCode = BS.ByteString
+type ECode = BS.ByteString
