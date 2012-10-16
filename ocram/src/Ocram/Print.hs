@@ -46,17 +46,20 @@ import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
 import Language.C.Data.Node (NodeInfo)
 import Text.PrettyPrint hiding (render)
-import Ocram.Debug (ENodeInfo(..), Breakpoint(..), Breakpoints)
+import Ocram.Debug.Enriched (ENodeInfo(..))
+import Ocram.Debug.Breakpoint (Breakpoint(..), Breakpoints) 
 import Ocram.Ruab (ERow(..), TRow(..))
 import Prelude hiding (log)
 
 import qualified Data.ByteString.Char8 as BS
 
 render_with_log :: PrettyLog a => a -> (String, Breakpoints) -- {{{1
-render_with_log tu = let (code, log) = renderWithLog (pretty tu) in (code ++ "\n", log)
+render_with_log tu = renderWithLog (pretty tu)
 
 render_with_log' :: PrettyLog a => a -> (BS.ByteString, Breakpoints) -- {{{1
-render_with_log' tu = let (code, log) = render_with_log tu in (BS.pack code, log)
+render_with_log' tu =
+  let (code, log) = render_with_log tu in
+  (BS.pack code `BS.append` BS.singleton '\n', log)
 
 render :: PrettyLog a => a -> String -- {{{1
 render = fst . render_with_log
