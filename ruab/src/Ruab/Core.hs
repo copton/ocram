@@ -24,12 +24,12 @@ import Control.Monad (forM, when)
 import Control.Monad.Fix (mfix)
 import Data.Digest.OpenSSL.MD5 (md5sum)
 import Data.List (intercalate, find)
-import Data.Maybe (catMaybes, fromJust, isJust)
+import Data.Maybe (catMaybes, fromJust, isJust, mapMaybe)
 import Prelude hiding (catch)
 import Ruab.Actor (new_actor, update, monitor_async)
 import Ruab.Core.Internal
 import Ruab.Options (Options(optDebugFile))
-import Ruab.Util (fromJust_s, abort, head_s)
+import Ruab.Util (fromJust_s, abort, head_s, lookup_s)
 import System.IO (openFile, IOMode(ReadMode), hClose)
 
 import qualified Data.ByteString.Char8 as BS
@@ -61,6 +61,7 @@ data Command -- {{{2
   | CmdInterrupt
   | CmdListBreakpoints
   | CmdRun
+  | CmdStepNext Bool -- False -> next, True -> step
   | CmdShutdown
   -- deriving Show
 
@@ -72,18 +73,20 @@ data Result -- {{{2
   | ResFilter
   | ResInterrupt
   | ResListBreakpoints [UserBreakpoint]
+  | ResStepNext
   | ResShutdown
   | ResRun
 
 type Response = (Command, Either String Result) -- {{{2
 
 data State = State { -- {{{2
-    stateExecution       :: Execution
-  , stateThreads         :: M.Map R.ThreadId Thread
-  , stateBreakpoints     :: M.Map B.BkptNumber Breakpoint
-  , stateUserBreakpoints :: M.Map BreakpointNumber [B.BkptNumber]
-  , stateThreadFilter    :: [R.ThreadId]
-  , stateHide            :: Bool
+    stateExecution           :: Execution
+  , stateThreads             :: M.Map R.ThreadId Thread
+  , stateBreakpoints         :: M.Map B.BkptNumber Breakpoint
+  , stateUserBreakpoints     :: M.Map BreakpointNumber [B.BkptNumber]
+  , stateStepNextBreakpoints :: [B.BkptNumber]
+  , stateThreadFilter        :: [R.ThreadId]
+  , stateHide                :: Bool
   }
 
 data Execution -- {{{2
@@ -102,6 +105,7 @@ data BreakpointType -- {{{2
   = BkptUser UserBreakpoint
   | BkptThreadExecution R.ThreadId
   | BkptBlockingCall R.ThreadId R.ERow
+  | BkptStepNext R.ERow
   --deriving Show
 
 data Thread = Thread { -- {{{2
@@ -183,12 +187,15 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
           case runningThreads state of
             [thread] ->
               if (&&) <$> (`elem` breakpointCondition ub) <*> (`elem` stateThreadFilter state) $ thId thread
-                then return $
-                  hide False .
-                  setExecution ExStopped .
-                  updateThread (thId thread) (\t ->
-                      t {thStatus = Stopped (Just (breakpointNumber ub)), thProw = Just (breakpointRow ub)}
-                    )
+                then do
+                  B.remove_breakpoints backend (stateStepNextBreakpoints state)
+                  return $
+                    hide False .
+                    setExecution ExStopped .
+                    cleanStepNextBreakpoints .
+                    updateThread (thId thread) (\t ->
+                        t {thStatus = Stopped (Just (breakpointNumber ub)), thProw = Just (breakpointRow ub)}
+                      )
                 else do
                   B.continue backend
                   return id
@@ -208,6 +215,14 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
                 thread {thStatus = Blocked, thProw = Just $ prow}
               )
 
+        BkptStepNext erow ->
+          case runningThreads state of
+            [thread] -> do
+              B.remove_breakpoints backend (stateStepNextBreakpoints state)
+              return $ hide False . cleanStepNextBreakpoints . updateThread (thId thread) (\thread' ->
+                  thread' {thStatus = Stopped Nothing, thProw = e2p_row ctx erow}
+                )
+            x -> $abort $ "illegal state of threads: " ++ show x
 
 handleCommand :: Context -> B.Context -> Fire Response -> Command -> State -> IO State -- {{{2
 handleCommand ctx backend fResponse command state = do
@@ -298,9 +313,10 @@ handleCommand ctx backend fResponse command state = do
     -- CmdInterrupt {{{3
     handle CmdInterrupt ExRunning = do
       B.interrupt backend
+      B.remove_breakpoints backend (stateStepNextBreakpoints state)
       case runningThreads state of
         [] -> do
-          return (Just ResInterrupt, setExecution ExStopped)
+          return (Just ResInterrupt, cleanStepNextBreakpoints . setExecution ExStopped)
 
         [thread] -> do
           stack <- B.backtrace backend
@@ -366,6 +382,39 @@ handleCommand ctx backend fResponse command state = do
                   Left err -> failed err
                   Right value -> return (Just (ResEvaluate value), id)
         x -> $abort $ "illegal state of threads: " ++ show x
+
+    -- CmdStepNext {{{3
+    handle (CmdStepNext _) ExShutdown = alreadyShutdown
+    handle (CmdStepNext _) ExRunning  = failed "caonnot step while debugger is running"
+    handle (CmdStepNext _) ExWaiting  = notRunning
+    handle (CmdStepNext decent) ExStopped = 
+      case runningThreads state of
+        [thread] -> case thProw thread of
+          Nothing -> failed "cannot step as current row is unknown"
+          Just prow ->
+            let
+              convert (prow', _) = do
+                ematch <- p2e_row ctx prow'
+                case ematch of
+                  NonCritical erow -> return erow
+                  Critical erows' -> M.lookup (thId thread) erows'
+
+              prows = $lookup_s ((R.diSm . ctxDebugInfo) ctx) prow
+              erows = mapMaybe convert $ filter ((==decent) . snd) prows
+              efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
+            in do
+              bkpts <- mapM (B.set_breakpoint backend . B.file_line_location efile . R.getERow) erows
+              B.continue backend
+              let
+                bkptNumbers = map B.bkptNumber bkpts
+                breakpoints = zipWith (\n r -> Breakpoint n (BkptStepNext r)) bkptNumbers erows 
+              return (Just ResStepNext, setExecution ExRunning . (\state' -> state' {
+                  stateBreakpoints = foldr (uncurry M.insert) (stateBreakpoints state') $ zip bkptNumbers breakpoints
+                , stateStepNextBreakpoints = bkptNumbers
+                }))
+
+        x -> $abort $ "illegal state of threads: " ++ show x
+        
     
     --utils {{{3
     failed e  = fResponse (command, Left e) >> return (Nothing, id)
@@ -386,6 +435,13 @@ mapThreads f state = state {stateThreads = M.map f (stateThreads state)}
 
 setExecution :: Execution -> State -> State -- {{{2
 setExecution e state = state {stateExecution = e}
+
+cleanStepNextBreakpoints :: State -> State -- {{{2
+cleanStepNextBreakpoints state = state {
+    stateBreakpoints = foldr M.delete (stateBreakpoints state) (stateStepNextBreakpoints state)
+  , stateStepNextBreakpoints = []
+  }
+
 
 hide :: Bool -> State -> State -- {{{2
 hide b state = state {stateHide = b}
@@ -486,7 +542,7 @@ setupBreakpoints ctx backend state = do
 initialState :: Context -> State -- {{{2
 initialState ctx =
   let threads = M.fromList $ map (\t -> (R.threadId t, Thread (R.threadId t) (R.threadStart t) Waiting Nothing)) $ R.diThreads $ ctxDebugInfo ctx in
-  State ExWaiting threads M.empty M.empty (M.keys threads) False
+  State ExWaiting threads M.empty M.empty [] (M.keys threads) False
 
 -- queries {{{1
 t_code, p_code, e_code :: Context -> BS.ByteString -- {{{2

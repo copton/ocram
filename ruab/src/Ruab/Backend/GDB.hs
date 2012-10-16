@@ -52,6 +52,7 @@ set_breakpoint ctx loc = do
     (convert G.response_break_insert resp)
 
 remove_breakpoints :: G.Context -> [G.BkptNumber] -> IO () -- {{{1
+remove_breakpoints _   []   = return ()
 remove_breakpoints ctx bids = do
   resp <- G.send_command ctx (G.break_delete bids)
   when (G.respClass resp /= G.RCDone)

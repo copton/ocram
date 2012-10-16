@@ -8,6 +8,7 @@ import Control.Arrow ((***))
 import Control.Monad (guard)
 
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.Map as M
 
 encode_debug_info :: DebugInfo -> BS.ByteString -- {{{1
 encode_debug_info = BS.pack . encodeStrict
@@ -31,16 +32,16 @@ newtype ERow -- {{{2
 type ThreadId = Int
 
 
-data PLocation = PLocation { -- {{{2
+type MapPE -- {{{2
+  -- |Map between P-rows and E-rows
+  = [(PLocation, [ERow])]
+
+data PLocation = PLocation { -- {{{3
   -- |A location in the P-code
     plThread       :: Maybe ThreadId
   , plRow          :: PRow
   , plBlockingCall :: Bool
   } deriving (Eq, Ord)
-
-type MapPE -- {{{2
-  -- |Map between P-rows and E-rows
-  = [(PLocation, [ERow])]
 
 data MapTP = -- {{{2
   -- |Map between T-rows and P-rows
@@ -50,13 +51,19 @@ data MapTP = -- {{{2
   , mtpMapping :: [(TRow, PRow)]
   }
 
-data Scope =  -- {{{2
+type VarMap -- {{{2
+  -- |Mapping of Variable names
+  = [(Scope, RenameMap)]
+
+data Scope =  -- {{{3
   Scope {
     scStart :: PRow
   , scEnd   :: PRow
   } deriving (Eq, Ord)
 
-data Variable -- {{{2
+type RenameMap = [(Variable, FQN)] -- {{{3
+
+data Variable -- {{{3
   = AutomaticVariable {
     varThread :: ThreadId
   , varTName  :: String
@@ -65,15 +72,11 @@ data Variable -- {{{2
     varTName  :: String
   }  
 
-type RenameMap = [(Variable, FQN)] -- {{{2
-
-type FQN -- {{{2
+type FQN -- {{{3
   -- |A fully qualified name of a variable
   = String
 
-type VarMap -- {{{2
-  -- |Mapping of Variable names
-  = [(Scope, RenameMap)]
+type StepMap = M.Map PRow [(PRow, Bool)] -- {{{2
 
 data File = File { -- {{{2
   -- |Information about a source file
@@ -97,6 +100,7 @@ data DebugInfo = DebugInfo { -- {{{2
   , diMtp       :: MapTP
   , diMpe       :: MapPE
   , diVm        :: VarMap
+  , diSm        :: StepMap
   , diThreads   :: [Thread]
   , diOsApi     :: [String]
   }
@@ -157,7 +161,8 @@ instance JSON Variable where -- {{{2
 
   showJSON (AutomaticVariable t n) = showJSON (0 :: Int, showJSON (t, n))
   showJSON (StaticVariable n)      = showJSON (1 :: Int, showJSON n)
-    
+
+
 instance JSON File where -- {{{2
   readJSON val = readJSON val >>= \[n,c] -> return $ File n c
   showJSON (File n c) = showJSON [n, c]
@@ -181,27 +186,29 @@ instance JSON Thread where -- {{{2
   readJSON x = readFail "Thread" x
 
 instance JSON DebugInfo where -- {{{2
-  showJSON (DebugInfo tcode pcode ecode mtp mpe vm ts api) = (JSObject . toJSObject) [
+  showJSON (DebugInfo tcode pcode ecode mtp mpe vm sm ts api) = (JSObject . toJSObject) [
       ("tcode",   showJSON tcode)
     , ("pcode",   showJSON pcode)
     , ("ecode",   showJSON ecode)
     , ("mtp",     showJSON mtp)
     , ("mpe",     showJSON mpe)
     , ("vm",      showJSON vm)
+    , ("sm",      showJSON sm)
     , ("threads", showJSON ts)
     , ("api",     showJSON api)
     ]
 
   readJSON (JSObject obj) = do
-    let [tcode, pcode, ecode, mtp, mpe, vm, ts, api] = map snd $ fromJSObject obj
+    let [tcode, pcode, ecode, mtp, mpe, vm, sm, ts, api] = map snd $ fromJSObject obj
     [tcode', ecode'] <- mapM readJSON [tcode, ecode]
     pcode'           <- readJSON pcode
     mtp'             <- readJSON mtp
     mpe'             <- readJSON mpe
     vm'              <- readJSON vm
+    sm'              <- readJSON sm
     ts'              <- readJSON ts
     api'             <- readJSON api
-    return $ DebugInfo tcode' pcode' ecode' mtp' mpe' vm' ts' api'
+    return $ DebugInfo tcode' pcode' ecode' mtp' mpe' vm' sm' ts' api'
 
   readJSON x = readFail "DebugInfo" x
 
