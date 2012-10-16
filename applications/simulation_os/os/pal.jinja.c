@@ -46,11 +46,11 @@ typedef struct {
 static void sleep_cb(void* context, error_t result)
 {
     Context* ctx = (Context*) context;
-    ec_frame_tc_sleep_t* frame = (ec_frame_tc_sleep_t*) ctx->frame;
+    ec_tframe_tc_sleep_t* frame = (ec_tframe_tc_sleep_t*) ctx->frame;
     RETURN_FROM_SYSCALL;
 }
 
-void tc_sleep(ec_frame_tc_sleep_t * frame)
+void tc_sleep(ec_tframe_tc_sleep_t * frame)
 {
     NEW_CONTEXT;
 	os_sleep(&sleep_cb, ctx, frame->ms);
@@ -61,12 +61,12 @@ void tc_sleep(ec_frame_tc_sleep_t * frame)
 static void receive_cb(void* context, error_t result, size_t len)
 {
     Context* ctx = (Context*) context;
-	ec_frame_tc_receive_t* frame = (ec_frame_tc_receive_t*) ctx->frame;
+	ec_tframe_tc_receive_t* frame = (ec_tframe_tc_receive_t*) ctx->frame;
 	*(frame->len) = len;
     RETURN_FROM_SYSCALL;
 }
 
-void tc_receive(ec_frame_tc_receive_t * frame)
+void tc_receive(ec_tframe_tc_receive_t * frame)
 {
     NEW_CONTEXT;
 	os_receive(&receive_cb, ctx, frame->handle, frame->buffer, frame->buflen);
@@ -77,11 +77,11 @@ void tc_receive(ec_frame_tc_receive_t * frame)
 static void send_cb(void* context, error_t result)
 {
     Context* ctx = (Context*) context;
-	ec_frame_tc_send_t* frame = (ec_frame_tc_send_t*) ctx->frame;
+	ec_tframe_tc_send_t* frame = (ec_tframe_tc_send_t*) ctx->frame;
     RETURN_FROM_SYSCALL;
 }
 
-void tc_send(ec_frame_tc_send_t * frame)
+void tc_send(ec_tframe_tc_send_t * frame)
 {
     NEW_CONTEXT;
 	os_send(&send_cb, ctx, frame->handle, frame->buffer, frame->len);
@@ -92,12 +92,12 @@ void tc_send(ec_frame_tc_send_t * frame)
 static void flash_read_cb(void* context, error_t result, size_t len)
 {
     Context* ctx = (Context*) context;
-	ec_frame_tc_flash_read_t* frame = (ec_frame_tc_flash_read_t*) ctx->frame;
+	ec_tframe_tc_flash_read_t* frame = (ec_tframe_tc_flash_read_t*) ctx->frame;
     *(frame->len) = len;
     RETURN_FROM_SYSCALL;
 }
 
-void tc_flash_read(ec_frame_tc_flash_read_t* frame)
+void tc_flash_read(ec_tframe_tc_flash_read_t* frame)
 {
     NEW_CONTEXT;
     os_flash_read(&flash_read_cb, ctx, frame->handle, frame->buffer, frame->buflen);
@@ -108,11 +108,11 @@ void tc_flash_read(ec_frame_tc_flash_read_t* frame)
 static void flash_write_cb(void* context, error_t result)
 {
     Context* ctx = (Context*) context;
-	ec_frame_tc_flash_write_t* frame = (ec_frame_tc_flash_write_t*) ctx->frame;
+	ec_tframe_tc_flash_write_t* frame = (ec_tframe_tc_flash_write_t*) ctx->frame;
     RETURN_FROM_SYSCALL;
 }
 
-void tc_flash_write(ec_frame_tc_flash_write_t * frame)
+void tc_flash_write(ec_tframe_tc_flash_write_t * frame)
 {
     NEW_CONTEXT;
 	os_flash_write(&flash_write_cb, ctx, frame->handle, frame->buffer, frame->len);
@@ -123,12 +123,12 @@ void tc_flash_write(ec_frame_tc_flash_write_t * frame)
 static void sensor_read_cb(void* context, error_t result, sensor_val_t value)
 {
     Context* ctx = (Context*) context;
-	ec_frame_tc_sensor_read_t* frame = (ec_frame_tc_sensor_read_t*) ctx->frame;
+	ec_tframe_tc_sensor_read_t* frame = (ec_tframe_tc_sensor_read_t*) ctx->frame;
 	*(frame->value) = value;
     RETURN_FROM_SYSCALL;
 }
 
-void tc_sensor_read(ec_frame_tc_sensor_read_t * frame)
+void tc_sensor_read(ec_tframe_tc_sensor_read_t * frame)
 {
     NEW_CONTEXT;
 	os_sensor_read(&sensor_read_cb, ctx, frame->handle);

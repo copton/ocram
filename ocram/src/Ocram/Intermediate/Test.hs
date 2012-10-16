@@ -7,12 +7,10 @@ import Control.Monad (msum)
 import Compiler.Hoopl (showGraph)
 import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
-import Language.C.Data.Node (getLastTokenPos, posOfNode)
-import Language.C.Data.Node (undefNode)
-import Language.C.Data.Position (posRow)
-import Language.C.Pretty (pretty)
 import Language.C.Syntax.AST
+import Language.C.Data.Node (undefNode, CNode(nodeInfo))
 import Ocram.Analysis (Analysis(..), analysis)
+import Ocram.Debug (ENodeInfo(..), CStat')
 import Ocram.Intermediate
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
@@ -20,10 +18,11 @@ import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.Optimize
+import Ocram.Print (render)
 import Ocram.Symbols (Symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Text (show_errors)
-import Ocram.Util (fromJust_s, abort)
+import Ocram.Util (abort)
 import Ocram.Query (return_type_fd, return_type_cd)
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
@@ -274,7 +273,7 @@ unitTestsCollect = [
     ("start", [
         ("int j", 2, 8)
     ], [
-        ("static int ec_static_start_i = 23", 4, 7)
+        ("int ec_static_start_i = 23", 4, 7)
     ])
   ], [paste|
     void start () {
@@ -298,8 +297,8 @@ unitTestsCollect = [
     }  
   |], ([
     ("start", [], [
-      ("static int ec_static_start_ec_unique_i_0 = 23", 4, 8)
-    , ("static int ec_static_start_i = 42", 2, 10)
+      ("int ec_static_start_ec_unique_i_0 = 23", 4, 8)
+    , ("int ec_static_start_i = 42", 2, 10)
     ])
   ], [paste|
     void start () {
@@ -327,7 +326,7 @@ unitTestsCollect = [
       ("int ec_unique_i_0", 5, 8)
     , ("int j", 2, 10)
     ], [
-      ("static int ec_static_start_i = 42", 2, 10)
+      ("int ec_static_start_i = 42", 2, 10)
     ])
   ], [paste|
     void start () {
@@ -807,6 +806,24 @@ unitTestsDesugar = [
       e(); f();
 
       ec_ctrlbl_0: ;
+    }
+  |])
+  , -- 15 - label with statement {{{3
+  ([paste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      i = 0;
+      start: i++;
+      block(i);
+      goto start;
+    }
+  |], [paste|
+    void start() {
+      i = 0;
+      start: ;
+      i++;
+      block(i);
+      goto start;
     }
   |])
   -- end {{{3
@@ -2364,9 +2381,9 @@ test_collect_declarations inputCode (expectedVars', expectedCode) = do
     cmpVar fname kind ((decl, start, end), var) =
       let prefix = printf "function: '%s', %s variable: '%s', " fname kind decl in
       do
-        assertEqual (prefix ++ "T-code decl") decl $ (show . pretty . var_decl) var
-        assertEqual (prefix ++ "start of scope")  start ((posRow . posOfNode . $fromJust_s . var_scope) var)
-        assertEqual (prefix ++ "end of scope") end ((posRow . fst . getLastTokenPos . $fromJust_s . var_scope) var)
+        assertEqual (prefix ++ "T-code decl") decl $ (render . var_decl) var
+        assertEqual (prefix ++ "start of scope")  start ((reduce . fst . var_scope) var)
+        assertEqual (prefix ++ "end of scope") end ((reduce . snd . var_scope) var)
 
 test_desugar_control_structures :: Input -> OutputDesugarControlStructures -> Assertion -- {{{2
 test_desugar_control_structures inputCode expectedCode = do
@@ -2408,7 +2425,7 @@ test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
 
     cmpVar fname (decl, var) = 
       let msg = printf "function: '%s', variable" fname in
-      assertEqual msg decl ((show . pretty . var_decl) var)
+      assertEqual msg decl ((render . var_decl) var)
 
 test_normalize_critical_calls :: Input -> OutputNormalize -> Assertion -- {{{2
 test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
@@ -2438,14 +2455,14 @@ test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
 
     cmpVar fname (decl, var) = 
       let msg = printf "function: '%s', variable" fname in
-      assertEqual msg decl ((show . pretty . var_decl) var)
+      assertEqual msg decl ((render . var_decl) var)
 
 test_build_basic_blocks :: Input -> OutputBasicBlocks -> Assertion -- {{{2
 test_build_basic_blocks inputCode expectedIrs' = do
   let
     ana = analyze inputCode
     result = pipeline ana (
-        build_basic_blocks (blockingAndCriticalFunctions ana)
+        build_basic_blocks (blockingAndCriticalFunctions ana) EnUndefined
       . normalizeCriticalCalls ana
       . booleanShortCircuiting ana
       . desugarControlStructures
@@ -2536,13 +2553,13 @@ blurrCSyntax code = reduce (enrich code :: CTranslUnit)
 blurrIRSyntax :: String -> String -- {{{3
 blurrIRSyntax = unlines . drop 1 . map (reverse . dropWhile (==' ') . reverse . dropWhile (==' ')) . lines
 
-printOutputCode :: Analysis -> M.Map Symbol [CStat] -> String -- {{{3
+printOutputCode :: CNode a => Analysis -> M.Map Symbol [CStatement a] -> String -- {{{3
 printOutputCode ana items =
   let funs = M.elems $ M.intersectionWith replaceBody (anaCritical ana) items in
   reduce (CTranslUnit (map CFDefExt funs) undefNode)
   where
-    replaceBody (CFunDef x1 x2 x3 (CCompound x4 _ x5) x6) ss =
-      CFunDef (filter (not . isAttr) x1) x2 x3 (CCompound x4 (map CBlockStmt ss) x5) x6
+    replaceBody (CFunDef x1 x2 x3 (CCompound x4 _ _) _) ss =
+      CFunDef (filter (not . isAttr) x1) x2 x3 (CCompound x4 (map (CBlockStmt . fmap nodeInfo) ss) undefNode) undefNode
       where
         isAttr (CTypeQual (CAttrQual _)) = True
         isAttr _                         = False
@@ -2554,17 +2571,17 @@ pipeline ana pipe = M.map pipe (anaCritical ana)
 collectDeclarations :: CFunDef -> [CBlockItem] -- {{{4
 collectDeclarations = (\(x, _, _) -> x) . collect_declarations
 
-desugarControlStructures :: [CBlockItem] -> [CStat] -- {{{4
+desugarControlStructures :: [CBlockItem] -> [CStat'] -- {{{4
 desugarControlStructures = desugar_control_structures
 
-booleanShortCircuiting :: Analysis -> [CStat] -> [CStat] -- {{{4
+booleanShortCircuiting :: Analysis -> [CStat'] -> [CStat'] -- {{{4
 booleanShortCircuiting ana = fst . boolean_short_circuiting (blockingAndCriticalFunctions ana)
 
-normalizeCriticalCalls :: Analysis -> [CStat] -> [CStat] -- {{{4
+normalizeCriticalCalls :: Analysis -> [CStat'] -> [CStat'] -- {{{4
 normalizeCriticalCalls ana = fst . normalize_critical_calls (returnTypes ana)
 
-buildBasicBlocks :: Analysis -> [CStat] -> (Label, Body) -- {{{4
-buildBasicBlocks ana = build_basic_blocks (blockingAndCriticalFunctions ana)
+buildBasicBlocks :: Analysis -> [CStat'] -> (Label, Body) -- {{{4
+buildBasicBlocks ana = build_basic_blocks (blockingAndCriticalFunctions ana) EnUndefined
 
 -- preparation {{{3
 returnTypes :: Analysis -> M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -- {{{4

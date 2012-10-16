@@ -6,17 +6,20 @@ module Ocram.Intermediate.CollectDeclarations
 ) where
 
 -- imports {{{1
+import Control.Applicative ((<$>), (<*>))
 import Control.Monad.State (State, get, gets, put, runState, gets, modify)
 import Data.Data (Data, gmapM)
 import Data.Generics (everywhereM, mkM, extM, mkQ, GenericQ, GenericM)
 import Data.List (partition)
 import Data.Maybe (fromMaybe, catMaybes)
 import Language.C.Data.Ident (internalIdent)
-import Language.C.Data.Node (NodeInfo, undefNode)
+import Language.C.Data.Node (NodeInfo, undefNode, posOfNode, getLastTokenPos)
+import Language.C.Data.Position (posRow)
 import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
 import Ocram.Names (varUnique, varStatic)
 import Ocram.Query (function_parameters_fd)
+import Ocram.Ruab (TRow(..))
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Util (abort, unexp)
 
@@ -33,7 +36,7 @@ collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
     initialState  = Ctx initialIdents funScope [] [] (symbol fd)
     (statements, state) = runState (mapM mItem items) initialState
 
-    params = map (\cd -> Variable cd (Just funScope)) ps
+    params = map (\cd -> TVariable (symbol cd) cd (scopeOfNode funScope)) ps
 
     body = concat statements
     autoVars = params ++ ctxAutoVars state
@@ -103,7 +106,7 @@ trDecl decl = do
     (autoDeclsOnly, autoInitExpr) = unzip $ map split autoDecls
 
     autoVars'      = map (mkVar scope) $ zip autoDeclsOnly newAutoNames
-    staticVars'    = map (mkVar scope) $ zip staticDecls newStaticNames
+    staticVars'    = map (mkVar scope) $ zip (map rmStatic staticDecls) newStaticNames
 
   autoInitStmt   <- mapM (uncurry mkInit) $ zip autoInitExpr newAutoNames
   put $ Ctx ids'' scope (autoVars' ++ autoVars) (staticVars' ++ staticVars) fun
@@ -122,7 +125,9 @@ trDecl decl = do
     isStaticSpec (CStorageSpec (CStatic _)) = True
     isStaticSpec _                          = False
 
-    mkVar scope (cd, name) = Variable (renameDecl name cd) (Just scope)
+    rmStatic (CDecl ds x1 x2) = CDecl (filter (not . isStaticSpec) ds) x1 x2
+
+    mkVar scope (cd, name) = TVariable (symbol cd) (renameDecl name cd) (scopeOfNode scope)
 
     mkInit Nothing    _    = return Nothing
     mkInit (Just rhs) name = do
@@ -159,8 +164,7 @@ addIdentifier mangle (Identifiers es rt) identifier = case M.lookup identifier e
   Nothing -> Identifiers (M.insert identifier 0 es) (M.insert identifier (mangle identifier) rt)
   Just count -> Identifiers (M.adjust (+1) identifier es) (M.insert identifier (mangle (varUnique identifier count)) rt)
 
-
-renameDecl :: Symbol -> CDecl -> CDecl
+renameDecl :: Symbol -> CDecl -> CDecl -- {{{2
 renameDecl newName (CDecl x1 [(Just declr, x2, x3)] x4) =
   CDecl x1 [(Just (renameDeclr newName declr), x2, x3)] x4
   where
@@ -170,3 +174,5 @@ renameDecl newName (CDecl x1 [(Just declr, x2, x3)] x4) =
 
 renameDecl _ x = $abort $ unexp x
 
+scopeOfNode :: NodeInfo -> (TRow, TRow)
+scopeOfNode = (,) <$> TRow . posRow . posOfNode <*> TRow . posRow . fst . getLastTokenPos

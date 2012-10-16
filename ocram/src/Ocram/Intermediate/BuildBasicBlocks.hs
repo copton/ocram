@@ -7,11 +7,11 @@ module Ocram.Intermediate.BuildBasicBlocks
 
 -- imports {{{1
 import Compiler.Hoopl (C, O)
-import Data.Maybe (isNothing, catMaybes)
 import Data.Foldable (foldrM)
-import Ocram.Symbols (Symbol, symbol)
-import Language.C.Data.Node (undefNode)
+import Data.Maybe (isNothing, catMaybes)
 import Language.C.Syntax.AST
+import Ocram.Debug (CStat', ENodeInfo)
+import Ocram.Symbols (Symbol, symbol)
 import Ocram.Util (fromJust_s, head_s, abort, unexp)
 
 import qualified Ocram.Intermediate.Representation as I
@@ -19,9 +19,9 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Compiler.Hoopl as H
 
-build_basic_blocks :: S.Set Symbol -> [CStat] -> (I.Label, I.Body) -- {{{1
-build_basic_blocks cf stmts = runM $ do
-  protoblocks <- partition cf . annotate cf . removeEmptyExpressions $ stmts
+build_basic_blocks :: S.Set Symbol -> ENodeInfo -> [CStat'] -> (I.Label, I.Body) -- {{{1
+build_basic_blocks cf endOfFunction stmts = runM $ do
+  protoblocks <- partition cf endOfFunction . annotate cf . removeEmptyExpressions $ stmts
   let blockcont = zip protoblocks $ map pbLabel (tail protoblocks) ++ [undef]
   (blocks, _) <- foldrM convert ([], Nothing) (reverse blockcont)
   let body = foldl splice H.emptyClosedGraph blocks
@@ -30,13 +30,13 @@ build_basic_blocks cf stmts = runM $ do
     splice = (H.|*><*|)
     undef = $abort "undefined"
 
-removeEmptyExpressions :: [CStat] -> [CStat]
+removeEmptyExpressions :: [CStat'] -> [CStat']
 removeEmptyExpressions = foldr rm []
   where
     rm (CExpr Nothing _) ss = ss
     rm o                 ss = o : ss
 
-annotate :: S.Set Symbol -> [CStat] -> [AnnotatedStmt] -- {{{2
+annotate :: S.Set Symbol -> [CStat'] -> [AnnotatedStmt] -- {{{2
 annotate cf stmts = zip (map splitPoint stmts) stmts
   where
     splitPoint (CLabel _ _ _ _)         = Just SplitBefore
@@ -57,11 +57,11 @@ annotate cf stmts = zip (map splitPoint stmts) stmts
     getCallee (CAssign _ _ (CCall (CVar callee _) _ _) _) = Just callee
     getCallee _                                           = Nothing
 
-partition :: S.Set Symbol -> [AnnotatedStmt] -> M [ProtoBlock] -- {{{2
-partition cf = part unused
+partition :: S.Set Symbol -> ENodeInfo -> [AnnotatedStmt] -> M [ProtoBlock] -- {{{2
+partition cf endOfFunction = part unused
   where
     unused = $abort "empty critical function?"
-    explicitReturn = (Just SplitAfter, CReturn Nothing undefNode)
+    explicitReturn = (Just SplitAfter, CReturn Nothing endOfFunction)
 
     sequel = do
       ilabel <- newILabel
@@ -116,32 +116,31 @@ convert (ProtoBlock thisBlock body, nextBlock) (blocks, mcall)
  
     convM :: AnnotatedStmt -> M (Maybe (I.Node O O))
     convM (Nothing, CExpr (Just e) _) = return $ Just $ I.Stmt e
-    convM (Nothing, CExpr Nothing _)  = return Nothing
     convM (x, y)                      = $abort $ unexp y ++ ", " ++ show x
 
     convL :: AnnotatedStmt -> M ([I.Node O O], I.Node O C, Maybe I.CriticalCall)
-    convL (Just SplitAfter, CIf cond (CGoto target _) Nothing _) = do
+    convL (Just SplitAfter, CIf cond (CGoto target _) Nothing eni) = do
       itarget <- labelFor (symbol target)
-      return ([], I.If cond itarget nextBlock, Nothing)
+      return ([], I.If cond itarget nextBlock eni, Nothing)
 
-    convL (Just SplitAfter, CIf cond (CGoto ttarget _) (Just (CGoto etarget _)) _) = do
+    convL (Just SplitAfter, CIf cond (CGoto ttarget _) (Just (CGoto etarget _)) eni) = do
       ittarget <- labelFor (symbol ttarget)
       ietarget <- labelFor (symbol etarget)
-      return ([], I.If cond ittarget ietarget, Nothing)
+      return ([], I.If cond ittarget ietarget eni, Nothing)
 
     convL (Nothing, CExpr (Just expr) _) =
       return ([I.Stmt expr], I.Goto nextBlock, Nothing)
 
-    convL (Just SplitAfter, CExpr (Just (CCall (CVar callee _) params _)) _) =
-      let call = I.FirstNormalForm (symbol callee) params in
+    convL (Just SplitAfter, CExpr (Just (CCall (CVar callee _) params eni)) _) =
+      let call = I.FirstNormalForm (symbol callee) params eni in
       return ([], I.Call call nextBlock, Just call)
 
-    convL (Just SplitAfter, CExpr (Just (CAssign op lhs (CCall (CVar callee _) params _) _)) _) =
-      let call = I.SecondNormalForm lhs op (symbol callee) params in
+    convL (Just SplitAfter, CExpr (Just (CAssign op lhs (CCall (CVar callee _) params _) eni)) _) =
+      let call = I.SecondNormalForm lhs op (symbol callee) params eni in
       return ([], I.Call call nextBlock, Just call)
 
-    convL (Just SplitAfter, CReturn expr _) =
-      return ([] , I.Return expr, Nothing)
+    convL (Just SplitAfter, CReturn expr eni) =
+      return ([] , I.Return expr eni, Nothing)
 
     convL (Just SplitAfter, CGoto target _) = do
       itarget <- labelFor (symbol target)
@@ -150,7 +149,7 @@ convert (ProtoBlock thisBlock body, nextBlock) (blocks, mcall)
     convL (x, y) = $abort $ unexp y ++ ", " ++ show x
       
 -- types {{{1
-type AnnotatedStmt = (Maybe SplitPoint, CStat) -- {{{2
+type AnnotatedStmt = (Maybe SplitPoint, CStat') -- {{{2
 
 data ProtoBlock -- {{{2
   -- |Prototype of a basic block

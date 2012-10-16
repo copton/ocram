@@ -6,165 +6,159 @@ module Ocram.Print.Test
 ) where
 
 -- import {{{1
---import Data.Generics (everything, mkQ, extQ)
---import Data.List (intercalate)
---import Ocram.Debug (ENodeInfo(..))
---import Language.C.Syntax.AST (annotation)
-import Ocram.Analysis (analysis, Analysis(anaCallgraph))
-import Ocram.Print (print_with_log)
-import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TstLocations, TBlockingCalls)
+import Data.List (nub)
+import Ocram.Analysis (analysis, Analysis(..))
+import Ocram.Print (render_with_log)
+import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TBreakpoint)
 import Ocram.Text (show_errors)
-import Ocram.Transformation (transformation)
---import Ocram.Transformation.Types (CExpr', CStat')
+import Ocram.Backend (tcode_2_ecode)
+import Ocram.Intermediate (ast_2_ir)
 import Test.Framework (Test, testGroup)
 import Test.HUnit (Assertion, assertFailure, assertEqual)
 
-import qualified Data.ByteString.Char8 as BS
-
 tests :: Test -- {{{1
-tests = testGroup "Print" [test_print_with_log]
+tests = testGroup "Print" [test_render_with_log]
 
-test_print_with_log :: Test -- {{{1
-test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
--- setup {{{2
+test_render_with_log :: Test -- {{{1
+test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
+  -- , 01 - setup {{{2
   ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() { 
+    __attribute__((tc_run_thread)) void start() { 
 03:   block(23);
-    }
+04: }
   |],[lpaste|
     typedef struct {
                 void * ec_cont; int i;
-            } ec_frame_block_t;
+            } ec_tframe_block_t;
     typedef struct {
                 union {
-                    ec_frame_block_t block;
+                    ec_tframe_block_t block;
                 } ec_frames;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
         if (ec_cont)
         {
             goto * ec_cont;
         }
-17:     ec_stack_start.ec_frames.block.i = 23;
-18:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-19:     block(&ec_stack_start.ec_frames.block);
-20:     return;
-    ec_label_start_1:
+    ec_contlbl_L1_start:
         ;
-23:     return;
-    }
-    |], [
-        (3, 17, Just 0)
-      , (3, 18, Just 0)
-      , (3, 19, Just 0)
-      , (3, 20, Just 0)
-      , (2, 23, Just 0)
-    ], [
-      (3, 19, 0)
-    ])
--- function static variable {{{2
-  , ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
-03:   static int i = 0;
-04:   block(i);
-    }
-  |],[lpaste|
-    typedef struct {
-                void * ec_cont; int i;
-            } ec_frame_block_t;
-    typedef struct {
-                union {
-                    ec_frame_block_t block;
-                } ec_frames;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
-    void ec_thread_0(void * ec_cont)
-    {
-        if (ec_cont)
-        {
-            goto * ec_cont;
-        }
-17:     static int i = 0;
-18:     ec_stack_start.ec_frames.block.i = i;
-19:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-20:     block(&ec_stack_start.ec_frames.block);
-21:     return;
-    ec_label_start_1:
-        ;
-24:     return;
-    }
-  |], [
-      (3, 17, Just 0)
-    , (4, 18, Just 0)
-    , (4, 19, Just 0)
-    , (4, 20, Just 0)
-    , (4, 21, Just 0)
-    , (2, 24, Just 0)
-  ], [
-      (4, 20, 0)
-  ])
--- global variable {{{2
-  , ([lpaste|
-    int k;
-    __attribute__((tc_blocking)) void block(int i);
-03: __attribute__((tc_run_thread)) void start() {
-04:   k = 23;
-05:   block(k);
-    }
-  |],[lpaste|
-    int k;
-    typedef struct {
-                void * ec_cont; int i;
-            } ec_frame_block_t;
-    typedef struct {
-                union {
-                    ec_frame_block_t block;
-                } ec_frames;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
-    void ec_thread_0(void * ec_cont)
-    {
-        if (ec_cont)
-        {
-            goto * ec_cont;
-        }
-18:     k = 23;
-19:     ec_stack_start.ec_frames.block.i = k;
-20:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-21:     block(&ec_stack_start.ec_frames.block);
+19:     ec_tstack_start.ec_frames.block.i = 23;
+20:     ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+21:     block(&ec_tstack_start.ec_frames.block);
 22:     return;
-    ec_label_start_1:
+    ec_contlbl_L2_start:
         ;
 25:     return;
     }
   |], [
-      (4, 18, Just 0)
-    , (5, 19, Just 0)
-    , (5, 20, Just 0)
-    , (5, 21, Just 0)
-    , (5, 22, Just 0)
-    , (3, 25, Just 0)
-  ], [
-      (5, 21, 0)
+      (3, 19, Just 0, False)
+    , (3, 20, Just 0, False)
+    , (3, 21, Just 0, True)
+    , (3, 22, Just 0, False)
+    , (4, 25, Just 0, False)
   ])
--- non-critical function call {{{2
-  ,([lpaste|
+  , -- 02 - function static variable {{{2
+  ([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+      static int i = 0;
+04:   block(i);
+05: }
+  |],[lpaste|
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_tframe_block_t;
+    typedef struct {
+                union {
+                    ec_tframe_block_t block;
+                } ec_frames;
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    void block(ec_tframe_block_t *);
+    int ec_static_start_i = 0;
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+    ec_contlbl_L1_start:
+        ;
+20:     ec_tstack_start.ec_frames.block.i = ec_static_start_i;
+21:     ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+22:     block(&ec_tstack_start.ec_frames.block);
+23:     return;
+    ec_contlbl_L2_start:
+        ;
+26:     return;
+    }
+  |], [
+      (4, 20, Just 0, False)
+    , (4, 21, Just 0, False)
+    , (4, 22, Just 0, True)
+    , (4, 23, Just 0, False)
+    , (5, 26, Just 0, False)
+  ])
+  , -- 03 - global variable {{{2
+  ([lpaste|
+    int k;
+    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_run_thread)) void start() {
+04:   k = 23;
+05:   block(k);
+06: }
+  |],[lpaste|
+    int k;
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_tframe_block_t;
+    typedef struct {
+                union {
+                    ec_tframe_block_t block;
+                } ec_frames;
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    void block(ec_tframe_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+    ec_contlbl_L1_start:
+        ;
+20:     k = 23;
+21:     ec_tstack_start.ec_frames.block.i = k;
+22:     ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+23:     block(&ec_tstack_start.ec_frames.block);
+24:     return;
+    ec_contlbl_L2_start:
+        ;
+27:     return;
+    }
+  |], [
+      (4, 20, Just 0, False)
+    , (5, 21, Just 0, False)
+    , (5, 22, Just 0, False)
+    , (5, 23, Just 0, True)
+    , (5, 24, Just 0, False)
+    , (6, 27, Just 0, False)
+  ])
+  , -- 04 - non-critical function call {{{2
+  ([lpaste|
     int k;
     void f() {
 03:   k = 23; 
     }
     __attribute__((tc_blocking)) void block(int i);
-06: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_run_thread)) void start() {
 07:   f();
 08:   block(k);
-    }
+09: }
   |], [lpaste|
     int k;
     void f()
@@ -173,159 +167,161 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     }
     typedef struct {
                 void * ec_cont; int i;
-            } ec_frame_block_t;
+            } ec_tframe_block_t;
     typedef struct {
                 union {
-                    ec_frame_block_t block;
+                    ec_tframe_block_t block;
                 } ec_frames;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
         if (ec_cont)
         {
             goto * ec_cont;
         }
-22:     f();
-23:     ec_stack_start.ec_frames.block.i = k;
-24:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-25:     block(&ec_stack_start.ec_frames.block);
-26:     return;
-    ec_label_start_1:
+    ec_contlbl_L1_start:
         ;
-29:     return;
-    }
-  |], [
-      (3,  4, Nothing)
-    , (7, 22, Just 0)
-    , (8, 23, Just 0)
-    , (8, 24, Just 0)
-    , (8, 25, Just 0)
-    , (8, 26, Just 0)
-    , (6, 29, Just 0)
-  ], [
-      (8, 25, 0)
-  ])
--- critical function call {{{2
-  ,([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: void c(int i) {
-03:   block(i+1);
-    }
-05: __attribute__((tc_run_thread)) void start() {
-06:   c(23);
-    }
-  |], [lpaste|
-    typedef struct {
-                void * ec_cont; int i;
-            } ec_frame_block_t;
-    typedef struct {
-                void * ec_cont;
-                union {
-                    ec_frame_block_t block;
-                } ec_frames;
-                int i;
-            } ec_frame_c_t;
-    typedef struct {
-                union {
-                    ec_frame_c_t c;
-                } ec_frames;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
-    void ec_thread_0(void * ec_cont)
-    {
-        if (ec_cont)
-        {
-            goto * ec_cont;
-        }
-24:     ec_stack_start.ec_frames.c.i = 23;
-25:     ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
-26:     goto ec_label_c_0;
-    ec_label_start_1:
-        ;
+24:     f();
+25:     ec_tstack_start.ec_frames.block.i = k;
+26:     ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+27:     block(&ec_tstack_start.ec_frames.block);
 28:     return;
-    ec_label_c_0:
+    ec_contlbl_L2_start:
         ;
-32:     ec_stack_start.ec_frames.c.ec_frames.block.i = ec_stack_start.ec_frames.c.i + 1;
-33:     ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
-34:     block(&ec_stack_start.ec_frames.c.ec_frames.block);
-35:     return;
-    ec_label_c_1:
-        ;
-38:     goto * (ec_stack_start.ec_frames.c.ec_cont);
+31:     return;
     }
   |], [
-      (6, 24, Just 0)
-    , (6, 25, Just 0)
-    , (6, 26, Just 0)
-    , (5, 29, Just 0)
-    , (3, 32, Just 0)
-    , (3, 33, Just 0)
-    , (3, 34, Just 0)
-    , (3, 35, Just 0)
-    , (2, 38, Just 0)
-  ], [
-      (3, 34, 0)
+      (3,  4, Nothing, False)
+    , (7, 24, Just 0, False)
+    , (8, 25, Just 0, False)
+    , (8, 26, Just 0, False)
+    , (8, 27, Just 0, True)
+    , (8, 28, Just 0, False)
+    , (9, 31, Just 0, False)
   ])
--- re-entrance {{{2
-  ,([lpaste|
+  , -- 05 - critical function call {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
-02: void c(int i) {
+    void c(int i) {
 03:   block(i+1);
-    }
-05: __attribute__((tc_run_thread)) void s1() {
+04: }
+    __attribute__((tc_run_thread)) void start() {
 06:   c(23);
-    }
-08: __attribute__((tc_run_thread)) void s2() {
-09:   c(42);
-    }
+07: }
   |], [lpaste|
     typedef struct {
                 void * ec_cont; int i;
-            } ec_frame_block_t;
+            } ec_tframe_block_t;
     typedef struct {
                 void * ec_cont;
                 union {
-                    ec_frame_block_t block;
+                    ec_tframe_block_t block;
                 } ec_frames;
                 int i;
-            } ec_frame_c_t;
+            } ec_tframe_c_t;
     typedef struct {
                 union {
-                    ec_frame_c_t c;
+                    ec_tframe_c_t c;
                 } ec_frames;
-            } ec_frame_s1_t;
-    typedef struct {
-                union {
-                    ec_frame_c_t c;
-                } ec_frames;
-            } ec_frame_s2_t;
-    ec_frame_s1_t ec_stack_s1;
-    ec_frame_s2_t ec_stack_s2;
-    void block(ec_frame_block_t *);
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
         if (ec_cont)
         {
             goto * ec_cont;
         }
-30:     ec_stack_s1.ec_frames.c.i = 23;
-31:     ec_stack_s1.ec_frames.c.ec_cont = &&ec_label_s1_1;
-32:     goto ec_label_c_0;
-    ec_label_s1_1:
+    ec_contlbl_L1_start:
         ;
-35:     return;
-    ec_label_c_0:
+26:     ec_tstack_start.ec_frames.c.i = 23;
+27:     ec_tstack_start.ec_frames.c.ec_cont = &&ec_contlbl_L2_start;
+28:     goto ec_contlbl_L1_c;
+    ec_contlbl_L2_start:
         ;
-38:     ec_stack_s1.ec_frames.c.ec_frames.block.i = ec_stack_s1.ec_frames.c.i + 1;
-39:     ec_stack_s1.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
-40:     block(&ec_stack_s1.ec_frames.c.ec_frames.block);
-41:     return;
-    ec_label_c_1:
+31:     return;
+    ec_contlbl_L1_c:
         ;
-44:     goto * (ec_stack_s1.ec_frames.c.ec_cont);
+34:     ec_tstack_start.ec_frames.c.ec_frames.block.i = ec_tstack_start.ec_frames.c.i + 1;
+35:     ec_tstack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_contlbl_L2_c;
+36:     block(&ec_tstack_start.ec_frames.c.ec_frames.block);
+37:     return;
+    ec_contlbl_L2_c:
+        ;
+40:     goto * (ec_tstack_start.ec_frames.c.ec_cont);
+    }
+  |], [
+      (6, 26, Just 0, False)
+    , (6, 27, Just 0, False)
+    , (6, 28, Just 0, False)
+    , (7, 31, Just 0, False)
+    , (3, 34, Just 0, False)
+    , (3, 35, Just 0, False)
+    , (3, 36, Just 0, True)
+    , (3, 37, Just 0, False)
+    , (4, 40, Just 0, False)
+  ])
+  , -- 06 - re-entrance {{{2
+  ([lpaste|
+    __attribute__((tc_blocking)) void block(int i);
+    void c(int i) {
+03:   block(i+1);
+04: }
+    __attribute__((tc_run_thread)) void s1() {
+06:   c(23);
+07: }
+    __attribute__((tc_run_thread)) void s2() {
+09:   c(42);
+10: }
+  |], [lpaste|
+    typedef struct {
+                void * ec_cont; int i;
+            } ec_tframe_block_t;
+    typedef struct {
+                void * ec_cont;
+                union {
+                    ec_tframe_block_t block;
+                } ec_frames;
+                int i;
+            } ec_tframe_c_t;
+    typedef struct {
+                union {
+                    ec_tframe_c_t c;
+                } ec_frames;
+            } ec_tframe_s1_t;
+    typedef struct {
+                union {
+                    ec_tframe_c_t c;
+                } ec_frames;
+            } ec_tframe_s2_t;
+    ec_tframe_s1_t ec_tstack_s1;
+    ec_tframe_s2_t ec_tstack_s2;
+    void block(ec_tframe_block_t *);
+    void ec_thread_0(void * ec_cont)
+    {
+        if (ec_cont)
+        {
+            goto * ec_cont;
+        }
+    ec_contlbl_L1_s1:
+        ;
+32:     ec_tstack_s1.ec_frames.c.i = 23;
+33:     ec_tstack_s1.ec_frames.c.ec_cont = &&ec_contlbl_L2_s1;
+34:     goto ec_contlbl_L1_c;
+    ec_contlbl_L2_s1:
+        ;
+37:     return;
+    ec_contlbl_L1_c:
+        ;
+40:     ec_tstack_s1.ec_frames.c.ec_frames.block.i = ec_tstack_s1.ec_frames.c.i + 1;
+41:     ec_tstack_s1.ec_frames.c.ec_frames.block.ec_cont = &&ec_contlbl_L2_c;
+42:     block(&ec_tstack_s1.ec_frames.c.ec_frames.block);
+43:     return;
+    ec_contlbl_L2_c:
+        ;
+46:     goto * (ec_tstack_s1.ec_frames.c.ec_cont);
     }
     void ec_thread_1(void * ec_cont)
     {
@@ -333,98 +329,96 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
         {
             goto * ec_cont;
         }
-52:     ec_stack_s2.ec_frames.c.i = 42;
-53:     ec_stack_s2.ec_frames.c.ec_cont = &&ec_label_s2_1;
-54:     goto ec_label_c_0;
-    ec_label_s2_1:
+    ec_contlbl_L1_s2:
         ;
-57:     return;
-    ec_label_c_0:
+56:     ec_tstack_s2.ec_frames.c.i = 42;
+57:     ec_tstack_s2.ec_frames.c.ec_cont = &&ec_contlbl_L2_s2;
+58:     goto ec_contlbl_L1_c;
+    ec_contlbl_L2_s2:
         ;
-60:     ec_stack_s2.ec_frames.c.ec_frames.block.i = ec_stack_s2.ec_frames.c.i + 1;
-61:     ec_stack_s2.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
-62:     block(&ec_stack_s2.ec_frames.c.ec_frames.block);
-63:     return;
-    ec_label_c_1:
+61:     return;
+    ec_contlbl_L1_c:
         ;
-66:     goto * (ec_stack_s2.ec_frames.c.ec_cont);
+64:     ec_tstack_s2.ec_frames.c.ec_frames.block.i = ec_tstack_s2.ec_frames.c.i + 1;
+65:     ec_tstack_s2.ec_frames.c.ec_frames.block.ec_cont = &&ec_contlbl_L2_c;
+66:     block(&ec_tstack_s2.ec_frames.c.ec_frames.block);
+67:     return;
+    ec_contlbl_L2_c:
+        ;
+70:     goto * (ec_tstack_s2.ec_frames.c.ec_cont);
     }
   |], [
-      (6, 30, Just 0)
-    , (6, 31, Just 0)
-    , (6, 32, Just 0)
-    , (5, 35, Just 0)
-    , (3, 38, Just 0)
-    , (3, 39, Just 0)
-    , (3, 40, Just 0)
-    , (3, 41, Just 0)
-    , (2, 44, Just 0)
-    , (9, 52, Just 1)
-    , (9, 53, Just 1)
-    , (9, 54, Just 1)
-    , (8, 57, Just 1)
-    , (3, 60, Just 1)
-    , (3, 61, Just 1)
-    , (3, 62, Just 1)
-    , (3, 63, Just 1)
-    , (2, 66, Just 1)
-  ], [
-      (3, 40, 0)
-    , (3, 62, 1)
+      ( 6, 32, Just 0, False)
+    , ( 6, 33, Just 0, False)
+    , ( 6, 34, Just 0, False)
+    , ( 7, 37, Just 0, False)
+    , ( 3, 40, Just 0, False)
+    , ( 3, 41, Just 0, False)
+    , ( 3, 42, Just 0, True)
+    , ( 3, 43, Just 0, False)
+    , ( 4, 46, Just 0, False)
+    , ( 9, 56, Just 1, False)
+    , ( 9, 57, Just 1, False)
+    , ( 9, 58, Just 1, False)
+    , (10, 61, Just 1, False)
+    , ( 3, 64, Just 1, False)
+    , ( 3, 65, Just 1, False)
+    , ( 3, 66, Just 1, True)
+    , ( 3, 67, Just 1, False)
+    , ( 4, 70, Just 1, False)
   ])
--- multiple statements in a row {{{2
-  ,([lpaste|
+  , -- 07 - multiple statements in a row {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_run_thread)) void start() {
 03:   block(23); block(42);
-    }
+04: }
   |], [lpaste|
     typedef struct {
                 void * ec_cont; int i;
-            } ec_frame_block_t;
+            } ec_tframe_block_t;
     typedef struct {
                 union {
-                    ec_frame_block_t block;
+                    ec_tframe_block_t block;
                 } ec_frames;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
         if (ec_cont)
         {
             goto * ec_cont;
         }
-17:     ec_stack_start.ec_frames.block.i = 23;
-18:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-19:     block(&ec_stack_start.ec_frames.block);
-20:     return;
-    ec_label_start_1:
+    ec_contlbl_L1_start:
         ;
-23:     ec_stack_start.ec_frames.block.i = 42;
-24:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_2;
-25:     block(&ec_stack_start.ec_frames.block);
-26:     return;
-    ec_label_start_2:
+19:     ec_tstack_start.ec_frames.block.i = 23;
+20:     ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+21:     block(&ec_tstack_start.ec_frames.block);
+22:     return;
+    ec_contlbl_L2_start:
         ;
-29:     return;
+25:     ec_tstack_start.ec_frames.block.i = 42;
+26:     ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L3_start;
+27:     block(&ec_tstack_start.ec_frames.block);
+28:     return;
+    ec_contlbl_L3_start:
+        ;
+31:     return;
     }
   |], [
-      (3, 17, Just 0)
-    , (3, 18, Just 0)
-    , (3, 19, Just 0)
-    , (3, 20, Just 0)
-    , (3, 23, Just 0)
-    , (3, 24, Just 0)
-    , (3, 25, Just 0)
-    , (3, 26, Just 0)
-    , (2, 29, Just 0)
-  ], [
-      (3, 19, 0)
-    , (3, 25, 0)
+      (3, 19, Just 0, False)
+    , (3, 20, Just 0, False)
+    , (3, 21, Just 0, True)
+    , (3, 22, Just 0, False)
+    , (3, 25, Just 0, False)
+    , (3, 26, Just 0, False)
+    , (3, 27, Just 0, True)
+    , (3, 28, Just 0, False)
+    , (4, 31, Just 0, False)
   ])
--- return {{{2
-  ,([lpaste|
+  , -- 08 - return {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
     int c(int i) {
 03:   if (i ==0) {
@@ -433,278 +427,285 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
 06:     return block(42);
       }
     }
-09: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_run_thread)) void start() {
 10:   c(0);
-    }
+11: }
   |], [lpaste|
     typedef struct {
                 void * ec_cont; int i;
-            } ec_frame_block_t;
+            } ec_tframe_block_t;
     typedef struct {
                 void * ec_cont;
                 int ec_result;
                 union {
-                    ec_frame_block_t block;
+                    ec_tframe_block_t block;
                 } ec_frames;
-                void ec_crit_0_0;
-                void ec_crit_0_1;
                 int i;
-            } ec_frame_c_t;
+            } ec_tframe_c_t;
     typedef struct {
                 union {
-                    ec_frame_c_t c;
+                    ec_tframe_c_t c;
                 } ec_frames;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    typedef struct {
+                void ec_crit_1; void ec_crit_0;
+            } ec_eframe_c_t;
+    void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
+        union {
+            ec_eframe_c_t c;
+        } ec_estack;
         if (ec_cont)
         {
             goto * ec_cont;
         }
-27:     ec_stack_start.ec_frames.c.i = 0;
-28:     ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
-29:     goto ec_label_c_0;
-    ec_label_start_1:
+    ec_contlbl_L1_start:
         ;
-32:     return;
-    ec_label_c_0:
+33:     ec_tstack_start.ec_frames.c.i = 0;
+34:     ec_tstack_start.ec_frames.c.ec_cont = &&ec_contlbl_L2_start;
+35:     goto ec_contlbl_L1_c;
+    ec_contlbl_L2_start:
         ;
-35:     if (ec_stack_start.ec_frames.c.i == 0)
+38:     return;
+    ec_contlbl_L1_c:
+        ;
+41:     if (ec_tstack_start.ec_frames.c.i == 0)
         {
-37:         ec_stack_start.ec_frames.c.ec_frames.block.i = 23;
-38:         ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
-39:         block(&ec_stack_start.ec_frames.c.ec_frames.block);
-40:         return;
-        ec_label_c_1:
-            ;
-43:         ec_stack_start.ec_frames.c.ec_crit_0_0 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
-            {
-45:             ec_stack_start.ec_frames.c.ec_result = ec_stack_start.ec_frames.c.ec_crit_0_0;
-46:             goto * (ec_stack_start.ec_frames.c.ec_cont);
-            }
+43:         ec_tstack_start.ec_frames.c.ec_frames.block.i = 23;
+44:         ec_tstack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_contlbl_L3_c;
+45:         block(&ec_tstack_start.ec_frames.c.ec_frames.block);
+46:         return;
         }
         else
         {
-51:         ec_stack_start.ec_frames.c.ec_frames.block.i = 42;
-52:         ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_2;
-53:         block(&ec_stack_start.ec_frames.c.ec_frames.block);
-54:         return;
-        ec_label_c_2:
-            ;
-57:         ec_stack_start.ec_frames.c.ec_crit_0_1 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
-            {
-59:             ec_stack_start.ec_frames.c.ec_result = ec_stack_start.ec_frames.c.ec_crit_0_1;
-60:             goto * (ec_stack_start.ec_frames.c.ec_cont);
-            }
+50:         ec_tstack_start.ec_frames.c.ec_frames.block.i = 42;
+51:         ec_tstack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_contlbl_L6_c;
+52:         block(&ec_tstack_start.ec_frames.c.ec_frames.block);
+53:         return;
         }
+    ec_contlbl_L6_c:
+        ;
+57:     ec_estack.c.ec_crit_1 = ec_tstack_start.ec_frames.c.ec_frames.block.ec_result;
+58:     ec_tstack_start.ec_frames.c.ec_result = ec_estack.c.ec_crit_1;
+59:     goto * (ec_tstack_start.ec_frames.c.ec_cont);
+    ec_contlbl_L3_c:
+        ;
+62:     ec_estack.c.ec_crit_0 = ec_tstack_start.ec_frames.c.ec_frames.block.ec_result;
+63:     ec_tstack_start.ec_frames.c.ec_result = ec_estack.c.ec_crit_0;
+64:     goto * (ec_tstack_start.ec_frames.c.ec_cont);
     }
   |], [
-      (10, 27, Just 0)
-    , (10, 28, Just 0)
-    , (10, 29, Just 0)
-    , ( 9, 32, Just 0)
-    , ( 3, 35, Just 0)
-    , ( 4, 37, Just 0)
-    , ( 4, 38, Just 0)
-    , ( 4, 39, Just 0)
-    , ( 4, 40, Just 0)
-    , ( 4, 43, Just 0)
-    , ( 4, 45, Just 0)
-    , ( 4, 46, Just 0)
-    , ( 6, 51, Just 0)
-    , ( 6, 52, Just 0)
-    , ( 6, 53, Just 0)
-    , ( 6, 54, Just 0)
-    , ( 6, 57, Just 0)
-    , ( 6, 59, Just 0)
-    , ( 6, 60, Just 0)
-  ], [
-      (4, 39, 0)
-    , (6, 53, 0)
+      (10, 33, Just 0, False)
+    , (10, 34, Just 0, False)
+    , (10, 35, Just 0, False)
+    , (11, 38, Just 0, False)
+    , ( 3, 41, Just 0, False)
+    , ( 4, 43, Just 0, False)
+    , ( 4, 44, Just 0, False)
+    , ( 4, 45, Just 0, True)
+    , ( 4, 46, Just 0, False)
+    , ( 6, 50, Just 0, False)
+    , ( 6, 51, Just 0, False)
+    , ( 6, 52, Just 0, True)
+    , ( 6, 53, Just 0, False)
+    , ( 6, 57, Just 0, False)
+    , ( 6, 58, Just 0, False)
+    , ( 6, 59, Just 0, False)
+    , ( 4, 62, Just 0, False)
+    , ( 4, 63, Just 0, False)
+    , ( 4, 64, Just 0, False)
   ])
--- while loops {{{2
-  ,([lpaste|
+  , -- 09 - while loops {{{2
+  ([lpaste|
       __attribute__((tc_blocking)) int block(int i);
-02:   void c(int i) {
+      void c(int i) {
 03:     while (block(i) != 0);
-      }
-05:   __attribute__((tc_run_thread)) void start() {
+04:   }
+      __attribute__((tc_run_thread)) void start() {
 06:     c(23);
-      }
+07:   }
   |], [lpaste|
     typedef struct {
                 void * ec_cont; int ec_result; int i;
-            } ec_frame_block_t;
+            } ec_tframe_block_t;
     typedef struct {
                 void * ec_cont;
                 union {
-                    ec_frame_block_t block;
+                    ec_tframe_block_t block;
                 } ec_frames;
-                int ec_crit_0_0;
                 int i;
-            } ec_frame_c_t;
+            } ec_tframe_c_t;
     typedef struct {
                 union {
-                    ec_frame_c_t c;
+                    ec_tframe_c_t c;
                 } ec_frames;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    typedef struct {
+                int ec_crit_0;
+            } ec_eframe_c_t;
+    void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
+        union {
+            ec_eframe_c_t c;
+        } ec_estack;
         if (ec_cont)
         {
             goto * ec_cont;
         }
-25:     ec_stack_start.ec_frames.c.i = 23;
-26:     ec_stack_start.ec_frames.c.ec_cont = &&ec_label_start_1;
-27:     goto ec_label_c_0;
-    ec_label_start_1:
+    ec_contlbl_L1_start:
         ;
-30:     return;
-    ec_label_c_0:
+32:     ec_tstack_start.ec_frames.c.i = 23;
+33:     ec_tstack_start.ec_frames.c.ec_cont = &&ec_contlbl_L2_start;
+34:     goto ec_ctrlbl_0_c;
+    ec_contlbl_L2_start:
         ;
+37:     return;
+    ec_ctrlbl_0_c:
+        ;
+40:     ec_tstack_start.ec_frames.c.ec_frames.block.i = ec_tstack_start.ec_frames.c.i;
+41:     ec_tstack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_contlbl_L2_c;
+42:     block(&ec_tstack_start.ec_frames.c.ec_frames.block);
+43:     return;
+    ec_contlbl_L2_c:
+        ;
+46:     ec_estack.c.ec_crit_0 = ec_tstack_start.ec_frames.c.ec_frames.block.ec_result;
+47:     if (!(ec_estack.c.ec_crit_0 != 0))
         {
-        ec_ctrlbl_0_0:
-            ;
-36:         ec_stack_start.ec_frames.c.ec_frames.block.i = ec_stack_start.ec_frames.c.i;
-37:         ec_stack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_label_c_1;
-38:         block(&ec_stack_start.ec_frames.c.ec_frames.block);
-39:         return;
-        ec_label_c_1:
-            ;
-42:         ec_stack_start.ec_frames.c.ec_crit_0_0 = ec_stack_start.ec_frames.c.ec_frames.block.ec_result;
-43:         if (!(ec_stack_start.ec_frames.c.ec_crit_0_0 != 0))
-            {
-45:             goto ec_ctrlbl_0_1;
-            }
-            ;
-48:         goto ec_ctrlbl_0_0;
-        ec_ctrlbl_0_1:
-            ;
+49:         goto * (ec_tstack_start.ec_frames.c.ec_cont);
         }
-52:     goto * (ec_stack_start.ec_frames.c.ec_cont);
+        else
+        {
+53:         goto ec_ctrlbl_0_c;
+        }
     }
   |], [
-      ( 6, 25, Just 0)
-    , ( 6, 26, Just 0)
-    , ( 6, 27, Just 0)
-    , ( 5, 30, Just 0)
-    , ( 3, 36, Just 0)
-    , ( 3, 37, Just 0)
-    , ( 3, 38, Just 0)
-    , ( 3, 39, Just 0)
-    , ( 3, 42, Just 0)
-    , ( 3, 43, Just 0)
-    , ( 3, 45, Just 0)
-    , ( 3, 48, Just 0)
-    , ( 2, 52, Just 0)
-  ], [
-      (3, 38, 0)
+      ( 6, 32, Just 0, False)
+    , ( 6, 33, Just 0, False)
+    , ( 6, 34, Just 0, False)
+    , ( 7, 37, Just 0, False)
+    , ( 3, 40, Just 0, False)
+    , ( 3, 41, Just 0, False)
+    , ( 3, 42, Just 0, True)
+    , ( 3, 43, Just 0, False)
+    , ( 3, 46, Just 0, False)
+    , ( 3, 47, Just 0, False)
+    , ( 4, 49, Just 0, False)
+    , ( 3, 53, Just 0, False)
   ])
--- declaration with initializer {{{2
-  ,([lpaste|
+  , -- 10 - declaration with initializer {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
     int f();
-03: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_run_thread)) void start() {
 04:   int i = 0;
 05:   int k = f();
 06:   block(i+k); 
-    }
+07: }
   |], [lpaste|
     int f();
     typedef struct {
                 void * ec_cont; int i;
-            } ec_frame_block_t;
+            } ec_tframe_block_t;
     typedef struct {
                 union {
-                    ec_frame_block_t block;
+                    ec_tframe_block_t block;
                 } ec_frames;
-                int i;
-                int k;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    typedef struct {
+                int k; int i;
+            } ec_eframe_start_t;
+    void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
+        union {
+            ec_eframe_start_t start;
+        } ec_estack;
         if (ec_cont)
         {
             goto * ec_cont;
         }
-20:     ec_stack_start.i = 0;
-21:     ec_stack_start.k = f();
-22:     ec_stack_start.ec_frames.block.i = ec_stack_start.i + ec_stack_start.k;
-23:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-24:     block(&ec_stack_start.ec_frames.block);
-25:     return;
-    ec_label_start_1:
+    ec_contlbl_L1_start:
         ;
-28:     return;
+26:     ec_estack.start.i = 0;
+27:     ec_estack.start.k = f();
+28:     ec_tstack_start.ec_frames.block.i = ec_estack.start.i + ec_estack.start.k;
+29:     ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+30:     block(&ec_tstack_start.ec_frames.block);
+31:     return;
+    ec_contlbl_L2_start:
+        ;
+34:     return;
     }
   |], [
-      ( 4, 20, Just 0)
-    , ( 5, 21, Just 0)
-    , ( 6, 22, Just 0)
-    , ( 6, 23, Just 0)
-    , ( 6, 24, Just 0)
-    , ( 6, 25, Just 0)
-    , ( 3, 28, Just 0)
-  ], [
-      ( 6, 24, 0)
+      ( 4, 26, Just 0, False)
+    , ( 5, 27, Just 0, False)
+    , ( 6, 28, Just 0, False)
+    , ( 6, 29, Just 0, False)
+    , ( 6, 30, Just 0, True)
+    , ( 6, 31, Just 0, False)
+    , ( 7, 34, Just 0, False)
   ])
--- declaration with critical initializer {{{2
-  ,([lpaste|
+  , -- 11 - declaration with critical initializer {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) int block();
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_run_thread)) void start() {
 03:   int i = block();
-    }
+04: }
   |], [lpaste|
     typedef struct {
                 void * ec_cont; int ec_result;
-            } ec_frame_block_t;
+            } ec_tframe_block_t;
     typedef struct {
                 union {
-                    ec_frame_block_t block;
+                    ec_tframe_block_t block;
                 } ec_frames;
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    typedef struct {
                 int i;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
+            } ec_eframe_start_t;
+    void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
+        union {
+            ec_eframe_start_t start;
+        } ec_estack;
         if (ec_cont)
         {
             goto * ec_cont;
         }
-18:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-19:     block(&ec_stack_start.ec_frames.block);
-20:     return;
-    ec_label_start_1:
+    ec_contlbl_L1_start:
         ;
-23:     ec_stack_start.i = ec_stack_start.ec_frames.block.ec_result;
-24:     return;
+25:     ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+26:     block(&ec_tstack_start.ec_frames.block);
+27:     return;
+    ec_contlbl_L2_start:
+        ;
+30:     ec_estack.start.i = ec_tstack_start.ec_frames.block.ec_result;
+31:     return;
     }
   |], [
-      ( 3, 18, Just 0)
-    , ( 3, 19, Just 0)
-    , ( 3, 20, Just 0)
-    , ( 3, 23, Just 0)
-    , ( 2, 24, Just 0)
-  ], [
-      ( 3, 19, 0)
+      ( 3, 25, Just 0, False)
+    , ( 3, 26, Just 0, True)
+    , ( 3, 27, Just 0, False)
+    , ( 3, 30, Just 0, False)
+    , ( 4, 31, Just 0, False)
   ])
--- declaration in non-critical function {{{2
-  ,([lpaste|
+  , -- 12 - declaration in non-critical function {{{2
+  ([lpaste|
     __attribute__((tc_blocking)) void block(int i);
     int f() {
 03:   int i = 0;
 04:   return i;
     }
-06: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_run_thread)) void start() {
 07:   block(f());
-    }
+08: }
   |], [lpaste|
     int f()
     {
@@ -713,69 +714,54 @@ test_print_with_log = enumTestGroup "print_with_log" $ map runTest [
     }
     typedef struct {
                 void * ec_cont; int i;
-            } ec_frame_block_t;
+            } ec_tframe_block_t;
     typedef struct {
                 union {
-                    ec_frame_block_t block;
+                    ec_tframe_block_t block;
                 } ec_frames;
-            } ec_frame_start_t;
-    ec_frame_start_t ec_stack_start;
-    void block(ec_frame_block_t *);
+            } ec_tframe_start_t;
+    ec_tframe_start_t ec_tstack_start;
+    void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
         if (ec_cont)
         {
             goto * ec_cont;
         }
-22:     ec_stack_start.ec_frames.block.i = f();
-23:     ec_stack_start.ec_frames.block.ec_cont = &&ec_label_start_1;
-24:     block(&ec_stack_start.ec_frames.block);
-25:     return;
-    ec_label_start_1:
+    ec_contlbl_L1_start:
         ;
-28:     return;
+24:     ec_tstack_start.ec_frames.block.i = f();
+25:     ec_tstack_start.ec_frames.block.ec_cont = &&ec_contlbl_L2_start;
+26:     block(&ec_tstack_start.ec_frames.block);
+27:     return;
+    ec_contlbl_L2_start:
+        ;
+30:     return;
     }
   |], [
-      ( 3,  3, Nothing)
-    , ( 4,  4, Nothing)
-    , ( 7, 22, Just 0)
-    , ( 7, 23, Just 0)
-    , ( 7, 24, Just 0)
-    , ( 7, 25, Just 0)
-    , ( 6, 28, Just 0)
-  ], [
-      ( 7, 24, 0)
+      ( 3,  3, Nothing, False)
+    , ( 4,  4, Nothing, False)
+    , ( 7, 24, Just 0, False)
+    , ( 7, 25, Just 0, False)
+    , ( 7, 26, Just 0, True)
+    , ( 7, 27, Just 0, False)
+    , ( 8, 30, Just 0, False)
   ])
+  -- end {{{2
   ]
 
-runTest :: (String, String, TstLocations, TBlockingCalls) -> Assertion -- {{{1
-runTest (inputCode, expectedCode, expectedBps, expectedBcs) =
-  let ast = enrich inputCode in
-  case analysis ast of
+runTest :: (String, String, [TBreakpoint]) -> Assertion -- {{{1
+runTest (inputCode, expectedCode, expectedBps) =
+  let tAst = enrich inputCode in
+  case analysis tAst of
     Left es -> assertFailure $ show_errors "analysis" es
     Right ana ->
       let
-        cg           = anaCallgraph ana
-        (ast', _, _) = transformation cg ast
-        (resultCode, resultBps, resultBcs) = print_with_log ast'
-        resultCode' = BS.unpack resultCode
-        resultBps'  = reduce resultBps
-        resultBcs'  = reduce resultBcs
+        cfs                     = ast_2_ir  (anaBlocking ana) (anaCritical ana)
+        
+        (eAst, _, _)            = tcode_2_ecode ana cfs
+        (resultCode, resultBps) = render_with_log eAst
+        resultBps'              = reduce $ nub resultBps
       in do
---        let dbg = debug ast' -- needed for debugging the test cases
-        assertEqual "code"           expectedCode resultCode'
-        assertEqual "breakpoints: "  expectedBps  resultBps'
-        assertEqual "blocking calls" expectedBcs  resultBcs'
-
---   where
---     debug ast = intercalate "\n\n" $ map show $ everything (++) (mkQ [] traceExpr `extQ` traceStat) ast
-
---     traceExpr :: CExpr' -> [String]
---     traceExpr expr 
---       | (enBreakpoint . annotation) expr = [show expr]
---       | otherwise = []
-
---     traceStat :: CStat' -> [String]
---     traceStat stmt
---       | (enBreakpoint . annotation) stmt = [show stmt]
---       | otherwise = []
+        assertEqual "code"          expectedCode resultCode
+        assertEqual "breakpoints: " expectedBps  resultBps'

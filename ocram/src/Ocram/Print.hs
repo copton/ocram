@@ -37,56 +37,52 @@
 module Ocram.Print
 -- export {{{1
 (
-  print_with_log, pretty
+    render_with_log, render
+  , render_with_log', render'
 ) where
 
 -- import {{{1
-import Data.Maybe (fromMaybe)
-import Language.C.Data.Position (posRow, posColumn, posFile)
 import Language.C.Syntax
 import Language.C.Data.Ident (Ident, identToString)
-import Language.C.Data.Node (posOfNode, lengthOfNode, isUndefNode)
-import Text.PrettyPrint
-import Ocram.Debug (ENodeInfo(..), Location(..), Locations)
-import Ocram.Ruab (TLocation(..), ELocation(..), BlockingCall(..), BlockingCalls, ERow(..), TRow(..))
-import Ocram.Util (abort, fromJust_s)
+import Language.C.Data.Node (NodeInfo)
+import Text.PrettyPrint hiding (render)
+import Ocram.Debug (ENodeInfo(..), Breakpoint(..), Breakpoints)
+import Ocram.Ruab (ERow(..), TRow(..))
 import Prelude hiding (log)
 
 import qualified Data.ByteString.Char8 as BS
 
-print_with_log :: CTranslationUnit ENodeInfo -> (BS.ByteString, Locations, BlockingCalls) -- {{{1
-print_with_log tu =
-  let
-    (code, log) = renderWithLog (pretty tu)
-    (bps, bcs) = foldr split ([], []) log
-    split (Left x)  (bps', bcs') = (x:bps', bcs')
-    split (Right x) (bps', bcs') = (bps', x:bcs')
-  in
-    (BS.pack code, bps, bcs)
+render_with_log :: PrettyLog a => a -> (String, Breakpoints) -- {{{1
+render_with_log tu = let (code, log) = renderWithLog (pretty tu) in (code ++ "\n", log)
 
-type Log = [Either Location BlockingCall] -- {{{2
+render_with_log' :: PrettyLog a => a -> (BS.ByteString, Breakpoints) -- {{{1
+render_with_log' tu = let (code, log) = render_with_log tu in (BS.pack code, log)
 
-marker :: ENodeInfo -> DocL Log -> DocL Log -- {{{2
-marker eni doc =
-  let
-    doc' = if enLocation eni then here bpLogger doc else doc
-    doc'' = if enBlockingCall eni then here bcLogger doc' else doc'
-  in
-    if (isUndefNode . enTnodeInfo) eni
-      then doc
-      else doc''
-  where
-    bpLogger (Position r c) = [Left $ Location tlocation (ELocation (ERow r) c) (enThreadId eni)]
+render :: PrettyLog a => a -> String -- {{{1
+render = fst . render_with_log
 
-    bcLogger (Position r c) = [Right $ BlockingCall tlocation (ELocation (ERow r) c) (($fromJust_s . enThreadId) eni)]
+render' :: PrettyLog a => a -> BS.ByteString -- {{{1
+render' = fst . render_with_log'
 
-    tlocation =
-      let
-        ni = enTnodeInfo eni
-        pos = posOfNode ni
-      in
-        TLocation ((TRow . posRow) pos) (posColumn pos) (fromMaybe (-1) (lengthOfNode ni)) (posFile pos)
-    
+-- logging {{{1
+type Log = Breakpoints -- {{{2
+
+class LoggerInfo a where -- {{{2
+  getLogger      :: a -> Maybe (Logger [Breakpoint])
+
+instance LoggerInfo NodeInfo where -- {{{3
+  getLogger _ = Nothing
+
+instance LoggerInfo ENodeInfo where -- {{{3
+  getLogger (EnBreakpoint tid trow bc fp) = Just logger
+    where logger (Position erow _) = [Breakpoint (TRow trow) (ERow erow) tid bc fp]
+  getLogger _                      = Nothing
+
+marker :: LoggerInfo a => a -> DocL Log -> DocL Log -- {{{2
+marker bpi doc = case getLogger bpi of
+  Nothing -> doc
+  Just logger -> here logger doc
+
 class PrettyLog a where -- {{{2
   pretty :: a -> DocL Log
   prettyPrec :: Int -> a -> DocL Log
@@ -94,68 +90,17 @@ class PrettyLog a where -- {{{2
   pretty = prettyPrec 0
   prettyPrec _ = pretty
 
--- utils {{{2
-maybeP :: (p -> DocL Log) -> Maybe p -> DocL Log -- {{{3
--- pretty print optional chunk
-maybeP = maybe empty
-
-ifP :: Bool -> DocL Log -> DocL Log -- {{{3
--- pretty print when flag is true
-ifP flag doc = if flag then doc else empty
-
-mlistP :: ([p] -> DocL Log) -> [p] -> DocL Log -- {{{3
--- pretty print _optional_ list, i.e. [] ~ Nothing and (x:xs) ~ Just (x:xs)
-mlistP pp xs = maybeP pp (if null xs then Nothing else Just xs)
-
-identP :: Ident -> DocL Log -- {{{3
--- pretty print identifier
-identP = text . identToString
-
-attrlistP :: [CAttribute ENodeInfo] -> DocL Log -- {{{3
--- pretty print attribute annotations
-attrlistP [] = empty
-attrlistP attrs = text "__attribute__" <> parens (parens (hcat . punctuate comma . map pretty $ attrs))
-
-parenPrec :: Int -> Int -> DocL Log -> DocL Log -- {{{3
--- analogous to showParen
-parenPrec prec prec2 t = if prec <= prec2 then t else parens t
-
-ii :: DocL Log -> DocL Log -- {{{3
--- indent a chunk of code
-ii = nest 4
-
-binPrec :: CBinaryOp -> Int -- {{{3
--- precedence of C operators
-binPrec CMulOp = 20
-binPrec CDivOp = 20
-binPrec CRmdOp = 20
-binPrec CAddOp = 19
-binPrec CSubOp = 19
-binPrec CShlOp = 18
-binPrec CShrOp = 18
-binPrec CLeOp  = 17
-binPrec CGrOp  = 17
-binPrec CLeqOp = 17
-binPrec CGeqOp = 17
-binPrec CEqOp  = 16
-binPrec CNeqOp = 16
-binPrec CAndOp = 15
-binPrec CXorOp = 14
-binPrec COrOp  = 13
-binPrec CLndOp = 12
-binPrec CLorOp = 11
-
--- PrettyLog instances {{{2
-instance PrettyLog (CTranslationUnit ENodeInfo) where -- {{{3
+-- printing {{{1
+instance (LoggerInfo ni) => PrettyLog (CTranslationUnit ni) where -- {{{3
   pretty (CTranslUnit edecls ni) = marker ni $ vcat (map pretty edecls)
 
 -- TODO: Check need of __extension__
-instance PrettyLog (CExternalDeclaration ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CExternalDeclaration ni) where -- {{{3
   pretty (CDeclExt decl) = pretty decl <> semi
   pretty (CFDefExt fund) = pretty fund
   pretty (CAsmExt  asmStmt ni) = marker ni $ text "asm" <> parens (pretty asmStmt) <> semi
 
-instance PrettyLog (CFunctionDef ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CFunctionDef ni) where -- {{{3
 -- TODO: Check that old-style and new-style aren't mixed
   pretty (CFunDef declspecs declr decls stat ni) = marker ni $ 
           hsep (map pretty declspecs)                         
@@ -164,7 +109,7 @@ instance PrettyLog (CFunctionDef ENodeInfo) where -- {{{3
       $$ prettyPrec (-1) stat                              
                                                           
 
-instance PrettyLog (CStatement ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CStatement ni) where -- {{{3
   pretty (CLabel ident stat cattrs ni)        = marker ni $ identP ident <> text ":" <+> attrlistP cattrs $$ pretty stat
 
   pretty (CCase expr stat ni)                 = marker ni $ text "case" <+> pretty expr <> text ":" $$ pretty stat
@@ -218,7 +163,7 @@ instance PrettyLog (CStatement ENodeInfo) where -- {{{3
 
   prettyPrec _ p                              = pretty p
 
-instance PrettyLog (CAssemblyStatement ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CAssemblyStatement ni) where -- {{{3
     pretty (CAsmStmt tyQual expr outOps inOps clobbers ni) = marker ni $
         ii $ text "__asm__" <+>
              maybeP pretty tyQual <>
@@ -231,7 +176,7 @@ instance PrettyLog (CAssemblyStatement ENodeInfo) where -- {{{3
                    (if null clobbers then empty else clobs)
         clobs   =  text ":" <+> hcat (punctuate comma (map pretty clobbers))
 
-instance PrettyLog (CAssemblyOperand ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CAssemblyOperand ni) where -- {{{3
     -- asm_operand :~ [operand-name] "constraint" ( expr )
     pretty (CAsmOperand mArgName cnstr expr ni) = marker ni $
         maybeP (\argName -> text "[" <> identP argName <> text "]") mArgName <+>
@@ -239,12 +184,12 @@ instance PrettyLog (CAssemblyOperand ENodeInfo) where -- {{{3
         parens (pretty expr)
 
 -- TODO: Check need of __extension__
-instance PrettyLog (CCompoundBlockItem ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CCompoundBlockItem ni) where -- {{{3
     pretty (CBlockStmt stat)      = pretty stat
     pretty (CBlockDecl decl)      = ii $ pretty decl <> semi
     pretty (CNestedFunDef fundef) = ii $ pretty fundef
 
-instance PrettyLog (CDeclaration ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CDeclaration ni) where -- {{{3
     -- CAVEAT:
     -- we may not print __attribute__s directly after typespecs,
     -- as this may change the semantics of the declaration.
@@ -262,7 +207,7 @@ instance PrettyLog (CDeclaration ENodeInfo) where -- {{{3
                 maybeP ((text "=" <+>) . pretty) initializer
             checked_specs =
                 case any isAttrAfterSUE  (zip specs (tail specs)) of
-                    True -> $abort $
+                    True -> error $
                               ("Warning: AST Invariant violated: __attribute__ specifier following struct/union/enum:"++
                                (show $ map pretty specs))
                     False -> specs
@@ -271,12 +216,12 @@ instance PrettyLog (CDeclaration ENodeInfo) where -- {{{3
             getAttrs Nothing = []
             getAttrs (Just (CDeclr _ _ _ cattrs _)) = cattrs
 
-instance PrettyLog (CDeclarationSpecifier ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CDeclarationSpecifier ni) where -- {{{3
     pretty (CStorageSpec sp)  = pretty sp
     pretty (CTypeSpec sp)     = pretty sp
     pretty (CTypeQual qu)     = pretty qu
 
-instance PrettyLog (CStorageSpecifier ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CStorageSpecifier ni) where -- {{{3
     pretty (CAuto ni)     = marker ni $ text "auto"
     pretty (CRegister ni) = marker ni $ text "register"
     pretty (CStatic ni)   = marker ni $ text "static"
@@ -284,7 +229,7 @@ instance PrettyLog (CStorageSpecifier ENodeInfo) where -- {{{3
     pretty (CTypedef ni)  = marker ni $ text "typedef"
     pretty (CThread ni)   = marker ni $ text "__thread"
 
-instance PrettyLog (CTypeSpecifier ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CTypeSpecifier ni) where -- {{{3
     pretty (CVoidType ni)        = marker ni $ text "void"
     pretty (CCharType ni)        = marker ni $ text "char"
     pretty (CShortType ni)       = marker ni $ text "short"
@@ -302,14 +247,14 @@ instance PrettyLog (CTypeSpecifier ENodeInfo) where -- {{{3
     pretty (CTypeOfExpr expr ni) = marker ni $ text "typeof" <> text "(" <> pretty expr <> text ")"
     pretty (CTypeOfType decl ni) = marker ni $ text "typeof" <> text "(" <> pretty decl <> text ")"
 
-instance PrettyLog (CTypeQualifier ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CTypeQualifier ni) where -- {{{3
     pretty (CConstQual ni)  = marker ni $ text "const"
     pretty (CVolatQual ni)  = marker ni $ text "volatile"
     pretty (CRestrQual ni)  = marker ni $ text "__restrict"
     pretty (CInlineQual ni) = marker ni $ text "inline"
     pretty (CAttrQual a)    = attrlistP [a]
 
-instance PrettyLog (CStructureUnion ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CStructureUnion ni) where -- {{{3
     pretty (CStruct tag ident Nothing cattrs ni)      = marker ni $ pretty tag <+> attrlistP cattrs <+> maybeP identP ident
     pretty (CStruct tag ident (Just []) cattrs ni)    = marker ni $ pretty tag <+> attrlistP cattrs <+> maybeP identP ident <+> text "{ }"
     pretty (CStruct tag ident (Just decls) cattrs ni) = marker ni $ vcat [pretty tag <+> attrlistP cattrs <+> maybeP identP ident <+> text "{", ii $ sep (map (<> semi) (map pretty decls)), text "}"]
@@ -318,7 +263,7 @@ instance PrettyLog CStructTag where -- {{{3
     pretty CStructTag = text "struct"
     pretty CUnionTag  = text "union"
 
-instance PrettyLog (CEnumeration ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CEnumeration ni) where -- {{{3
   pretty (CEnum enum_ident Nothing cattrs ni)     = marker ni $ text "enum" <+> attrlistP cattrs <+> maybeP identP enum_ident
   pretty (CEnum enum_ident (Just vals) cattrs ni) = marker ni $ vcat [text "enum" <+> attrlistP cattrs <+> maybeP identP enum_ident <+> text "{", ii $ sep (punctuate comma (map p vals)), text "}"]
     where
@@ -359,10 +304,10 @@ instance PrettyLog (CEnumeration ENodeInfo) where -- {{{3
 --   prettyList :: (Pretty a) => [a] -> Doc
 --   prettyList = hsep . punctuate comma . map pretty
 
-instance PrettyLog (CDeclarator ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CDeclarator ni) where -- {{{3
     prettyPrec prec declr = marker (annotation declr) $ prettyDeclr True prec declr
 
-prettyDeclr :: Bool -> Int -> CDeclarator ENodeInfo -> DocL Log -- {{{4
+prettyDeclr :: (LoggerInfo ni) => Bool -> Int -> CDeclarator ni -> DocL Log -- {{{4
 prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
     ppDeclr prec (reverse derived_declrs) <+> prettyAsmName asmname <+> ifP show_attrs (attrlistP cattrs)
     where
@@ -387,14 +332,14 @@ prettyDeclr show_attrs prec (CDeclr name derived_declrs asmname cattrs _) =
     prettyAsmName asm_name_opt
         = maybe empty (\asm_name -> text "__asm__" <> parens (pretty asm_name)) asm_name_opt
 
-instance PrettyLog (CArraySize ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CArraySize ni) where -- {{{3
   pretty (CNoArrSize completeType) = ifP completeType (text "*")
   pretty (CArrSize staticMod expr) = ifP staticMod (text "static") <+> pretty expr
 -- initializer :: { CInit }
 -- initializer :- assignment_expression
 --              | '{' (designation? initializer)_cs_list '}'
 
-instance PrettyLog (CInitializer ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CInitializer ni) where -- {{{3
   pretty (CInitExpr expr ni)  = marker ni $ pretty expr
   pretty (CInitList initl ni) = marker ni $ text "{" <+> hsep (punctuate comma (map p initl)) <+> text "}"
     where
@@ -407,16 +352,16 @@ instance PrettyLog (CInitializer ENodeInfo) where -- {{{3
 -- member_designator :-  '.' identifier
 -- arr_range _designator :- '[' constant_expression "..." constant_expression ']'
 
-instance PrettyLog (CPartDesignator ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CPartDesignator ni) where -- {{{3
     pretty (CArrDesig expr ni)          = marker ni $ text "[" <> pretty expr <> text "]"
     pretty (CMemberDesig ident ni)      = marker ni $ text "." <> identP ident
     pretty (CRangeDesig expr1 expr2 ni) = marker ni $ text "[" <> pretty expr1 <+> text "..." <+> pretty expr2 <> text "]"
 
-instance PrettyLog (CAttribute ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CAttribute ni) where -- {{{3
     pretty (CAttr attrName [] ni)         = marker ni $ identP attrName
     pretty (CAttr attrName attrParams ni) = marker ni $ identP attrName <> parens (hsep . punctuate comma . map pretty $ attrParams)
 
-instance PrettyLog (CExpression ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CExpression ni ) where -- {{{3
     prettyPrec p (CComma exprs ni)                  = marker ni $ parenPrec p (-1) $ hsep (punctuate comma (map (prettyPrec 2) exprs))
 
     prettyPrec p (CAssign op expr1 expr2 ni)        = marker ni $ parenPrec p 2 $ prettyPrec 3 expr1 <+> pretty op <+> prettyPrec 2 expr2
@@ -471,7 +416,7 @@ instance PrettyLog (CExpression ENodeInfo) where -- {{{3
 
     prettyPrec _p (CBuiltinExpr builtin) = pretty builtin
 
-instance PrettyLog (CBuiltinThing ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CBuiltinThing ni) where -- {{{3
     pretty (CBuiltinVaArg expr ty_name ni)                                = marker ni $ text "__builtin_va_arg" <+> (parens $ pretty expr <> comma <+> pretty ty_name)
 
     -- The first desig has to be a member field.
@@ -529,12 +474,63 @@ instance PrettyLog CUnaryOp where -- {{{3
     CCompOp    -> "~"
     CNegOp     -> "!"
 
-instance PrettyLog (CConstant ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CConstant ni) where -- {{{3
     pretty (CIntConst   int_const ni) = marker ni $ text (show int_const)
     pretty (CCharConst  chr ni)       = marker ni $ text (show chr)
     pretty (CFloatConst flt ni)       = marker ni $ text (show flt)
     pretty (CStrConst   str ni)       = marker ni $ text (show str)
 
-instance PrettyLog (CStringLiteral ENodeInfo) where -- {{{3
+instance (LoggerInfo ni) => PrettyLog (CStringLiteral ni) where -- {{{3
     pretty (CStrLit   str _) = text (show str)
+
+-- utils {{{2
+maybeP :: (p -> DocL Log) -> Maybe p -> DocL Log -- {{{3
+-- pretty print optional chunk
+maybeP = maybe empty
+
+ifP :: Bool -> DocL Log -> DocL Log -- {{{3
+-- pretty print when flag is true
+ifP flag doc = if flag then doc else empty
+
+mlistP :: ([p] -> DocL Log) -> [p] -> DocL Log -- {{{3
+-- pretty print _optional_ list, i.e. [] ~ Nothing and (x:xs) ~ Just (x:xs)
+mlistP pp xs = maybeP pp (if null xs then Nothing else Just xs)
+
+identP :: Ident -> DocL Log -- {{{3
+-- pretty print identifier
+identP = text . identToString
+
+attrlistP :: (LoggerInfo ni) => [CAttribute ni] -> DocL Log -- {{{3
+-- pretty print attribute annotations
+attrlistP [] = empty
+attrlistP attrs = text "__attribute__" <> parens (parens (hcat . punctuate comma . map pretty $ attrs))
+
+parenPrec :: Int -> Int -> DocL Log -> DocL Log -- {{{3
+-- analogous to showParen
+parenPrec prec prec2 t = if prec <= prec2 then t else parens t
+
+ii :: DocL Log -> DocL Log -- {{{3
+-- indent a chunk of code
+ii = nest 4
+
+binPrec :: CBinaryOp -> Int -- {{{3
+-- precedence of C operators
+binPrec CMulOp = 20
+binPrec CDivOp = 20
+binPrec CRmdOp = 20
+binPrec CAddOp = 19
+binPrec CSubOp = 19
+binPrec CShlOp = 18
+binPrec CShrOp = 18
+binPrec CLeOp  = 17
+binPrec CGrOp  = 17
+binPrec CLeqOp = 17
+binPrec CGeqOp = 17
+binPrec CEqOp  = 16
+binPrec CNeqOp = 16
+binPrec CAndOp = 15
+binPrec CXorOp = 14
+binPrec COrOp  = 13
+binPrec CLndOp = 12
+binPrec CLorOp = 11
 

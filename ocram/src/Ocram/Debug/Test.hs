@@ -2,24 +2,25 @@
 module Ocram.Debug.Test (tests) where
 
 -- imports {{{1
-import Control.Arrow ((***))
-import Language.C.Syntax.AST (CTranslUnit)
-import Ocram.Debug.Internal (preproc_map, fun_map)
-import Ocram.Ruab (PreprocMap(..), TRow(..), PRow(..))
-import Ocram.Test.Lib (enumTestGroup, paste, enrich, reduce, TFunMap)
+import Control.Monad (forM_)
+import Data.Maybe (fromJust, isJust)
+import Ocram.Debug.Internal
+import Ocram.Ruab (TRow(..), PRow(..), t2p_row, p2t_row)
+import Ocram.Test.Lib (enumTestGroup, paste, reduce, TMapTP)
 import System.Exit (ExitCode(ExitSuccess))
 import System.IO (hPutStr, hClose)
 import System.Process (createProcess, StdStream(CreatePipe), waitForProcess, proc, std_out, std_in)
 import Test.Framework (Test, testGroup)
-import Test.HUnit ((@=?), Assertion)
+import Test.HUnit ((@=?), Assertion, assertBool)
+import Text.Regex.Posix ((=~))
 
 import qualified Data.ByteString.Char8 as BS
 
 tests :: Test -- {{{1
-tests = testGroup "Debug" [test_preproc_map, test_fun_map]
+tests = testGroup "Debug" [test_t2p_map]
 
-test_preproc_map :: Test -- {{{1
-test_preproc_map = enumTestGroup "preproc_map" $ map runTest [
+test_t2p_map :: Test -- {{{1
+test_t2p_map = enumTestGroup "t2p_map" $ map runTest [
     ([paste|
       #include <stdio.h>
       int main() {
@@ -48,41 +49,20 @@ test_preproc_map = enumTestGroup "preproc_map" $ map runTest [
         ExitSuccess -> BS.hGetContents hout
         _ -> error $ "calling pre-processor failed: " ++ show exitCode
 
-    runTest :: (String, (Int, Int, [(Int, Int)])) -> Assertion
-    runTest (tcode, (maxTRow, maxPRow, mapping)) = do
+    runTest :: (String, TMapTP) -> Assertion
+    runTest (tcode, expMtp) = do
       pcode <- cpp tcode
-      let ppm = preproc_map (BS.pack tcode) pcode 
-      TRow maxTRow @=? ppmMaxTRow ppm
-      PRow maxPRow @=? ppmMaxPRow ppm
-      map (TRow *** PRow) mapping @=? ppmMapping ppm
-
-test_fun_map :: Test -- {{{1
-test_fun_map = enumTestGroup "fun_map" $ map runTest [
-    ([paste|
-      void foo() {
-
-      }
-    |], [
-      ("foo", 2, 4)
-    ])
-  ,
-    ([paste|
-      void foo() {
-
-      }
-      void bar() {
-
-      }
-    |], [
-      ("foo", 2, 4)
-    , ("bar", 5, 7)
-    ])
-  ]
-  where
-    runTest :: (String, TFunMap) -> Assertion
-    runTest (inputCode, expectedFunMap) =
+      let resMtp = t2p_map (BS.pack tcode) pcode 
+      expMtp @=? reduce resMtp
+      
       let
-        ast = enrich inputCode :: CTranslUnit
-        resultFunMap = reduce $ fun_map ast
-      in
-        expectedFunMap @=? resultFunMap
+        cases  = filter (\(line, _) -> not (line =~ "^\\s*#.*$" :: Bool)) $ zip (lines tcode) $ map TRow [1..]
+        plines = lines (BS.unpack pcode)
+      forM_ cases $ \(line, trow) ->
+        case t2p_row resMtp trow of
+          Nothing -> assertBool "non-empty row" (line =~ "^\\s*$")
+          Just prow -> do
+            line @=? (plines !! getPRow (prow - 1))
+            let trow' = p2t_row resMtp prow
+            assertBool "back-mapping failed" (isJust trow')
+            trow @=? fromJust trow'
