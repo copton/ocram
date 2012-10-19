@@ -14,7 +14,7 @@ import Language.C.Data.Ident (Ident, internalIdent)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, call_order, start_functions, call_chain, is_blocking)
 import Ocram.Query (function_parameters_fd, function_parameters_cd)
-import Ocram.Intermediate
+import Ocram.Intermediate (block_components, Node(..), Function(..), fun_name, Variable(..), var_unique, CriticalCall(..), Block, BlockMap, block_map, Label(..), hLabel, Body)
 import Ocram.Debug.Enriched (CExpr', eun, CBlockItem', set_thread, CFunDef', ENodeInfo(..), aset, set_blocking)
 import Ocram.Debug.Types (VarMap')
 import Ocram.Print (render)
