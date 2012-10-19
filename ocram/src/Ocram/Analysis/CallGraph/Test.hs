@@ -3,13 +3,19 @@ module Ocram.Analysis.CallGraph.Test (tests) where
 
 -- imports {{{1
 import Data.Maybe (isJust, fromJust)
-import Ocram.Analysis.CallGraph (call_graph, call_chain, call_order, get_callees)
+import Ocram.Analysis.CallGraph (call_graph, call_chain, call_order, get_callees, get_callers)
 import Ocram.Test.Lib (enrich, reduce, enumTestGroup, paste)
 import Test.Framework (testGroup, Test)
 import Test.HUnit ((@=?), (@?))
 
 tests :: Test -- {{{1
-tests = testGroup "CallGraph" [test_call_graph, test_call_chain, test_call_order, test_get_callees]
+tests = testGroup "CallGraph" [
+    test_call_graph
+  , test_call_chain
+  , test_call_order
+  , test_get_callees
+  , test_get_callers
+  ]
 
 test_call_graph :: Test -- {{{1
 test_call_graph = enumTestGroup "call_graph" $ map runTest [
@@ -126,5 +132,15 @@ test_get_callees = enumTestGroup "get_callees" $ map runTest [
   where
     runTest (cg, function, expected) = do
       let result = get_callees (enrich cg) (enrich function)
-      isJust result @? "could not determine callees"
-      expected @=? (reduce $ fromJust result)
+      expected @=? (map fst result)
+
+test_get_callers :: Test -- {{{1
+test_get_callers = enumTestGroup "get_callers" $ map runTest [
+    ([("a", "b")], "b", ["a"])
+  , ([("a", "b")], "a", [])
+  , ([("a", "b"), ("b", "c")], "b", ["a"])
+  ]
+  where
+    runTest (cg, function, expected) = do
+      let result = get_callers (enrich cg) (enrich function)
+      expected @=? (map fst result)

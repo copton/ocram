@@ -6,7 +6,7 @@ module Ocram.Analysis.CallGraph
   , call_graph, from_test_graph, to_test_graph
   , blocking_functions, start_functions, critical_functions
   , is_blocking, is_start, is_critical
-  , call_chain, call_order, get_callees
+  , call_chain, call_order, get_callees, get_callers
   , dependency_list
   , footprint
 ) where
@@ -14,10 +14,10 @@ module Ocram.Analysis.CallGraph
 -- imports {{{1
 import Control.Arrow (first, second)
 import Data.Generics (mkQ, everything)
-import Data.Maybe (isJust)
+import Data.Maybe (isJust, maybeToList)
 import Data.Tuple (swap)
 import Language.C.Data.Ident (Ident(Ident))
-import Language.C.Data.Node (undefNode)
+import Language.C.Data.Node (undefNode, NodeInfo)
 import Language.C.Syntax.AST
 import Ocram.Analysis.Fgl (filter_nodes)
 import Ocram.Analysis.Types
@@ -104,10 +104,18 @@ dependency_list cg@(CallGraph gd gi) =
   List.nub $ concatMap depList $ start_functions cg
   where
     depList start = List.reverse $ map (gnode2symbol gd) $ G.bfs ($lookup_s gi start) gd
-get_callees :: CallGraph -> Symbol -> Maybe [Symbol] -- {{{1
+
+get_callees :: CallGraph -> Symbol -> [(Symbol, NodeInfo)] -- {{{1
 get_callees (CallGraph gd gi) caller = do
-  gcaller <- Map.lookup caller gi
-  return $ map (gnode2symbol gd) $ List.nub $ G.suc gd gcaller
+  gcaller <- maybeToList $ Map.lookup caller gi
+  (_, gcallee, ni) <- G.out gd gcaller
+  return $ (gnode2symbol gd gcallee, ni)
+
+get_callers :: CallGraph -> Symbol -> [(Symbol, NodeInfo)] -- {{{1
+get_callers (CallGraph gd gi) caller = do
+  gcaller <- maybeToList $ Map.lookup caller gi
+  (gcallee, _, ni) <- G.inn gd gcaller
+  return $ (gnode2symbol gd gcallee, ni)
    
 footprint :: CallGraph -> Footprint -- {{{1
 footprint cg@(CallGraph gd gi) = map footprint' $ start_functions cg
