@@ -173,7 +173,20 @@ handleStop :: Context -> B.Context -> B.Stopped -> State -> IO State -- {{{2
 handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateExecution state) <*> pure state
   where
     -- EndSteppingRange {{{3
-    handle B.EndSteppingRange _ = return id -- TODO
+    handle B.EndSteppingRange ExShutdown = $abort "illegal state"
+    handle B.EndSteppingRange ExWaiting  = $abort "illegal state"
+    handle B.EndSteppingRange ExStopped  = $abort "illegal state"
+    handle B.EndSteppingRange ExRunning  = do
+      case runningThreads state of
+        [thread] -> do
+          prow <- currentPRow ctx backend
+          return $
+              hide False
+            . setExecution ExStopped
+            . updateThread (thId thread) (\t ->
+                t {thStatus = Stopped Nothing, thProw = prow}
+              )
+        x -> $abort $ "illegal state of threads: " ++ show x
         
     -- BreakpointHit {{{3
     handle (B.BreakpointHit _ _  ) ExShutdown = $abort "illegal state"
@@ -248,13 +261,8 @@ handleCommand ctx backend fResponse command state = do
       B.continue backend
       return (Just ResContinue,
           setExecution ExRunning
-        . mapThreads (\thread ->
-            if (isStopped . thStatus) thread
-              then thread {thStatus = Running, thProw = Nothing}
-              else thread
-          )
+        . resumeThread
         )
-
 
     -- CmdRemoveBreakpoint {{{3
     handle (CmdRemoveBreakpoint _) ExShutdown = alreadyShutdown
@@ -319,14 +327,11 @@ handleCommand ctx backend fResponse command state = do
           return (Just ResInterrupt, cleanStepNextBreakpoints . setExecution ExStopped)
 
         [thread] -> do
-          stack <- B.backtrace backend
-          let 
-            efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
-            frame = $fromJust_s $ find ((efile==) . B.frameFile) (B.stackFrames stack)
+          prow <- currentPRow ctx backend
           return (Just ResInterrupt, 
               setExecution ExStopped
             . updateThread (thId thread) (\t ->
-                t {thProw = e2p_row ctx . R.ERow . B.frameLine $ frame}
+                t {thProw = prow}
               )
             )
 
@@ -388,30 +393,39 @@ handleCommand ctx backend fResponse command state = do
     handle (CmdStepNext _) ExRunning  = failed "caonnot step while debugger is running"
     handle (CmdStepNext _) ExWaiting  = notRunning
     handle (CmdStepNext decent) ExStopped = 
-      case runningThreads state of
+      case stoppedThreads state of
+        []       -> failed "no thread is stopped"
         [thread] -> case thProw thread of
-          Nothing -> failed "cannot step as current row is unknown"
+          Nothing -> failed "current row is unknown"
           Just prow ->
-            let
-              convert (prow', _) = do
-                ematch <- p2e_row ctx prow'
-                case ematch of
-                  NonCritical erow -> return erow
-                  Critical erows' -> M.lookup (thId thread) erows'
+            if in_critical_function (ctxDebugInfo ctx)  prow
+              then 
+                let
+                  convert (prow', _) = do
+                    ematch <- p2e_row ctx prow'
+                    case ematch of
+                      NonCritical erow -> return erow
+                      Critical erows' -> M.lookup (thId thread) erows'
 
-              prows = $lookup_s ((R.diSm . ctxDebugInfo) ctx) prow
-              erows = mapMaybe convert $ filter ((==decent) . snd) prows
-              efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
-            in do
-              bkpts <- mapM (B.set_breakpoint backend . B.file_line_location efile . R.getERow) erows
-              B.continue backend
-              let
-                bkptNumbers = map B.bkptNumber bkpts
-                breakpoints = zipWith (\n r -> Breakpoint n (BkptStepNext r)) bkptNumbers erows 
-              return (Just ResStepNext, setExecution ExRunning . (\state' -> state' {
-                  stateBreakpoints = foldr (uncurry M.insert) (stateBreakpoints state') $ zip bkptNumbers breakpoints
-                , stateStepNextBreakpoints = bkptNumbers
-                }))
+                  prows = $lookup_s ((R.diSm . ctxDebugInfo) ctx) prow
+                  erows = mapMaybe convert $ filter ((==decent) . snd) prows
+                  efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
+                in do
+                  bkpts <- mapM (B.set_breakpoint backend . B.file_line_location efile . R.getERow) erows
+                  B.continue backend
+                  let
+                    bkptNumbers = map B.bkptNumber bkpts
+                    breakpoints = zipWith (\n r -> Breakpoint n (BkptStepNext r)) bkptNumbers erows 
+                  return (Just ResStepNext, setExecution ExRunning . (\state' -> state' {
+                      stateBreakpoints = foldr (uncurry M.insert) (stateBreakpoints state') $ zip bkptNumbers breakpoints
+                    , stateStepNextBreakpoints = bkptNumbers
+                    }))
+              else do
+                (if decent then B.step else B.next) backend
+                return (Just ResStepNext,
+                    setExecution ExRunning
+                  . resumeThread
+                  )
 
         x -> $abort $ "illegal state of threads: " ++ show x
         
@@ -424,8 +438,25 @@ handleCommand ctx backend fResponse command state = do
 
 -- utils {{{2
 runningThreads :: State -> [Thread] -- {{{3
-runningThreads = M.elems . M.filter ((Running==) . thStatus) . stateThreads
+runningThreads = threadsWithStatus (==Running)
 
+stoppedThreads :: State -> [Thread] -- {{{3
+stoppedThreads = threadsWithStatus stopped
+  where
+    stopped (Stopped _) = True
+    stopped _           = False
+
+threadsWithStatus :: (ThreadStatus -> Bool) -> State -> [Thread]  -- {{{3
+threadsWithStatus p = M.elems . M.filter (p . thStatus) . stateThreads
+
+currentPRow :: Context -> B.Context -> IO (Maybe R.PRow) -- {{{2
+currentPRow ctx backend = B.backtrace backend >>= return . go
+  where
+    efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
+    go stack = do
+      frame <- find ((Just efile==) . B.frameFullname) (B.stackFrames stack)
+      e2p_row ctx . R.ERow . B.frameLine $ frame
+      
 -- state updates {{{1
 updateThread :: Int -> (Thread -> Thread) -> State -> State -- {{{2
 updateThread tid f state = state {stateThreads = M.update (Just . f) tid (stateThreads state)}
@@ -435,6 +466,13 @@ mapThreads f state = state {stateThreads = M.map f (stateThreads state)}
 
 setExecution :: Execution -> State -> State -- {{{2
 setExecution e state = state {stateExecution = e}
+
+resumeThread :: State -> State -- {{{2
+resumeThread = mapThreads (\thread ->
+    if (isStopped . thStatus) thread
+      then thread {thStatus = Running, thProw = Nothing}
+      else thread
+  )
 
 cleanStepNextBreakpoints :: State -> State -- {{{2
 cleanStepNextBreakpoints state = state {

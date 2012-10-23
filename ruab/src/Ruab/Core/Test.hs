@@ -63,7 +63,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 515) [0, 1]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 0 1 515] (Just CmdShutdown)
+      , ExpectStatus [isStopped, threadStopped 0 (Just 1) 515] (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
@@ -73,7 +73,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 515) [1]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 1 1 515] (Just CmdShutdown)
+      , ExpectStatus [isStopped, threadStopped 1 (Just 1) 515] (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
@@ -83,7 +83,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 2 1 461] (Just CmdShutdown)
+      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 461] (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
@@ -95,13 +95,13 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 3 (PRow 445) [1]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 0 1 430] (Just CmdContinue)
+      , ExpectStatus [isStopped, threadStopped 0 (Just 1) 430] (Just CmdContinue)
       , ExpectResponse (Right ResContinue) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 1 3 445] (Just CmdContinue)
+      , ExpectStatus [isStopped, threadStopped 1 (Just 3) 445] (Just CmdContinue)
       , ExpectResponse (Right ResContinue) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 0 2 432] (Just CmdShutdown)
+      , ExpectStatus [isStopped, threadStopped 0 (Just 2) 432] (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
@@ -116,10 +116,10 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 3 (PRow 445) [1]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 0 1 430] (Just CmdContinue)
+      , ExpectStatus [isStopped, threadStopped 0 (Just 1) 430] (Just CmdContinue)
       , ExpectResponse (Right ResContinue) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 0 2 432] (Just CmdShutdown)
+      , ExpectStatus [isStopped, threadStopped 0 (Just 2) 432] (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
@@ -129,11 +129,11 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 2 1 461] (Just (CmdEvaluate "i"))
+      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 461] (Just (CmdEvaluate "i"))
       , ExpectResponse (Right (ResEvaluate "0")) (Just CmdContinue)
       , ExpectResponse (Right ResContinue) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 2 1 461] (Just (CmdEvaluate "i"))
+      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 461] (Just (CmdEvaluate "i"))
       , ExpectResponse (Right (ResEvaluate "0")) (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
@@ -144,7 +144,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 2 1 461] (Just (CmdEvaluate "j"))
+      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 461] (Just (CmdEvaluate "j"))
       , ExpectResponse (Left "No symbol \"j\" in current context.") (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
@@ -155,16 +155,31 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 431) [0]))) (Just CmdRun)
       , ExpectResponse (Right ResRun) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 0 1 431] (Just (CmdEvaluate "now"))
+      , ExpectStatus [isStopped, threadStopped 0 (Just 1) 431] (Just (CmdEvaluate "now"))
       , ExpectResponse (Right (ResEvaluate "0")) (Just CmdContinue)
       , ExpectResponse (Right ResContinue) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 0 1 431] (Just (CmdEvaluate "now"))
+      , ExpectStatus [isStopped, threadStopped 0 (Just 1) 431] (Just (CmdEvaluate "now"))
       , ExpectResponse (Right (ResEvaluate "50")) (Just CmdShutdown)
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-
+    -- step in non-critical function {{{3
+    , [ExpectStart $ CmdAddBreakpoint (PRow 459) []
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 459) [0, 1, 2]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 459] (Just CmdContinue)
+      , ExpectResponse (Right ResContinue) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 459] (Just (CmdStepNext True))
+      , ExpectResponse (Right ResStepNext) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 Nothing 461] (Just CmdShutdown)
+      , ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+    ]
     -- end {{{3
   ]
   where
@@ -175,11 +190,11 @@ test_integration = enumTestGroup "integration" $ map runTest [
     isShutdown = (ExShutdown==) . statusExecution
     isStopped  = (ExStopped==) . statusExecution
 
-    threadStopped :: Int -> Int -> Int -> Status -> Bool
-    threadStopped tid bid prow status =
+    threadStopped :: Int -> Maybe Int -> Int -> Status -> Bool
+    threadStopped tid mbid prow status =
       case find ((tid==) . thId) (statusThreads status) of
         Nothing -> False
-        Just thread -> thProw thread == Just (PRow prow) && thStatus thread == Stopped (Just bid)
+        Just thread -> thProw thread == Just (PRow prow) && thStatus thread == Stopped mbid
 
     withFilter :: [Int] -> Status -> Bool
     withFilter tids = (tids==) . statusThreadFilter

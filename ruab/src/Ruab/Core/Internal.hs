@@ -3,6 +3,7 @@ module Ruab.Core.Internal where
 -- imports {{{1
 import Data.Generics (everywhereM, mkM)
 import Data.List (find)
+import Data.Maybe (isJust)
 import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (identToString, internalIdent)
 import Language.C.Data.InputStream (inputStreamFromString)
@@ -14,16 +15,15 @@ import Language.C.Syntax.AST (CExpr, CExpression(CVar))
 import qualified Ocram.Ruab as R
 
 t2e_expr :: R.VarMap -> R.ThreadId -> R.PRow -> String -> Either String String  -- {{{1
-t2e_expr vm tid prow tstr = case find inScope vm of
-  Nothing -> return tstr
-  Just (_, vars) -> do
+t2e_expr vm tid prow tstr = case findScope vm prow of
+  Nothing   -> return tstr
+  Just vars -> do
     texpr <- parseExpression tstr
     let vars' = filter currentThread vars
     eexpr <- checkConversion (t2eExpr vars' texpr)
     return (printExpression eexpr)
 
   where
-    inScope ((R.Scope start end), _) = prow >= start && prow <= end
 
     currentThread (R.StaticVariable _, _) = True
     currentThread (R.AutomaticVariable tid' _, _) = tid == tid'
@@ -48,3 +48,11 @@ t2eExpr vars = everywhereM (mkM trans)
 
 printExpression :: CExpr -> String -- {{{2
 printExpression = show . pretty
+
+findScope :: R.VarMap -> R.PRow -> Maybe R.RenameMap -- {{{2
+findScope vm prow = fmap snd $ find inScope vm
+  where
+    inScope ((R.Scope start end), _) = prow >= start && prow <= end
+
+in_critical_function :: R.DebugInfo -> R.PRow -> Bool -- {{{1
+in_critical_function di = isJust . findScope (R.diVm di)
