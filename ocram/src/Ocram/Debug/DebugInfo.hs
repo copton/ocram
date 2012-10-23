@@ -13,6 +13,7 @@ import Ocram.Names (tfunction)
 import Ocram.Symbols (Symbol)
 import Text.Regex.Posix ((=~))
 
+import qualified Compiler.Hoopl as H
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
 
@@ -62,5 +63,22 @@ all_threads cg = zipWith create [0..] (start_functions cg)
     co = $fromJust_s . call_order cg
     create tid sf = Thread tid sf (tfunction tid) (co sf)
 
-step_map :: CallGraph -> M.Map Symbol Function -> StepMap -- {{{1
-step_map = undefined
+step_map :: MapTP -> CallGraph -> M.Map Symbol Function -> StepMap -- {{{1
+step_map _ _ _ = M.empty
+{-
+step_map mtp cg cfs = M.unions $ map stepmap (M.elems cfs)
+  where
+    t2p = $fromJust_s . t2p_row mtp
+
+    stepmap fun = 
+
+    callSites name = map (t2p . posRow. posOfNode . snd) (get_gallers cg name)
+      
+    startOfFunction name = $fromJust_s $ do
+      fun   <- M.lookup name cfs
+      block <- H.mapLookup (fun_entry fun) (block_map (fun_body fun))
+
+    startOfBlock block = do
+      let (_, (Stmt expr:_), _) = block_components block in
+      t2p_row mtp . enTRow . annotation $ expr
+-}

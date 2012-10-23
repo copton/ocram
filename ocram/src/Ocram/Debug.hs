@@ -38,7 +38,7 @@ create_debug_info opt tcode pcode ana cfs vm' bps ecode =
     mtp   = t2p_map tcode pcode
     mpe   = p2e_map mtp (optInput opt) bps
     vm    = var_map mtp vm'
-    sm    = step_map (anaCallgraph ana) cfs 
+    sm    = step_map mtp (anaCallgraph ana) cfs 
     ts    = all_threads (anaCallgraph ana)
     os    = M.keys (anaBlocking ana)
   in 

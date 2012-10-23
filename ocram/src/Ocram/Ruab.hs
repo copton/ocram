@@ -76,7 +76,12 @@ type FQN -- {{{3
   -- |A fully qualified name of a variable
   = String
 
-type StepMap = M.Map PRow [(PRow, Bool)] -- {{{2
+type StepMap = M.Map -- {{{2
+    PRow             -- current row
+    [(  
+        PRow         -- next row
+      , Bool         -- next row is in different function?
+    )]
 
 data File = File { -- {{{2
   -- |Information about a source file
