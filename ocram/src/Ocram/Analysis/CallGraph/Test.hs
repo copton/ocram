@@ -128,6 +128,7 @@ test_get_callees = enumTestGroup "get_callees" $ map runTest [
     ([("a", "b")], "a", ["b"])
   , ([("a", "b")], "b", [])
   , ([("a", "b"), ("b", "c")], "b", ["c"])
+  , ([("a", "c"), ("a", "b")], "a", ["c", "b"])
   ]
   where
     runTest (cg, function, expected) = do
@@ -139,6 +140,7 @@ test_get_callers = enumTestGroup "get_callers" $ map runTest [
     ([("a", "b")], "b", ["a"])
   , ([("a", "b")], "a", [])
   , ([("a", "b"), ("b", "c")], "b", ["a"])
+  , ([("a", "b"), ("c", "b")], "b", ["a", "c"])
   ]
   where
     runTest (cg, function, expected) = do
