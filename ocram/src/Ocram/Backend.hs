@@ -67,7 +67,7 @@ staticVariables = M.fold update ([], [])
     create (EVariable _) = ([], [])
     create (TVariable tname decl scope) = ([decl], [(StaticVariable tname, scope, symbol decl)])
 
-setBreakpoints :: CExtDecl  -> CExtDecl'
+setBreakpoints :: CExtDecl  -> CExtDecl' -- {{{2
 setBreakpoints = everywhere (mkT tStat `extT` tInitDecl) . fmap EnWrapper
   where
     tStat :: CStat' -> CStat'
