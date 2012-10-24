@@ -1,19 +1,20 @@
 {-# LANGUAGE TemplateHaskell, ViewPatterns #-}
-module Ocram.Debug.DebugInfo where
+module Ocram.Debug.DebugInfo
+(
+    t2p_map, p2e_map, var_map, step_map, all_threads
+) where
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
 import Data.List (nub)
-import Ocram.Ruab
+import Ocram.Ruab (MapTP(..), MapPE, VarMap, TRow(..), PLocation(..), t2p_row, Scope(..), Thread(..))
 import Ocram.Analysis (CallGraph, start_functions, call_order)
 import Ocram.Debug.Types (Breakpoints, Breakpoint(..), VarMap')
-import Ocram.Intermediate (Function)
+import Ocram.Debug.StepMap (step_map)
 import Ocram.Util (abort, fromJust_s)
 import Ocram.Names (tfunction)
-import Ocram.Symbols (Symbol)
 import Text.Regex.Posix ((=~))
 
-import qualified Compiler.Hoopl as H
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Map as M
 
@@ -62,23 +63,3 @@ all_threads cg = zipWith create [0..] (start_functions cg)
   where
     co = $fromJust_s . call_order cg
     create tid sf = Thread tid sf (tfunction tid) (co sf)
-
-step_map :: MapTP -> CallGraph -> M.Map Symbol Function -> StepMap -- {{{1
-step_map _ _ _ = M.empty
-{-
-step_map mtp cg cfs = M.unions $ map stepmap (M.elems cfs)
-  where
-    t2p = $fromJust_s . t2p_row mtp
-
-    stepmap fun = 
-
-    callSites name = map (t2p . posRow. posOfNode . snd) (get_gallers cg name)
-      
-    startOfFunction name = $fromJust_s $ do
-      fun   <- M.lookup name cfs
-      block <- H.mapLookup (fun_entry fun) (block_map (fun_body fun))
-
-    startOfBlock block = do
-      let (_, (Stmt expr:_), _) = block_components block in
-      t2p_row mtp . enTRow . annotation $ expr
--}
