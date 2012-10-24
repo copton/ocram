@@ -49,4 +49,4 @@ exitOnError _ (Right x) = return x
 
 
 _tests :: String -> IO () -- {{{1
-_tests args = runTests $ words $ "--hide-successes --plain  -j 3 " ++ args
+_tests args = runTests $ words $ "--hide-successes --plain -j 3 " ++ args
