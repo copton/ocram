@@ -173,7 +173,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectStatus [isStopped, threadStopped 2 (Just 1) 459] (Just CmdContinue)
       , ExpectResponse (Right ResContinue) Nothing
       , ExpectStatus [isRunning] Nothing
-      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 459] (Just (CmdStepNext True))
+      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 459] (Just (CmdStepNext Next))
       , ExpectResponse (Right ResStepNext) Nothing
       , ExpectStatus [isRunning] Nothing
       , ExpectStatus [isStopped, threadStopped 2 Nothing 461] (Just CmdShutdown)
@@ -185,7 +185,9 @@ test_integration = enumTestGroup "integration" $ map runTest [
   where
     -- utils {{{3
     isRunning, isWaiting, isShutdown, isStopped :: Status -> Bool
-    isRunning  = (ExRunning==) . statusExecution
+    isRunning  = exRunning . statusExecution
+      where exRunning (ExRunning _) = True
+            exRunning _             = False
     isWaiting  = (ExWaiting==) . statusExecution
     isShutdown = (ExShutdown==) . statusExecution
     isStopped  = (ExStopped==) . statusExecution

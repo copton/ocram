@@ -36,6 +36,7 @@ import qualified Data.Set as Set
 type BlockingFunctions = [Symbol]
 type StartFunctions = [Symbol]
 type CriticalFunctions = [Symbol]
+type NonCriticalFunctions = [Symbol]
 type Footprint = [[Symbol]]
 
 call_graph :: CTranslUnit -> CallGraph -- {{{1
@@ -74,13 +75,16 @@ to_string (CallGraph gd _) = show (
   where edge (from, to, _) = map ($fromJust_s . G.lab gd) [from, to]
 
 blocking_functions :: CallGraph -> BlockingFunctions -- {{{1
-blocking_functions = functionsWith attrBlocking
+blocking_functions = functionsWith (any attrBlocking)
 
 start_functions :: CallGraph -> StartFunctions -- {{{1
-start_functions = functionsWith attrStart
+start_functions = functionsWith (any attrStart)
 
 critical_functions :: CallGraph -> CriticalFunctions -- {{{1
-critical_functions = functionsWith attrCritical
+critical_functions = functionsWith (any attrCritical)
+
+non_critical_functions :: CallGraph -> NonCriticalFunctions
+non_critical_functions = functionsWith null
 
 is_blocking :: CallGraph -> Symbol -> Bool -- {{{1
 is_blocking = functionIs attrBlocking
@@ -204,11 +208,8 @@ createEdges ast gi nodes = foldl go [] nodes
     call (CCall (CVar (Ident callee _ _) _)  _ ni) = [(callee, ni)]
     call _ = []
 
-functionsWith :: (Attribute -> Bool) -> CallGraph -> [Symbol] -- {{{2
-functionsWith pred cg = map lblName $ filter (hasAttr pred) $ map snd $ G.labNodes $ grData cg
-
-hasAttr :: (Attribute -> Bool) -> Label -> Bool -- {{{2
-hasAttr pred (Label _ as) = any pred as
+functionsWith :: ([Attribute] -> Bool) -> CallGraph -> [Symbol] -- {{{2
+functionsWith pred cg = map lblName $ filter (pred . lblAttr) $ map snd $ G.labNodes $ grData cg
 
 attrBlocking :: Attribute -> Bool -- {{{2
 attrBlocking = (==Blocking)

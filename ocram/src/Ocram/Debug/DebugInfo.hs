@@ -1,16 +1,19 @@
 {-# LANGUAGE TemplateHaskell, ViewPatterns #-}
 module Ocram.Debug.DebugInfo
+-- exports {{{1
 (
-    t2p_map, p2e_map, var_map, step_map, all_threads
+    t2p_map, p2e_map, var_map, all_threads, non_critical_functions
 ) where
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
 import Data.List (nub)
+import Data.Maybe (mapMaybe)
+import Language.C.Syntax.AST (CExternalDeclaration(CFDefExt))
 import Ocram.Ruab (MapTP(..), MapPE, VarMap, TRow(..), PLocation(..), t2p_row, Scope(..), Thread(..))
-import Ocram.Analysis (CallGraph, start_functions, call_order)
+import Ocram.Analysis (Analysis(anaNonCritical), CallGraph, start_functions, call_order)
 import Ocram.Debug.Types (Breakpoints, Breakpoint(..), VarMap')
-import Ocram.Debug.StepMap (step_map)
+import Ocram.Symbols (symbol)
 import Ocram.Util (abort, fromJust_s)
 import Ocram.Names (tfunction)
 import Text.Regex.Posix ((=~))
@@ -63,3 +66,9 @@ all_threads cg = zipWith create [0..] (start_functions cg)
   where
     co = $fromJust_s . call_order cg
     create tid sf = Thread tid sf (tfunction tid) (co sf)
+
+non_critical_functions :: Analysis -> [String]
+non_critical_functions = mapMaybe funDef . anaNonCritical
+  where
+    funDef (CFDefExt fd) = Just (symbol fd)
+    funDef _             = Nothing

@@ -8,7 +8,6 @@ import Control.Arrow ((***))
 import Control.Monad (guard)
 
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.Map as M
 
 encode_debug_info :: DebugInfo -> BS.ByteString -- {{{1
 encode_debug_info = BS.pack . encodeStrict
@@ -76,13 +75,6 @@ type FQN -- {{{3
   -- |A fully qualified name of a variable
   = String
 
-type StepMap = M.Map -- {{{2
-    PRow             -- current row
-    [(  
-        PRow         -- next row
-      , Bool         -- next row is in different function?
-    )]
-
 data File = File { -- {{{2
   -- |Information about a source file
     fileName     :: FilePath
@@ -99,15 +91,15 @@ data Thread = Thread { -- {{{2
   
 data DebugInfo = DebugInfo { -- {{{2
   -- |The debugging information that is exchanged between Ocram and Ruab
-    diTcode     :: File
-  , diPcode     :: BS.ByteString
-  , diEcode     :: File
-  , diMtp       :: MapTP
-  , diMpe       :: MapPE
-  , diVm        :: VarMap
-  , diSm        :: StepMap
-  , diThreads   :: [Thread]
-  , diOsApi     :: [String]
+    diTcode     :: File           -- ^the T-code file
+  , diPcode     :: BS.ByteString  -- ^the P-code
+  , diEcode     :: File           -- ^the E-code file
+  , diMtp       :: MapTP          -- ^mapping between T- and P-rows
+  , diMpe       :: MapPE          -- ^mapping between P- and E-rows
+  , diVm        :: VarMap         -- ^renaming of variables defined in critical functions
+  , diThreads   :: [Thread]       -- ^the T-threads
+  , diOsApi     :: [String]       -- ^name of T-code API functions
+  , diNcfs      :: [String]       -- ^name non-critical functions
   }
 
 -- instances {{{1
@@ -129,7 +121,6 @@ instance JSON PLocation where -- {{{2
     return $ PLocation (decodeTid t) r b
 
   showJSON (PLocation t r b) = showJSON (encodeTid t, r, b)
-
 
 instance JSON MapTP where  -- {{{2
   readJSON (JSObject obj) = do
@@ -191,29 +182,29 @@ instance JSON Thread where -- {{{2
   readJSON x = readFail "Thread" x
 
 instance JSON DebugInfo where -- {{{2
-  showJSON (DebugInfo tcode pcode ecode mtp mpe vm sm ts api) = (JSObject . toJSObject) [
+  showJSON (DebugInfo tcode pcode ecode mtp mpe vm ts api ncfs) = (JSObject . toJSObject) [
       ("tcode",   showJSON tcode)
     , ("pcode",   showJSON pcode)
     , ("ecode",   showJSON ecode)
     , ("mtp",     showJSON mtp)
     , ("mpe",     showJSON mpe)
     , ("vm",      showJSON vm)
-    , ("sm",      showJSON sm)
     , ("threads", showJSON ts)
     , ("api",     showJSON api)
+    , ("ncfs",    showJSON ncfs)
     ]
 
   readJSON (JSObject obj) = do
-    let [tcode, pcode, ecode, mtp, mpe, vm, sm, ts, api] = map snd $ fromJSObject obj
+    let [tcode, pcode, ecode, mtp, mpe, vm, ts, api, ncfs] = map snd $ fromJSObject obj
     [tcode', ecode'] <- mapM readJSON [tcode, ecode]
     pcode'           <- readJSON pcode
     mtp'             <- readJSON mtp
     mpe'             <- readJSON mpe
     vm'              <- readJSON vm
-    sm'              <- readJSON sm
     ts'              <- readJSON ts
     api'             <- readJSON api
-    return $ DebugInfo tcode' pcode' ecode' mtp' mpe' vm' sm' ts' api'
+    ncfs'            <- readJSON ncfs
+    return $ DebugInfo tcode' pcode' ecode' mtp' mpe' vm' ts' api' ncfs'
 
   readJSON x = readFail "DebugInfo" x
 

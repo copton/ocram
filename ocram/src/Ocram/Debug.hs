@@ -13,9 +13,7 @@ import Data.Digest.OpenSSL.MD5 (md5sum)
 import Ocram.Analysis (Analysis(..))
 import Ocram.Debug.DebugInfo
 import Ocram.Options (Options(optInput, optOutput))
-import Ocram.Intermediate (Function)
 import Ocram.Debug.Types (Breakpoints, VarMap')
-import Ocram.Symbols (Symbol)
 import Ocram.Ruab (DebugInfo(..), File(..))
 
 import qualified Data.ByteString.Char8 as BS
@@ -26,23 +24,22 @@ create_debug_info :: -- {{{1
   -> TCode
   -> PCode
   -> Analysis      
-  -> M.Map Symbol Function 
   -> VarMap'      
   -> Breakpoints
   -> ECode
   -> DebugInfo
-create_debug_info opt tcode pcode ana cfs vm' bps ecode =
+create_debug_info opt tcode pcode ana vm' bps ecode =
   let
     tfile = File (optInput opt) (md5sum tcode)
     efile = File (optOutput opt) (md5sum ecode)
     mtp   = t2p_map tcode pcode
     mpe   = p2e_map mtp (optInput opt) bps
     vm    = var_map mtp vm'
-    sm    = step_map mtp ana cfs 
     ts    = all_threads (anaCallgraph ana)
     os    = M.keys (anaBlocking ana)
+    ncfs  = non_critical_functions ana
   in 
-    DebugInfo tfile pcode efile mtp mpe vm sm ts os
+    DebugInfo tfile pcode efile mtp mpe vm ts os ncfs
 
 type TCode = BS.ByteString
 type PCode = BS.ByteString

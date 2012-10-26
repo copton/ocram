@@ -401,8 +401,8 @@ handleCommand core fInfo fLog fCommand = handle
 
     handle (CmdPrint expr) = fCommand (C.CmdEvaluate expr)
 
-    handle CmdStep = fCommand (C.CmdStepNext True)
-    handle CmdNext = fCommand (C.CmdStepNext False)
+    handle CmdStep = fCommand (C.CmdStepNext C.Step)
+    handle CmdNext = fCommand (C.CmdStepNext C.Next)
 
 handleKeyEvent :: Fire InputEvent -> Event -> IO Bool -- {{{2
 handleKeyEvent fInput (Key _ _ _ []        _ _ _ _ "Return" _) = fInput InputReturn     >> return True

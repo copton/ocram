@@ -3,7 +3,6 @@ module Ruab.Core.Internal where
 -- imports {{{1
 import Data.Generics (everywhereM, mkM)
 import Data.List (find)
-import Data.Maybe (isJust)
 import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (identToString, internalIdent)
 import Language.C.Data.InputStream (inputStreamFromString)
@@ -53,6 +52,3 @@ findScope :: R.VarMap -> R.PRow -> Maybe R.RenameMap -- {{{2
 findScope vm prow = fmap snd $ find inScope vm
   where
     inScope ((R.Scope start end), _) = prow >= start && prow <= end
-
-in_critical_function :: R.DebugInfo -> R.PRow -> Bool -- {{{1
-in_critical_function di = isJust . findScope (R.diVm di)

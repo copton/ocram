@@ -15,6 +15,7 @@ tests = testGroup "GDB" [
       , test_response_break_insert
       , test_response_stopped
       , test_response_stack_list_frames
+      , test_response_exec_return
       , test_response_evaluate_expression
       , test_response_error
       ]
@@ -277,6 +278,26 @@ test_response_stack_list_frames = enumTestGroup "response_stack_list_frames" $ m
           response_stack_list_frames (respResults response)
       in 
         show (Just stack) @=? show stack'
+
+test_response_exec_return :: Test -- {{{2
+test_response_exec_return = enumTestGroup "response_exec_return" $ map runTest [
+  -- example {{{3
+  ([paste|
+^done,frame={level="0",addr="0x080483cc",func="f",args=[],file="foo.c",fullname="/home/alex/foo.c",line="9"}
+(gdb) 
+|], Frame (Just 0) "0x080483cc" "f" (Just []) "foo.c" (Just "/home/alex/foo.c") 9
+  )
+  ]
+  where
+    runTest :: (String, Frame) -> Assertion -- {{{3
+    runTest (str, frame) = 
+      let
+        output = parse_output (tail str)
+        frame' = do
+          response <- output_response output
+          response_exec_return (respResults response)
+      in
+        show (Just frame) @=? show frame'
 
 test_response_evaluate_expression :: Test -- {{{2
 test_response_evaluate_expression = enumTestGroup "response_evaluate_expression" $ map runTest [
