@@ -230,7 +230,7 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
     handle B.FunctionFinished (ExRunning Nothing )   = $abort "illegal state"
     handle B.FunctionFinished (ExRunning (Just snt)) = stepNext (B.stoppedFrame stopped) snt
         
-    stepNext :: B.Frame -> StepNextType -> IO (State -> State) -- {{{4
+    stepNext :: B.Frame -> StepNextType -> IO (State -> State) -- {{{3
     stepNext frame snt =
       let
         efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
@@ -248,9 +248,11 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
                   Just prow -> 
                     if (B.frameFunc frame `elem` (R.diNcfs . ctxDebugInfo) ctx) || (isFirstERow prow erow)
                       then
-                        return $ updateThread (thId thread) (\t ->
-                            t {thStatus = Stopped Nothing, thProw = Just prow}
-                          )
+                        return $
+                            setExecution ExStopped
+                          .  updateThread (thId thread) (\t ->
+                              t {thStatus = Stopped Nothing, thProw = Just prow}
+                            )
                       else
                         cont
           x -> $abort $ "illegal state of threads: " ++ show x

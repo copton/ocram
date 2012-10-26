@@ -224,7 +224,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       fail ""
 
     step actor fCommand input (count, (expected:rest)) = do
---       putStrLn $ printf "%.2d: %s" count (show input)
+      putStrLn $ printf "%.2d: %s" count (show input)
       cmd <- handle input expected
       when (isJust cmd) (fCommand (fromJust cmd))
       when (null rest) (quit actor)
