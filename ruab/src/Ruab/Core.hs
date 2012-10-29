@@ -176,10 +176,10 @@ handleStop :: Context -> B.Context -> B.Stopped -> State -> IO State -- {{{2
 handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateExecution state) <*> pure state
   where
     -- BreakpointHit {{{3
-    handle (B.BreakpointHit _ _  ) ExShutdown   = $abort "illegal state"
-    handle (B.BreakpointHit _ _  ) ExWaiting    = $abort "illegal state"
-    handle (B.BreakpointHit _ _  ) ExStopped    = return id
-    handle (B.BreakpointHit _ bn) (ExRunning _) =
+    handle (B.BreakpointHit _ _  ) ExShutdown      = $abort "illegal state"
+    handle (B.BreakpointHit _ _  ) ExWaiting       = $abort "illegal state"
+    handle (B.BreakpointHit _ _  ) ExStopped       = return id
+    handle (B.BreakpointHit _ bn) (ExRunning msnt) =
       let bkpt = $fromJust_s $ M.lookup bn (stateBreakpoints state) in
       case bkptType bkpt of
         BkptUser ub ->
@@ -199,7 +199,14 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
             x -> $abort $ "illegal state of threads: " ++ show x
         
         BkptThreadExecution tid -> do
-          B.continue backend
+          if tid `elem` stateThreadFilter state
+            then
+              case msnt of
+                Nothing -> B.continue backend
+                Just Step -> B.step backend
+                Just Next -> B.next backend
+            else
+              B.continue backend
           return $
               hide True
             . updateThread tid (\t ->
@@ -235,7 +242,8 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
       let
         efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
         erow  = (R.ERow . B.frameLine) frame
-      in
+      in do
+        print frame
         case runningThreads state of
           [thread] ->
             if efile /= $fromJust_s (B.frameFullname frame)
@@ -249,7 +257,8 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
                     if (B.frameFunc frame `elem` (R.diNcfs . ctxDebugInfo) ctx) || (isFirstERow prow erow)
                       then
                         return $
-                            setExecution ExStopped
+                            hide False
+                          . setExecution ExStopped
                           .  updateThread (thId thread) (\t ->
                               t {thStatus = Stopped Nothing, thProw = Just prow}
                             )

@@ -49,7 +49,7 @@ deriving instance Eq Result
 
 test_integration :: Test -- {{{2
 test_integration = enumTestGroup "integration" $ map runTest [
-     -- start and quit {{{3
+     -- 01 - start and quit {{{3
       [ ExpectStart CmdRun
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right ResRun) (Just CmdShutdown)
@@ -57,7 +57,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-     -- break point in critical function {{{3
+     -- 02 - break point in critical function {{{3
     , [ ExpectStart $ CmdAddBreakpoint (PRow 515) []
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 515) [0, 1]))) (Just CmdRun)
@@ -67,7 +67,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-     -- break point with condition in critical function {{{3
+     -- 03 - break point with condition in critical function {{{3
     , [ ExpectStart $ CmdAddBreakpoint (PRow 515) [1]
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 515) [1]))) (Just CmdRun)
@@ -77,7 +77,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-    -- break point in non-critical function {{{3
+    -- 04 - break point in non-critical function {{{3
     , [ ExpectStart $ CmdAddBreakpoint (PRow 461) []
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
@@ -87,7 +87,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-    -- "step" over critical function call {{{3
+    -- 05 - "step" over critical function call {{{3
     , [ ExpectStart $ CmdAddBreakpoint (PRow 430) []
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 430) [0]))) (Just (CmdAddBreakpoint (PRow 432) []))
@@ -105,7 +105,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-    -- "step" over critical function call with thread filter {{{3
+    -- 06 - "step" over critical function call with thread filter {{{3
     -- due to the thread filter breakpoint 2 is not hit (in contrast to previous test without thread filter)
     , [ ExpectStart $ CmdFilter [0]
       , ExpectStatus [isWaiting] Nothing
@@ -123,7 +123,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-    -- print local variable of non-critical function {{{3
+    -- 07 - print local variable of non-critical function {{{3
     , [ ExpectStart $ CmdAddBreakpoint (PRow 461) []
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
@@ -138,7 +138,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-    -- print non-existent local variable of non-critical function {{{3
+    -- 08 - print non-existent local variable of non-critical function {{{3
     , [ ExpectStart $ CmdAddBreakpoint (PRow 461) []
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 461) [0, 1, 2]))) (Just CmdRun)
@@ -149,7 +149,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-    -- print local variable of critical function {{{3
+    -- 09 - print local variable of critical function {{{3
     , [ ExpectStart $ CmdAddBreakpoint (PRow 431) []
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 431) [0]))) (Just CmdRun)
@@ -164,7 +164,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
       ]
-    -- step in non-critical function {{{3
+    -- 10 - step in non-critical function {{{3
     , [ExpectStart $ CmdAddBreakpoint (PRow 459) []
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 459) [0, 1, 2]))) (Just CmdRun)
@@ -180,10 +180,97 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
     ]
-    -- end {{{3
+    -- 11 - step through with filter {{{3
+    , [ExpectStart $ CmdFilter [2]
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right ResFilter) Nothing
+      , ExpectStatus [isWaiting, withFilter [2]] (Just (CmdAddBreakpoint (PRow 532) []))
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 532) [2]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 532] (Just (CmdStepNext Step))
+    ] ++ stepByStep Step 2 [
+        494
+      , 494
+      , 495
+      , 495
+      , 496
+      , 496
+      , 497
+      , 497
+      , 500
+      , 501
+      , 503
+      , 504
+      , 506
+      , 472
+      , 473
+      , 474
+      , 475
+      , 477
+      , 477
+      , 478
+      , 480
+      , 459
+      , 481
+      , 507
+      , 472
+      , 473
+      , 474
+      , 475
+      , 477
+      , 477
+      , 478
+      , 480
+      , 459
+      , 481
+      , 509
+      , 500
+    ] ++ [
+        ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+    ]
+    -- 12 - next through with filter {{{3
+{-
+    , [ExpectStart $ CmdFilter [2]
+      , ExpectStatus [isWaiting] Nothing
+      , ExpectResponse (Right ResFilter) Nothing
+      , ExpectStatus [isWaiting, withFilter [2]] (Just (CmdAddBreakpoint (PRow 532) []))
+      , ExpectResponse (Right (ResAddBreakpoint (UserBreakpoint 1 (PRow 532) [2]))) (Just CmdRun)
+      , ExpectResponse (Right ResRun) Nothing
+      , ExpectStatus [isRunning] Nothing
+      , ExpectStatus [isStopped, threadStopped 2 (Just 1) 532] (Just (CmdStepNext Next))
+    ] ++ stepByStep Next 2 [
+        494
+      , 495
+      , 496
+      , 497
+      , 500
+      , 501
+      , 503
+      , 504
+      , 506
+      , 507
+      , 509
+      , 500
+    ] ++ [
+        ExpectResponse (Right ResShutdown) Nothing
+      , ExpectStatus [isShutdown] Nothing
+    ] 
+-}
+  -- end {{{3
   ]
   where
     -- utils {{{3
+    stepByStep :: StepNextType -> Int -> [Int] -> [Expect]
+    stepByStep snt thread = reverse . concat . zipWith go (True:repeat False) . reverse
+      where
+        go isLast row = reverse [
+            ExpectResponse (Right ResStepNext) Nothing
+          , ExpectStatus [isRunning] Nothing
+          , ExpectStatus [isStopped, threadStopped thread Nothing row] (Just (if isLast then CmdShutdown else CmdStepNext snt))
+          ]
+
     isRunning, isWaiting, isShutdown, isStopped :: Status -> Bool
     isRunning  = exRunning . statusExecution
       where exRunning (ExRunning _) = True
