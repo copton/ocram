@@ -3,7 +3,7 @@ module Ocram.IO
 -- export {{{1
 (
     parse
-  , dump_ecode
+  , dump_ecode, dump_pcode
   , dump_debug_info
   , generate_pal
 ) where
@@ -39,6 +39,11 @@ parse opt = do
       Left e -> (IoOcramError . return . Left) [new_error 1 ("parsing failed\n" ++ show e) Nothing]
       Right x -> return x
 
+dump_pcode :: Options -> BS.ByteString -> IO (Either [OcramError] ())  -- {{{1
+dump_pcode options pcode =
+  case optPcode options of
+    Nothing -> return (Right ())
+    Just pfile -> write pfile pcode
 
 dump_ecode :: Options -> BS.ByteString -> IO (Either [OcramError] ()) -- {{{1
 dump_ecode options ecode =

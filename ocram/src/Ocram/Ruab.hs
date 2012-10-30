@@ -31,16 +31,16 @@ newtype ERow -- {{{2
 type ThreadId = Int
 
 
-data PLocation = PLocation { -- {{{2
+type MapPE -- {{{2
+  -- |Map between P-rows and E-rows
+  = [(PLocation, [ERow])]
+
+data PLocation = PLocation { -- {{{3
   -- |A location in the P-code
     plThread       :: Maybe ThreadId
   , plRow          :: PRow
   , plBlockingCall :: Bool
   } deriving (Eq, Ord)
-
-type MapPE -- {{{2
-  -- |Map between P-rows and E-rows
-  = [(PLocation, [ERow])]
 
 data MapTP = -- {{{2
   -- |Map between T-rows and P-rows
@@ -50,13 +50,19 @@ data MapTP = -- {{{2
   , mtpMapping :: [(TRow, PRow)]
   }
 
-data Scope =  -- {{{2
+type VarMap -- {{{2
+  -- |Mapping of Variable names
+  = [(Scope, RenameMap)]
+
+data Scope =  -- {{{3
   Scope {
     scStart :: PRow
   , scEnd   :: PRow
   } deriving (Eq, Ord)
 
-data Variable -- {{{2
+type RenameMap = [(Variable, FQN)] -- {{{3
+
+data Variable -- {{{3
   = AutomaticVariable {
     varThread :: ThreadId
   , varTName  :: String
@@ -65,15 +71,9 @@ data Variable -- {{{2
     varTName  :: String
   }  
 
-type RenameMap = [(Variable, FQN)] -- {{{2
-
-type FQN -- {{{2
+type FQN -- {{{3
   -- |A fully qualified name of a variable
   = String
-
-type VarMap -- {{{2
-  -- |Mapping of Variable names
-  = [(Scope, RenameMap)]
 
 data File = File { -- {{{2
   -- |Information about a source file
@@ -91,14 +91,15 @@ data Thread = Thread { -- {{{2
   
 data DebugInfo = DebugInfo { -- {{{2
   -- |The debugging information that is exchanged between Ocram and Ruab
-    diTcode     :: File
-  , diPcode     :: BS.ByteString
-  , diEcode     :: File
-  , diMtp       :: MapTP
-  , diMpe       :: MapPE
-  , diVm        :: VarMap
-  , diThreads   :: [Thread]
-  , diOsApi     :: [String]
+    diTcode     :: File           -- ^the T-code file
+  , diPcode     :: BS.ByteString  -- ^the P-code
+  , diEcode     :: File           -- ^the E-code file
+  , diMtp       :: MapTP          -- ^mapping between T- and P-rows
+  , diMpe       :: MapPE          -- ^mapping between P- and E-rows
+  , diVm        :: VarMap         -- ^renaming of variables defined in critical functions
+  , diThreads   :: [Thread]       -- ^the T-threads
+  , diOsApi     :: [String]       -- ^name of T-code API functions
+  , diNcfs      :: [String]       -- ^name non-critical functions
   }
 
 -- instances {{{1
@@ -120,7 +121,6 @@ instance JSON PLocation where -- {{{2
     return $ PLocation (decodeTid t) r b
 
   showJSON (PLocation t r b) = showJSON (encodeTid t, r, b)
-
 
 instance JSON MapTP where  -- {{{2
   readJSON (JSObject obj) = do
@@ -157,7 +157,8 @@ instance JSON Variable where -- {{{2
 
   showJSON (AutomaticVariable t n) = showJSON (0 :: Int, showJSON (t, n))
   showJSON (StaticVariable n)      = showJSON (1 :: Int, showJSON n)
-    
+
+
 instance JSON File where -- {{{2
   readJSON val = readJSON val >>= \[n,c] -> return $ File n c
   showJSON (File n c) = showJSON [n, c]
@@ -181,7 +182,7 @@ instance JSON Thread where -- {{{2
   readJSON x = readFail "Thread" x
 
 instance JSON DebugInfo where -- {{{2
-  showJSON (DebugInfo tcode pcode ecode mtp mpe vm ts api) = (JSObject . toJSObject) [
+  showJSON (DebugInfo tcode pcode ecode mtp mpe vm ts api ncfs) = (JSObject . toJSObject) [
       ("tcode",   showJSON tcode)
     , ("pcode",   showJSON pcode)
     , ("ecode",   showJSON ecode)
@@ -190,10 +191,11 @@ instance JSON DebugInfo where -- {{{2
     , ("vm",      showJSON vm)
     , ("threads", showJSON ts)
     , ("api",     showJSON api)
+    , ("ncfs",    showJSON ncfs)
     ]
 
   readJSON (JSObject obj) = do
-    let [tcode, pcode, ecode, mtp, mpe, vm, ts, api] = map snd $ fromJSObject obj
+    let [tcode, pcode, ecode, mtp, mpe, vm, ts, api, ncfs] = map snd $ fromJSObject obj
     [tcode', ecode'] <- mapM readJSON [tcode, ecode]
     pcode'           <- readJSON pcode
     mtp'             <- readJSON mtp
@@ -201,7 +203,8 @@ instance JSON DebugInfo where -- {{{2
     vm'              <- readJSON vm
     ts'              <- readJSON ts
     api'             <- readJSON api
-    return $ DebugInfo tcode' pcode' ecode' mtp' mpe' vm' ts' api'
+    ncfs'            <- readJSON ncfs
+    return $ DebugInfo tcode' pcode' ecode' mtp' mpe' vm' ts' api' ncfs'
 
   readJSON x = readFail "DebugInfo" x
 

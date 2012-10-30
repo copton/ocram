@@ -6,7 +6,7 @@ module Ruab.Backend.GDB
   , setup, shutdown, run
   , G.Location, G.file_line_location, G.file_function_location
   , G.Breakpoint(..), G.Stack(..), G.Frame(..), G.Stopped(..), G.StopReason(..), G.BkptNumber
-  , set_breakpoint, remove_breakpoints, continue, step, next, interrupt, backtrace, evaluate_expression
+  , set_breakpoint, remove_breakpoints, continue, step, next, finish, interrupt, backtrace, evaluate_expression
   , G.Notification(..), G.NotificationClass(..), G.Stream(..), G.StreamClass(..), G.AsyncClass(..)
   , G.asConst
 ) where
@@ -52,6 +52,7 @@ set_breakpoint ctx loc = do
     (convert G.response_break_insert resp)
 
 remove_breakpoints :: G.Context -> [G.BkptNumber] -> IO () -- {{{1
+remove_breakpoints _   []   = return ()
 remove_breakpoints ctx bids = do
   resp <- G.send_command ctx (G.break_delete bids)
   when (G.respClass resp /= G.RCDone)
@@ -79,25 +80,31 @@ run ctx = do
   when (G.respClass resp /= G.RCRunning) 
     ($abort $ "unexpected response: " ++ show resp)
 
-continue :: G.Context -> IO () -- {{{2
+continue :: G.Context -> IO () -- {{{1
 continue ctx = do
   resp <- G.send_command ctx (G.exec_continue False (Left True))
   when (G.respClass resp /= G.RCRunning)
     ($abort $ "unexpected response: " ++ show resp)
 
-step :: G.Context -> IO () -- {{{2
+step :: G.Context -> IO () -- {{{1
 step ctx = do
   resp <- G.send_command ctx G.exec_step
   when (G.respClass resp /= G.RCRunning)
     ($abort $ "unexpected response: " ++ show resp)
 
-next :: G.Context -> IO () -- {{{2
+next :: G.Context -> IO () -- {{{1
 next ctx = do
   resp <- G.send_command ctx G.exec_next
   when (G.respClass resp /= G.RCRunning)
     ($abort $ "unexpected response: " ++ show resp)
 
-backtrace :: G.Context -> IO G.Stack -- {{{2
+finish :: G.Context -> IO () -- {{{1
+finish ctx = do
+  resp <- G.send_command ctx (G.exec_finish False)
+  when (G.respClass resp /= G.RCRunning)
+    ($abort $ "unexpected response: " ++ show resp)
+
+backtrace :: G.Context -> IO G.Stack -- {{{1
 backtrace ctx = do
   resp <- G.send_command ctx (G.stack_list_frames Nothing)
   maybe

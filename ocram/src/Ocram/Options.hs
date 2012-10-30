@@ -15,15 +15,15 @@ import System.Console.GetOpt
 import System.Path (absNormPath)
 
 data Options = Options { -- {{{1
-    optInput :: FilePath
-  , optOutput :: FilePath
+    optInput        :: FilePath
+  , optOutput       :: FilePath
+  , optPcode        :: Maybe FilePath
   , optPreprocessor :: FilePath
   , optPalGenerator :: Maybe FilePath
-  , optPalFile :: Maybe FilePath
-  , optDebugFile :: Maybe FilePath
-  , optHelp :: Bool
+  , optPalFile      :: Maybe FilePath
+  , optDebugFile    :: Maybe FilePath
+  , optHelp         :: Bool
 }
-
 
 options :: String -> FilePath -> [String] -> Either [OcramError] Options -- {{{1
 options prg cwd argv =
@@ -41,19 +41,20 @@ options prg cwd argv =
     (_,n,[]) -> Left [new_error 3 (err use ("unknown options '" ++ unwords n ++ "'")) Nothing]
     (_,_,es) -> Left [new_error 4 (err use $ intercalate "\n" es) Nothing]
 
-help :: String -> String
+help :: String -> String -- {{{2
 help use = "Printing usage:\n" ++ use
 
-err :: String -> String -> String
+err :: String -> String -> String -- {{{2
 err use msg = "Error in command line options\n" ++ msg ++ "\n" ++ use
 
-usage :: String -> String
+usage :: String -> String -- {{{2
 usage prg = usageInfo ("Usage: " ++ prg ++ " OPTIONS") (availableOptions "")
 
-availableOptions :: FilePath -> [OptDescr (Options -> Options)]
+availableOptions :: FilePath -> [OptDescr (Options -> Options)] -- {{{1
 availableOptions cwd = [
-    Option "i" ["input"] (ReqArg (\x opts -> opts {optInput = abs x}) "input") "input tc file (required)"
-  , Option "o" ["output"] (ReqArg (\x opts -> opts {optOutput = abs x}) "output") "output ec file (required)"
+    Option "i" ["input"] (ReqArg (\x opts -> opts {optInput = abs x}) "input") "input t-code file (required)"
+  , Option "o" ["output"] (ReqArg (\x opts -> opts {optOutput = abs x}) "output") "output e-code file (required)"
+  , Option "k" ["p-code"] (ReqArg (\x opts -> opts {optPcode = Just (abs x)}) "p-code") "output p-code file (optional)"
   , Option "c" ["preprocessor"] (ReqArg (\x opts -> opts {optPreprocessor = x}) "preprocessor") "external program which performs the pre-processing of the input C file (required)"
   , Option "g" ["generator"] (ReqArg (\x opts -> opts {optPalGenerator = Just x}) "generator") "external program which generates the PAL implementation (optional)"
   , Option "p" ["pal"] (ReqArg (\x opts -> opts {optPalFile = Just (abs x)}) "pal") "file path for the PAL generator program (mandatory if generator is specified)"
@@ -62,15 +63,16 @@ availableOptions cwd = [
   ]
     where abs = $fromJust_s . absNormPath cwd
 
-defaultOptions :: Options
+defaultOptions :: Options -- {{{1
 defaultOptions = Options { 
-    optInput = ""
-  , optOutput = ""
+    optInput        = ""
+  , optOutput       = ""
+  , optPcode        = Nothing
   , optPreprocessor = ""
   , optPalGenerator = Nothing
-  , optPalFile = Nothing
-  , optDebugFile = Nothing
-  , optHelp = False
+  , optPalFile      = Nothing
+  , optDebugFile    = Nothing
+  , optHelp         = False
 }
 
 checkOptions :: Options -> Bool

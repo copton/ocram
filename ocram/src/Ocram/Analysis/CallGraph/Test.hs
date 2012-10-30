@@ -3,24 +3,30 @@ module Ocram.Analysis.CallGraph.Test (tests) where
 
 -- imports {{{1
 import Data.Maybe (isJust, fromJust)
-import Ocram.Analysis.CallGraph (call_graph, call_chain, call_order, get_callees)
+import Ocram.Analysis.CallGraph (call_graph, call_chain, call_order, get_callees, get_callers)
 import Ocram.Test.Lib (enrich, reduce, enumTestGroup, paste)
 import Test.Framework (testGroup, Test)
 import Test.HUnit ((@=?), (@?))
 
 tests :: Test -- {{{1
-tests = testGroup "CallGraph" [test_call_graph, test_call_chain, test_call_order, test_get_callees]
+tests = testGroup "CallGraph" [
+    test_call_graph
+  , test_call_chain
+  , test_call_order
+  , test_get_callees
+  , test_get_callers
+  ]
 
 test_call_graph :: Test -- {{{1
 test_call_graph = enumTestGroup "call_graph" $ map runTest [
-    -- minimal example {{{2
+    -- , 01 - minimal example {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       __attribute__((tc_run_thread)) void start() {
         block();
       }
     |], [("start", "block")])
-  ,  -- with critical function {{{2
+  ,  -- 02 - with critical function {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       void critical() {
@@ -30,7 +36,7 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
         critical();
       }
     |], [("critical", "block"), ("start", "critical")])
-  , -- chain of critical functions {{{2
+  , -- 03 - chain of critical functions {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       void c1() { c2(); }
@@ -41,7 +47,7 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
         c1();
       }
     |], [("c1", "c2"), ("c2", "c3"), ("c3", "c4"), ("c4", "block"), ("start", "c1")])
-  , -- additional non-critical function {{{2
+  , -- 04 - additional non-critical function {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       void non_critical() { }
@@ -49,14 +55,14 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
         non_critical();
         block();
       }
-    |], [("start", "block")])
-  , -- ignore unused blocking functions {{{2
+    |], [("start", "block"), ("start", "non_critical")])
+  , -- 05 - ignore unused blocking functions {{{2
     ([paste|
       __attribute__((tc_blocking)) void block_unused();
       __attribute__((tc_blocking)) void block_used();
       __attribute__((tc_run_thread)) void start () { block_used(); }
     |], [("start", "block_used")])
-  , -- call of functions from external libraries {{{2
+  , -- 06 - call of functions from external libraries {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       int libfun();
@@ -65,7 +71,7 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
         block();
       }
     |], [("start", "block")])
-  , -- two independant threads {{{2
+  , -- 07 - two independant threads {{{2
     ([paste|
       __attribute__((tc_blocking)) void block1();
       __attribute__((tc_blocking)) void block2();
@@ -76,7 +82,7 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
         block2();
       }
     |], [("start1", "block1"), ("start2", "block2")])
-  , -- reentrance {{{2
+  , -- 08 - reentrance {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       void critical() {
@@ -122,9 +128,21 @@ test_get_callees = enumTestGroup "get_callees" $ map runTest [
     ([("a", "b")], "a", ["b"])
   , ([("a", "b")], "b", [])
   , ([("a", "b"), ("b", "c")], "b", ["c"])
+  , ([("a", "c"), ("a", "b")], "a", ["c", "b"])
   ]
   where
     runTest (cg, function, expected) = do
       let result = get_callees (enrich cg) (enrich function)
-      isJust result @? "could not determine callees"
-      expected @=? (reduce $ fromJust result)
+      expected @=? (map fst result)
+
+test_get_callers :: Test -- {{{1
+test_get_callers = enumTestGroup "get_callers" $ map runTest [
+    ([("a", "b")], "b", ["a"])
+  , ([("a", "b")], "a", [])
+  , ([("a", "b"), ("b", "c")], "b", ["a"])
+  , ([("a", "b"), ("c", "b")], "b", ["a", "c"])
+  ]
+  where
+    runTest (cg, function, expected) = do
+      let result = get_callers (enrich cg) (enrich function)
+      expected @=? (map fst result)

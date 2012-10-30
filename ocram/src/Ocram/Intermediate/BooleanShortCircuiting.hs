@@ -11,7 +11,7 @@ import Language.C.Syntax.AST
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (undefNode)
 import Ocram.Intermediate.Representation (Variable(..))
-import Ocram.Debug (CExpr', CStat', CDesignator', CInit', aset, eun)
+import Ocram.Debug.Enriched (CExpr', CStat', CDesignator', CInit', aset, eun)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Names (varBool)
 import Ocram.Util (abort, unexp, unexp')

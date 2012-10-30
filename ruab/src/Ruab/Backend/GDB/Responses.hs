@@ -64,6 +64,8 @@ data StopReason -- {{{2
     , bkptHitNumber :: BkptNumber
     }
   | EndSteppingRange
+  | FunctionFinished
+
   deriving Show
 
 data Arg = Arg { -- {{{2
@@ -130,6 +132,7 @@ responseStopReason rs = do
         <$> get rs tryRead "disp"
         <*> get rs tryRead "bkptno"
     "end-stepping-range" -> Just EndSteppingRange
+    "function-finished"  -> Just FunctionFinished
     _ -> Nothing 
 
 responseArgs :: Result -> Maybe [Arg] -- {{{2
@@ -172,6 +175,10 @@ response_error _ = Nothing
 
 response_stopped :: [Result] -> Maybe Stopped -- {{{2
 response_stopped items = responseStopped items
+
+response_exec_return :: [Result] -> Maybe Frame -- {{{2
+response_exec_return [item] = responseFrame item
+response_exec_return _      = Nothing
   
 -- utils {{{1
 get :: [Result] -> (String -> Maybe a) -> (String -> Maybe a) -- {{{2

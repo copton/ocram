@@ -10,11 +10,12 @@ data Attribute =
     Blocking
   | Start
   | Critical
+  deriving (Eq, Show)
 
 data Label = Label {
     lblName :: Symbol
   , lblAttr :: [Attribute]
-}
+} deriving Show
 
 type Node = (G.Node, Label)
 

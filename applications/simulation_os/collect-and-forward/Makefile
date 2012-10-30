@@ -41,4 +41,4 @@ native.elf: native.o $(OS_ROOT)/os/libos.a
 	$(CC) $(CFLAGS) -o $@ $^
 
 ec.c pal.c debug.json: tc.c $(OCRAM) $(PALGEN) $(OCRAM_PAL_TEMPLATE)
-	$(OCRAM) -p pal.c -i $< -o ec.c -g $(PALGEN) -d debug.json -c "$(CC) $(CFLAGS) -DOCRAM_MODE -E -o -" || (rm -f ec.c pal.c; exit 1)
+	$(OCRAM) -k pc.c -p pal.c -i $< -o ec.c -g $(PALGEN) -d debug.json -c "$(CC) $(CFLAGS) -DOCRAM_MODE -E -o -" || (rm -f ec.c pal.c; exit 1)

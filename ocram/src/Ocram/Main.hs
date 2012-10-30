@@ -6,7 +6,7 @@ import Ocram.Backend (tcode_2_ecode)
 import Ocram.Debug (create_debug_info)
 import Ocram.Intermediate (ast_2_ir)
 import Ocram.Options (options)
-import Ocram.IO (parse, generate_pal, dump_ecode, dump_debug_info)
+import Ocram.IO (parse, generate_pal, dump_ecode, dump_debug_info, dump_pcode)
 import Ocram.Print (render_with_log')
 import Ocram.Ruab (encode_debug_info)
 import Ocram.Text (OcramError, show_errors)
@@ -40,6 +40,7 @@ runCompiler argv = do
   exitOnError "output" =<< generate_pal opt (footprint (anaCallgraph ana)) pal
   exitOnError "output" =<< dump_ecode opt ecode
   exitOnError "output" =<< dump_debug_info opt di
+  exitOnError "output" =<< dump_pcode opt pcode
 
   return ()
 
@@ -49,4 +50,4 @@ exitOnError _ (Right x) = return x
 
 
 _tests :: String -> IO () -- {{{1
-_tests args = runTests $ words $ "--hide-successes --plain  -j 3" ++ args
+_tests args = runTests $ words $ "--hide-successes --plain -j 3 " ++ args

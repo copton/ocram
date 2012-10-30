@@ -13,7 +13,7 @@ import Language.Haskell.TH (stringE)
 import Ocram.Analysis (CallGraph, ErrorCode, from_test_graph, to_test_graph)
 import Ocram.Print (render)
 import Ocram.Ruab
-import Ocram.Debug (Breakpoint(..))
+import Ocram.Debug.Types (Breakpoint(..))
 import Test.Framework.Providers.HUnit (testCase)
 import Test.Framework (testGroup, Test)
 import Test.HUnit (Assertion)

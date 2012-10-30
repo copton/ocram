@@ -1,12 +1,13 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Ocram.Analysis.Filter.Test (tests) where
 
+-- imports {{{1
 import Ocram.Analysis.CallGraph (call_graph)
 import Ocram.Analysis.Filter (check_sanity, check_constraints, ErrorCode(..))
 import Ocram.Test.Lib (enrich, enumTestGroup, paste)
 import Ocram.Text (OcramError(errCode))
 import Test.Framework (testGroup, Test)
-import Test.HUnit ((@=?))
+import Test.HUnit ((@=?), Assertion)
 
 tests :: Test -- {{{1
 tests = testGroup "Filter" [test_check_sanity, test_check_constraints]
@@ -45,12 +46,12 @@ test_check_sanity = enumTestGroup "check_sanity" $ map runTest [
 
 test_check_constraints :: Test -- {{{1
 test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
-    -- no threads {{{2
+    -- , 01 - no threads {{{2
     ("", [NoThreads])
   , ("void foo();", [NoThreads])
   , ("void foo() { };", [NoThreads])
-  , ("__attribute__((tc_run_thread)) void start() { };", [ThreadNotBlocking, NoThreads])
-  , -- Ellipses {{{2
+  , ("__attribute__((tc_run_thread)) void start() { };", [ThreadNotBlocking])
+  , -- 05 - Ellipses {{{2
     ([paste|
        __attribute__((tc_blocking)) void block(int x, ...);
        void non_critical(int x, ...) { }
@@ -149,9 +150,12 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
         block();
       }
     |], [InitializerList, RangeDesignator])
+  -- end {{{2
   ]
   where
+    runTest :: (String, [ErrorCode]) -> Assertion -- {{{2
     runTest (code, expected) = expected @=? errs (enrich code)
+
     errs ast = case check_constraints ast (call_graph ast) of
         Left es -> enrich $ map errCode es
         Right _ -> []

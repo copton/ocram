@@ -6,6 +6,7 @@ module Ocram.Backend.TStack
 ) where
 
 -- import {{{1
+import Data.List (nub)
 import Language.C.Data.Ident (internalIdent, Ident)
 import Language.C.Data.Node (undefNode, NodeInfo)
 import Language.C.Syntax.AST
@@ -66,7 +67,7 @@ tstackFrame cg returnType name cvars = frame
       | otherwise    = Just $
           CDecl [CTypeSpec (CSUType (CStruct CUnionTag Nothing (Just entries) [] un) un)] [(Just (CDeclr (Just (ii frameUnion)) [] Nothing [] un), Nothing, Nothing)] un
       where
-        entries = map createEntry . $fromJust_s . get_callees cg $ name
+        entries = map createEntry $ nub $ map fst $ get_callees cg name
         createEntry sym =
           CDecl [CTypeSpec (CTypeDef (ii (tframe sym)) un)] [(Just (CDeclr (Just (ii sym)) [] Nothing [] un), Nothing, Nothing)] un
 

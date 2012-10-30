@@ -4,7 +4,7 @@ module Ocram.Debug.Test (tests) where
 -- imports {{{1
 import Control.Monad (forM_)
 import Data.Maybe (fromJust, isJust)
-import Ocram.Debug.Internal
+import Ocram.Debug.DebugInfo
 import Ocram.Ruab (TRow(..), PRow(..), t2p_row, p2t_row)
 import Ocram.Test.Lib (enumTestGroup, paste, reduce, TMapTP)
 import System.Exit (ExitCode(ExitSuccess))

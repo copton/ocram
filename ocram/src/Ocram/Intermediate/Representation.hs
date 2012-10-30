@@ -5,7 +5,7 @@ module Ocram.Intermediate.Representation where
 import Compiler.Hoopl (C, O)
 import Language.C.Syntax.AST (CAssignOp, CExpression(CCall, CAssign, CVar), CDecl, Annotated(annotation), CFunDef)
 import Language.C.Data.Ident (internalIdent)
-import Ocram.Debug (CExpr', eun, ENodeInfo(..))
+import Ocram.Debug.Enriched (CExpr', eun, ENodeInfo(..)) -- avoid dependency cycle
 import Ocram.Print (render)
 import Ocram.Ruab (TRow)
 import Ocram.Symbols (symbol, Symbol)

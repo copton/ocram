@@ -1,7 +1,7 @@
 module Ocram.Analysis.Fgl
 -- export {{{1
 (
-  edge_label, find_loop, filter_nodes
+  edge_label, find_loop
 ) where
 
 -- import {{{1
@@ -23,6 +23,3 @@ find_loop graph start = findLoop [] start
       | otherwise = join $ List.find isJust $ map recurse $ G.out graph current
       where
         recurse (_, next, _) = findLoop (current : call_stack) next
-
-filter_nodes :: G.Graph gr => (G.Node -> Bool) -> gr a b -> gr a b -- {{{1
-filter_nodes p g = flip G.delNodes g $ filter (not . p) $ G.nodes g

@@ -10,5 +10,5 @@ import Ruab.Backend.GDB hiding (setup)
 import qualified Ruab.Backend.GDB as B
 import Ruab.Options (Options(optGdbLog, optBinary))
 
-setup :: Options -> Callback -> IO Context
+setup :: Options -> Callback -> IO Context -- {{{1
 setup opt callback = B.setup (optGdbLog opt) (optBinary opt) callback

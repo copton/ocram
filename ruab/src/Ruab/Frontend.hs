@@ -78,10 +78,12 @@ data CommandPrefix -- {{{2
   | CmdPrFilter
   | CmdPrHelp
   | CmdPrInterrupt
+  | CmdPrNext
   | CmdPrPrint
   | CmdPrQuit
   | CmdPrRun
   | CmdPrScroll
+  | CmdPrStep
 
 data Command -- {{{2
   = CmdUnknown String
@@ -92,10 +94,12 @@ data Command -- {{{2
   | CmdFilter [C.ThreadId]
   | CmdHelp (Maybe CommandPrefix)
   | CmdInterrupt
+  | CmdNext
   | CmdPrint String
   | CmdQuit
   | CmdRun
   | CmdScroll RowType Int
+  | CmdStep
 
 data RowType -- {{{2
   = Tcode | Pcode | Ecode
@@ -130,6 +134,8 @@ commands = [
   , ("print",     CmdPrPrint)
   , ("quit",      CmdPrQuit)
   , ("run",       CmdPrRun)
+  , ("step",      CmdPrStep)
+  , ("next",      CmdPrNext)
   , ("scroll",    CmdPrScroll)
   ]
 
@@ -188,6 +194,14 @@ parseCommand text =
 
       CmdPrPrint -> CmdPrint (unwords options)
 
+      CmdPrStep -> case options of 
+        [] -> CmdStep
+        _  -> CmdHelp (Just CmdPrStep)
+
+      CmdPrNext -> case options of 
+        [] -> CmdNext
+        _  -> CmdHelp (Just CmdPrNext)
+
   where
     noopt _   ev [] = ev
     noopt cmd _  _  = CmdHelp (Just cmd)
@@ -205,6 +219,8 @@ help CmdPrInterrupt   = ["interrupt: interrupt execution"]
 help CmdPrPrint       = ["print expression: print the value of the given expression"]
 help CmdPrQuit        = ["quit: quit ruab"]
 help CmdPrRun         = ["start: start execution"]
+help CmdPrNext        = ["next: continue to the next source line of the current function"]
+help CmdPrStep        = ["step: continue to a different source line"]
 help CmdPrScroll      = ["scroll [t|p|e] row: scroll views to the given row. Default row type is p-code."]
 
 instance Read RowType where -- {{{2
@@ -305,6 +321,8 @@ handleResponse fInfo fLog = either (fLog . Log LogError . (:[])) handle . snd
 
     handle (C.ResEvaluate value) = fLog $ Log LogOutput [value]
 
+    handle C.ResStepNext = fLog $ Log LogOutput ["resumed"]
+
 handleStatus :: Context -> Fire InfoUpdate -> C.Status -> IO () -- {{{2
 handleStatus ctx fInfo status =
   let
@@ -382,6 +400,9 @@ handleCommand core fInfo fLog fCommand = handle
     handle CmdRun = fCommand C.CmdRun
 
     handle (CmdPrint expr) = fCommand (C.CmdEvaluate expr)
+
+    handle CmdStep = fCommand (C.CmdStepNext C.Step)
+    handle CmdNext = fCommand (C.CmdStepNext C.Next)
 
 handleKeyEvent :: Fire InputEvent -> Event -> IO Bool -- {{{2
 handleKeyEvent fInput (Key _ _ _ []        _ _ _ _ "Return" _) = fInput InputReturn     >> return True

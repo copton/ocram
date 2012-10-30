@@ -10,7 +10,7 @@ import Data.Maybe (fromMaybe)
 import Language.C.Syntax.AST
 import Language.C.Data.Node (undefNode, CNode(nodeInfo))
 import Ocram.Analysis (Analysis(..), analysis)
-import Ocram.Debug (ENodeInfo(..), CStat')
+import Ocram.Debug.Enriched (ENodeInfo(..), CStat')
 import Ocram.Intermediate
 import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
