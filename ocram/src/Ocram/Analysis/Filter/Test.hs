@@ -3,49 +3,42 @@ module Ocram.Analysis.Filter.Test (tests) where
 
 -- imports {{{1
 import Ocram.Analysis.CallGraph (call_graph)
-import Ocram.Analysis.Filter (check_sanity, check_constraints, ErrorCode(..))
+import Ocram.Analysis.Filter (global_constraints, critical_constraints, ErrorCode(..))
 import Ocram.Test.Lib (enrich, enumTestGroup, paste)
 import Ocram.Text (OcramError(errCode))
 import Test.Framework (testGroup, Test)
 import Test.HUnit ((@=?), Assertion)
 
 tests :: Test -- {{{1
-tests = testGroup "Filter" [test_check_sanity, test_check_constraints]
+tests = testGroup "Filter" [test_global_constraints, test_critical_constraints]
 
-test_check_sanity :: Test -- {{{1
-test_check_sanity = enumTestGroup "check_sanity" $ map runTest [
-    -- , 01 - function declaration without parameter name {{{2
+test_global_constraints :: Test -- {{{1
+test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
+    -- , 01 nested functions not supported {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block(int);
-      __attribute__((tc_run_thread)) void start() {
-        block(23);
+      void bar() {
+        void foo() { }
+        foo();
       }
-    |], [NoVarName])
-  , -- 02 - function definition without parameter {{{2
-    ("void f { }", [NoParameterList])
-  , -- 03 - function definition without return type {{{2
-    ("__attribute__((foo)) f() { }", [NoReturnType])
-  , -- 04 - function declaration without return type {{{2
-    ("__attribute__((foo)) f();", [NoReturnType])
-  , -- 05 - switch without body {{{2
-    ("void foo(int i) { switch (i) ; }", [IllFormedSwitch])
-  , -- 06 - switch with preceding statement {{{2
-    ("void f(int i) { switch (i) { f(23); case 1: return; }}", [IllFormedSwitch])
-  , -- 07 - switch with preceding declaration {{{2
-    ("void f(int i) { switch (i) { int j; case 1: return; }}", [IllFormedSwitch])
-  , -- 08 - switch with multiple default statements {{{2
-    ("void f(int i) { switch (i) {case 0: ; default: ; default: ;}}", [IllFormedSwitch])
-  , -- 09 - switch with case after default statement {{{2
-    ("void f(int i) { switch (i) {case 0: ; default: ; case 1: ;}}", [IllFormedSwitch])
+    |], [NestedFunction])
+  , -- 02 nested functions not supported {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        void foo() { }
+        block();
+        foo();
+      }
+    |], [NestedFunction])
   ]
   where
     runTest (code, expected) = expected @=? errs (enrich code)
-    errs ast = case check_sanity ast of
+    errs ast = case global_constraints ast of
       Left es -> enrich $ map errCode es
       Right _ -> []
 
-test_check_constraints :: Test -- {{{1
-test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
+test_critical_constraints :: Test -- {{{1
+test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     -- , 01 - no threads {{{2
     ("", [NoThreads])
   , ("void foo();", [NoThreads])
@@ -63,7 +56,7 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
           critical(23);
        }
   |], [Ellipses, Ellipses])
-  , -- pointer to critical function {{{2
+  , -- 06 - pointer to critical function {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       void f(void*);
@@ -72,7 +65,7 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
         block();
       }
     |], [PointerToCriticalFunction])
-  , -- cyclic call graph {{{2
+  , -- 07 - cyclic call graph {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       void c2() {
@@ -86,7 +79,7 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
         c1();
       }
     |], [CriticalRecursion])
-  , -- initializer lists not supported yet {{{2
+  , -- 08 - initializer lists not supported yet {{{2
     ([paste|
       struct Foo { int i; };
       __attribute__((tc_blocking)) void block();
@@ -96,7 +89,7 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
         block();
       }
     |], [InitializerList, InitializerList])
-  , -- inline assembler not supported {{{2
+  , -- 09 - inline assembler not supported {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       __attribute__((tc_run_thread)) void start() {
@@ -104,15 +97,7 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
         block();
       }
     |], [AssemblerCode])
-  , -- nested functions not supported {{{2
-    ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
-        void foo() { }
-        block();
-      }
-    |], [NestedFunction])
-  , -- case ranges not supported {{{2
+  , -- 10 - case ranges not supported {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       __attribute__((tc_run_thread)) void start() {
@@ -122,7 +107,7 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
         }
       }
     |], [CaseRange])
-  , -- statement expressions not supported {{{2
+  , -- 11 - statement expressions not supported {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       __attribute__((tc_run_thread)) void start() {
@@ -131,7 +116,7 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
           block();
       }
     |], [StatExpression])
-  , -- computed gotos not supported {{{2
+  , -- 12 - computed gotos not supported {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       void crit(void* x) {
@@ -142,7 +127,7 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
         crit((void*)23);
       }
     |], [GotoPtr])
-  , -- array range designators not supported {{{2
+  , -- 13 - array range designators not supported {{{2
     ([paste|
       __attribute__((tc_blocking)) void block();
       __attribute__((tc_run_thread)) void start() {
@@ -150,12 +135,113 @@ test_check_constraints = enumTestGroup "check_constraints" $ map runTest [
         block();
       }
     |], [InitializerList, RangeDesignator])
+  , -- 14 - old-style parameter declaration {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+
+      void c(i, j)
+      int i;
+      char j;
+      {
+        block();
+      }
+
+      __attribute__((tc_run_thread)) void start() {
+        c(1, 'a');
+      }
+    |], [OldStyleParams])
+  , -- 15 - switch without body {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        switch (i) ;
+        block();
+      }
+    |], [IllFormedSwitch])
+  , -- 16 - switch with preceding statement {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        switch (i) {
+          block();
+          case 1: return;
+        }
+      }
+    |], [IllFormedSwitch])
+  , -- 17 - switch with preceding declaration {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        switch (i) {
+          int j;
+          case 1: block();
+        }
+      }
+    |], [IllFormedSwitch])
+  , -- 18 - switch with multiple default statements {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        switch (i) {
+          case 0: block();
+          default: ;
+          default: ;
+        }
+      }
+    |], [IllFormedSwitch])
+  , -- 19 - switch with case after default statement {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_run_thread)) void start() {
+        switch (i) {
+          case 0: ;
+          default: ;
+          case 1: block();
+        }
+      }
+    |], [IllFormedSwitch])
+  , -- 20 - blocking function declaration without parameter name {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block(int);
+      __attribute__((tc_run_thread)) void start() {
+        block(23);
+      }
+    |], [NoVarName])
+  , -- 21 - function definition without parameter {{{2
+    ([paste|
+      __attribute__((tc_blocking)) void block(int i);
+      int c {
+        block(23);
+      }
+      __attribute__((tc_run_thread)) void start() {
+        c(23);
+      }
+    |], [NoParameterList])
+  , -- 22 - function declaration without return type {{{2
+    ([paste|
+      __attribute__((tc_blocking)) block(int i);
+      __attribute__((tc_run_thread)) void start() {
+        block(23);
+      }
+    |], [NoReturnType])
+  , -- 23 - function definition without return type {{{2
+    ([paste|
+      __attribute__((tc_blocking)) block(int i);
+
+      c(int i) {
+        block(i+1);
+      }
+
+      __attribute__((tc_run_thread)) void start() {
+        c(23);
+      }
+    |], [NoReturnType, NoReturnType])
   -- end {{{2
   ]
   where
     runTest :: (String, [ErrorCode]) -> Assertion -- {{{2
     runTest (code, expected) = expected @=? errs (enrich code)
 
-    errs ast = case check_constraints ast (call_graph ast) of
+    errs ast = case critical_constraints ast (call_graph ast) of
         Left es -> enrich $ map errCode es
         Right _ -> []

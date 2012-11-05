@@ -2,12 +2,11 @@
 module Ocram.Analysis.Filter
 -- exports {{{1
 (
-  check_sanity, check_constraints, ErrorCode(..)
+  global_constraints, critical_constraints, ErrorCode(..)
 ) where
 
 -- imports {{{1
 import Control.Monad (guard)
-import Data.Data (Data)
 import Data.Generics (mkQ, everything, extQ)
 import Data.List (findIndices)
 import Data.Maybe (fromMaybe, mapMaybe)
@@ -33,109 +32,75 @@ newError code extraWhat where_ =
   in
     new_error (fromEnum code) what where_
 
-data ErrorCode =
-    NoParameterList
-  | NoReturnType
-  | AssemblerCode
-  | NestedFunction
-  | CaseRange
-  | PointerToCriticalFunction
-  | NoThreads
-  | ThreadNotBlocking
-  | CriticalRecursion
-  | InitializerList 
-  | NoVarName
-  | Ellipses
-  | StatExpression
-  | GotoPtr
+data ErrorCode = -- {{{2
+    AssemblerCode
   | BuiltinExpr
-  | RangeDesignator
+  | CaseRange
+  | CriticalRecursion
+  | Ellipses
+  | GotoPtr
   | IllFormedSwitch
+  | InitializerList 
+  | NestedFunction
+  | NoParameterList
+  | NoReturnType
+  | NoThreads
+  | NoVarName
+  | OldStyleParams
+  | PointerToCriticalFunction
+  | RangeDesignator
+  | StatExpression
+  | ThreadNotBlocking
   deriving (Eq, Enum, Show)
 
-errors :: [(ErrorCode, String)]
-errors = [
-    (NoParameterList, "function without parameter list")
-  , (NoReturnType, "function without explicit return type")
-  , (AssemblerCode, "transformation of assembler code is not supported")
-  , (NestedFunction, "nested functions are not part of C99 and are thus not supported")
-  , (CaseRange, "case ranges are not part of C99 and are thus not supported")
-  , (PointerToCriticalFunction, "taking pointer from critical function")
-  , (NoThreads, "at least one thread must be started")
-  , (ThreadNotBlocking, "thread does not call any blocking functions")
-  , (CriticalRecursion, "recursion of critical functions")
-  , (InitializerList, "Sorry, initializer list in critical functions is not supported yet.")
-  , (NoVarName, "Function parameters of blocking functions must have names.")
-  , (Ellipses, "No ellipses for critical functions")
-  , (StatExpression, "GNU C compound statement as expressions are not supported")
-  , (GotoPtr, "Computed gotos are not part of C99 and are thus not supported")
-  , (BuiltinExpr, "GNU C builtin expressions are not supported")
-  , (RangeDesignator, "GNU C array range designators are not supported")
-  , (IllFormedSwitch, "ill-formed switch statement")
-  ]
+errorText :: ErrorCode -> String -- {{{3
+errorText AssemblerCode =
+  "transformation of assembler code is not supported"
+errorText BuiltinExpr =
+  "GNU C builtin expressions are not supported"
+errorText CaseRange =
+  "case ranges are not part of C99 and are thus not supported"
+errorText CriticalRecursion =
+  "recursion of critical functions"
+errorText Ellipses =
+  "No ellipses for critical functions"
+errorText GotoPtr =
+  "Computed gotos are not part of C99 and are thus not supported"
+errorText IllFormedSwitch =
+  "ill-formed switch statement"
+errorText InitializerList =
+  "Sorry, initializer list in critical functions is not supported yet."
+errorText NestedFunction =
+  "nested functions are not part of C99 and are thus not supported"
+errorText NoParameterList =
+  "function without parameter list"
+errorText NoReturnType =
+  "function without explicit return type"
+errorText NoThreads =
+  "at least one thread must be started"
+errorText NoVarName =
+  "Function parameters of blocking functions must have names."
+errorText OldStyleParams =
+  "Old style parameter declarations are not supported."
+errorText PointerToCriticalFunction =
+  "taking pointer from critical function"
+errorText RangeDesignator =
+  "GNU C array range designators are not supported"
+errorText StatExpression =
+  "GNU C compound statement as expressions are not supported"
+errorText ThreadNotBlocking =
+  "thread does not call any blocking functions"
 
-errorText :: ErrorCode -> String
-errorText code = $fromJust_s $ List.lookup code errors
-
-check_sanity :: CTranslUnit -> Either [OcramError] () -- {{{1
-check_sanity ast = failOrPass $ everything (++) (mkQ [] saneExtDecls `extQ` saneStmt) ast
+global_constraints :: CTranslUnit -> Either [OcramError] () -- {{{1
+global_constraints ast = failOrPass $ everything (++) (mkQ [] scanBlockItem) ast
   where
-    saneExtDecls (CDeclExt cd@(CDecl ts _ ni))
-      | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
-      | is_blocking_function cd = map (\p -> newError NoVarName Nothing (Just (nodeInfo p))) $ filter noVarName $ function_parameters_cd cd
-      | otherwise = []
+    scanBlockItem :: CBlockItem -> [OcramError]
+    scanBlockItem (CNestedFunDef o) =
+      [newError NestedFunction Nothing (Just (nodeInfo o))]
+    scanBlockItem _ = []
 
-    saneExtDecls (CFDefExt (CFunDef ts (CDeclr _ ps _ _ _) _ _ ni))
-      | null ps = [newError NoParameterList Nothing (Just ni)]
-      | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
-      | otherwise = []
-
-    saneExtDecls _ = []
-
-    -- The restrictions on switch statements are not strictly required, but
-    -- make the implementation of desugar_control_structures easier.
-    -- Furthermore, we see little sense in using these cases deliberately.
-    saneStmt (CSwitch _ body ni) =
-      let
-        isCase (CCase _ _ _)         = True
-        isCase _                     = False
-        isCases (CCases _ _ _ _)     = True
-        isCases _                    = False
-        isDefault (CDefault _ _)     = True
-        isDefault _                  = False
-        extract (CBlockStmt s)       = Just s
-        extract _                    = Nothing        
-
-        test = let flt = or . sequence [isCase, isCases, isDefault] in do
-          -- Enforce a switch "code block"...
-          (CCompound _ items _) <- Just body
-          -- ...which must start with a statement...
-          ((CBlockStmt stmt):_) <- Just items
-          -- ...that has to be a case(es) or a default statement.
-          guard $ flt stmt
-
-          -- And finally make sure that there is at most one default
-          -- statement and that no case(es) statement follows.
-          let
-             allcases = filter flt $ mapMaybe extract items
-             dfltcases = findIndices isDefault allcases
-          guard (null dfltcases || head dfltcases == (length allcases) - 1) 
-      in case test of
-        Nothing -> [newError IllFormedSwitch Nothing (Just ni)]
-        Just () -> []
-
-    saneStmt _ = []
-
-    hasReturnType = any isTypeSpec
-      where
-        isTypeSpec (CTypeSpec _) = True
-        isTypeSpec _ = False
-
-    noVarName (CDecl _ [] _) = True
-    noVarName _ = False
-
-check_constraints :: CTranslUnit -> CallGraph -> Either [OcramError] () -- {{{1
-check_constraints ast cg = failOrPass $
+critical_constraints :: CTranslUnit -> CallGraph -> Either [OcramError] () -- {{{1
+critical_constraints ast cg = failOrPass $
      checkFunctionPointer cg ast
   ++ checkRecursion cg
   ++ checkStartFunctions cg ast
@@ -179,20 +144,42 @@ checkThreads cg
 checkFeatures :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkFeatures cg (CTranslUnit ds _) = concatMap filt ds
   where
-    filt (CDeclExt cd)
-      | is_blocking_function cd = scan cd
-      | otherwise = []
-    filt (CFDefExt fd)
-      | is_critical cg (symbol fd) = scan fd
-      | otherwise = []
+    filt (CDeclExt cd@(CDecl ts _ ni))
+      | not (is_blocking_function cd) = []
+      | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
+      | otherwise = noVarNames ++ everything (++) (mkQ [] scanDerivedDeclr) cd
+      where
+      noVarNames = mapMaybe noVarName $ function_parameters_cd cd
+      noVarName p@(CDecl _ [] _) = Just $ newError NoVarName Nothing (Just (nodeInfo p))
+      noVarName _                = Nothing
+        
+    filt (CFDefExt fd@(CFunDef ts (CDeclr _ ps _ _ _) _ _ ni))
+      | not (is_critical cg (symbol fd)) = []
+      | null ps = [newError NoParameterList Nothing (Just ni)]
+      | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
+      | otherwise = scan fd
+
     filt _ = []
 
-    scan :: Data a => a -> [OcramError]
-    scan = everything (++) (mkQ [] scanDerivedDeclr `extQ` scanDecl `extQ` scanStat `extQ` scanBlockItem `extQ` scanExpr `extQ` scanPartDesig)
+    hasReturnType = any isTypeSpec
+      where
+        isTypeSpec (CTypeSpec _) = True
+        isTypeSpec _ = False
+
+    scan :: CFunDef -> [OcramError]
+    scan = everything (++) (mkQ [] 
+                                   scanDerivedDeclr
+                            `extQ` scanDecl
+                            `extQ` scanStat
+                            `extQ` scanExpr
+                            `extQ` scanPartDesig
+                           )
 
     scanDerivedDeclr :: CDerivedDeclr -> [OcramError]
     scanDerivedDeclr x@(CFunDeclr (Right (_, True)) _ _) =
       [newError Ellipses Nothing (Just (nodeInfo x))]
+    scanDerivedDeclr x@(CFunDeclr (Left _) _ _) =
+      [newError OldStyleParams Nothing (Just (nodeInfo x))]
     scanDerivedDeclr _ = []
 
     scanDecl (CDecl _ l ni)
@@ -208,12 +195,40 @@ checkFeatures cg (CTranslUnit ds _) = concatMap filt ds
       [newError CaseRange Nothing (Just ni)]
     scanStat (CGotoPtr _ ni) =
       [newError GotoPtr Nothing (Just ni)]
-    scanStat _ = []
+    
+    -- The restrictions on switch statements are not strictly required, but
+    -- make the implementation of desugar_control_structures easier.
+    -- Furthermore, we see little sense in using these cases deliberately.
+    scanStat (CSwitch _ body ni) =
+      let
+        isCase (CCase _ _ _)         = True
+        isCase _                     = False
+        isCases (CCases _ _ _ _)     = True
+        isCases _                    = False
+        isDefault (CDefault _ _)     = True
+        isDefault _                  = False
+        extract (CBlockStmt s)       = Just s
+        extract _                    = Nothing        
 
-    scanBlockItem :: CBlockItem -> [OcramError]
-    scanBlockItem (CNestedFunDef o) =
-      [newError NestedFunction Nothing (Just (nodeInfo o))]
-    scanBlockItem _ = []
+        test = let flt = or . sequence [isCase, isCases, isDefault] in do
+          -- Enforce a switch "code block"...
+          (CCompound _ items _) <- Just body
+          -- ...which must start with a statement...
+          ((CBlockStmt stmt):_) <- Just items
+          -- ...that has to be a case(es) or a default statement.
+          guard $ flt stmt
+
+          -- And finally make sure that there is at most one default
+          -- statement and that no case(es) statement follows.
+          let
+             allcases = filter flt $ mapMaybe extract items
+             dfltcases = findIndices isDefault allcases
+          guard (null dfltcases || head dfltcases == (length allcases) - 1) 
+      in case test of
+        Nothing -> [newError IllFormedSwitch Nothing (Just ni)]
+        Just () -> []
+
+    scanStat _ = []
 
     scanExpr (CStatExpr _ ni) =
       [newError StatExpression Nothing (Just ni)]

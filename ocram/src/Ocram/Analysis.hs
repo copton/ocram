@@ -29,9 +29,9 @@ data Analysis = Analysis { -- {{{1
 
 analysis :: CTranslUnit -> Either [OcramError] Analysis -- {{{1
 analysis ast@(CTranslUnit eds _) = do
-  check_sanity ast
+  global_constraints ast
   let cg = call_graph ast
-  check_constraints ast cg
+  critical_constraints ast cg
   return $ populate cg
 
   where
