@@ -184,7 +184,7 @@ updateLabels gd = G.gmap update gd
     forward  = reachableSubGraph gd $ nodesByAttr gd attrStart
 
 reachableSubGraph :: GraphData -> [G.Node] -> Set.Set G.Node -- {{{3
-reachableSubGraph gd ns = Set.fromList $ concatMap (flip G.bfs gd) ns
+reachableSubGraph gd ns = Set.fromList $ G.bfsn ns gd
 
 nodesByAttr :: GraphData -> (Attribute -> Bool) -> [G.Node] -- {{{3
 nodesByAttr g attr = map fst $ filter (any attr . lblAttr . snd) $ G.labNodes g
