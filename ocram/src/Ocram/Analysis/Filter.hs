@@ -50,6 +50,7 @@ data ErrorCode = -- {{{2
   | PointerToCriticalFunction
   | RangeDesignator
   | StatExpression
+  | ThreadLocalStorage
   | ThreadNotBlocking
   deriving (Eq, Enum, Show)
 
@@ -88,16 +89,23 @@ errorText RangeDesignator =
   "GNU C array range designators are not supported"
 errorText StatExpression =
   "GNU C compound statement as expressions are not supported"
+errorText ThreadLocalStorage =
+  "GNU C thread local storage is not supported"
 errorText ThreadNotBlocking =
   "thread does not call any blocking functions"
 
 global_constraints :: CTranslUnit -> Either [OcramError] () -- {{{1
-global_constraints ast = failOrPass $ everything (++) (mkQ [] scanBlockItem) ast
+global_constraints ast = failOrPass $ everything (++) (mkQ [] scanBlockItem `extQ` scanStorageSpec) ast
   where
     scanBlockItem :: CBlockItem -> [OcramError]
     scanBlockItem (CNestedFunDef o) =
       [newError NestedFunction Nothing (Just (nodeInfo o))]
     scanBlockItem _ = []
+
+    scanStorageSpec :: CStorageSpec -> [OcramError]
+    scanStorageSpec (CThread ni) =
+      [newError ThreadLocalStorage Nothing (Just ni)]
+    scanStorageSpec _ = []
 
 critical_constraints :: CTranslUnit -> CallGraph -> Either [OcramError] () -- {{{1
 critical_constraints ast cg = failOrPass $

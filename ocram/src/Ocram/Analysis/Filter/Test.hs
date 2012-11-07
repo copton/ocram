@@ -30,6 +30,16 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
         foo();
       }
     |], [NestedFunction])
+  , -- 03 thread local storage {{{2
+    ([paste|
+      __thread int i;
+
+      __attribute__((tc_blocking)) void block(int i);
+      __attribute__((tc_run_thread)) void start() {
+        block(i);
+      }
+    |], [ThreadLocalStorage])
+  -- end {{{2
   ]
   where
     runTest (code, expected) = expected @=? errs (enrich code)
