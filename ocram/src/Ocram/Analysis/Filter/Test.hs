@@ -246,6 +246,15 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
         c(23);
       }
     |], [NoReturnType, NoReturnType])
+  , -- 24 - non-void thread start function {{{2
+    ([paste|
+      __attribute__((tc_api)) void block();
+
+      __attribute__((tc_thread)) int start() {
+        block();
+        return 0;
+      }
+    |], [NonVoidStartFunction])
   -- end {{{2
   ]
   where

@@ -16,7 +16,7 @@ import Language.C.Syntax.AST
 import Ocram.Analysis.CallGraph (start_functions, is_critical)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
-import Ocram.Query (is_start_function, is_blocking_function, function_parameters_cd)
+import Ocram.Query (is_start_function, is_blocking_function, function_parameters_cd, return_type_fd)
 import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
@@ -42,6 +42,7 @@ data ErrorCode = -- {{{2
   | IllFormedSwitch
   | InitializerList 
   | NestedFunction
+  | NonVoidStartFunction
   | NoParameterList
   | NoReturnType
   | NoThreads
@@ -73,6 +74,8 @@ errorText InitializerList =
   "Sorry, initializer list in critical functions is not supported yet."
 errorText NestedFunction =
   "nested functions are not part of C99 and are thus not supported"
+errorText NonVoidStartFunction =
+  "thread start functions must return 'void'"
 errorText NoParameterList =
   "function without parameter list"
 errorText NoReturnType =
@@ -139,9 +142,14 @@ checkStartFunctions :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkStartFunctions cg (CTranslUnit ds _) = foldr go [] ds
   where
   go (CFDefExt f@(CFunDef _ _ _ _ ni)) es
-    | is_start_function f && not (is_critical cg (symbol f)) = 
-      newError ThreadNotBlocking Nothing (Just ni) : es
-    | otherwise = es
+    | not (is_start_function f)           = es
+    | not (is_critical cg (symbol f))     = 
+        newError ThreadNotBlocking Nothing (Just ni) : es
+    | (not . isVoid . fst . return_type_fd) f =
+        newError NonVoidStartFunction Nothing (Just ni) : es
+    | otherwise                           = es
+    where isVoid (CVoidType _) = True
+          isVoid _             = False
   go _ es = es
 
 checkThreads :: CallGraph -> [OcramError] -- {{{2
