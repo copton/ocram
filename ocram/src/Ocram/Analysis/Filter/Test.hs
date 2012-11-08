@@ -254,7 +254,16 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
         block();
         return 0;
       }
-    |], [NonVoidStartFunction])
+    |], [StartFunctionSignature])
+  , -- 25 - thread start function with parameters {{{2
+    ([paste|
+      __attribute__((tc_api)) void block();
+
+      __attribute__((tc_thread)) void start(int i) {
+        block();
+        return 0;
+      }
+    |], [StartFunctionSignature])
   -- end {{{2
   ]
   where
