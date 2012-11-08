@@ -4,11 +4,11 @@ module Ocram.Names where
 
 -- |The name of the attribute that marks blocking function declaratations
 blockingAttr :: String
-blockingAttr = "tc_blocking"
+blockingAttr = "tc_api"
 
 -- |The name of the attribute that marks thread start function definitions
 startAttr :: String
-startAttr = "tc_run_thread"
+startAttr = "tc_thread"
 
 -- |The naming scheme for control flow labels
 ctrLbl :: Int -> String

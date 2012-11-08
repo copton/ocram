@@ -57,7 +57,7 @@ static void cleanup_handler(void* arg)
     pthread_mutex_unlock(&mutex);
 }
 
-void tc_run_thread(void(*thread_start_function)())
+void tc_thread(void(*thread_start_function)())
 {
     assert (numberof_threads < MAX_THREADS);
     pthread_create(&threads[numberof_threads++], 0, run_thread, (void*)thread_start_function);

@@ -21,77 +21,77 @@ test_call_graph :: Test -- {{{1
 test_call_graph = enumTestGroup "call_graph" $ map runTest [
     -- , 01 - minimal example {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         block();
       }
     |], [("start", "block")])
   ,  -- 02 - with critical function {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       void critical() {
         block();
       }
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         critical();
       }
     |], [("critical", "block"), ("start", "critical")])
   , -- 03 - chain of critical functions {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       void c1() { c2(); }
       void c2() { c3(); }
       void c3() { c4(); }
       void c4() { block(); }
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         c1();
       }
     |], [("c1", "c2"), ("c2", "c3"), ("c3", "c4"), ("c4", "block"), ("start", "c1")])
   , -- 04 - additional non-critical function {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       void non_critical() { }
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         non_critical();
         block();
       }
     |], [("start", "block"), ("start", "non_critical")])
   , -- 05 - ignore unused blocking functions {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block_unused();
-      __attribute__((tc_blocking)) void block_used();
-      __attribute__((tc_run_thread)) void start () { block_used(); }
+      __attribute__((tc_api)) void block_unused();
+      __attribute__((tc_api)) void block_used();
+      __attribute__((tc_thread)) void start () { block_used(); }
     |], [("start", "block_used")])
   , -- 06 - call of functions from external libraries {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       int libfun();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         libfun();
         block();
       }
     |], [("start", "block")])
   , -- 07 - two independant threads {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block1();
-      __attribute__((tc_blocking)) void block2();
-      __attribute__((tc_run_thread)) void start1() {
+      __attribute__((tc_api)) void block1();
+      __attribute__((tc_api)) void block2();
+      __attribute__((tc_thread)) void start1() {
         block1();
       }
-      __attribute__((tc_run_thread)) void start2() {
+      __attribute__((tc_thread)) void start2() {
         block2();
       }
     |], [("start1", "block1"), ("start2", "block2")])
   , -- 08 - reentrance {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       void critical() {
         block();
       }
-      __attribute__((tc_run_thread)) void start1() {
+      __attribute__((tc_thread)) void start1() {
         critical();
       }
-      __attribute__((tc_run_thread)) void start2() {
+      __attribute__((tc_thread)) void start2() {
         critical();
       }
     |], [("critical", "block"), ("start1", "critical"), ("start2", "critical")])

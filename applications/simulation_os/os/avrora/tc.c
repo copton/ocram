@@ -10,4 +10,4 @@ TC_BLOCKING error_t tc_sensor_read(int handle, sensor_val_t* value) { return FAI
 void tc_init() { }
 void tc_run() { }
 
-void tc_run_thread(void(*thread_start_function)()) { }
+void tc_thread(void(*thread_start_function)()) { }

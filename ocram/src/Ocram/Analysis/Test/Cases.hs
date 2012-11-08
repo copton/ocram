@@ -31,7 +31,7 @@ test_cases = [
 		[]
 -- single start function {{{2
 	,TCase
-		"__attribute__((tc_run_thread)) void start() { };"
+		"__attribute__((tc_thread)) void start() { };"
 		[]
 		[]
 		[ThreadNotBlocking, NoThreads]
@@ -39,8 +39,8 @@ test_cases = [
 -- minimal thread {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_blocking)) void block();
-			__attribute__((tc_run_thread)) void start() {
+			__attribute__((tc_api)) void block();
+			__attribute__((tc_thread)) void start() {
 				block();
 			}
 		|]
@@ -51,8 +51,8 @@ test_cases = [
 -- minimal thread - complex blocking declratation{{{2
 	,TCase
 		[paste|
-			__attribute__((tc_blocking)) void* block(struct hemmerned* foo);
-			__attribute__((tc_run_thread)) void start() {
+			__attribute__((tc_api)) void* block(struct hemmerned* foo);
+			__attribute__((tc_thread)) void start() {
 				block(0);
 			}
 		|]
@@ -63,11 +63,11 @@ test_cases = [
 -- additional critical function {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_blocking)) void block();
+			__attribute__((tc_api)) void block();
 			void critical() {
 				block();
 			}
-			__attribute__((tc_run_thread)) void start() {
+			__attribute__((tc_thread)) void start() {
 				critical();
 			}
 		|]
@@ -78,12 +78,12 @@ test_cases = [
 -- chain of critical functions {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_blocking)) void block();
+			__attribute__((tc_api)) void block();
 			void c1() { c2(); }
 			void c2() { c3(); }
 			void c3() { c4(); }
 			void c4() { block(); }
-			__attribute__((tc_run_thread)) void start() {
+			__attribute__((tc_thread)) void start() {
 				c1();
 			}
 		|]
@@ -94,9 +94,9 @@ test_cases = [
 -- additional non-critical function {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_blocking)) void block();
+			__attribute__((tc_api)) void block();
 			void non_critical() { }
-			__attribute__((tc_run_thread)) void start() {
+			__attribute__((tc_thread)) void start() {
 				non_critical();
 				block();
 			}
@@ -108,9 +108,9 @@ test_cases = [
 -- only regard actually used blocking functions {{{2
   ,TCase
     [paste|
-      __attribute__((tc_blocking)) void block_unused();
-      __attribute__((tc_blocking)) void block_used();
-      __attribute__((tc_run_thread)) void start () { block_used(); }
+      __attribute__((tc_api)) void block_unused();
+      __attribute__((tc_api)) void block_used();
+      __attribute__((tc_thread)) void start () { block_used(); }
     |]
     [("start", "block_used")]
     []
@@ -119,9 +119,9 @@ test_cases = [
 -- call of functions from external libraries {{{2
   ,TCase
     [paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       int libfun();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         libfun();
         block();
       }
@@ -133,12 +133,12 @@ test_cases = [
 -- two independant threads {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_blocking)) void block1();
-			__attribute__((tc_blocking)) void block2();
-			__attribute__((tc_run_thread)) void start1() {
+			__attribute__((tc_api)) void block1();
+			__attribute__((tc_api)) void block2();
+			__attribute__((tc_thread)) void start1() {
 				block1();
 			}
-			__attribute__((tc_run_thread)) void start2() {
+			__attribute__((tc_thread)) void start2() {
 				block2();
 			}
 		|]
@@ -149,14 +149,14 @@ test_cases = [
 -- reentrance {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_blocking)) void block();
+			__attribute__((tc_api)) void block();
 			void critical() {
 				block();
 			}
-			__attribute__((tc_run_thread)) void start1() {
+			__attribute__((tc_thread)) void start1() {
 				critical();
 			}
-			__attribute__((tc_run_thread)) void start2() {
+			__attribute__((tc_thread)) void start2() {
 				critical();
 			}
 		|]
@@ -167,9 +167,9 @@ test_cases = [
 -- pointer to critical function {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_blocking)) void block();
+			__attribute__((tc_api)) void block();
 			void f(void*);
-			__attribute__((tc_run_thread)) void start() {
+			__attribute__((tc_thread)) void start() {
 				f(&block);
 				block();
 			}
@@ -181,7 +181,7 @@ test_cases = [
 -- cyclic call graph {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_blocking)) void block();
+			__attribute__((tc_api)) void block();
 			void c2() {
 				block();
 				c1();
@@ -191,7 +191,7 @@ test_cases = [
 				c2();
 			}
 		
-			__attribute__((tc_run_thread)) void start() {
+			__attribute__((tc_thread)) void start() {
 				c1();
 			}
 		|]
@@ -224,8 +224,8 @@ test_cases = [
   ,TCase
     [paste|
       struct Foo { int i; };
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         struct Foo foo = {23};
         int i[] = {4,2};
         block();
@@ -240,12 +240,12 @@ test_cases = [
     [paste|
       struct Foo { int i; };
       const char text[] = "it's okay";
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       void foo() {
         struct Foo foo = {23};
         int i[] = {4,2};
       }
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         block();
         foo();
       }
@@ -257,8 +257,8 @@ test_cases = [
 -- name-less parameters of blocking functions {{{2
   ,TCase
     [paste|
-      __attribute__((tc_blocking)) void block(int);
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block(int);
+      __attribute__((tc_thread)) void start() {
         block(23);
       }
     |]
@@ -269,13 +269,13 @@ test_cases = [
 -- no ellipses for critical functions {{{2
    ,TCase
     [paste|
-     __attribute__((tc_blocking)) void block(int x, ...);
+     __attribute__((tc_api)) void block(int x, ...);
      void non_critical(int x, ...) { }
      void critical(int x, ...) {
        block(x);
        non_critical(x);
      } 
-     __attribute__((tc_run_thread)) void start() {
+     __attribute__((tc_thread)) void start() {
         critical(23);
      }
     |]

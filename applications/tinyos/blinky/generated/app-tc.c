@@ -1,6 +1,6 @@
 #ifdef OCRAM_MODE
-#define THREAD __attribute__((tc_run_thread))
-#define BLOCK __attribute__((tc_blocking))
+#define THREAD __attribute__((tc_thread))
+#define BLOCK __attribute__((tc_api))
 #else
 #define THREAD
 #define BLOCK

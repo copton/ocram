@@ -23,8 +23,8 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
     |], [NestedFunction])
   , -- 02 nested functions not supported {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         void foo() { }
         block();
         foo();
@@ -34,8 +34,8 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
     ([paste|
       __thread int i;
 
-      __attribute__((tc_blocking)) void block(int i);
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block(int i);
+      __attribute__((tc_thread)) void start() {
         block(i);
       }
     |], [ThreadLocalStorage])
@@ -53,31 +53,31 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     ("", [NoThreads])
   , ("void foo();", [NoThreads])
   , ("void foo() { };", [NoThreads])
-  , ("__attribute__((tc_run_thread)) void start() { };", [ThreadNotBlocking])
+  , ("__attribute__((tc_thread)) void start() { };", [ThreadNotBlocking])
   , -- 05 - Ellipses {{{2
     ([paste|
-       __attribute__((tc_blocking)) void block(int x, ...);
+       __attribute__((tc_api)) void block(int x, ...);
        void non_critical(int x, ...) { }
        void critical(int x, ...) {
          block(x);
          non_critical(x);
        } 
-       __attribute__((tc_run_thread)) void start() {
+       __attribute__((tc_thread)) void start() {
           critical(23);
        }
   |], [Ellipses, Ellipses])
   , -- 06 - pointer to critical function {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       void f(void*);
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         f(&block);
         block();
       }
     |], [PointerToCriticalFunction])
   , -- 07 - cyclic call graph {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       void c2() {
         block();
         c1();
@@ -85,15 +85,15 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
       void c1() {
         c2();
       }
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         c1();
       }
     |], [CriticalRecursion])
   , -- 08 - initializer lists not supported yet {{{2
     ([paste|
       struct Foo { int i; };
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         struct Foo foo = {23};
         int i[] = {4,2};
         block();
@@ -101,16 +101,16 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [InitializerList, InitializerList])
   , -- 09 - inline assembler not supported {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         asm("movl %ebx, %eax");
         block();
       }
     |], [AssemblerCode])
   , -- 10 - case ranges not supported {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         int i;
         switch (i) {
           case 1 ... 2: block();
@@ -119,8 +119,8 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [CaseRange])
   , -- 11 - statement expressions not supported {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
           int a, b;
           int i = ( {int _a = (a), _b = (b); _a > _b ? _a : _b; } );
           block();
@@ -128,26 +128,26 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [StatExpression])
   , -- 12 - computed gotos not supported {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
       void crit(void* x) {
         goto *x;
         block();
       }
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         crit((void*)23);
       }
     |], [GotoPtr])
   , -- 13 - array range designators not supported {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         int widths[] = { [0 ... 9] = 1, [10] = 3 };
         block();
       }
     |], [InitializerList, RangeDesignator])
   , -- 14 - old-style parameter declaration {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
+      __attribute__((tc_api)) void block();
 
       void c(i, j)
       int i;
@@ -156,22 +156,22 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
         block();
       }
 
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         c(1, 'a');
       }
     |], [OldStyleParams])
   , -- 15 - switch without body {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         switch (i) ;
         block();
       }
     |], [IllFormedSwitch])
   , -- 16 - switch with preceding statement {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         switch (i) {
           block();
           case 1: return;
@@ -180,8 +180,8 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [IllFormedSwitch])
   , -- 17 - switch with preceding declaration {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         switch (i) {
           int j;
           case 1: block();
@@ -190,8 +190,8 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [IllFormedSwitch])
   , -- 18 - switch with multiple default statements {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         switch (i) {
           case 0: block();
           default: ;
@@ -201,8 +201,8 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [IllFormedSwitch])
   , -- 19 - switch with case after default statement {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block();
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block();
+      __attribute__((tc_thread)) void start() {
         switch (i) {
           case 0: ;
           default: ;
@@ -212,37 +212,37 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [IllFormedSwitch])
   , -- 20 - blocking function declaration without parameter name {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block(int);
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) void block(int);
+      __attribute__((tc_thread)) void start() {
         block(23);
       }
     |], [NoVarName])
   , -- 21 - function definition without parameter {{{2
     ([paste|
-      __attribute__((tc_blocking)) void block(int i);
+      __attribute__((tc_api)) void block(int i);
       int c {
         block(23);
       }
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         c(23);
       }
     |], [NoParameterList])
   , -- 22 - function declaration without return type {{{2
     ([paste|
-      __attribute__((tc_blocking)) block(int i);
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_api)) block(int i);
+      __attribute__((tc_thread)) void start() {
         block(23);
       }
     |], [NoReturnType])
   , -- 23 - function definition without return type {{{2
     ([paste|
-      __attribute__((tc_blocking)) block(int i);
+      __attribute__((tc_api)) block(int i);
 
       c(int i) {
         block(i+1);
       }
 
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
         c(23);
       }
     |], [NoReturnType, NoReturnType])

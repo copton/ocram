@@ -109,12 +109,12 @@ unitTestsCollect :: [(Input, OutputCollectDeclarations)] -- {{{2
 unitTestsCollect = [
   -- , 01 - nothing to do {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_api)) void block();
 02: void c(int i) {
       i++;
       block();
     }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       c(23);
     }  
   |], ([
@@ -131,13 +131,13 @@ unitTestsCollect = [
   |]))
   , -- 02 - local variable with initializer {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_api)) void block();
 02: int c(int i) {
       int j = 42;
       block();
       return i + j;
     }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       c(23);
     }  
   |], ([
@@ -158,8 +158,8 @@ unitTestsCollect = [
   |]))
   , -- 03 - local variable shadowing {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block();
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+02: __attribute__((tc_thread)) void start() {
       int i = 23;
 04:   {
         char i = 42;
@@ -182,8 +182,8 @@ unitTestsCollect = [
   |]))
   , -- 04 - local variable shadowing - with access {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block();
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+02: __attribute__((tc_thread)) void start() {
       int i = 23;
 04:   {
         char i = 42;
@@ -208,8 +208,8 @@ unitTestsCollect = [
   |]))
   , -- 05 - for loop with declaration {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block();
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+02: __attribute__((tc_thread)) void start() {
       int i = 23;
 04:   for (int i=0; i<23; i++) {
         block();
@@ -233,8 +233,8 @@ unitTestsCollect = [
   |]))
   , -- 06 - multiple declarations {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+02: __attribute__((tc_thread)) void start() {
       int i = 23, j = 42;
 04:   {
         char i = 0, j = 1;
@@ -261,8 +261,8 @@ unitTestsCollect = [
   |]))
   , -- 07 - static variable with initializer {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+02: __attribute__((tc_thread)) void start() {
       int j = 42;
 04:   {
         static int i = 23;
@@ -285,8 +285,8 @@ unitTestsCollect = [
   |]))
   , -- 08 - static variable shadowing {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+02: __attribute__((tc_thread)) void start() {
       static int i = 42;
 04:   {
         static int i = 23;
@@ -311,8 +311,8 @@ unitTestsCollect = [
   |]))
   , -- 09 - multiple declarations mixed {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+02: __attribute__((tc_thread)) void start() {
       static int i = 42;
       int j = 23;
 05:   {
@@ -340,8 +340,8 @@ unitTestsCollect = [
   |]))
   , -- 10 - reuse without shadowing {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block();
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+02: __attribute__((tc_thread)) void start() {
 03:   {
         int i = 0;
 05:   }
@@ -368,8 +368,8 @@ unitTestsCollect = [
   |]))
   , -- 11 - substitution in initializer {{{3
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+02: __attribute__((tc_thread)) void start() {
 03:   {
         int i = 0;
 05:   }
@@ -401,8 +401,8 @@ unitTestsDesugar :: [(Input, OutputDesugarControlStructures)]  -- {{{2
 unitTestsDesugar = [
   -- , 01 - while loop {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
         a();
         while(1)
           block();
@@ -423,8 +423,8 @@ unitTestsDesugar = [
   |])
   , -- 02 - do loop {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
         a();
         do {
           block();
@@ -445,8 +445,8 @@ unitTestsDesugar = [
   |])
   , -- 03 - for loop {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
         a();
         {
           i=0;
@@ -475,8 +475,8 @@ unitTestsDesugar = [
     |])
   , -- 04 - for loop - no break condition {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
         a();
         {
           i = 0;
@@ -504,8 +504,8 @@ unitTestsDesugar = [
     |])
   , -- 05 - for loop - explicit break {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
         a();
         {
           i = 0;
@@ -540,8 +540,8 @@ unitTestsDesugar = [
     |])
   , -- 06 - do loop with continue and break {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
         a();
         do {
           continue;
@@ -566,8 +566,8 @@ unitTestsDesugar = [
   |])
   , -- 07 - nested {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
         a();
         while(1) {
           b();
@@ -616,8 +616,8 @@ unitTestsDesugar = [
     |])
   , -- 08 - if statements {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       if (1) {
         block();
       }
@@ -634,8 +634,8 @@ unitTestsDesugar = [
   |])
   , -- 09 - if statements with else block {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       if (1) {
         block(1);
         return;
@@ -662,8 +662,8 @@ unitTestsDesugar = [
   |])
   , -- 10 - if statements with else if {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       if (1) {
         block(1);
         return;
@@ -695,8 +695,8 @@ unitTestsDesugar = [
   |])
   , -- 11 - switch statement {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       switch (i) {
         case 1: a(); b(); break;
         case 2: c(); block();
@@ -725,8 +725,8 @@ unitTestsDesugar = [
   |])
   , -- 12 - switch statement with default {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       switch (i) {
         case 1: a(); b(); break;
         case 2: c(); block();
@@ -754,8 +754,8 @@ unitTestsDesugar = [
   |])
   , -- 13 - switch statement with empty case {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       switch (i) {
         case 1:
         case 2: c(); block();
@@ -782,8 +782,8 @@ unitTestsDesugar = [
   |])
   , -- 14 - switch statement with empty case before default {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       switch (i) {
         case 2: c(); block();
         case 1:
@@ -810,8 +810,8 @@ unitTestsDesugar = [
   |])
   , -- 15 - label with statement {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       i = 0;
       start: i++;
       block(i);
@@ -833,8 +833,8 @@ unitTestsBoolean :: [(Input, OutputBooleanShortCircuiting)] -- {{{2
 unitTestsBoolean = [
   -- , 01 - critical function on left hand side, or expression {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       if(block() || h()) ;
     }
   |], ([
@@ -858,8 +858,8 @@ unitTestsBoolean = [
   |]))
   , -- 02 - critical function on right hand side, and expression {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       if(h() && block()) ;
     }
   |], ([
@@ -883,8 +883,8 @@ unitTestsBoolean = [
   |]))
   , -- 03 - expression statement {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       h() || block();
     }
   |], ([
@@ -903,8 +903,8 @@ unitTestsBoolean = [
   |]))
   , -- 04 - return statement {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       return (block() && h());
     }
   |], ([
@@ -923,8 +923,8 @@ unitTestsBoolean = [
   |]))
   , -- 05 - function call {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       h(block() && h());
     }
   |], ([
@@ -943,8 +943,8 @@ unitTestsBoolean = [
   |]))
   , -- 06 - within algebraic expression {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = ((block() || 1) + 3);
     }
   |], ([
@@ -963,8 +963,8 @@ unitTestsBoolean = [
   |]))
   , -- 07 - containing algebraic expression {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = ((1+block()) || h());
     }
   |], ([
@@ -983,9 +983,9 @@ unitTestsBoolean = [
   |]))
   , -- 08 - nested {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block1();
-    __attribute__((tc_blocking)) void block2();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block1();
+    __attribute__((tc_api)) void block2();
+    __attribute__((tc_thread)) void start() {
       int i = (block1() || h1()) && (h2() || block2());  
     }
   |], ([
@@ -1022,8 +1022,8 @@ unitTestsBoolean = [
   |]))
   , -- 11 - generic case {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int j = (block() || (i = x(), 1)) && h();
       return;
     }
@@ -1060,11 +1060,11 @@ unitTestsNormalize :: [(Input, OutputNormalize)] -- {{{2
 unitTestsNormalize = [
   -- , 01 - critical call in return statement {{{3
   ([paste|
-    __attribute__((tc_blocking)) int block();
+    __attribute__((tc_api)) int block();
     int c(int i) {
       return block(i+1) + 2;
     } 
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       int j = c(23);
     }
   |], ([
@@ -1081,8 +1081,8 @@ unitTestsNormalize = [
   |]))
   , -- 02 - critical call in condition of if statement {{{3
   ([paste|
-    __attribute__((tc_blocking)) char block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) char block();
+    __attribute__((tc_thread)) void start() {
       int j;
       if (block() == 'a') j = 23; else j = 42;
     }
@@ -1104,8 +1104,8 @@ unitTestsNormalize = [
   |]))
   , -- 03 - critical call in nested expressions {{{3
   ([paste|
-    __attribute__((tc_blocking)) char block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) char block();
+    __attribute__((tc_thread)) void start() {
       int j;
       j = block() + 23;
     }
@@ -1119,8 +1119,8 @@ unitTestsNormalize = [
   |]))
   , -- 04 - first normal form {{{3
   ([paste|
-    __attribute__((tc_blocking)) char block(int i, int j);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) char block(int i, int j);
+    __attribute__((tc_thread)) void start() {
       int i = 0;
       block(i, 23);
     }
@@ -1134,8 +1134,8 @@ unitTestsNormalize = [
   |]))
   , -- 05 - second normal form {{{3
   ([paste|
-    __attribute__((tc_blocking)) int block(int i, int j);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) int block(int i, int j);
+    __attribute__((tc_thread)) void start() {
       int i = 0;
       i = block(i, 23);
     }
@@ -1149,8 +1149,8 @@ unitTestsNormalize = [
   |]))
   , -- 06 - critical call in initializer {{{3
   ([paste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_thread)) void start() {
       int i = block(23), j = 0;
     }
   |], ([
@@ -1168,8 +1168,8 @@ unitTestsBasicBlocks :: [(Input, OutputBasicBlocks)] -- {{{2
 unitTestsBasicBlocks = [
   -- , 01 - call and return {{{3
   ([paste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_thread)) void start() {
       block(23);
       return;
     }
@@ -1182,8 +1182,8 @@ unitTestsBasicBlocks = [
   |])])
   , -- 02 - if statement - implicit return {{{3
   ([paste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_thread)) void start() {
         a();
 
         ec_ctrlbl_0: ;
@@ -1214,8 +1214,8 @@ unitTestsBasicBlocks = [
   |])])
   , -- 03 - consequitive labels - trailing label {{{3
   ([paste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_thread)) void start() {
       if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
 
       ec_ctrlbl_0: ;
@@ -1264,8 +1264,8 @@ unitTestsBasicBlocks = [
   |])])
   , -- 04 - trailing expression - manual label {{{3
   ([paste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_thread)) void start() {
       ec_ctrlbl_0: ;
       block(1);
       i++;
@@ -1280,8 +1280,8 @@ unitTestsBasicBlocks = [
   |])])
   , -- 05 - trailing if without else {{{3
   ([paste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_thread)) void start() {
       ec_ctrlbl_0: ;
       block(1);
       i++;
@@ -1300,8 +1300,8 @@ unitTestsBasicBlocks = [
   |])])
   , -- 06 - trailing criticall call{{{3
   ([paste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_thread)) void start() {
       block(1);
     }
   |], [("start", "L1", [paste|
@@ -1313,8 +1313,8 @@ unitTestsBasicBlocks = [
   |])])
   , -- 07 - second normal form {{{3
   ([paste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_thread)) void start() {
       int i = block(1);
     }
   |], [("start", "L1", [paste|
@@ -1326,8 +1326,8 @@ unitTestsBasicBlocks = [
   |])])
   , -- 08 - dead code {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
       ec_ctrlbl_0: ;
       block();
@@ -1365,8 +1365,8 @@ unitTestsOptimize :: [(Input, OutputOptimize)] -- {{{2
 unitTestsOptimize = [
   -- , 01 - susequent labels {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
 
       ec_ctrlbl_0: ;
@@ -1409,8 +1409,8 @@ unitTestsOptimize = [
   |])])
   , -- 02 - 1st normal form {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       int s = 23;
       while (1) {
         block(s);
@@ -1432,8 +1432,8 @@ unitTestsOptimize = [
   |])])
   , -- 03 - 2nd normal form {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       int s = 23;
       while (1) {
         s = block(s);
@@ -1463,8 +1463,8 @@ unitTestsCritical :: [(Input, OutputCriticalVariables)] -- {{{2
 unitTestsCritical = [
   -- , 01 - single critical variable {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = 0;
       block();
       i++;
@@ -1473,8 +1473,8 @@ unitTestsCritical = [
   )
   , -- 02 - single non-critical variable {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       for (int i=0; i<23; i++) ;
       block();
       i = 1;
@@ -1483,8 +1483,8 @@ unitTestsCritical = [
   )
   , -- 03 - single critical variable in loop {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       for (int i=0; i<23; i++) {
         block();
       }
@@ -1493,8 +1493,8 @@ unitTestsCritical = [
   )
   , -- 04 - single critical variable in loop {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       int s = 23;
       while (1) {
         block(s);
@@ -1504,8 +1504,8 @@ unitTestsCritical = [
   )
   , -- 05 - both critical and non-critical variables {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int j = 1;
       for (int i=0; i<23; i++) {
         block();
@@ -1516,8 +1516,8 @@ unitTestsCritical = [
   )
   , -- 06 - kill liveness {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = 0;
       block();
       i = 1;
@@ -1527,8 +1527,8 @@ unitTestsCritical = [
   )
   , -- 07 - don't reuse {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = 0;
       block();
     }
@@ -1536,8 +1536,8 @@ unitTestsCritical = [
   )
   , -- 08 - take pointer {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = 0;
       int* j = &i;
       block();
@@ -1546,8 +1546,8 @@ unitTestsCritical = [
   )
   , -- 09 - pointer to array element {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int a[23];
       int* j = a + 1;
       block();
@@ -1556,8 +1556,8 @@ unitTestsCritical = [
   )
   , -- 10 - pointer to array element - 2nd variant {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int a[23];
       int* j = &a[1];
       block();
@@ -1566,12 +1566,12 @@ unitTestsCritical = [
   )
   , -- 11 - function parameters are always critical {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_api)) void block();
     void c(int i) {
       block();
       i = 23;
     }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       c(42);
     }
   |], [
@@ -1581,8 +1581,8 @@ unitTestsCritical = [
   )
   , -- 12 - second normal form (fails) {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int j = block();
       j++;
     }
@@ -1592,8 +1592,8 @@ unitTestsCritical = [
   )
   , -- 13 - critical call in if-condition (fails) {{{3
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = 0;
       int j = 1;
       if (block()) {
@@ -1613,8 +1613,8 @@ integrationTestCases = [
     TestCase { -- , 01 - setup {{{3
     input           = -- {{{4
       [lpaste|
-        __attribute__((tc_blocking)) void block();
-        __attribute__((tc_run_thread)) void start() {
+        __attribute__((tc_api)) void block();
+        __attribute__((tc_thread)) void start() {
           block();
         }
       |]
@@ -1644,10 +1644,10 @@ integrationTestCases = [
   , TestCase { -- 02 - while loop {{{3
     input           = -- {{{4
       [lpaste|
-        __attribute__((tc_blocking)) void block();
+        __attribute__((tc_api)) void block();
         void a();
         void b();
-        __attribute__((tc_run_thread)) void start() {
+        __attribute__((tc_thread)) void start() {
           a();
           while (1) {
             block();
@@ -1723,10 +1723,10 @@ integrationTestCases = [
   , TestCase { -- 03 - do loop {{{3
     input          = -- {{{4
       [lpaste|
-        __attribute__((tc_blocking)) void block();
+        __attribute__((tc_api)) void block();
         void a();
         void b();
-        __attribute__((tc_run_thread)) void start() {
+        __attribute__((tc_thread)) void start() {
           a();
           do {
             block();
@@ -1782,10 +1782,10 @@ integrationTestCases = [
   , TestCase { -- 04 - for loop - with continue {{{3
     input       = -- {{{4
       [lpaste|
-        __attribute__((tc_blocking)) void block();
+        __attribute__((tc_api)) void block();
         void a();
         void b();
-        __attribute__((tc_run_thread)) void start() {
+        __attribute__((tc_thread)) void start() {
           a();
 06:       for (int i=0; i<23; i++) {
             if (i==2) continue;
@@ -1896,8 +1896,8 @@ integrationTestCases = [
   , TestCase { -- 05 - for loop with explicit break {{{3
     input       = -- {{{4
       [lpaste|
-        __attribute__((tc_blocking)) void block(int i);
-        __attribute__((tc_run_thread)) void start() {
+        __attribute__((tc_api)) void block(int i);
+        __attribute__((tc_thread)) void start() {
 03:       for (int i=0; ; i++) {
             block(i);
             if (i == 23) break;
@@ -1989,8 +1989,8 @@ integrationTestCases = [
   , TestCase { -- 06 - generic fuck up {{{3
     input       = -- {{{4
       [lpaste|
-        __attribute__((tc_blocking)) int block(int i);
-02:     __attribute__((tc_run_thread)) void start() {
+        __attribute__((tc_api)) int block(int i);
+02:     __attribute__((tc_thread)) void start() {
           int i = block(0); 
           int j;
           switch (i) {
@@ -2258,8 +2258,8 @@ integrationTestCases = [
   {-, TestCase { -- switch statement {{{3
     input       = -- {{{4
       [lpaste|
-        __attribute__((tc_blocking)) void block();
-        __attribute__((tc_run_thread)) void start() {
+        __attribute__((tc_api)) void block();
+        __attribute__((tc_thread)) void start() {
         }
       |]
     , outCollect = ( -- {{{4
