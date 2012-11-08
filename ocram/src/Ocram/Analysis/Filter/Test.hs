@@ -39,6 +39,25 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
         block(i);
       }
     |], [ThreadLocalStorage])
+  , -- 04 - main function definition {{{2
+    ([paste|
+      void main() { }
+
+      __attribute__((tc_api)) void block(int i);
+      __attribute__((tc_thread)) void start() {
+        block(i);
+      }
+    |], [MainFunction])
+  , -- 05 - main function declaration {{{2
+    ([paste|
+      void main();
+
+      __attribute__((tc_api)) void block(int i);
+      __attribute__((tc_thread)) void start() {
+        block(i);
+      }
+    |], [MainFunction])
+  
   -- end {{{2
   ]
   where

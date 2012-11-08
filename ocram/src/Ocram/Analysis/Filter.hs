@@ -33,14 +33,15 @@ newError code extraWhat where_ =
     new_error (fromEnum code) what where_
 
 data ErrorCode = -- {{{2
-    AssemblerCode
+    ArrayInitializerList 
+  | AssemblerCode
   | BuiltinExpr
   | CaseRange
   | CriticalRecursion
   | Ellipses
   | GotoPtr
   | IllFormedSwitch
-  | ArrayInitializerList 
+  | MainFunction
   | NestedFunction
   | NoParameterList
   | NoReturnType
@@ -56,6 +57,8 @@ data ErrorCode = -- {{{2
   deriving (Eq, Enum, Show)
 
 errorText :: ErrorCode -> String -- {{{3
+errorText ArrayInitializerList =
+  "Sorry, initializer list for arrays are not supported for critical functions."
 errorText AssemblerCode =
   "transformation of assembler code is not supported"
 errorText BuiltinExpr =
@@ -69,9 +72,9 @@ errorText Ellipses =
 errorText GotoPtr =
   "Computed gotos are not part of C99 and are thus not supported"
 errorText IllFormedSwitch =
-  "ill-formed switch statement"
-errorText ArrayInitializerList =
-  "Sorry, initializer list in critical functions is not supported yet."
+  "Ill-formed switch statement"
+errorText MainFunction =
+  "A T-code application must not have a 'main' function."
 errorText NestedFunction =
   "nested functions are not part of C99 and are thus not supported"
 errorText NoParameterList =
@@ -98,8 +101,18 @@ errorText ThreadNotBlocking =
   "thread does not call any blocking functions"
 
 global_constraints :: CTranslUnit -> Either [OcramError] () -- {{{1
-global_constraints ast = failOrPass $ everything (++) (mkQ [] scanBlockItem `extQ` scanStorageSpec) ast
+global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ` scanBlockItem `extQ` scanStorageSpec) ast
   where
+    scanExtDecl :: CExtDecl -> [OcramError]
+    scanExtDecl (CDeclExt (CDecl _ ds ni))
+      | any ((== Just "main") . fmap symbol . (\(x, _, _)->x)) ds
+                            = [newError MainFunction Nothing (Just ni)]
+      | otherwise           = []
+    scanExtDecl (CFDefExt fd)
+      | symbol fd == "main" = [newError MainFunction Nothing (Just (nodeInfo fd))]
+      | otherwise           = []
+    scanExtDecl _           = []
+      
     scanBlockItem :: CBlockItem -> [OcramError]
     scanBlockItem (CNestedFunDef o) =
       [newError NestedFunction Nothing (Just (nodeInfo o))]
