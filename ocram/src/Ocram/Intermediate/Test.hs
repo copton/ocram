@@ -395,6 +395,42 @@ unitTestsCollect = [
       }
     }
   |]))
+  , -- 12 - initializer list for automatic variable {{{3
+  ([lpaste|
+    struct Foo { int i; };
+    __attribute__((tc_api)) void block(int i);
+03: __attribute__((tc_thread)) void start() {
+      struct Foo foo = {.i = 23};
+      block(foo.i);
+06: }
+  |], ([
+    ("start", [
+      ("struct Foo foo", 3, 6)
+    ], [])
+  ], [paste|
+    void start () {
+      foo = (struct Foo) {.i=23};
+      block(foo.i);
+    }
+  |]))
+  , -- 13 - initializer list for static variable {{{3
+  ([lpaste|
+    struct Foo { int i; };
+    __attribute__((tc_api)) void block(int i);
+03: __attribute__((tc_thread)) void start() {
+      static struct Foo foo = {.i = 23};
+      block(foo.i);
+06: }
+  |], ([
+    ("start", [], [
+      ("struct Foo ec_static_start_foo = { .i = 23 }", 3, 6)
+    ])
+  ], [paste|
+    void start () {
+      block(ec_static_start_foo.i);
+    }
+  |]))
+  -- end {{{3
   ]
 
 unitTestsDesugar :: [(Input, OutputDesugarControlStructures)]  -- {{{2

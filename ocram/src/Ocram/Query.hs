@@ -5,7 +5,7 @@ module Ocram.Query
     function_definition
   , is_function_declaration
   , function_parameters_fd, function_parameters_cd
-  , return_type_fd, return_type_cd
+  , return_type_fd, return_type_cd, object_type
   , is_blocking_function, is_start_function
 ) where
 
@@ -53,6 +53,9 @@ is_function_declaration (CDecl _ [(Just (CDeclr _ dds _ _ _), _, _)] _) = any is
     isFunDeclr (CFunDeclr _ _ _) = True
     isFunDeclr _ = False
 is_function_declaration _ = False
+
+object_type :: CDeclaration a -> CTypeSpecifier a -- {{{1
+object_type (CDecl tss _ _) = extractTypeSpec tss
 
 -- utils {{{1
 

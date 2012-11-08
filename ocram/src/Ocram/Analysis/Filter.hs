@@ -40,7 +40,7 @@ data ErrorCode = -- {{{2
   | Ellipses
   | GotoPtr
   | IllFormedSwitch
-  | InitializerList 
+  | ArrayInitializerList 
   | NestedFunction
   | NonVoidStartFunction
   | NoParameterList
@@ -70,7 +70,7 @@ errorText GotoPtr =
   "Computed gotos are not part of C99 and are thus not supported"
 errorText IllFormedSwitch =
   "ill-formed switch statement"
-errorText InitializerList =
+errorText ArrayInitializerList =
   "Sorry, initializer list in critical functions is not supported yet."
 errorText NestedFunction =
   "nested functions are not part of C99 and are thus not supported"
@@ -199,11 +199,18 @@ checkFeatures cg (CTranslUnit ds _) = concatMap filt ds
     scanDerivedDeclr _ = []
 
     scanDecl (CDecl _ l ni)
-      | any containsInitList l = [newError InitializerList Nothing (Just ni)]
+      | any containsArrayInitList l =
+          [newError ArrayInitializerList Nothing (Just ni)]
       | otherwise = []
       where
-        containsInitList (_, Just (CInitList _ _), _) = True
-        containsInitList _ = False
+        containsArrayInitList (Just declr, Just (CInitList _ _), _) =
+          containsArrayDeclr declr
+        containsArrayInitList _ = False
+
+        containsArrayDeclr (CDeclr _ dds _ _ _) = any isArrayDeclr dds
+      
+        isArrayDeclr (CArrDeclr _ _ _) = True
+        isArrayDeclr _                 = False
 
     scanStat (CAsm _ ni) =
       [newError AssemblerCode Nothing (Just ni)]

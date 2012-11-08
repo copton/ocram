@@ -7,6 +7,7 @@ module Ocram.Intermediate.CollectDeclarations
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
+import Control.Monad (zipWithM)
 import Control.Monad.State (State, get, gets, put, runState, gets, modify)
 import Data.Data (Data, gmapM)
 import Data.Generics (everywhereM, mkM, extM, mkQ, GenericQ, GenericM)
@@ -18,7 +19,7 @@ import Language.C.Data.Position (posRow)
 import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
 import Ocram.Names (varUnique, varStatic)
-import Ocram.Query (function_parameters_fd)
+import Ocram.Query (function_parameters_fd, object_type)
 import Ocram.Ruab (TRow(..))
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Util (abort, unexp)
@@ -103,12 +104,12 @@ trDecl decl = do
     newAutoNames   = map (getIdentifier ids'' . symbol) autoDecls
     newStaticNames = map (getIdentifier ids'' . symbol) staticDecls
 
-    (autoDeclsOnly, autoInitExpr) = unzip $ map split autoDecls
+    (autoDeclsOnly, autoInits) = unzip $ map split autoDecls
 
-    autoVars'      = map (mkVar scope) $ zip autoDeclsOnly newAutoNames
-    staticVars'    = map (mkVar scope) $ zip (map rmStatic staticDecls) newStaticNames
+    autoVars'      = zipWith (mkVar scope) autoDeclsOnly newAutoNames
+    staticVars'    = zipWith (mkVar scope) (map rmStatic staticDecls) newStaticNames
 
-  autoInitStmt   <- mapM (uncurry mkInit) $ zip autoInitExpr newAutoNames
+  autoInitStmt   <- zipWithM mkInit autoInits newAutoNames
   put $ Ctx ids'' scope (autoVars' ++ autoVars) (staticVars' ++ staticVars) fun
   return $ catMaybes autoInitStmt
 
@@ -116,9 +117,10 @@ trDecl decl = do
     unlistDecl (CDecl x [] ni) = [CDecl x [] ni] -- struct S { int i; };
     unlistDecl (CDecl s ds ni) = map (\x -> CDecl s [x] ni) ds
 
-    split (CDecl y1 [(Just declr, Just (CInitExpr cexpr _), y2)] y3) =
+    split :: CDeclaration a -> (CDeclaration a, Maybe (CInitializer a, CTypeSpecifier a))
+    split cd@(CDecl y1 [(Just declr, Just cinit, y2)] y3) =
       let declare = (CDecl y1 [(Just declr, Nothing, y2)] y3) in
-      (declare, Just cexpr)
+      (declare, Just (cinit, object_type cd))
     split cdecl = (cdecl, Nothing)
 
     isStatic (CDecl ds _ _) = any isStaticSpec ds
@@ -127,13 +129,21 @@ trDecl decl = do
 
     rmStatic (CDecl ds x1 x2) = CDecl (filter (not . isStaticSpec) ds) x1 x2
 
-    mkVar scope (cd, name) = TVariable (symbol cd) (renameDecl name cd) (scopeOfNode scope)
+    mkVar scope cd name = TVariable (symbol cd) (renameDecl name cd) (scopeOfNode scope)
 
-    mkInit Nothing    _    = return Nothing
-    mkInit (Just rhs) name = do
-      rhs' <- everywhereM (mkM tExpr) rhs
-      return $ Just $ CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) ni) rhs' ni)) ni
-      where ni = annotation rhs
+    mkInit Nothing                          _    = return Nothing
+    mkInit (Just (initializer, objectType)) name = case initializer of
+      CInitExpr expr  _ -> newInit expr
+      CInitList initl _ -> 
+        let
+          cd = CDecl [CTypeSpec objectType] [] (annotation initializer)
+          cl = CCompoundLit cd initl (annotation initializer)
+        in newInit cl
+      where
+        newInit rhs = do
+          rhs' <- everywhereM (mkM tExpr) rhs
+          return $ Just $ CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) ni) rhs' ni)) ni
+          where ni = annotation rhs
 
 -- types {{{1
 data Ctx = Ctx { -- {{{2

@@ -89,7 +89,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
         c1();
       }
     |], [CriticalRecursion])
-  , -- 08 - initializer lists not supported yet {{{2
+  , -- 08 - initializer lists for arrays {{{2
     ([paste|
       struct Foo { int i; };
       __attribute__((tc_api)) void block();
@@ -98,7 +98,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
         int i[] = {4,2};
         block();
       }
-    |], [InitializerList, InitializerList])
+    |], [ArrayInitializerList])
   , -- 09 - inline assembler not supported {{{2
     ([paste|
       __attribute__((tc_api)) void block();
@@ -144,7 +144,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
         int widths[] = { [0 ... 9] = 1, [10] = 3 };
         block();
       }
-    |], [InitializerList, RangeDesignator])
+    |], [ArrayInitializerList, RangeDesignator])
   , -- 14 - old-style parameter declaration {{{2
     ([paste|
       __attribute__((tc_api)) void block();
