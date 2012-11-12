@@ -202,7 +202,7 @@ substitute idx op lhs rhs = do
   let
     un   = undefNode
     iden = internalIdent (varBool idx)
-    ivar = EVariable $ CDecl [CTypeSpec (CIntType un)] [(Just (CDeclr (Just iden) [] Nothing [] un) , Nothing, Nothing)] un 
+    ivar = EVariable $ CDecl [CTypeSpec (CBoolType un)] [(Just (CDeclr (Just iden) [] Nothing [] un) , Nothing, Nothing)] un 
     cvar = CVar iden eun
     [lhs_assign, rhs_assign] = map ((\x -> CExpr (Just x) (annotation x)) . (\x -> CAssign CAssignOp cvar ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
     cond = case op of

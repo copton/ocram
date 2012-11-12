@@ -903,7 +903,7 @@ unitTestsBoolean = [
       if(block() || h()) ;
     }
   |], ([
-      ("start", ["int ec_bool_0"])
+      ("start", ["_Bool ec_bool_0"])
   ], [paste|
     void start() {
         ec_bool_0 = !!block();
@@ -928,7 +928,7 @@ unitTestsBoolean = [
       if(h() && block()) ;
     }
   |], ([
-      ("start", ["int ec_bool_0"])
+      ("start", ["_Bool ec_bool_0"])
   ], [paste|
     void start() {
         ec_bool_0 = !!h();
@@ -953,7 +953,7 @@ unitTestsBoolean = [
       h() || block();
     }
   |], ([
-      ("start", ["int ec_bool_0"])
+      ("start", ["_Bool ec_bool_0"])
   ], [paste|
     void start() {
         ec_bool_0 = !!h();
@@ -973,7 +973,7 @@ unitTestsBoolean = [
       return (block() && h());
     }
   |], ([
-      ("start", ["int ec_bool_0"])
+      ("start", ["_Bool ec_bool_0"])
   ], [paste|
     void start() {
         ec_bool_0 = !!block();
@@ -993,7 +993,7 @@ unitTestsBoolean = [
       h(block() && h());
     }
   |], ([
-      ("start", ["int ec_bool_0"])
+      ("start", ["_Bool ec_bool_0"])
   ], [paste|
     void start() {
         ec_bool_0 = !!block();
@@ -1013,7 +1013,7 @@ unitTestsBoolean = [
       int i = ((block() || 1) + 3);
     }
   |], ([
-      ("start", ["int ec_bool_0"])
+      ("start", ["_Bool ec_bool_0"])
   ], [paste|
     void start() {
         ec_bool_0 = !!block();
@@ -1033,7 +1033,7 @@ unitTestsBoolean = [
       int i = ((1+block()) || h());
     }
   |], ([
-      ("start", ["int ec_bool_0"])
+      ("start", ["_Bool ec_bool_0"])
   ], [paste|
     void start() {
         ec_bool_0 = !!(1 + block());
@@ -1055,9 +1055,9 @@ unitTestsBoolean = [
     }
   |], ([
       ("start", [
-          "int ec_bool_6"
-        , "int ec_bool_3"
-        , "int ec_bool_0"
+          "_Bool ec_bool_6"
+        , "_Bool ec_bool_3"
+        , "_Bool ec_bool_0"
       ])
   ], [paste|
     void start() {
@@ -1085,7 +1085,7 @@ unitTestsBoolean = [
         i = ec_bool_6;
     }
   |]))
-  , -- 11 - generic case {{{3
+  , -- 09 - generic case {{{3
   ([paste|
     __attribute__((tc_api)) void block();
     __attribute__((tc_thread)) void start() {
@@ -1094,8 +1094,8 @@ unitTestsBoolean = [
     }
   |], ([
       ("start", [
-          "int ec_bool_3"
-        , "int ec_bool_0"
+          "_Bool ec_bool_3"
+        , "_Bool ec_bool_0"
       ])
   ], [paste|
     void start() {
@@ -1116,6 +1116,34 @@ unitTestsBoolean = [
         ec_bool_5: ;
         j = ec_bool_3;
         return;
+    }
+  |]))
+  , -- 10 - generic case {{{3
+  ([paste|
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
+      int j = ((i = f(), g()) && block()) || h();
+      return;
+    }
+  |], ([
+      ("start", [
+          "_Bool ec_bool_3"
+        , "_Bool ec_bool_0"
+      ])
+  ], [paste|
+    void start() {
+      ec_bool_0 = ! (!(i = f(), g()));
+      if (ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
+      ec_bool_1: ;
+      ec_bool_0 = ! (!block());
+      ec_bool_2: ;
+      ec_bool_3 = ! (!ec_bool_0);
+      if (!ec_bool_3) goto ec_bool_4; else goto ec_bool_5;
+      ec_bool_4: ;
+      ec_bool_3 = ! (!h());
+      ec_bool_5: ;
+      j = ec_bool_3;
+      return;
     }
   |]))
   -- end {{{3
@@ -2126,7 +2154,7 @@ integrationTestCases = [
         |]
       )
     , outShortCircuit = Just (-- {{{4
-        [("start", ["int ec_bool_0"])]
+        [("start", ["_Bool ec_bool_0"])]
       , [paste|
         void start() {
           i = block(0);
