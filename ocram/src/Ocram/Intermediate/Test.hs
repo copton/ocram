@@ -1272,8 +1272,8 @@ unitTestsNormalize = [
       return ec_crit_0;
     }
     void start() {
-      ec_crit_1 = c(42);
       ec_crit_0 = block(23);
+      ec_crit_1 = c(42);
       i = ec_crit_0 + ec_crit_1;
     }
   |]))

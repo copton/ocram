@@ -51,7 +51,7 @@ normalize_critical_calls sf items =
         then return [s]
         else
           let s' = f es' in
-          return $ map (aset (annotation s)) $ allInits ++ [s']
+          return $ map (aset (annotation s)) $ reverse allInits ++ [s']
 
     isInNormalForm (CCall _ _ _)                 = True -- {{{2
     isInNormalForm (CAssign _ _ (CCall _ _ _) _) = True
