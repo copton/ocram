@@ -1122,7 +1122,7 @@ unitTestsBoolean = [
   ([paste|
     __attribute__((tc_api)) void block();
     __attribute__((tc_thread)) void start() {
-      int j = ((i = f(), g()) && block()) || h();
+      int j = ((i = f(), g()) && block()+1) || h();
       return;
     }
   |], ([
@@ -1135,7 +1135,7 @@ unitTestsBoolean = [
       ec_bool_0 = ! (!(i = f(), g()));
       if (ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
       ec_bool_1: ;
-      ec_bool_0 = ! (!block());
+      ec_bool_0 = ! (!(block()+1));
       ec_bool_2: ;
       ec_bool_3 = ! (!ec_bool_0);
       if (!ec_bool_3) goto ec_bool_4; else goto ec_bool_5;
