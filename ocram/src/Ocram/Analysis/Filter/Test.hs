@@ -57,6 +57,16 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
         block(i);
       }
     |], [MainFunction])
+  , -- 06 - reserved prefix {{{2
+    ([paste|
+      void ec_foo();
+      void ec_bar() { }
+      int ec_j;
+      __attribute__((tc_api)) void ec_blcok(int ec_i);
+      __attribute__((tc_thread)) void ec_start() {
+        block(ec_j);
+      }
+    |], replicate 7 ReservedPrefix)
   
   -- end {{{2
   ]

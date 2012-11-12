@@ -16,22 +16,15 @@ import Language.C.Syntax.AST
 import Ocram.Analysis.CallGraph (start_functions, is_critical)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
+import Ocram.Names (ecPrefix)
 import Ocram.Query (is_start_function, is_blocking_function, function_parameters_cd, return_type_fd, function_parameters_fd)
 import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
 import Ocram.Util (fromJust_s, head_s, lookup_s)
 import qualified Data.Graph.Inductive.Graph as G
-import qualified Data.List as List
+import qualified Data.List as L
 
 -- errors {{{1
-newError :: ErrorCode -> Maybe String -> Maybe NodeInfo -> OcramError 
-newError code extraWhat where_ =
-  let
-    extraWhat' = fromMaybe "" extraWhat
-    what = errorText code ++ extraWhat'
-  in
-    new_error (fromEnum code) what where_
-
 data ErrorCode = -- {{{2
     ArrayInitializerList 
   | AssemblerCode
@@ -50,13 +43,14 @@ data ErrorCode = -- {{{2
   | OldStyleParams
   | PointerToCriticalFunction
   | RangeDesignator
+  | ReservedPrefix
   | StartFunctionSignature
   | StatExpression
   | ThreadLocalStorage
   | ThreadNotBlocking
   deriving (Eq, Enum, Show)
 
-errorText :: ErrorCode -> String -- {{{3
+errorText :: ErrorCode -> String -- {{{2
 errorText ArrayInitializerList =
   "Sorry, initializer list for arrays are not supported for critical functions."
 errorText AssemblerCode =
@@ -91,6 +85,8 @@ errorText PointerToCriticalFunction =
   "taking pointer from critical function"
 errorText RangeDesignator =
   "GNU C array range designators are not supported"
+errorText ReservedPrefix =
+  "The prefix 'ec_' is reserved, you may not use it."
 errorText StartFunctionSignature =
   "thread start functions must have the following signature 'void name()'"
 errorText StatExpression =
@@ -100,8 +96,17 @@ errorText ThreadLocalStorage =
 errorText ThreadNotBlocking =
   "thread does not call any blocking functions"
 
+newError :: ErrorCode -> Maybe String -> Maybe NodeInfo -> OcramError  -- {{{2
+newError code extraWhat where_ =
+  let
+    extraWhat' = fromMaybe "" extraWhat
+    what = errorText code ++ extraWhat'
+  in
+    new_error (fromEnum code) what where_
+
+
 global_constraints :: CTranslUnit -> Either [OcramError] () -- {{{1
-global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ` scanBlockItem `extQ` scanStorageSpec) ast
+global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ` scanBlockItem `extQ` scanStorageSpec `extQ` scanIdent) ast
   where
     scanExtDecl :: CExtDecl -> [OcramError]
     scanExtDecl (CDeclExt (CDecl _ ds ni))
@@ -122,6 +127,12 @@ global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ`
     scanStorageSpec (CThread ni) =
       [newError ThreadLocalStorage Nothing (Just ni)]
     scanStorageSpec _ = []
+
+    scanIdent :: Ident -> [OcramError]
+    scanIdent ident
+      | ecPrefix `L.isPrefixOf` symbol ident =
+          [newError ReservedPrefix Nothing (Just (nodeInfo ident))]
+      | otherwise = []
 
 critical_constraints :: CTranslUnit -> CallGraph -> Either [OcramError] () -- {{{1
 critical_constraints ast cg = failOrPass $
@@ -146,9 +157,9 @@ createRecError :: CallGraph -> [G.Node] -> OcramError
 createRecError (CallGraph gd _) call_stack =
   newError CriticalRecursion (Just errText) (Just location)
   where
-    errText = List.intercalate " -> " $
+    errText = L.intercalate " -> " $
       map (show . lblName . $fromJust_s . G.lab gd) call_stack
-    (callee:caller:[]) = take 2 $ List.reverse call_stack 
+    (callee:caller:[]) = take 2 $ L.reverse call_stack 
     location = $head_s $ edge_label gd caller callee
 
 checkStartFunctions :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
