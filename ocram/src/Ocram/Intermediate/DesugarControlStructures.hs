@@ -6,18 +6,25 @@ module Ocram.Intermediate.DesugarControlStructures
 ) where
 
 -- imports {{{1
-import Control.Monad.State (State, evalState, get, modify)
+import Control.Monad.State (State, runState, get, put)
 import Data.Generics (everywhereBut, mkQ, mkT)
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Ocram.Debug.Enriched (ENodeInfo, CStat', node_start, node_end, eun, aset)
+import Ocram.Intermediate.Representation (Variable(..))
+import Ocram.Symbols (symbol)
 import Ocram.Util (abort, unexp, (?:))
-import Ocram.Names (ctrLbl)
+import Ocram.Names (identDesugar)
 import Prelude hiding (init)
 
-desugar_control_structures :: [CBlockItem] -> [CStat'] -- {{{1
-desugar_control_structures items = concat $ evalState (mapM tItem items) 0
+desugar_control_structures :: [CBlockItem] -> ([CStat'], [Variable]) -- {{{1
+desugar_control_structures items = 
+  let
+    s0 = MyState 0 []
+    (stmts, MyState _ vars) = runState (mapM tItem items) s0
+  in
+    (concat stmts, vars)
 
 tItem :: CBlockItem -> S [CStat'] -- {{{2
 tItem (CBlockStmt s) = tStmt s
@@ -113,20 +120,23 @@ tStmt o@(CSwitch switchExpr (CCompound _ items _) _) =  -- {{{3
     cases = groupCases items
   in do
     ids <- nextIds $ length cases + 1
+    var <- nextVar
     let
-      (end:lgs) = map labelGotoPair ids
-      ifs       = zipWith buildIf (map fst cases) lgs
-      dflt      = case reverse cases of
+      (end:lgs)     = map labelGotoPair ids
+      ifs           = zipWith buildIf (map fst cases) lgs
+      dflt          = case reverse cases of
           ((Nothing, _):_) -> Nothing
           _                -> Just $ egoto eni end
+      variable      = CVar ((internalIdent . symbol . var_decl) var) undefNode
+      assign        = aset (node_start switchExpr) $ CExpr (Just (CAssign CAssignOp variable switchExpr undefNode)) undefNode
+      condition rhs = aset eni $ CBinary CEqOp variable rhs undefNode
+      buildIf (Just cmpExpr) lg = CIf (condition cmpExpr) (egoto eni lg) Nothing eni
+      buildIf Nothing        lg = egoto eni lg
+
     blocks     <- mapM (buildBlock end) $ zip (map snd cases) lgs
-    return $ ifs ++ (dflt ?: []) ++ concat blocks ++ (elabel end : [])
+    return $ assign : ifs ++ (dflt ?: []) ++ concat blocks ++ (elabel end : [])
   where
     eni                       = node_start o
-    switchExpr'               = fmap node_start switchExpr
-    buildIf (Just cmpExpr) lg = CIf (condition cmpExpr) (egoto eni lg) Nothing eni
-    buildIf Nothing        lg = egoto eni lg
-    condition rhs             = CBinary CEqOp switchExpr' (aset eni rhs) eni
     buildBlock end (is, lg)   = tItems is >>= return . (elabel lg :) . replaceBreakContinue undefined end
       -- switch statements do not contain continue statements
     
@@ -171,7 +181,7 @@ egoto eni = aset eni . goto
 labelGotoPair :: Int -> LblGotoPair -- {{{2
 labelGotoPair lid =
   let
-    identifier = (internalIdent . ctrLbl) lid
+    identifier = (internalIdent . identDesugar) lid
     lbl = CLabel identifier (CExpr Nothing undefNode) [] undefNode
     gto = CGoto identifier undefNode
   in
@@ -193,8 +203,22 @@ replaceBreakContinue start end = everywhereBut (mkQ False blocks) (mkT trans)
 
 nextIds :: Int -> S [Int] -- {{{2
 nextIds count = do
-  idx <- get
-  modify (+count)
+  MyState idx vars <- get
+  put (MyState (idx + count) vars)
   return $ map (idx+) [0..(count-1)]
 
-type S = State Int
+nextVar :: S Variable -- {{{2
+nextVar = do
+  MyState idx vars <- get
+  let
+    declr = CDeclr (Just (internalIdent (identDesugar idx))) [] Nothing [] undefNode
+    var   = EVariable $ CDecl [CTypeSpec (CIntType undefNode)] [(Just declr, Nothing, Nothing)] undefNode
+  put (MyState idx (var : vars))
+  return var
+
+data MyState = MyState {
+  stIdx  :: Int,
+  stVars :: [Variable]
+  }
+
+type S = State MyState

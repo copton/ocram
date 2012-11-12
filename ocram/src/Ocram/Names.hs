@@ -16,8 +16,12 @@ startAttr :: String
 startAttr = "tc_thread"
 
 -- |The naming scheme for control flow labels
-ctrLbl :: Int -> String
-ctrLbl = printf "%sctrlbl_%d" ecPrefix
+identDesugar :: Int -> String
+identDesugar = printf "%sdesugar_%d" ecPrefix
+
+-- |The naming of a new variable for desugaring of switch statements
+switchVar :: Int -> String
+switchVar = printf "%sswitch_%d" ecPrefix
 
 -- |The naming scheme for unique variable names
 varUnique :: String -> Int -> String
@@ -27,7 +31,7 @@ varUnique = printf "%sunique_%s_%d" ecPrefix
 varCrit :: Int -> String
 varCrit = printf "%scrit_%d" ecPrefix
 
--- |The name of a temporary variable for boolean short-circuiting
+-- |The name of a new variable for boolean short-circuiting
 varBool :: Int -> String
 varBool = printf "%sbool_%d" ecPrefix
 

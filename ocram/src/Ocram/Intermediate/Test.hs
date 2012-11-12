@@ -52,8 +52,14 @@ type OutputCollectDeclarations = ( -- {{{2
   , String                 -- code
   )
 
-type OutputDesugarControlStructures = -- {{{2
-    String -- code
+type OutputDesugarControlStructures = ( -- {{{2
+    [(
+      String   -- critical function name
+    , [String] -- declarations
+    )]
+  ,
+  String -- code
+  )
 
 type OutputBooleanShortCircuiting = ( -- {{{2
     [(
@@ -444,19 +450,19 @@ unitTestsDesugar = [
           block();
         b();
       }
-  |], [paste|
+  |], ([("start", [])], [paste|
       void start() {
         a();
 
-        ec_ctrlbl_0: ;
-        if (! 1) goto ec_ctrlbl_1;
+        ec_desugar_0: ;
+        if (! 1) goto ec_desugar_1;
         block();
-        goto ec_ctrlbl_0;
+        goto ec_desugar_0;
 
-        ec_ctrlbl_1: ;
+        ec_desugar_1: ;
         b();
       }
-  |])
+  |]))
   , -- 02 - do loop {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -467,18 +473,18 @@ unitTestsDesugar = [
         } while(1);
         b();
       }
-  |], [paste|
+  |], ([("start", [])], [paste|
       void start() {
         a();
 
-        ec_ctrlbl_0: ;
+        ec_desugar_0: ;
         block();
-        if (1) goto ec_ctrlbl_0;
+        if (1) goto ec_desugar_0;
 
-        ec_ctrlbl_1: ;
+        ec_desugar_1: ;
         b();
       }
-  |])
+  |]))
   , -- 03 - for loop {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -492,23 +498,23 @@ unitTestsDesugar = [
         }
         b();
       }
-    |], [paste|
+  |], ([("start", [])], [paste|
       void start() {
         a();
         i = 0;
 
-        ec_ctrlbl_0: ;
-        if (! (i<23)) goto ec_ctrlbl_2;
+        ec_desugar_0: ;
+        if (! (i<23)) goto ec_desugar_2;
         block(i);
 
-        ec_ctrlbl_1: ;
+        ec_desugar_1: ;
         i++;
-        goto ec_ctrlbl_0;
+        goto ec_desugar_0;
 
-        ec_ctrlbl_2: ;
+        ec_desugar_2: ;
         b();
       }
-    |])
+    |]))
   , -- 04 - for loop - no break condition {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -522,22 +528,22 @@ unitTestsDesugar = [
         }
         b();
       }
-    |], [paste|
+  |], ([("start", [])], [paste|
       void start() {
         a();
         i = 0;
 
-        ec_ctrlbl_0: ;
+        ec_desugar_0: ;
         block(i);
 
-        ec_ctrlbl_1: ;
+        ec_desugar_1: ;
         i++;
-        goto ec_ctrlbl_0;
+        goto ec_desugar_0;
 
-        ec_ctrlbl_2: ;
+        ec_desugar_2: ;
         b();
       }
-    |])
+    |]))
   , -- 05 - for loop - explicit break {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -552,28 +558,28 @@ unitTestsDesugar = [
         }
         b();
       }
-    |], [paste|
+  |], ([("start", [])], [paste|
       void start() {
         a();
         i = 0;
 
-        ec_ctrlbl_0: ;
-        if (i==23) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+        ec_desugar_0: ;
+        if (i==23) goto ec_desugar_3; else goto ec_desugar_4;
 
-        ec_ctrlbl_3: ;
-        goto ec_ctrlbl_2;
+        ec_desugar_3: ;
+        goto ec_desugar_2;
 
-        ec_ctrlbl_4: ;
+        ec_desugar_4: ;
         block(i);
 
-        ec_ctrlbl_1: ;
+        ec_desugar_1: ;
         i++;
-        goto ec_ctrlbl_0;
+        goto ec_desugar_0;
 
-        ec_ctrlbl_2: ;
+        ec_desugar_2: ;
         b();
       }
-    |])
+    |]))
   , -- 06 - do loop with continue and break {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -586,20 +592,20 @@ unitTestsDesugar = [
         } while(1);
         b();
       }
-  |], [paste|
+  |], ([("start", [])], [paste|
       void start() {
         a();
 
-        ec_ctrlbl_0: ;
-        goto ec_ctrlbl_0;
+        ec_desugar_0: ;
+        goto ec_desugar_0;
         block();
-        goto ec_ctrlbl_1;
-        if (1) goto ec_ctrlbl_0;
+        goto ec_desugar_1;
+        if (1) goto ec_desugar_0;
 
-        ec_ctrlbl_1: ;
+        ec_desugar_1: ;
         b();
       }
-  |])
+  |]))
   , -- 07 - nested {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -622,34 +628,34 @@ unitTestsDesugar = [
         }
         i();
       }
-    |], [paste|
+  |], ([("start", [])], [paste|
       void start() {
         a();
 
-        ec_ctrlbl_0: ;
-        if (!1) goto ec_ctrlbl_1;
+        ec_desugar_0: ;
+        if (!1) goto ec_desugar_1;
         b();
-        goto ec_ctrlbl_0;
+        goto ec_desugar_0;
         c();
 
-        ec_ctrlbl_2: ;
+        ec_desugar_2: ;
         d();
-        goto ec_ctrlbl_2;
+        goto ec_desugar_2;
         e();
-        goto ec_ctrlbl_3;
+        goto ec_desugar_3;
         f();
-        if (23) goto ec_ctrlbl_2;
+        if (23) goto ec_desugar_2;
 
-        ec_ctrlbl_3: ;
+        ec_desugar_3: ;
         block();
-        goto ec_ctrlbl_1;
+        goto ec_desugar_1;
         h();
-        goto ec_ctrlbl_0;
+        goto ec_desugar_0;
 
-        ec_ctrlbl_1: ; 
+        ec_desugar_1: ; 
         i(); 
       }
-    |])
+  |]))
   , -- 08 - if statements {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -658,16 +664,16 @@ unitTestsDesugar = [
         block();
       }
     } 
-  |], [paste|
+  |], ([("start", [])], [paste|
     void start() {
-      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      if (1) goto ec_desugar_0; else goto ec_desugar_1;
 
-      ec_ctrlbl_0: ;
+      ec_desugar_0: ;
       block();
 
-      ec_ctrlbl_1: ;
+      ec_desugar_1: ;
     }
-  |])
+  |]))
   , -- 09 - if statements with else block {{{3
   ([paste|
     __attribute__((tc_api)) void block(int i);
@@ -680,22 +686,22 @@ unitTestsDesugar = [
         return;
       }
     } 
-  |], [paste|
+  |], ([("start", [])], [paste|
     void start() {
-      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      if (1) goto ec_desugar_0; else goto ec_desugar_1;
 
-      ec_ctrlbl_0: ;
+      ec_desugar_0: ;
       block(1);
       return;
-      goto ec_ctrlbl_2;
+      goto ec_desugar_2;
 
-      ec_ctrlbl_1: ;
+      ec_desugar_1: ;
       block(2);
       return;
 
-      ec_ctrlbl_2: ;
+      ec_desugar_2: ;
     }
-  |])
+  |]))
   , -- 10 - if statements with else if {{{3
   ([paste|
     __attribute__((tc_api)) void block(int i);
@@ -708,27 +714,27 @@ unitTestsDesugar = [
         return;
       }
     } 
-  |], [paste|
+  |], ([("start", [])], [paste|
     void start() {
-      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      if (1) goto ec_desugar_0; else goto ec_desugar_1;
 
-      ec_ctrlbl_0: ;
+      ec_desugar_0: ;
       block(1);
       return;
-      goto ec_ctrlbl_2;
+      goto ec_desugar_2;
       
-      ec_ctrlbl_1: ;
-      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+      ec_desugar_1: ;
+      if (2) goto ec_desugar_3; else goto ec_desugar_4;
 
-      ec_ctrlbl_3: ;
+      ec_desugar_3: ;
       block(2);
       return;
 
-      ec_ctrlbl_4: ;
+      ec_desugar_4: ;
 
-      ec_ctrlbl_2: ;
+      ec_desugar_2: ;
     }
-  |])
+  |]))
   , -- 11 - switch statement {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -739,26 +745,27 @@ unitTestsDesugar = [
         case 3: e(); f(); return;
       }
     }
-  |], [paste|
+  |], ([("start", ["int ec_desugar_4"])], [paste|
     void start() {
-      if (i==1) goto ec_ctrlbl_1;
-      if (i==2) goto ec_ctrlbl_2;
-      if (i==3) goto ec_ctrlbl_3;
-      goto ec_ctrlbl_0;
+      ec_desugar_4 = i; 
+      if (ec_desugar_4==1) goto ec_desugar_1;
+      if (ec_desugar_4==2) goto ec_desugar_2;
+      if (ec_desugar_4==3) goto ec_desugar_3;
+      goto ec_desugar_0;
       
-      ec_ctrlbl_1: ;
+      ec_desugar_1: ;
       a(); b();
-      goto ec_ctrlbl_0;
+      goto ec_desugar_0;
     
-      ec_ctrlbl_2: ;
+      ec_desugar_2: ;
       c(); block();
     
-      ec_ctrlbl_3: ;
+      ec_desugar_3: ;
       e(); f(); return;
 
-      ec_ctrlbl_0: ;
+      ec_desugar_0: ;
     }
-  |])
+  |]))
   , -- 12 - switch statement with default {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -769,25 +776,26 @@ unitTestsDesugar = [
         default: e(); f();
       }
     }
-  |], [paste|
+  |], ([("start", ["int ec_desugar_4"])], [paste|
     void start() {
-      if (i==1) goto ec_ctrlbl_1;
-      if (i==2) goto ec_ctrlbl_2;
-      goto ec_ctrlbl_3;
+      ec_desugar_4 = i;
+      if (ec_desugar_4==1) goto ec_desugar_1;
+      if (ec_desugar_4==2) goto ec_desugar_2;
+      goto ec_desugar_3;
 
-      ec_ctrlbl_1: ;
+      ec_desugar_1: ;
       a(); b();
-      goto ec_ctrlbl_0;
+      goto ec_desugar_0;
 
-      ec_ctrlbl_2: ;
+      ec_desugar_2: ;
       c(); block();
 
-      ec_ctrlbl_3: ;
+      ec_desugar_3: ;
       e(); f();
 
-      ec_ctrlbl_0: ;
+      ec_desugar_0: ;
     }
-  |])
+  |]))
   , -- 13 - switch statement with empty case {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -798,24 +806,25 @@ unitTestsDesugar = [
         default: e(); f();
       }
     }
-  |], [paste|
+  |], ([("start", ["int ec_desugar_4"])], [paste|
     void start() {
-      if (i==1) goto ec_ctrlbl_1;
-      if (i==2) goto ec_ctrlbl_2;
-      goto ec_ctrlbl_3;
+      ec_desugar_4 = i;
+      if (ec_desugar_4==1) goto ec_desugar_1;
+      if (ec_desugar_4==2) goto ec_desugar_2;
+      goto ec_desugar_3;
 
-      ec_ctrlbl_1: ;
+      ec_desugar_1: ;
       ;
 
-      ec_ctrlbl_2: ;
+      ec_desugar_2: ;
       c(); block();
 
-      ec_ctrlbl_3: ;
+      ec_desugar_3: ;
       e(); f();
 
-      ec_ctrlbl_0: ;
+      ec_desugar_0: ;
     }
-  |])
+  |]))
   , -- 14 - switch statement with empty case before default {{{3
   ([paste|
     __attribute__((tc_api)) void block();
@@ -826,24 +835,44 @@ unitTestsDesugar = [
         default: e(); f();
       }
     }
-  |], [paste|
+  |], ([("start", ["int ec_desugar_4"])], [paste|
     void start() {
-      if (i==2) goto ec_ctrlbl_1;
-      if (i==1) goto ec_ctrlbl_2;
-      goto ec_ctrlbl_3;
+      ec_desugar_4 = i;
+      if (ec_desugar_4==2) goto ec_desugar_1;
+      if (ec_desugar_4==1) goto ec_desugar_2;
+      goto ec_desugar_3;
 
-      ec_ctrlbl_1: ;
+      ec_desugar_1: ;
       c(); block();
 
-      ec_ctrlbl_2: ;
+      ec_desugar_2: ;
       ;
 
-      ec_ctrlbl_3: ;
+      ec_desugar_3: ;
       e(); f();
 
-      ec_ctrlbl_0: ;
+      ec_desugar_0: ;
     }
-  |])
+  |]))
+  , -- 15 - switch statement only with default {{{3
+  ([paste|
+    __attribute__((tc_api)) void block();
+    __attribute__((tc_thread)) void start() {
+      switch (i) {
+        default: e(); block();
+      }
+    }
+  |], ([("start", ["int ec_desugar_2"])], [paste|
+    void start() {
+      ec_desugar_2 = i; 
+      goto ec_desugar_1;
+
+      ec_desugar_1: ;
+      e(); block();
+
+      ec_desugar_0: ;
+    }
+  |]))
   , -- 15 - label with statement {{{3
   ([paste|
     __attribute__((tc_api)) void block(int i);
@@ -853,7 +882,7 @@ unitTestsDesugar = [
       block(i);
       goto start;
     }
-  |], [paste|
+  |], ([("start", [])], [paste|
     void start() {
       i = 0;
       start: ;
@@ -861,7 +890,7 @@ unitTestsDesugar = [
       block(i);
       goto start;
     }
-  |])
+  |]))
   -- end {{{3
   ]
 
@@ -884,12 +913,12 @@ unitTestsBoolean = [
         ec_bool_0 = !!h();
         ec_bool_2: ;
 
-        if (ec_bool_0) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+        if (ec_bool_0) goto ec_desugar_0; else goto ec_desugar_1;
 
-        ec_ctrlbl_0: ;
+        ec_desugar_0: ;
         ;
 
-        ec_ctrlbl_1: ;
+        ec_desugar_1: ;
     }
   |]))
   , -- 02 - critical function on right hand side, and expression {{{3
@@ -909,12 +938,12 @@ unitTestsBoolean = [
         ec_bool_0 = !!block();
         ec_bool_2: ;
 
-        if (ec_bool_0) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+        if (ec_bool_0) goto ec_desugar_0; else goto ec_desugar_1;
 
-        ec_ctrlbl_0: ;
+        ec_desugar_0: ;
         ;
 
-        ec_ctrlbl_1: ;
+        ec_desugar_1: ;
     }
   |]))
   , -- 03 - expression statement {{{3
@@ -1127,15 +1156,15 @@ unitTestsNormalize = [
   ], [paste|
     void start() {
       ec_crit_0 = block();
-      if (ec_crit_0 == 'a') goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
-      ec_ctrlbl_0: ;
+      if (ec_crit_0 == 'a') goto ec_desugar_0; else goto ec_desugar_1;
+      ec_desugar_0: ;
       j = 23;
-      goto ec_ctrlbl_2;
+      goto ec_desugar_2;
 
-      ec_ctrlbl_1:;
+      ec_desugar_1:;
       j = 42;
 
-      ec_ctrlbl_2: ;
+      ec_desugar_2: ;
     }
   |]))
   , -- 03 - critical call in nested expressions {{{3
@@ -1222,29 +1251,29 @@ unitTestsBasicBlocks = [
     __attribute__((tc_thread)) void start() {
         a();
 
-        ec_ctrlbl_0: ;
-        if (! 1) goto ec_ctrlbl_1;
+        nec_desugar_0: ;
+        if (! 1) goto nec_desugar_1;
         block();
-        goto ec_ctrlbl_0;
+        goto nec_desugar_0;
 
-        ec_ctrlbl_1: ;
+        nec_desugar_1: ;
         b();
     }
   |], [("start", "L1", [paste|
     L1:
     a();
-    GOTO L2/ec_ctrlbl_0
+    GOTO L2/nec_desugar_0
 
-    L2/ec_ctrlbl_0:
-    IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+    L2/nec_desugar_0:
+    IF !1 THEN L5/nec_desugar_1 ELSE L3
 
     L3:
     block(); GOTO L4
 
     L4: block()
-    GOTO L2/ec_ctrlbl_0
+    GOTO L2/nec_desugar_0
 
-    L5/ec_ctrlbl_1:
+    L5/nec_desugar_1:
     b();
     RETURN
   |])])
@@ -1252,62 +1281,62 @@ unitTestsBasicBlocks = [
   ([paste|
     __attribute__((tc_api)) int block(int i);
     __attribute__((tc_thread)) void start() {
-      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      if (1) goto nec_desugar_0; else goto nec_desugar_1;
 
-      ec_ctrlbl_0: ;
+      nec_desugar_0: ;
       block(1);
       return;
-      goto ec_ctrlbl_2;
+      goto nec_desugar_2;
       
-      ec_ctrlbl_1: ;
-      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+      nec_desugar_1: ;
+      if (2) goto nec_desugar_3; else goto nec_desugar_4;
 
-      ec_ctrlbl_3: ;
+      nec_desugar_3: ;
       block(2);
       return;
 
-      ec_ctrlbl_4: ;
+      nec_desugar_4: ;
 
-      ec_ctrlbl_2: ;
+      nec_desugar_2: ;
     }
   |], [("start", "L1", [paste|
     L1:
-    IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
+    IF 1 THEN L2/nec_desugar_0 ELSE L5/nec_desugar_1
 
-    L2/ec_ctrlbl_0:
+    L2/nec_desugar_0:
     block(1); GOTO L3
 
     L3: block(1)
     RETURN
 
     L4:
-    GOTO L9/ec_ctrlbl_2
+    GOTO L9/nec_desugar_2
     
-    L5/ec_ctrlbl_1:
-    IF 2 THEN L6/ec_ctrlbl_3 ELSE L8/ec_ctrlbl_4
+    L5/nec_desugar_1:
+    IF 2 THEN L6/nec_desugar_3 ELSE L8/nec_desugar_4
 
-    L6/ec_ctrlbl_3:
+    L6/nec_desugar_3:
     block(2); GOTO L7
 
     L7: block(2)
     RETURN
 
-    L8/ec_ctrlbl_4:
-    GOTO L9/ec_ctrlbl_2
+    L8/nec_desugar_4:
+    GOTO L9/nec_desugar_2
 
-    L9/ec_ctrlbl_2:
+    L9/nec_desugar_2:
     RETURN
   |])])
   , -- 04 - trailing expression - manual label {{{3
   ([paste|
     __attribute__((tc_api)) int block(int i);
     __attribute__((tc_thread)) void start() {
-      ec_ctrlbl_0: ;
+      nec_desugar_0: ;
       block(1);
       i++;
     }
-  |], [("start", "L1/ec_ctrlbl_0", [paste|
-    L1/ec_ctrlbl_0:
+  |], [("start", "L1/nec_desugar_0", [paste|
+    L1/nec_desugar_0:
     block(1); GOTO L2
 
     L2: block(1)
@@ -1318,18 +1347,18 @@ unitTestsBasicBlocks = [
   ([paste|
     __attribute__((tc_api)) int block(int i);
     __attribute__((tc_thread)) void start() {
-      ec_ctrlbl_0: ;
+      nec_desugar_0: ;
       block(1);
       i++;
-      if (i==23) goto ec_ctrlbl_0;
+      if (i==23) goto nec_desugar_0;
     }
-  |], [("start", "L1/ec_ctrlbl_0", [paste|
-    L1/ec_ctrlbl_0:
+  |], [("start", "L1/nec_desugar_0", [paste|
+    L1/nec_desugar_0:
     block(1); GOTO L2
 
     L2: block(1)
     i++;
-    IF i == 23 THEN L1/ec_ctrlbl_0 ELSE L3
+    IF i == 23 THEN L1/nec_desugar_0 ELSE L3
 
     L3:
     RETURN
@@ -1364,34 +1393,34 @@ unitTestsBasicBlocks = [
   ([paste|
     __attribute__((tc_api)) void block();
     __attribute__((tc_thread)) void start() {
-      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
-      ec_ctrlbl_0: ;
+      if (1) goto nec_desugar_0; else goto nec_desugar_1;
+      nec_desugar_0: ;
       block();
       return;
-      goto ec_ctrlbl_2;
-      ec_ctrlbl_1: ;
+      goto nec_desugar_2;
+      nec_desugar_1: ;
       c();
       return;
-      ec_ctrlbl_2: ;
+      nec_desugar_2: ;
     }
   |], [("start", "L1", [paste|
     L1:
-    IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
+    IF 1 THEN L2/nec_desugar_0 ELSE L5/nec_desugar_1
 
-    L2/ec_ctrlbl_0:
+    L2/nec_desugar_0:
     block(); GOTO L3
 
     L3: block()
     RETURN
 
     L4:
-    GOTO L6/ec_ctrlbl_2
+    GOTO L6/nec_desugar_2
 
-    L5/ec_ctrlbl_1:
+    L5/nec_desugar_1:
     c();
     RETURN
 
-    L6/ec_ctrlbl_2:
+    L6/nec_desugar_2:
     RETURN
   |])])
   -- end {{{3
@@ -1403,44 +1432,44 @@ unitTestsOptimize = [
   ([paste|
     __attribute__((tc_api)) void block(int i);
     __attribute__((tc_thread)) void start() {
-      if (1) goto ec_ctrlbl_0; else goto ec_ctrlbl_1;
+      if (1) goto nec_desugar_0; else goto nec_desugar_1;
 
-      ec_ctrlbl_0: ;
+      nec_desugar_0: ;
       block(1);
       return;
-      goto ec_ctrlbl_2;
+      goto nec_desugar_2;
       
-      ec_ctrlbl_1: ;
-      if (2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+      nec_desugar_1: ;
+      if (2) goto nec_desugar_3; else goto nec_desugar_4;
 
-      ec_ctrlbl_3: ;
+      nec_desugar_3: ;
       block(2);
       return;
 
-      ec_ctrlbl_4: ;
+      nec_desugar_4: ;
 
-      ec_ctrlbl_2: ;
+      nec_desugar_2: ;
     }
   |], [("start", "L1", [paste|
       L1:
-      IF 1 THEN L2/ec_ctrlbl_0 ELSE L5/ec_ctrlbl_1
+      IF 1 THEN L2/nec_desugar_0 ELSE L5/nec_desugar_1
 
-      L2/ec_ctrlbl_0:
+      L2/nec_desugar_0:
       block(1); GOTO L3
 
       L3: block(1)
       RETURN
 
-      L5/ec_ctrlbl_1:
-      IF 2 THEN L6/ec_ctrlbl_3 ELSE L9/ec_ctrlbl_2
+      L5/nec_desugar_1:
+      IF 2 THEN L6/nec_desugar_3 ELSE L9/nec_desugar_2
 
-      L6/ec_ctrlbl_3:
+      L6/nec_desugar_3:
       block(2); GOTO L7
 
       L7: block(2)
       RETURN
 
-      L9/ec_ctrlbl_2:
+      L9/nec_desugar_2:
       RETURN
   |])])
   , -- 02 - 1st normal form {{{3
@@ -1455,15 +1484,15 @@ unitTestsOptimize = [
   |], [("start", "L1", [paste|
       L1:
       s = 23;
-      GOTO L2/ec_ctrlbl_0
+      GOTO L2/ec_desugar_0
 
-      L2/ec_ctrlbl_0:
-      IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+      L2/ec_desugar_0:
+      IF !1 THEN L5/ec_desugar_1 ELSE L3
 
       L3:
-      block(s); GOTO L2/ec_ctrlbl_0
+      block(s); GOTO L2/ec_desugar_0
 
-      L5/ec_ctrlbl_1:
+      L5/ec_desugar_1:
       RETURN
   |])])
   , -- 03 - 2nd normal form {{{3
@@ -1478,18 +1507,18 @@ unitTestsOptimize = [
   |], [("start", "L1", [paste|
       L1:
       s = 23;
-      GOTO L2/ec_ctrlbl_0
+      GOTO L2/ec_desugar_0
 
-      L2/ec_ctrlbl_0:
-      IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+      L2/ec_desugar_0:
+      IF !1 THEN L5/ec_desugar_1 ELSE L3
 
       L3:
       s = block(s); GOTO L4
 
       L4: s = block(s)
-      GOTO L2/ec_ctrlbl_0
+      GOTO L2/ec_desugar_0
 
-      L5/ec_ctrlbl_1:
+      L5/ec_desugar_1:
       RETURN
   |])])
   -- end {{{3
@@ -1703,36 +1732,38 @@ integrationTestCases = [
         }
       |]
     )
-  , outDesugar      = Just -- {{{4
-      [paste|
+  , outDesugar      = Just (-- {{{4
+        [("start", [])]
+      , [paste|
         void start() {
           a();
-          ec_ctrlbl_0: ;
-          if (! 1) goto ec_ctrlbl_1;
+          ec_desugar_0: ;
+          if (! 1) goto ec_desugar_1;
           block();
-          goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          goto ec_desugar_0;
+          ec_desugar_1: ;
           b();
         }
-      |]
+        |]
+      )
   , outShortCircuit = Nothing -- {{{4
   , outNormalize    = Nothing -- {{{4
   , outBasicBlocks  = [ -- {{{4
       ("start", "L1", [paste|
           L1:
           a();
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L2/ec_ctrlbl_0:
-          IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+          L2/ec_desugar_0:
+          IF !1 THEN L5/ec_desugar_1 ELSE L3
 
           L3:
           block(); GOTO L4
 
           L4: block()
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L5/ec_ctrlbl_1:
+          L5/ec_desugar_1:
           b();
           RETURN
       |])
@@ -1741,15 +1772,15 @@ integrationTestCases = [
       ("start", "L1", [paste|
           L1:
           a();
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L2/ec_ctrlbl_0:
-          IF !1 THEN L5/ec_ctrlbl_1 ELSE L3
+          L2/ec_desugar_0:
+          IF !1 THEN L5/ec_desugar_1 ELSE L3
 
           L3:
-          block(); GOTO L2/ec_ctrlbl_0
+          block(); GOTO L2/ec_desugar_0
 
-          L5/ec_ctrlbl_1:
+          L5/ec_desugar_1:
           b();
           RETURN
       |])
@@ -1782,32 +1813,34 @@ integrationTestCases = [
         }
       |]
     )
-  , outDesugar     = Just -- {{{4
-      [paste|
+  , outDesugar     = Just ( -- {{{4
+        [("start", [])]
+      , [paste|
         void start() {
           a();
-          ec_ctrlbl_0: ;
+          ec_desugar_0: ;
           block();
-          if (1) goto ec_ctrlbl_0;
-          ec_ctrlbl_1: ;
+          if (1) goto ec_desugar_0;
+          ec_desugar_1: ;
           b();
         }
-      |]
+        |]
+      )
   , outShortCircuit = Nothing -- {{{4
   , outNormalize    = Nothing -- {{{4
   , outBasicBlocks = [ -- {{{4
       ("start", "L1", [paste|
           L1:
           a();
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L2/ec_ctrlbl_0:
+          L2/ec_desugar_0:
           block(); GOTO L3
 
           L3: block()
-          IF 1 THEN L2/ec_ctrlbl_0 ELSE L4/ec_ctrlbl_1
+          IF 1 THEN L2/ec_desugar_0 ELSE L4/ec_desugar_1
 
-          L4/ec_ctrlbl_1:
+          L4/ec_desugar_1:
           b();
           RETURN
       |])
@@ -1846,30 +1879,32 @@ integrationTestCases = [
           }
         |]
       )
-    , outDesugar = Just  -- {{{4
-        [paste|
+    , outDesugar = Just ( -- {{{4
+        [("start", [])]
+      , [paste|
           void start() {
             a();
             i = 0;
 
-            ec_ctrlbl_0: ;
-            if (!(i < 23)) goto ec_ctrlbl_2;
-            if (i == 2) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
+            ec_desugar_0: ;
+            if (!(i < 23)) goto ec_desugar_2;
+            if (i == 2) goto ec_desugar_3; else goto ec_desugar_4;
 
-            ec_ctrlbl_3: ;
-            goto ec_ctrlbl_1;
+            ec_desugar_3: ;
+            goto ec_desugar_1;
 
-            ec_ctrlbl_4: ;
+            ec_desugar_4: ;
             block(i);
 
-            ec_ctrlbl_1: ;
+            ec_desugar_1: ;
             i++;
-            goto ec_ctrlbl_0;
+            goto ec_desugar_0;
 
-            ec_ctrlbl_2: ;
+            ec_desugar_2: ;
             b();
           }
         |]
+      )
     , outShortCircuit = Nothing -- {{{4
     , outNormalize    = Nothing -- {{{4
     , outBasicBlocks = [ -- {{{4
@@ -1877,25 +1912,25 @@ integrationTestCases = [
           L1:
           a();
           i = 0;
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L2/ec_ctrlbl_0:
-          IF !(i < 23) THEN L7/ec_ctrlbl_2 ELSE L3
+          L2/ec_desugar_0:
+          IF !(i < 23) THEN L7/ec_desugar_2 ELSE L3
 
           L3:
-          IF i == 2 THEN L4/ec_ctrlbl_3 ELSE L5/ec_ctrlbl_4
+          IF i == 2 THEN L4/ec_desugar_3 ELSE L5/ec_desugar_4
 
-          L4/ec_ctrlbl_3:
-          GOTO L6/ec_ctrlbl_1
+          L4/ec_desugar_3:
+          GOTO L6/ec_desugar_1
 
-          L5/ec_ctrlbl_4:
-          block(i); GOTO L6/ec_ctrlbl_1
+          L5/ec_desugar_4:
+          block(i); GOTO L6/ec_desugar_1
 
-          L6/ec_ctrlbl_1: block(i)
+          L6/ec_desugar_1: block(i)
           i++;
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L7/ec_ctrlbl_2:
+          L7/ec_desugar_2:
           b();
           RETURN
         |])
@@ -1905,22 +1940,22 @@ integrationTestCases = [
           L1:
           a();
           i = 0;
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L2/ec_ctrlbl_0:
-          IF !(i < 23) THEN L7/ec_ctrlbl_2 ELSE L3
+          L2/ec_desugar_0:
+          IF !(i < 23) THEN L7/ec_desugar_2 ELSE L3
 
           L3:
-          IF i == 2 THEN L6/ec_ctrlbl_1 ELSE L5/ec_ctrlbl_4
+          IF i == 2 THEN L6/ec_desugar_1 ELSE L5/ec_desugar_4
 
-          L5/ec_ctrlbl_4:
-          block(i); GOTO L6/ec_ctrlbl_1
+          L5/ec_desugar_4:
+          block(i); GOTO L6/ec_desugar_1
 
-          L6/ec_ctrlbl_1: block(i)
+          L6/ec_desugar_1: block(i)
           i++;
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L7/ec_ctrlbl_2:
+          L7/ec_desugar_2:
           b();
           RETURN
         |])
@@ -1954,47 +1989,49 @@ integrationTestCases = [
           }
         |]
       )
-    , outDesugar = Just  -- {{{4
-        [paste|
+    , outDesugar = Just ( -- {{{4
+        [("start", [])]
+      , [paste|
           void start() {
             i = 0;
-            ec_ctrlbl_0: ;
+            ec_desugar_0: ;
             block(i);
-            if (i==23) goto ec_ctrlbl_3; else goto ec_ctrlbl_4;
-            ec_ctrlbl_3: ;
-            goto ec_ctrlbl_2;
-            ec_ctrlbl_4: ;  
-            ec_ctrlbl_1: ;  
+            if (i==23) goto ec_desugar_3; else goto ec_desugar_4;
+            ec_desugar_3: ;
+            goto ec_desugar_2;
+            ec_desugar_4: ;  
+            ec_desugar_1: ;  
             i++;
-            goto ec_ctrlbl_0;
-            ec_ctrlbl_2: ;
+            goto ec_desugar_0;
+            ec_desugar_2: ;
           }
         |]
+      )
     , outShortCircuit = Nothing -- {{{4
     , outNormalize    = Nothing -- {{{4
     , outBasicBlocks  = [       -- {{{4
         ("start", "L1", [paste|
           L1:
           i = 0;
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L2/ec_ctrlbl_0:
+          L2/ec_desugar_0:
           block(i); GOTO L3
 
           L3: block(i)
-          IF i == 23 THEN L4/ec_ctrlbl_3 ELSE L5/ec_ctrlbl_4
+          IF i == 23 THEN L4/ec_desugar_3 ELSE L5/ec_desugar_4
 
-          L4/ec_ctrlbl_3:
-          GOTO L7/ec_ctrlbl_2
+          L4/ec_desugar_3:
+          GOTO L7/ec_desugar_2
 
-          L5/ec_ctrlbl_4:
-          GOTO L6/ec_ctrlbl_1
+          L5/ec_desugar_4:
+          GOTO L6/ec_desugar_1
 
-          L6/ec_ctrlbl_1:
+          L6/ec_desugar_1:
           i++;
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L7/ec_ctrlbl_2:
+          L7/ec_desugar_2:
           RETURN
         |])
       ]
@@ -2002,19 +2039,19 @@ integrationTestCases = [
         ("start", "L1", [paste|
           L1:
           i = 0;
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L2/ec_ctrlbl_0:
+          L2/ec_desugar_0:
           block(i); GOTO L3
 
           L3: block(i)
-          IF i == 23 THEN L7/ec_ctrlbl_2 ELSE L6/ec_ctrlbl_1
+          IF i == 23 THEN L7/ec_desugar_2 ELSE L6/ec_desugar_1
 
-          L6/ec_ctrlbl_1:
+          L6/ec_desugar_1:
           i++;
-          GOTO L2/ec_ctrlbl_0
+          GOTO L2/ec_desugar_0
 
-          L7/ec_ctrlbl_2:
+          L7/ec_desugar_2:
           RETURN
         |])
       ]
@@ -2056,69 +2093,73 @@ integrationTestCases = [
           }
         |]
       )
-    , outDesugar = Just  -- {{{4
-        [paste|
+    , outDesugar = Just ( -- {{{4
+        [("start", ["int ec_desugar_6"])]
+      , [paste|
           void start() {
             i = block(0);
-            if (i == 0) goto ec_ctrlbl_1;
-            if (i == 1) goto ec_ctrlbl_2;
-            if (i == 2) goto ec_ctrlbl_3;
-            if (i == 3) goto ec_ctrlbl_4;
-            goto ec_ctrlbl_5; 
+            ec_desugar_6 = i;
+            if (ec_desugar_6 == 0) goto ec_desugar_1;
+            if (ec_desugar_6 == 1) goto ec_desugar_2;
+            if (ec_desugar_6 == 2) goto ec_desugar_3;
+            if (ec_desugar_6 == 3) goto ec_desugar_4;
+            goto ec_desugar_5; 
 
-            ec_ctrlbl_1: ;
+            ec_desugar_1: ;
             j = block(23) > 0;
-            goto ec_ctrlbl_0;
+            goto ec_desugar_0;
 
-            ec_ctrlbl_2: ;
+            ec_desugar_2: ;
             ;
 
-            ec_ctrlbl_3: ;
+            ec_desugar_3: ;
             i++;
-            ec_ctrlbl_4: ;
+            ec_desugar_4: ;
             j = block(i) || block(i-1);
-            goto ec_ctrlbl_0;
+            goto ec_desugar_0;
 
-            ec_ctrlbl_5: ;
+            ec_desugar_5: ;
             j = 0;
 
-            ec_ctrlbl_0: ;
+            ec_desugar_0: ;
           }
         |]
+      )
     , outShortCircuit = Just (-- {{{4
         [("start", ["int ec_bool_0"])]
       , [paste|
         void start() {
           i = block(0);
-          if (i == 0) goto ec_ctrlbl_1;
-          if (i == 1) goto ec_ctrlbl_2;
-          if (i == 2) goto ec_ctrlbl_3;
-          if (i == 3) goto ec_ctrlbl_4;
-          goto ec_ctrlbl_5; 
+          ec_desugar_6 = i;
+          if (ec_desugar_6 == 0) goto ec_desugar_1;
+          if (ec_desugar_6 == 1) goto ec_desugar_2;
+          if (ec_desugar_6 == 2) goto ec_desugar_3;
+          if (ec_desugar_6 == 3) goto ec_desugar_4;
+          goto ec_desugar_5; 
 
-          ec_ctrlbl_1: ;
+          ec_desugar_1: ;
           j = block(23) > 0;
-          goto ec_ctrlbl_0;
+          goto ec_desugar_0;
 
-          ec_ctrlbl_2: ;
+          ec_desugar_2: ;
           ;
 
-          ec_ctrlbl_3: ;
+          ec_desugar_3: ;
           i++;
 
-          ec_ctrlbl_4: ;
+          ec_desugar_4: ;
           ec_bool_0 = !!block(i);
           if (!ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
           ec_bool_1: ;
           ec_bool_0 = !!block(i-1);
           ec_bool_2: ;
           j = ec_bool_0;
-          goto ec_ctrlbl_0;
+          goto ec_desugar_0;
 
-          ec_ctrlbl_5: ;
+          ec_desugar_5: ;
           j = 0;
 
-          ec_ctrlbl_0: ;
+          ec_desugar_0: ;
         }
         |]
       )
@@ -2131,24 +2172,25 @@ integrationTestCases = [
       , [paste|
         void start() {
           i = block(0);
-          if (i == 0) goto ec_ctrlbl_1;
-          if (i == 1) goto ec_ctrlbl_2;
-          if (i == 2) goto ec_ctrlbl_3;
-          if (i == 3) goto ec_ctrlbl_4;
-          goto ec_ctrlbl_5; 
+          ec_desugar_6 = i;
+          if (ec_desugar_6 == 0) goto ec_desugar_1;
+          if (ec_desugar_6 == 1) goto ec_desugar_2;
+          if (ec_desugar_6 == 2) goto ec_desugar_3;
+          if (ec_desugar_6 == 3) goto ec_desugar_4;
+          goto ec_desugar_5; 
 
-          ec_ctrlbl_1: ;
+          ec_desugar_1: ;
           ec_crit_0 = block(23);
           j = ec_crit_0 > 0;
-          goto ec_ctrlbl_0;
+          goto ec_desugar_0;
 
-          ec_ctrlbl_2: ;
+          ec_desugar_2: ;
           ;
 
-          ec_ctrlbl_3: ;
+          ec_desugar_3: ;
           i++;
 
-          ec_ctrlbl_4: ;
+          ec_desugar_4: ;
           ec_crit_1 = block(i);
           ec_bool_0 = !!ec_crit_1;
           if (!ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
@@ -2157,12 +2199,12 @@ integrationTestCases = [
           ec_bool_0 = !!ec_crit_2;
           ec_bool_2: ;
           j = ec_bool_0;
-          goto ec_ctrlbl_0;
+          goto ec_desugar_0;
 
-          ec_ctrlbl_5: ;
+          ec_desugar_5: ;
           j = 0;
 
-          ec_ctrlbl_0: ;
+          ec_desugar_0: ;
         }
         |]
       )
@@ -2172,35 +2214,36 @@ integrationTestCases = [
           i = block(0); GOTO L2
 
           L2: i = block(0)
-          IF i == 0 THEN L7/ec_ctrlbl_1 ELSE L3
+          ec_desugar_6 = i;
+          IF ec_desugar_6 == 0 THEN L7/ec_desugar_1 ELSE L3
 
           L3:
-          IF i == 1 THEN L9/ec_ctrlbl_2 ELSE L4
+          IF ec_desugar_6 == 1 THEN L9/ec_desugar_2 ELSE L4
 
           L4:
-          IF i == 2 THEN L10/ec_ctrlbl_3 ELSE L5
+          IF ec_desugar_6 == 2 THEN L10/ec_desugar_3 ELSE L5
 
           L5:
-          IF i == 3 THEN L11/ec_ctrlbl_4 ELSE L6
+          IF ec_desugar_6 == 3 THEN L11/ec_desugar_4 ELSE L6
 
           L6:
-          GOTO L16/ec_ctrlbl_5
+          GOTO L16/ec_desugar_5
 
-          L7/ec_ctrlbl_1:
+          L7/ec_desugar_1:
           ec_crit_0 = block(23); GOTO L8
 
           L8: ec_crit_0 = block(23)
           j = ec_crit_0 > 0;
-          GOTO L17/ec_ctrlbl_0
+          GOTO L17/ec_desugar_0
 
-          L9/ec_ctrlbl_2:
-          GOTO L10/ec_ctrlbl_3
+          L9/ec_desugar_2:
+          GOTO L10/ec_desugar_3
 
-          L10/ec_ctrlbl_3:
+          L10/ec_desugar_3:
           i++;
-          GOTO L11/ec_ctrlbl_4
+          GOTO L11/ec_desugar_4
 
-          L11/ec_ctrlbl_4:
+          L11/ec_desugar_4:
           ec_crit_1 = block(i); GOTO L12
 
           L12: ec_crit_1 = block(i)
@@ -2216,13 +2259,13 @@ integrationTestCases = [
 
           L15/ec_bool_2:
           j = ec_bool_0;
-          GOTO L17/ec_ctrlbl_0
+          GOTO L17/ec_desugar_0
 
-          L16/ec_ctrlbl_5:
+          L16/ec_desugar_5:
           j = 0;
-          GOTO L17/ec_ctrlbl_0
+          GOTO L17/ec_desugar_0
 
-          L17/ec_ctrlbl_0:
+          L17/ec_desugar_0:
           RETURN
         |])
       ]
@@ -2232,29 +2275,30 @@ integrationTestCases = [
           i = block(0); GOTO L2
 
           L2: i = block(0)
-          IF i == 0 THEN L7/ec_ctrlbl_1 ELSE L3
+          ec_desugar_6 = i;
+          IF ec_desugar_6 == 0 THEN L7/ec_desugar_1 ELSE L3
 
           L3:
-          IF i == 1 THEN L10/ec_ctrlbl_3 ELSE L4
+          IF ec_desugar_6 == 1 THEN L10/ec_desugar_3 ELSE L4
 
           L4:
-          IF i == 2 THEN L10/ec_ctrlbl_3 ELSE L5
+          IF ec_desugar_6 == 2 THEN L10/ec_desugar_3 ELSE L5
 
           L5:
-          IF i == 3 THEN L11/ec_ctrlbl_4 ELSE L16/ec_ctrlbl_5
+          IF ec_desugar_6 == 3 THEN L11/ec_desugar_4 ELSE L16/ec_desugar_5
 
-          L7/ec_ctrlbl_1:
+          L7/ec_desugar_1:
           ec_crit_0 = block(23); GOTO L8
 
           L8: ec_crit_0 = block(23)
           j = ec_crit_0 > 0;
-          GOTO L17/ec_ctrlbl_0
+          GOTO L17/ec_desugar_0
 
-          L10/ec_ctrlbl_3:
+          L10/ec_desugar_3:
           i++;
-          GOTO L11/ec_ctrlbl_4
+          GOTO L11/ec_desugar_4
 
-          L11/ec_ctrlbl_4:
+          L11/ec_desugar_4:
           ec_crit_1 = block(i); GOTO L12
 
           L12: ec_crit_1 = block(i)
@@ -2270,19 +2314,20 @@ integrationTestCases = [
 
           L15/ec_bool_2:
           j = ec_bool_0;
-          GOTO L17/ec_ctrlbl_0
+          GOTO L17/ec_desugar_0
 
-          L16/ec_ctrlbl_5:
+          L16/ec_desugar_5:
           j = 0;
-          GOTO L17/ec_ctrlbl_0
+          GOTO L17/ec_desugar_0
 
-          L17/ec_ctrlbl_0:
+          L17/ec_desugar_0:
           RETURN
         |])
       ]
     , outCritical = Just [ -- {{{4
         ("start", [
             U "j"
+          , U "ec_desugar_6"
           , U "ec_bool_0"
           , C "i"
           , U "ec_crit_2"
@@ -2336,20 +2381,22 @@ testCollectDeclarations = test_collect_declarations <$> input <*> outCollect
 testDesugarControlStructures :: TestCase -> Assertion -- {{{3
 testDesugarControlStructures = test_desugar_control_structures <$> input <*> output
   where
-    output = fromMaybe <$> snd . outCollect <*> outDesugar
+    output = (,) <$> cflist <*> code
+    code   = fromMaybe <$> snd . outCollect <*> fmap snd . outDesugar
+    cflist = fromMaybe <$> emptyCfList <*> fmap fst . outDesugar
 
 testBooleanShortCircuiting :: TestCase -> Assertion -- {{{3
 testBooleanShortCircuiting = test_boolean_short_circuiting <$> input <*> output
   where
     output = (,) <$> cflist <*> code
-    code = fromMaybe <$> snd . outCollect <*> msum . sequence [fmap snd . outShortCircuit, outDesugar]
+    code = fromMaybe <$> snd . outCollect <*> fmap snd . msum . sequence [outShortCircuit, outDesugar]
     cflist = fromMaybe <$> emptyCfList <*> fmap fst . outShortCircuit
 
 testNormalizeCriticalCalls :: TestCase -> Assertion -- {{{3
 testNormalizeCriticalCalls = test_normalize_critical_calls <$> input <*> output
   where
     output = (,) <$> cflist <*> code
-    code   = fromMaybe <$> snd . outCollect <*> msum . sequence [fmap snd . outNormalize, fmap snd . outShortCircuit, outDesugar]
+    code   = fromMaybe <$> snd . outCollect <*> fmap snd . msum . sequence [outNormalize, outShortCircuit, outDesugar]
     cflist = fromMaybe <$> emptyCfList <*> fmap fst . outNormalize
 
 testBuildBasicBlocks :: TestCase -> Assertion -- {{{3
@@ -2422,7 +2469,7 @@ test_collect_declarations inputCode (expectedVars', expectedCode) = do
         assertEqual (prefix ++ "end of scope") end ((reduce . snd . var_scope) var)
 
 test_desugar_control_structures :: Input -> OutputDesugarControlStructures -> Assertion -- {{{2
-test_desugar_control_structures inputCode expectedCode = do
+test_desugar_control_structures inputCode (expectedDecls', expectedCode) = do
   let
     ana = analyze inputCode
     result = pipeline ana (
@@ -2431,8 +2478,14 @@ test_desugar_control_structures inputCode expectedCode = do
       )
 
   let
-    outputCode = printOutputCode ana result
+    items      = M.map fst result
+    outputCode = printOutputCode ana items
   assertEqual "output code" (blurrCSyntax expectedCode) outputCode
+
+  let
+    expectedDecls = M.fromList expectedDecls'
+  assertEqual "set of critical functions" (M.keysSet expectedDecls) (M.keysSet result)
+  sequence_ $ M.elems $ M.intersectionWithKey cmpNewVars expectedDecls result
         
 test_boolean_short_circuiting :: Input -> OutputBooleanShortCircuiting -> Assertion -- {{{2
 test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
@@ -2452,16 +2505,7 @@ test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
   let
     expectedDecls = M.fromList expectedDecls'
   assertEqual "set of critical functions" (M.keysSet expectedDecls) (M.keysSet result)
-  sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedDecls result
-
-  where
-    cmpVars fname decls (_, vars) = do
-      assertEqual (printf "function: '%s', number of variables" fname) (length decls) (length vars)
-      mapM_ (cmpVar fname) $ zip decls vars
-
-    cmpVar fname (decl, var) = 
-      let msg = printf "function: '%s', variable" fname in
-      assertEqual msg decl ((render . var_decl) var)
+  sequence_ $ M.elems $ M.intersectionWithKey cmpNewVars expectedDecls result
 
 test_normalize_critical_calls :: Input -> OutputNormalize -> Assertion -- {{{2
 test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
@@ -2482,16 +2526,7 @@ test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
   let
     expectedDecls = M.fromList expectedDecls'
   assertEqual "set of critical functions" (M.keysSet expectedDecls) (M.keysSet result)
-  sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedDecls result
-
-  where
-    cmpVars fname decls (_, vars) = do
-      assertEqual (printf "function: '%s', number of variables" fname) (length decls) (length vars)
-      mapM_ (cmpVar fname) $ zip decls vars
-
-    cmpVar fname (decl, var) = 
-      let msg = printf "function: '%s', variable" fname in
-      assertEqual msg decl ((render . var_decl) var)
+  sequence_ $ M.elems $ M.intersectionWithKey cmpNewVars expectedDecls result
 
 test_build_basic_blocks :: Input -> OutputBasicBlocks -> Assertion -- {{{2
 test_build_basic_blocks inputCode expectedIrs' = do
@@ -2608,7 +2643,7 @@ collectDeclarations :: CFunDef -> [CBlockItem] -- {{{4
 collectDeclarations = (\(x, _, _) -> x) . collect_declarations
 
 desugarControlStructures :: [CBlockItem] -> [CStat'] -- {{{4
-desugarControlStructures = desugar_control_structures
+desugarControlStructures = fst . desugar_control_structures
 
 booleanShortCircuiting :: Analysis -> [CStat'] -> [CStat'] -- {{{4
 booleanShortCircuiting ana = fst . boolean_short_circuiting (blockingAndCriticalFunctions ana)
@@ -2625,3 +2660,13 @@ returnTypes = M.union <$> M.map return_type_fd . anaCritical <*> M.map return_ty
 
 blockingAndCriticalFunctions :: Analysis -> S.Set Symbol -- {{{4
 blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet . anaBlocking
+
+-- assertions {{{3
+cmpNewVars :: String -> [String] -> (a, [Variable]) -> Assertion
+cmpNewVars fname decls (_, vars) = do
+  assertEqual (printf "function: '%s', number of variables" fname) (length decls) (length vars)
+  mapM_ cmpVar $ zip decls vars
+  where
+    cmpVar (decl, var) = 
+      let msg = printf "function: '%s', variable" fname in
+      assertEqual msg decl ((render . var_decl) var)

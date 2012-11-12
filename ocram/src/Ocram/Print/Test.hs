@@ -560,11 +560,11 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
         ;
 32:     ec_tstack_start.ec_frames.c.i = 23;
 33:     ec_tstack_start.ec_frames.c.ec_cont = &&ec_contlbl_L2_start;
-34:     goto ec_ctrlbl_0_c;
+34:     goto ec_desugar_0_c;
     ec_contlbl_L2_start:
         ;
 37:     return;
-    ec_ctrlbl_0_c:
+    ec_desugar_0_c:
         ;
 40:     ec_tstack_start.ec_frames.c.ec_frames.block.i = ec_tstack_start.ec_frames.c.i;
 41:     ec_tstack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_contlbl_L2_c;
@@ -579,7 +579,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
         }
         else
         {
-53:         goto ec_ctrlbl_0_c;
+53:         goto ec_desugar_0_c;
         }
     }
   |], [

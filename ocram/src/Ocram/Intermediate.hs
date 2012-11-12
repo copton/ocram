@@ -43,10 +43,10 @@ ast_2_ir bf cf = M.map (critical_variables . convert) cf
 
     process fd = 
           return fd
-      >>= wrap'    collect_declarations
-      >>= return . desugar_control_structures
-      >>= wrap     (boolean_short_circuiting sf)
-      >>= wrap     (normalize_critical_calls sf')
+      >>= wrap' collect_declarations
+      >>= wrap  desugar_control_structures
+      >>= wrap  (boolean_short_circuiting sf)
+      >>= wrap  (normalize_critical_calls sf')
 
     wrap f = wrap' (\x -> let (y, autoVars) = f x in (y, autoVars, []))
 

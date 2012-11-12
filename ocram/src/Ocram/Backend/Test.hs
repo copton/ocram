@@ -536,12 +536,12 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
     void ec_thread_0(void* ec_cont) {
       if (ec_cont) goto *ec_cont;
 
-      ec_ctrlbl_0_start: ;
+      ec_desugar_0_start: ;
       if (!1) {
         return;
       } else {
         ec_tstack_start.ec_frames.block.b = ec_static_start_s;
-        ec_tstack_start.ec_frames.block.ec_cont = &&ec_ctrlbl_0_start;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_desugar_0_start;
         block(&ec_tstack_start.ec_frames.block);
         return;
       }
@@ -562,14 +562,14 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
 
       ec_contlbl_L1_start: ;
       ec_tstack_start.s = 23;
-      goto ec_ctrlbl_0_start;
+      goto ec_desugar_0_start;
 
-      ec_ctrlbl_0_start: ;
+      ec_desugar_0_start: ;
       if (!1) {
         return;
       } else {
         ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
-        ec_tstack_start.ec_frames.block.ec_cont = &&ec_ctrlbl_0_start;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_desugar_0_start;
         block(&ec_tstack_start.ec_frames.block);
         return;
       }
@@ -928,8 +928,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
       ec_contlbl_L1_start: ;
       ec_tstack_start.i = 0;
-      goto ec_ctrlbl_0_start; 
-      ec_ctrlbl_0_start: ;
+      goto ec_desugar_0_start; 
+      ec_desugar_0_start: ;
       if (!(ec_tstack_start.i < 10)) {
         ec_tstack_start.i = 0;
         return; 
@@ -942,7 +942,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       }
       ec_contlbl_L4_start: ;
       ec_tstack_start.i++;
-      goto ec_ctrlbl_0_start;
+      goto ec_desugar_0_start;
     }
   |], [
       ("i", 2, 11, Just 0, "ec_tstack_start.i")
@@ -1146,14 +1146,14 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
       ec_contlbl_L1_start: ;
         ec_tstack_start.s = 23;
-        goto ec_ctrlbl_0_start;
+        goto ec_desugar_0_start;
 
-      ec_ctrlbl_0_start: ;
+      ec_desugar_0_start: ;
         if (!1) {
           return;
         } else {
           ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
-          ec_tstack_start.ec_frames.block.ec_cont = &&ec_ctrlbl_0_start;
+          ec_tstack_start.ec_frames.block.ec_cont = &&ec_desugar_0_start;
           block(&ec_tstack_start.ec_frames.block);
           return;
         }
@@ -1165,14 +1165,14 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
       ec_contlbl_L1_run: ;
         ec_tstack_run.r = 42;
-        goto ec_ctrlbl_0_run;
+        goto ec_desugar_0_run;
 
-      ec_ctrlbl_0_run: ;
+      ec_desugar_0_run: ;
         if (!1) {
           return;
         } else {
           ec_tstack_run.ec_frames.block.b = ec_tstack_run.r;
-          ec_tstack_run.ec_frames.block.ec_cont = &&ec_ctrlbl_0_run;
+          ec_tstack_run.ec_frames.block.ec_cont = &&ec_desugar_0_run;
           block(&ec_tstack_run.ec_frames.block);
           return;
         }
@@ -1652,13 +1652,13 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
         if (ec_cont) goto * ec_cont;
 
-        ec_ctrlbl_0_start: ;
+        ec_desugar_0_start: ;
         if (!1) {
           return;
         } else {
           if (next == -1) {
             ec_tstack_start.ec_frames.wait.c = &c;
-            ec_tstack_start.ec_frames.wait.ec_cont = &&ec_ctrlbl_0_start;
+            ec_tstack_start.ec_frames.wait.ec_cont = &&ec_desugar_0_start;
             wait(&ec_tstack_start.ec_frames.wait);
             return;
           } else {
@@ -1674,9 +1674,9 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         ec_estack.start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
         if (!ec_estack.start.ec_crit_0) {
           check();
-          goto ec_ctrlbl_0_start;
+          goto ec_desugar_0_start;
         } else {
-          goto ec_ctrlbl_0_start;
+          goto ec_desugar_0_start;
         }
     }
   |], [])
