@@ -1254,6 +1254,30 @@ unitTestsNormalize = [
       j = 0;
     }
   |]))
+  , -- 07 - multiple critical calls {{{3
+  ([paste|
+    __attribute__((tc_api)) int block(int i);
+    long c(int i) {
+      return block(i+1);
+    }
+    __attribute__((tc_thread)) void start() {
+      long int i = block(23) + c(42);
+    }
+  |], ([
+      ("start", ["long ec_crit_1", "int ec_crit_0"])
+    , ("c", ["int ec_crit_0"])
+  ], [paste|
+    long c(int i) {
+      ec_crit_0 = block(i+1);
+      return ec_crit_0;
+    }
+    void start() {
+      ec_crit_1 = c(42);
+      ec_crit_0 = block(23);
+      i = ec_crit_0 + ec_crit_1;
+    }
+  |]))
+
   -- end {{{3
   ]
 
