@@ -78,7 +78,7 @@ instance Show CriticalCall where -- {{{2
 data Node e x where -- {{{1
   -- |Constitutes of basic blocks
   Label  :: Label                                 -> Node C O  -- ^'lbl: ;'. Entry point to a basic block
-  Cont   :: Label -> CriticalCall                 -> Node C O  -- ^continuation of a critical call
+  Cont   :: Label -> CriticalCall                 -> Node C O  -- ^continuation of a critical call in second normal form
   Stmt   :: CExpr'                                -> Node O O  -- ^any expression. The only middle parts of basic blocks
   Goto   :: Label                                 -> Node O C  -- ^'goto label;'
   If     :: CExpr' -> Label -> Label -> ENodeInfo -> Node O C  -- ^'if (cond) {goto label1;} else {goto label2;}'

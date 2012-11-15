@@ -1294,7 +1294,7 @@ unitTestsBasicBlocks = [
     L1:
     block(23); GOTO L2
 
-    L2: block(23)
+    L2:
     RETURN
   |])])
   , -- 02 - if statement - implicit return {{{3
@@ -1322,7 +1322,7 @@ unitTestsBasicBlocks = [
     L3:
     block(); GOTO L4
 
-    L4: block()
+    L4:
     GOTO L2/nec_desugar_0
 
     L5/nec_desugar_1:
@@ -1358,7 +1358,7 @@ unitTestsBasicBlocks = [
     L2/nec_desugar_0:
     block(1); GOTO L3
 
-    L3: block(1)
+    L3:
     RETURN
 
     L4:
@@ -1370,7 +1370,7 @@ unitTestsBasicBlocks = [
     L6/nec_desugar_3:
     block(2); GOTO L7
 
-    L7: block(2)
+    L7:
     RETURN
 
     L8/nec_desugar_4:
@@ -1391,7 +1391,7 @@ unitTestsBasicBlocks = [
     L1/nec_desugar_0:
     block(1); GOTO L2
 
-    L2: block(1)
+    L2:
     i++;
     RETURN
   |])])
@@ -1408,7 +1408,7 @@ unitTestsBasicBlocks = [
     L1/nec_desugar_0:
     block(1); GOTO L2
 
-    L2: block(1)
+    L2:
     i++;
     IF i == 23 THEN L1/nec_desugar_0 ELSE L3
 
@@ -1425,7 +1425,7 @@ unitTestsBasicBlocks = [
     L1:
     block(1); GOTO L2
 
-    L2: block(1)
+    L2:
     RETURN
   |])])
   , -- 07 - second normal form {{{3
@@ -1462,7 +1462,7 @@ unitTestsBasicBlocks = [
     L2/nec_desugar_0:
     block(); GOTO L3
 
-    L3: block()
+    L3:
     RETURN
 
     L4:
@@ -1509,7 +1509,7 @@ unitTestsOptimize = [
       L2/nec_desugar_0:
       block(1); GOTO L3
 
-      L3: block(1)
+      L3:
       RETURN
 
       L5/nec_desugar_1:
@@ -1518,7 +1518,7 @@ unitTestsOptimize = [
       L6/nec_desugar_3:
       block(2); GOTO L7
 
-      L7: block(2)
+      L7:
       RETURN
 
       L9/nec_desugar_2:
@@ -1751,7 +1751,7 @@ integrationTestCases = [
           L1:
           block(); GOTO L2
 
-          L2: block()
+          L2:
           RETURN
       |])
     ]
@@ -1812,7 +1812,7 @@ integrationTestCases = [
           L3:
           block(); GOTO L4
 
-          L4: block()
+          L4:
           GOTO L2/ec_desugar_0
 
           L5/ec_desugar_1:
@@ -1889,7 +1889,7 @@ integrationTestCases = [
           L2/ec_desugar_0:
           block(); GOTO L3
 
-          L3: block()
+          L3:
           IF 1 THEN L2/ec_desugar_0 ELSE L4/ec_desugar_1
 
           L4/ec_desugar_1:
@@ -1978,7 +1978,7 @@ integrationTestCases = [
           L5/ec_desugar_4:
           block(i); GOTO L6/ec_desugar_1
 
-          L6/ec_desugar_1: block(i)
+          L6/ec_desugar_1:
           i++;
           GOTO L2/ec_desugar_0
 
@@ -2003,7 +2003,7 @@ integrationTestCases = [
           L5/ec_desugar_4:
           block(i); GOTO L6/ec_desugar_1
 
-          L6/ec_desugar_1: block(i)
+          L6/ec_desugar_1:
           i++;
           GOTO L2/ec_desugar_0
 
@@ -2070,7 +2070,7 @@ integrationTestCases = [
           L2/ec_desugar_0:
           block(i); GOTO L3
 
-          L3: block(i)
+          L3:
           IF i == 23 THEN L4/ec_desugar_3 ELSE L5/ec_desugar_4
 
           L4/ec_desugar_3:
@@ -2096,7 +2096,7 @@ integrationTestCases = [
           L2/ec_desugar_0:
           block(i); GOTO L3
 
-          L3: block(i)
+          L3:
           IF i == 23 THEN L7/ec_desugar_2 ELSE L6/ec_desugar_1
 
           L6/ec_desugar_1:

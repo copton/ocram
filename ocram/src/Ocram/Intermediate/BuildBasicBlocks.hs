@@ -133,7 +133,7 @@ convert (ProtoBlock thisBlock body, nextBlock) (blocks, mcall)
 
     convL (Just SplitAfter, CExpr (Just (CCall (CVar callee _) params eni)) _) =
       let call = I.FirstNormalForm (symbol callee) params eni in
-      return ([], I.Call call nextBlock, Just call)
+      return ([], I.Call call nextBlock, Nothing)
 
     convL (Just SplitAfter, CExpr (Just (CAssign op lhs (CCall (CVar callee _) params _) eni)) _) =
       let call = I.SecondNormalForm lhs op (symbol callee) params eni in
