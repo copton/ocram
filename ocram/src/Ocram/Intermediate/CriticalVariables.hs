@@ -16,28 +16,26 @@ import Ocram.Debug.Enriched (eun, CExpr')
 import Ocram.Intermediate.Representation
 import Ocram.Util (abort, (?:), (?++), unexp)
 import Ocram.Symbols (Symbol, symbol)
-import Ocram.Query (function_parameters_fd)
 
 import qualified Data.Set as S
 
 critical_variables :: Function -> Function -- {{{1
-critical_variables (Function allVars [] staticVars fd body entry) =
+critical_variables (Function vars fd body entry) =
   let
     facts = runLiveness entry body
     criticalLabels = S.fromList $ foldGraphNodes criticalLabel body [] 
     criticalFacts = filter ((`S.member` criticalLabels) . fst) (mapToList facts)
-    undecidableVars = S.fromList $ undecidable allVars body
-    functionParameters = S.fromList $ map symbol $ function_parameters_fd fd
-    criticalVars = S.unions $ functionParameters : undecidableVars : map snd criticalFacts
-    nonCriticalVars = [x | x <- allVars, not (S.member (var_unique x) criticalVars)]
-    truelyCriticalVars = [x | x <- allVars, S.member (var_unique x) criticalVars]
-  in Function truelyCriticalVars nonCriticalVars staticVars fd body entry
+    undecidableIdents = S.fromList $ undecidable vars body
+    criticalIdents = S.unions $ undecidableIdents : map snd criticalFacts
+    vars' = map setUncritical vars
+    setUncritical var
+      | not (S.member (symbol var) criticalIdents) = var {fvar_critical = False}
+      | otherwise = var
+  in Function vars' fd body entry
     
   where
     criticalLabel (Call _ l) ls = hLabel l : ls
     criticalLabel _          ls = ls
-
-critical_variables _ = $abort "invalid function parameter"
 
 -- types {{{1
 type Var = String -- {{{2
@@ -145,10 +143,10 @@ writeAccess o@(CStatExpr _ _)                = $abort $ unexp o
 writeAccess o@(CLabAddrExpr _ _)             = $abort $ unexp o
 writeAccess o@(CBuiltinExpr _)               = $abort $ unexp o
 
-undecidable :: [Variable] -> Body -> [Symbol] -- {{{1
+undecidable :: [FunctionVariable] -> Body -> [Symbol] -- {{{1
 undecidable vars body = addrof
   where
-    arrays = S.fromList . map symbol . filter isArray . map var_decl $ vars
+    arrays = S.fromList . map symbol . filter isArray . map (var_decl . fvar_var) $ vars
     isArray (CDecl _ [(Just (CDeclr _ dds _ _ _), _, _)] _) = any isArrayDecl dds
     isArray _                                               = False
     isArrayDecl (CArrDeclr _ _ _) = True

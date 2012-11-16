@@ -12,7 +12,8 @@ import Language.C.Data.Node (undefNode, NodeInfo)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph)
 import Ocram.Analysis (get_callees, is_start, dependency_list, start_functions)
-import Ocram.Intermediate (Function(..), fun_name, Variable(..))
+import Ocram.Backend.Utils (allTVars)
+import Ocram.Intermediate (Function(..), fun_name, Variable(..), FunctionVariable(..))
 import Ocram.Names (tframe, contVar, resVar, tstackVar, frameUnion)
 import Ocram.Query (return_type_fd, return_type_cd, function_parameters_cd)
 import Ocram.Symbols (Symbol)
@@ -30,7 +31,7 @@ create_tstacks cg bf cf = (frames, stacks)
       Nothing -> case M.lookup fname bf of
         Nothing -> $abort "non-critical function in dependency list?"
         Just decl -> (fname, tstackFrame cg (return_type_cd decl) fname (function_parameters_cd decl))
-      Just fun -> (fname, tstackFrame cg (return_type_fd (fun_def fun)) fname (map var_decl (fun_cVars fun)))
+      Just fun -> (fname, tstackFrame cg (return_type_fd (fun_def fun)) fname (map (var_decl . fvar_var) (allTVars fun)))
 
 tstackInstance :: Function -> CDecl -- {{{2
 tstackInstance fun = stack
@@ -40,7 +41,7 @@ tstackInstance fun = stack
       CDecl [CTypeSpec (CTypeDef (ii (tframe name)) un)] [(Just (CDeclr (Just (ii (tstackVar name))) [] Nothing [] un), Nothing, Nothing)] un
 
 tstackFrame :: CallGraph -> (CTypeSpec, [CDerivedDeclr]) -> Symbol -> [CDecl] -> CDecl -- {{{2
-tstackFrame cg returnType name cvars = frame
+tstackFrame cg returnType name cvars = frame 
   where
     frame = 
       CDecl [CStorageSpec (CTypedef un), CTypeSpec struct] [(Just (CDeclr (Just (ii (tframe name))) [] Nothing [] un), Nothing, Nothing)] un

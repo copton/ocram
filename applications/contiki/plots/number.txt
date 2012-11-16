@@ -30,4 +30,4 @@ overhead: ram: max: 1.00
 text
 ====
 overhead: nopal: max: 0.70
-overhead: pal: max: 2.86
+overhead: pal: max: 2.85

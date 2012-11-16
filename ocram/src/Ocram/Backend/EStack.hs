@@ -9,7 +9,8 @@ module Ocram.Backend.EStack
 import Control.Monad ((<=<))
 import Data.Maybe (mapMaybe)
 import Ocram.Analysis (CallGraph, dependency_list, call_order, start_functions)
-import Ocram.Intermediate (Function(..), fun_name, Variable(..))
+import Ocram.Backend.Utils (allEVars)
+import Ocram.Intermediate (Function(..), fun_name, Variable(..), FunctionVariable(..))
 import Language.C.Data.Ident (Ident, internalIdent)
 import Language.C.Data.Node (undefNode, NodeInfo)
 import Language.C.Syntax.AST
@@ -36,23 +37,24 @@ estackInstance cg cf fname
     frames = mapMaybe frame . mapMaybe (flip M.lookup cf) . $fromJust_s . call_order cg $ fname
 
     frame callee
-      | hasUncriticalVars callee = Just $
+      | hasEstackVars callee = Just $
           CDecl [CTypeSpec (CTypeDef (ii (eframe (fun_name callee))) un)] [(Just (CDeclr (Just (ii (fun_name callee))) [] Nothing [] un), Nothing, Nothing)] un
       | otherwise                = Nothing 
 
 estackFrame :: Function -> Maybe CDecl -- {{{2
 estackFrame fun
-  | hasUncriticalVars fun = Just frame
-  | otherwise             = Nothing
+  | hasEstackVars fun = Just frame
+  | otherwise         = Nothing
   where
     name = fun_name fun
     frame =
-      CDecl [CStorageSpec (CTypedef un), CTypeSpec (CSUType (CStruct CStructTag Nothing (Just uncriticalVariables) [] un) un)] [(Just (CDeclr (Just (ii (eframe name))) [] Nothing [] un), Nothing, Nothing)] un
+      CDecl [CStorageSpec (CTypedef un), CTypeSpec (CSUType (CStruct CStructTag Nothing (Just (estackVars fun)) [] un) un)] [(Just (CDeclr (Just (ii (eframe name))) [] Nothing [] un), Nothing, Nothing)] un
 
-    uncriticalVariables = map var_decl (fun_ncVars fun)
+estackVars :: Function -> [CDecl]
+estackVars = map (var_decl . fvar_var) . allEVars
 
-hasUncriticalVars :: Function -> Bool
-hasUncriticalVars = not . null . fun_ncVars
+hasEstackVars :: Function -> Bool
+hasEstackVars = not . null . allEVars
 
 un :: NodeInfo
 un = undefNode

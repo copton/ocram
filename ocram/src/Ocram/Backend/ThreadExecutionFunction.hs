@@ -7,14 +7,16 @@ module Ocram.Backend.ThreadExecutionFunction
 
 -- imports {{{1
 import Compiler.Hoopl (postorder_dfs_from, foldGraphNodes, successors, entryLabel, O, C, mapLookup)
+import Control.Applicative ((<$>), (<*>))
 import Control.Arrow (second)
 import Data.Generics (everywhere, mkT)
 import Data.Maybe (mapMaybe, maybeToList)
 import Language.C.Data.Ident (Ident, internalIdent)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, call_order, start_functions, call_chain, is_blocking)
+import Ocram.Backend.Utils (allEVars, allTVars, allSVars)
 import Ocram.Query (function_parameters_fd, function_parameters_cd)
-import Ocram.Intermediate (block_components, Node(..), Function(..), fun_name, Variable(..), var_unique, CriticalCall(..), Block, BlockMap, block_map, Label(..), hLabel, Body)
+import Ocram.Intermediate (block_components, Node(..), Function(..), fun_name, FunctionVariable(..), Variable(..), CriticalCall(..), Block, BlockMap, block_map, Label(..), hLabel, Body)
 import Ocram.Debug.Enriched (CExpr', eun, CBlockItem', set_thread, CFunDef', ENodeInfo(..), aset, set_blocking)
 import Ocram.Debug.Types (VarMap')
 import Ocram.Print (render)
@@ -64,7 +66,7 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
     suls      = singleUsageLabels (fun_entry inlinedFunction) (fun_body inlinedFunction)
     blocks    = block_map $ fun_body inlinedFunction
 
-    vm = map vmEntry $ filter isTVar $ (fun_cVars inlinedFunction ++ fun_ncVars inlinedFunction)
+    vm = map vmEntry $ filter isTVar $ map fvar_var $ ((++) <$> allTVars <*> allEVars) inlinedFunction
     vmEntry var = (AutomaticVariable tid (var_tname var), var_scope var, symbol2fqn (var_tname var))
 
     isTVar (TVariable _ _ _) = True
@@ -155,14 +157,17 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
 
     rewriteLocalVariableAccess :: CExpr' -> CExpr' -- {{{3
     rewriteLocalVariableAccess o@(CVar iden eni)
-      | test fun_cVars  = tstackAccess callChain (Just vname) eni
-      | test fun_ncVars = estackAccess (fun_name inlinedFunction) vname eni
-      | test fun_stVars = staticAccess vname eni
-      | otherwise       = o
+      | vname `S.member` tvars = tstackAccess callChain (Just vname) eni
+      | vname `S.member` evars = estackAccess (fun_name inlinedFunction) vname eni
+      | vname `S.member` svars = staticAccess vname eni
+      | otherwise  = o
       where
         vname = symbol iden
-        test f = vname `elem` map var_unique (f inlinedFunction)
     rewriteLocalVariableAccess o = o
+
+    tvars = S.fromList . map symbol . allTVars $ inlinedFunction
+    evars = S.fromList . map symbol . allEVars $ inlinedFunction
+    svars = S.fromList . map symbol . allSVars $ inlinedFunction
 
     symbol2fqn :: Symbol -> FQN -- {{{3
     symbol2fqn name =

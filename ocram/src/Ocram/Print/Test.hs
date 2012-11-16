@@ -617,7 +617,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
             } ec_tframe_start_t;
     ec_tframe_start_t ec_tstack_start;
     typedef struct {
-                int k; int i;
+                int i; int k;
             } ec_eframe_start_t;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)

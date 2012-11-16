@@ -12,13 +12,13 @@ import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (undefNode)
 import Language.C.Syntax.AST
 import Ocram.Debug.Enriched (ENodeInfo, CStat', node_start, node_end, eun, aset)
-import Ocram.Intermediate.Representation (Variable(..))
+import Ocram.Intermediate.Representation
 import Ocram.Symbols (symbol)
 import Ocram.Util (abort, unexp, (?:))
 import Ocram.Names (identDesugar)
 import Prelude hiding (init)
 
-desugar_control_structures :: [CBlockItem] -> ([CStat'], [Variable]) -- {{{1
+desugar_control_structures :: [CBlockItem] -> ([CStat'], [FunctionVariable]) -- {{{1
 desugar_control_structures items = 
   let
     s0 = MyState 0 []
@@ -127,7 +127,7 @@ tStmt o@(CSwitch switchExpr (CCompound _ items _) _) =  -- {{{3
       dflt          = case reverse cases of
           ((Nothing, _):_) -> Nothing
           _                -> Just $ egoto eni end
-      variable      = CVar ((internalIdent . symbol . var_decl) var) undefNode
+      variable      = CVar ((internalIdent . symbol) var) undefNode
       assign        = aset (node_start switchExpr) $ CExpr (Just (CAssign CAssignOp variable switchExpr undefNode)) undefNode
       condition rhs = aset eni $ CBinary CEqOp variable rhs undefNode
       buildIf (Just cmpExpr) lg = CIf (condition cmpExpr) (egoto eni lg) Nothing eni
@@ -207,18 +207,18 @@ nextIds count = do
   put (MyState (idx + count) vars)
   return $ map (idx+) [0..(count-1)]
 
-nextVar :: S Variable -- {{{2
+nextVar :: S FunctionVariable -- {{{2
 nextVar = do
   MyState idx vars <- get
   let
     declr = CDeclr (Just (internalIdent (identDesugar idx))) [] Nothing [] undefNode
-    var   = EVariable $ CDecl [CTypeSpec (CIntType undefNode)] [(Just declr, Nothing, Nothing)] undefNode
+    var   = fvarAuto $ EVariable $ CDecl [CTypeSpec (CIntType undefNode)] [(Just declr, Nothing, Nothing)] undefNode
   put (MyState idx (var : vars))
   return var
 
 data MyState = MyState {
   stIdx  :: Int,
-  stVars :: [Variable]
+  stVars :: [FunctionVariable]
   }
 
 type S = State MyState

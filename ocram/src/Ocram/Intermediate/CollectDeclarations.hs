@@ -26,22 +26,20 @@ import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
 
-collect_declarations :: CFunDef -> ([CBlockItem], [Variable], [Variable]) -- {{{1
+collect_declarations :: CFunDef -> ([CBlockItem], [FunctionVariable]) -- {{{1
 collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
-  (body, autoVars, staticVars)
+  (body, vars)
   where
     ps = function_parameters_fd fd
     initialIdents = Identifiers (M.fromList (map initCnt ps)) (M.fromList (map initRen ps))
     initCnt x = (symbol x, 0)
     initRen x = (symbol x, symbol x)
-    initialState  = Ctx initialIdents funScope [] [] (symbol fd)
+    initialState  = Ctx initialIdents funScope [] (symbol fd)
     (statements, state) = runState (mapM mItem items) initialState
 
-    params = map (\cd -> TVariable (symbol cd) cd (scopeOfNode funScope)) ps
-
+    params = map (\cd -> fvarParameter $ TVariable (symbol cd) cd (scopeOfNode funScope)) ps
+    vars   = ctxVars state ++ params
     body = concat statements
-    autoVars = params ++ ctxAutoVars state
-    staticVars = ctxStaticVars state
 
 collect_declarations x = $abort $ unexp x
 
@@ -66,9 +64,9 @@ qStmt _                 = False
 tStmt :: CStat -> S CStat -- {{{2
 
 tStmt (CCompound x items' innerScope) = do
-  (Ctx curIds curScope curAutoVars curStaticVars fun) <- get
-  let (statements, Ctx newIds _ newAutoVars newStaticVars _) = runState (mapM mItem items') (Ctx curIds innerScope curAutoVars curStaticVars fun)
-  put $ Ctx (Identifiers (idCnt newIds) (idRen curIds)) curScope newAutoVars newStaticVars fun
+  (Ctx curIds curScope curVars fun) <- get
+  let (statements, Ctx newIds _ newVars _) = runState (mapM mItem items') (Ctx curIds innerScope curVars fun)
+  put $ Ctx (Identifiers (idCnt newIds) (idRen curIds)) curScope newVars fun
   return $ CCompound x (concat statements) innerScope
 
 tStmt (CFor (Right decl) x1 x2 body ni) = do
@@ -93,7 +91,7 @@ tExpr o = return o
 
 trDecl :: CDecl -> S [CStat] -- {{{2
 trDecl decl = do
-  (Ctx ids scope autoVars staticVars fun) <- get
+  (Ctx ids scope vars fun) <- get
   let
     decls = unlistDecl decl
     (staticDecls, autoDecls) = partition isStatic decls
@@ -106,11 +104,11 @@ trDecl decl = do
 
     (autoDeclsOnly, autoInits) = unzip $ map split autoDecls
 
-    autoVars'      = zipWith (mkVar scope) autoDeclsOnly newAutoNames
-    staticVars'    = zipWith (mkVar scope) (map rmStatic staticDecls) newStaticNames
+    autoVars       = map fvarAuto   $ zipWith (mkVar scope) autoDeclsOnly newAutoNames
+    staticVars     = map fvarStatic $ zipWith (mkVar scope) (map rmStatic staticDecls) newStaticNames
 
   autoInitStmt   <- zipWithM mkInit autoInits newAutoNames
-  put $ Ctx ids'' scope (autoVars' ++ autoVars) (staticVars' ++ staticVars) fun
+  put $ Ctx ids'' scope (vars ++ autoVars ++ staticVars) fun
   return $ catMaybes autoInitStmt
 
   where
@@ -149,8 +147,7 @@ trDecl decl = do
 data Ctx = Ctx { -- {{{2
     ctxIdents     :: Identifiers
   , ctxScope      :: NodeInfo
-  , ctxAutoVars   :: [Variable]
-  , ctxStaticVars :: [Variable]
+  , ctxVars       :: [FunctionVariable]
   , ctxFun        :: Symbol
   }
 

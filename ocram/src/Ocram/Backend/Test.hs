@@ -189,8 +189,41 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       union {
         ec_tframe_block_t block;
       } ec_frames;
-      int ec_unique_i_0;
       int i;
+      int ec_unique_i_0;
+    } ec_tframe_start_t;
+
+    ec_tframe_start_t ec_tstack_start;
+  |])
+  , --  07 - function parameter {{{2
+  ([paste| 
+    __attribute__((tc_api)) void block(int i);
+    void c(int c, int k) {
+      block(c+1); 
+      block(k);
+    }
+    __attribute__((tc_thread)) void start() {
+      c(23);
+    }
+  |], [paste|
+    typedef struct {
+      void * ec_cont;
+      int i;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      void * ec_cont;
+      union {
+        ec_tframe_block_t block;
+      } ec_frames;
+      int c;
+      int k;
+    } ec_tframe_c_t;
+
+    typedef struct {
+      union {
+        ec_tframe_c_t c;
+      } ec_frames;
     } ec_tframe_start_t;
 
     ec_tframe_start_t ec_tstack_start;
@@ -277,7 +310,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
       ("run"  , Just "union {\n    ec_eframe_run_t run;\n} ec_estack")
     , ("start", Just "union {\n    ec_eframe_start_t start;\n} ec_estack")
   ])
-  , -- 04 - reentrance {{{2
+  , -- 05 - reentrance {{{2
   ([paste|
     __attribute__((tc_api)) void block(int i);
     int crit() { int k = 23; block(k); }
@@ -306,7 +339,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
     , ("start", Just "union {\n    ec_eframe_start_t start; ec_eframe_crit_t crit;\n} ec_estack")
   ])
     
-  , -- 05 - shadowing {{{2
+  , -- 06 - shadowing {{{2
   ([paste|
     __attribute__((tc_api)) void block();
     __attribute__((tc_thread)) void start() {
@@ -320,12 +353,22 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
     }
   |], [paste|
     typedef struct {
-      int ec_unique_i_0;
       int i;
+      int ec_unique_i_0;
     } ec_eframe_start_t;
   |], [("start", Just "union {\n    ec_eframe_start_t start;\n} ec_estack")]
   )
-  
+  , --  07 - function parameter {{{2
+  ([paste| 
+    __attribute__((tc_api)) void block(int i);
+    void c(int c, int k) {
+      block(c+1); 
+      block(k);
+    }
+    __attribute__((tc_thread)) void start() {
+      c(23);
+    }
+  |], "", [("start", Nothing)])
   -- end {{{2
   ]
   where
@@ -992,8 +1035,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
     ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
-      int s2;
       int s1;
+      int s2;
     } ec_eframe_start_t;
 
     void block(ec_tframe_block_t*);
@@ -1024,8 +1067,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         goto *ec_tstack_start.ec_frames.critical.ec_cont;
     }
   |], [
-      ("s2", 11, 16, Just 0, "ec_estack.start.s2")
-    , ("s1", 11, 16, Just 0, "ec_estack.start.s1")
+      ("s1", 11, 16, Just 0, "ec_estack.start.s1")
+    , ("s2", 11, 16, Just 0, "ec_estack.start.s2")
     , ("c" ,  3,  5, Just 0, "ec_tstack_start.ec_frames.critical.c")
   ])
   , -- 10  - critical function, chained return {{{2

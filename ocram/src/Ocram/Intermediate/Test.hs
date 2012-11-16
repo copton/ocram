@@ -3,9 +3,8 @@ module Ocram.Intermediate.Test (tests) where
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (msum)
+import Control.Monad (msum, zipWithM_)
 import Compiler.Hoopl (showGraph)
-import Data.Either (partitionEithers)
 import Data.Maybe (fromMaybe)
 import Language.C.Syntax.AST
 import Language.C.Data.Node (undefNode, CNode(nodeInfo))
@@ -19,7 +18,7 @@ import Ocram.Intermediate.DesugarControlStructures
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.Optimize
 import Ocram.Print (render)
-import Ocram.Symbols (Symbol)
+import Ocram.Symbols (Symbol, symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
 import Ocram.Text (show_errors)
 import Ocram.Util (abort)
@@ -41,13 +40,14 @@ type ScopedVariable = ( -- {{{2
     String   -- declaration
   , Int      -- first row of scope
   , Int      -- last row of scope
+  , Bool     -- true => automatic storage duration
+  , Bool     -- treu => parameter
   )
   
 type OutputCollectDeclarations = ( -- {{{2
     [(
         String             -- critical function name
-      , [ScopedVariable]   -- automatic variables
-      , [ScopedVariable]   -- static variables
+      , [ScopedVariable]   -- function variables
     )]
   , String                 -- code
   )
@@ -113,7 +113,7 @@ unit_tests = testGroup "unit" [
 
 unitTestsCollect :: [(Input, OutputCollectDeclarations)] -- {{{2
 unitTestsCollect = [
-  -- , 01 - nothing to do {{{3
+  -- , 01 - parameter {{{3
   ([lpaste|
     __attribute__((tc_api)) void block();
 02: void c(int i) {
@@ -124,8 +124,8 @@ unitTestsCollect = [
       c(23);
     }  
   |], ([
-    ("start", [], [])
-  , ("c", [("int i", 2, 5)], [])
+    ("start", [])
+  , ("c", [("int i", 2, 5, True, True)])
   ], [paste|
     void c(int i) {
       i++;
@@ -147,11 +147,11 @@ unitTestsCollect = [
       c(23);
     }  
   |], ([
-    ("start", [], [])
+    ("start", [])
   , ("c", [
-        ("int i", 2, 6)
-      , ("int j", 2, 6)
-    ], [])
+        ("int j", 2, 6, True, False)
+      , ("int i", 2, 6, True, True)
+    ])
   ], [paste|
     int c(int i) {
       j = 42;
@@ -174,9 +174,9 @@ unitTestsCollect = [
     }  
   |], ([
     ("start", [
-        ("char ec_unique_i_0", 4, 7)
-      , ("int i", 2, 8)
-    ], [])
+        ("int i", 2, 8, True, False)
+      , ("char ec_unique_i_0", 4, 7, True, False)
+    ])
   ], [paste|
     void start () {
       i = 23;
@@ -199,9 +199,9 @@ unitTestsCollect = [
     }  
   |], ([
     ("start", [
-        ("char ec_unique_i_0", 4, 8)
-      , ("int i", 2, 9)
-    ], [])
+        ("int i", 2, 9, True, False)
+      , ("char ec_unique_i_0", 4, 8, True, False)
+    ])
   ], [paste|
     void start () {
       i = 23;
@@ -223,9 +223,9 @@ unitTestsCollect = [
     }
   |], ([
     ("start", [
-        ("int ec_unique_i_0", 4, 6)
-      , ("int i", 2, 7)
-    ], [])
+        ("int i", 2, 7, True, False)
+      , ("int ec_unique_i_0", 4, 6, True, False)
+    ])
   ], [paste|
     void start () {
       i = 23;
@@ -249,11 +249,11 @@ unitTestsCollect = [
 08: }  
   |], ([
     ("start", [
-        ("char ec_unique_i_0", 4, 7)
-      , ("char ec_unique_j_0", 4, 7)
-      , ("int i", 2, 8)
-      , ("int j", 2, 8)
-    ], [])
+        ("int i", 2, 8, True, False)
+      , ("int j", 2, 8, True, False)
+      , ("char ec_unique_i_0", 4, 7, True, False)
+      , ("char ec_unique_j_0", 4, 7, True, False)
+    ])
   ], [paste|
     void start () {
       i = 23;
@@ -277,9 +277,8 @@ unitTestsCollect = [
     }  
   |], ([
     ("start", [
-        ("int j", 2, 8)
-    ], [
-        ("int ec_static_start_i = 23", 4, 7)
+        ("int j", 2, 8, True, False)
+      , ("int ec_static_start_i = 23", 4, 7, False, False)
     ])
   ], [paste|
     void start () {
@@ -302,9 +301,9 @@ unitTestsCollect = [
       i = 14;
     }  
   |], ([
-    ("start", [], [
-      ("int ec_static_start_ec_unique_i_0 = 23", 4, 8)
-    , ("int ec_static_start_i = 42", 2, 10)
+    ("start", [
+      ("int ec_static_start_i = 42", 2, 10, False, False)
+    , ("int ec_static_start_ec_unique_i_0 = 23", 4, 8, False, False)
     ])
   ], [paste|
     void start () {
@@ -329,10 +328,9 @@ unitTestsCollect = [
 10: }  
   |], ([
     ("start", [
-      ("int ec_unique_i_0", 5, 8)
-    , ("int j", 2, 10)
-    ], [
-      ("int ec_static_start_i = 42", 2, 10)
+      ("int ec_static_start_i = 42", 2, 10, False, False)
+    , ("int j", 2, 10, True, False)
+    , ("int ec_unique_i_0", 5, 8, True, False)
     ])
   ], [paste|
     void start () {
@@ -358,9 +356,9 @@ unitTestsCollect = [
     }  
   |], ([
     ("start", [
-      ("int ec_unique_i_0", 7, 9)
-    , ("int i", 3, 5)
-    ], [])
+      ("int i", 3, 5, True, False)
+    , ("int ec_unique_i_0", 7, 9, True, False)
+    ])
   ], [paste|
     void start () {
       {
@@ -386,10 +384,10 @@ unitTestsCollect = [
     }  
   |], ([
     ("start", [
-      ("int j", 6, 9)
-    , ("int ec_unique_i_0", 6, 9)
-    , ("int i", 3, 5)
-    ], [])
+      ("int i", 3, 5, True, False)
+    , ("int ec_unique_i_0", 6, 9, True, False)
+    , ("int j", 6, 9, True, False)
+    ])
   ], [paste|
     void start () {
       {
@@ -411,8 +409,8 @@ unitTestsCollect = [
 06: }
   |], ([
     ("start", [
-      ("struct Foo foo", 3, 6)
-    ], [])
+      ("struct Foo foo", 3, 6, True, False)
+    ])
   ], [paste|
     void start () {
       foo = (struct Foo) {.i=23};
@@ -428,8 +426,8 @@ unitTestsCollect = [
       block(foo.i);
 06: }
   |], ([
-    ("start", [], [
-      ("struct Foo ec_static_start_foo = { .i = 23 }", 3, 6)
+    ("start", [
+      ("struct Foo ec_static_start_foo = { .i = 23 }", 3, 6, False, False)
     ])
   ], [paste|
     void start () {
@@ -1629,7 +1627,7 @@ unitTestsCritical = [
       }
       j = 2;
     }
-  |], [("start", [C "i", U "j"])]
+  |], [("start", [U "j", C "i"])]
   )
   , -- 06 - kill liveness {{{3
   ([paste|
@@ -1681,7 +1679,7 @@ unitTestsCritical = [
     }
   |], [("start", [C "a", U "j"])]
   )
-  , -- 11 - function parameters are always critical {{{3
+  , -- 11 - function parameters {{{3
   ([paste|
     __attribute__((tc_api)) void block();
     void c(int i) {
@@ -1693,10 +1691,10 @@ unitTestsCritical = [
     }
   |], [
       ("start", [])
-    , ("c", [C "i"])
+    , ("c", [U "i"])
     ]
   )
-  , -- 12 - second normal form (fails) {{{3
+  , -- 12 - second normal form {{{3
   ([paste|
     __attribute__((tc_api)) void block();
     __attribute__((tc_thread)) void start() {
@@ -1707,7 +1705,7 @@ unitTestsCritical = [
       ("start", [U "j"])
     ]
   )
-  , -- 13 - critical call in if-condition (fails) {{{3
+  , -- 13 - critical call in if-condition {{{3
   ([paste|
     __attribute__((tc_api)) void block();
     __attribute__((tc_thread)) void start() {
@@ -1719,7 +1717,7 @@ unitTestsCritical = [
       }
     }
   |], [
-      ("start", [U "i", U "ec_crit_0", C "j"])
+      ("start", [U "i", C "j", U "ec_crit_0"] )
     ]
   )
   -- end {{{3
@@ -1736,7 +1734,7 @@ integrationTestCases = [
         }
       |]
   , outCollect      = ( -- {{{4
-      [("start", [], [])]
+      [("start", [])]
     , [paste|
         void start() {
           block();
@@ -1773,7 +1771,7 @@ integrationTestCases = [
         }
       |]
   , outCollect      = ( -- {{{4
-      [("start", [], [])]
+      [("start", [])]
     , [paste|
         void start() {
           a();
@@ -1854,7 +1852,7 @@ integrationTestCases = [
         }
       |]
   , outCollect     = ( -- {{{4
-      [("start", [], [])]
+      [("start", [])]
     , [paste|
         void start() {
           a();
@@ -1916,7 +1914,7 @@ integrationTestCases = [
         }
       |]
     , outCollect = ( -- {{{4
-        [("start", [("int i", 6, 9)], []) ]
+        [("start", [("int i", 6, 9, True, False)]) ]
       , [paste|
           void start() {
             a();
@@ -2028,7 +2026,7 @@ integrationTestCases = [
         }
       |]
     , outCollect = ( -- {{{4
-        [("start", [("int i", 3, 6)], []) ]
+        [("start", [("int i", 3, 6, True, False)]) ]
       , [paste|
           void start() {
             {
@@ -2129,9 +2127,10 @@ integrationTestCases = [
       |]
     , outCollect = ( -- {{{4
         [("start", [
-            ("int j", 2, 12)
-          , ("int i", 2, 12)
-        ], []) ]
+            ("int i", 2, 12, True, False)
+          , ("int j", 2, 12, True, False)
+          ]
+        )]
       , [paste|
           void start() {
             i = block(0); 
@@ -2378,10 +2377,10 @@ integrationTestCases = [
       ]
     , outCritical = Just [ -- {{{4
         ("start", [
-            U "j"
+            C "i"
+          , U "j"
           , U "ec_desugar_6"
           , U "ec_bool_0"
-          , C "i"
           , U "ec_crit_2"
           , U "ec_crit_1"
           , U "ec_crit_0"
@@ -2396,7 +2395,7 @@ integrationTestCases = [
         }
       |]
     , outCollect = ( -- {{{4
-        [("start", [], []) ]
+        [("start", []) ]
       , [paste|
         |]
       )
@@ -2497,28 +2496,33 @@ test_collect_declarations inputCode (expectedVars', expectedCode) = do
     result = pipeline ana collect_declarations
 
   let
-    items = M.map (map (\(CBlockStmt s) -> s) . (\(x, _, _) -> x)) result
+    items = M.map (map (\(CBlockStmt s) -> s) . fst) result
     outputCode = printOutputCode ana items
   assertEqual "output code" (blurrCSyntax expectedCode) outputCode
 
   let
-    expectedVars = M.fromList . map (\(x, y, z) -> (x, (y, z))) $ expectedVars'
+    expectedVars = M.fromList expectedVars'
   assertEqual "set of critical functions" (M.keysSet expectedVars) (M.keysSet result)
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedVars result
 
   where
-    cmpVars fname (av, sv) (_, av', sv') = do
-      assertEqual "number of automatic variables" (length av) (length av')
-      mapM_ (cmpVar fname "automatic") $ zip av av'
-      assertEqual "number of static variables" (length sv) (length sv')
-      mapM_ (cmpVar fname "static")    $ zip sv sv'
+    cmpVars fname vars (_, vars') = do
+      assertEqual "number of variables" (length vars) (length vars')
+      mapM_ (cmpVar fname) (zip vars vars')
 
-    cmpVar fname kind ((decl, start, end), var) =
-      let prefix = printf "function: '%s', %s variable: '%s', " fname kind decl in
+    cmpVar fname ((decl, start, end, auto, param), fvar) =
+      let 
+        prefix = printf "function: '%s', variable: '%s', " fname decl in
       do
-        assertEqual (prefix ++ "T-code decl") decl $ (render . var_decl) var
-        assertEqual (prefix ++ "start of scope")  start ((reduce . fst . var_scope) var)
-        assertEqual (prefix ++ "end of scope") end ((reduce . snd . var_scope) var)
+        assertEqual (prefix ++ "T-code decl") decl $ (render . var_decl . fvar_var) fvar
+        assertEqual (prefix ++ "start of scope")  start ((reduce . fst . var_scope . fvar_var) fvar)
+        assertEqual (prefix ++ "end of scope") end ((reduce . snd . var_scope . fvar_var) fvar)
+        assertEqual (prefix ++ "storage")  auto  ((isAuto . fvar_storage) fvar)
+        assertEqual (prefix ++ "param")    param (fvar_parameter fvar)
+        assertEqual (prefix ++ "critical") True   (fvar_critical fvar)
+      where
+        isAuto VarAutomatic = True
+        isAuto _            = False
 
 test_desugar_control_structures :: Input -> OutputDesugarControlStructures -> Assertion -- {{{2
 test_desugar_control_structures inputCode (expectedDecls', expectedCode) = do
@@ -2647,22 +2651,19 @@ test_critical_variables inputCode expectedVars' = do
   sequence_ $ M.elems $ M.intersectionWithKey cmpVars expectedVars funs
 
   where
-    cmpVars fname evs (Function ocs ous _ _ _ _) =
-      let 
-        (ecs, eus) = partitionEithers $ map sep evs
-        msg        = printf "function: '%s', number of %s variables" fname
-      in do
-        assertEqual (msg "critical") (length ecs) (length ocs)
-        mapM_ (cmpVar fname "critical")   $ zip ecs ocs
-        assertEqual (msg "uncritical") (length eus) (length ous)
-        mapM_ (cmpVar fname "uncritical") $ zip eus ous
-      where
-        sep (C v) = Left v
-        sep (U v) = Right v
+    cmpVars fname evs (Function fvars  _ _ _) =
+      zipWithM_ (cmpVar fname) evs fvars
 
-    cmpVar fname kind (ev, ov) =
-      let msg = printf "function: '%s', %s variable" fname kind in
-      assertEqual msg ev (var_unique ov)
+    cmpVar fname expv fvar = do
+      let msg = printf "function: '%s', variable '%s', %s" fname (varName expv)
+      assertEqual (msg "name")     (varName expv) ((symbol . var_decl . fvar_var) fvar)
+      assertEqual (msg "critical") (isCrit expv)  (fvar_critical fvar)
+
+    isCrit (C _) = True
+    isCrit (U _) = False
+
+    varName (C v) = v
+    varName (U v) = v
         
 -- utils {{{2
 analyze :: String -> Analysis -- {{{3
@@ -2692,7 +2693,7 @@ pipeline :: Analysis -> (CFunDef -> a) -> M.Map Symbol a -- {{{3
 pipeline ana pipe = M.map pipe (anaCritical ana)
 
 collectDeclarations :: CFunDef -> [CBlockItem] -- {{{4
-collectDeclarations = (\(x, _, _) -> x) . collect_declarations
+collectDeclarations = fst . collect_declarations
 
 desugarControlStructures :: [CBlockItem] -> [CStat'] -- {{{4
 desugarControlStructures = fst . desugar_control_structures
@@ -2714,11 +2715,11 @@ blockingAndCriticalFunctions :: Analysis -> S.Set Symbol -- {{{4
 blockingAndCriticalFunctions = S.union <$> M.keysSet . anaCritical <*> M.keysSet . anaBlocking
 
 -- assertions {{{3
-cmpNewVars :: String -> [String] -> (a, [Variable]) -> Assertion
-cmpNewVars fname decls (_, vars) = do
-  assertEqual (printf "function: '%s', number of variables" fname) (length decls) (length vars)
-  mapM_ cmpVar $ zip decls vars
+cmpNewVars :: String -> [String] -> (a, [FunctionVariable]) -> Assertion
+cmpNewVars fname decls (_, fvars) = do
+  assertEqual (printf "function: '%s', number of variables" fname) (length decls) (length fvars)
+  zipWithM_ cmpVar decls fvars
   where
-    cmpVar (decl, var) = 
+    cmpVar decl var = 
       let msg = printf "function: '%s', variable" fname in
-      assertEqual msg decl ((render . var_decl) var)
+      assertEqual msg decl ((render . var_decl . fvar_var) var)

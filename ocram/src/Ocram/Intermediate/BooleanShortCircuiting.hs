@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+
 module Ocram.Intermediate.BooleanShortCircuiting
 -- export {{{1
 (
@@ -10,7 +11,7 @@ import Control.Monad.State (State, runState, get, put, modify)
 import Language.C.Syntax.AST
 import Language.C.Data.Ident (internalIdent)
 import Language.C.Data.Node (undefNode)
-import Ocram.Intermediate.Representation (Variable(..))
+import Ocram.Intermediate.Representation
 import Ocram.Debug.Enriched (CExpr', CStat', CDesignator', CInit', aset, eun)
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Names (varBool)
@@ -18,7 +19,7 @@ import Ocram.Util (abort, unexp, unexp')
 
 import qualified Data.Set as S
 
-boolean_short_circuiting :: S.Set Symbol -> [CStat'] -> ([CStat'], [Variable]) -- {{{1
+boolean_short_circuiting :: S.Set Symbol -> [CStat'] -> ([CStat'], [FunctionVariable]) -- {{{1
 boolean_short_circuiting cf inputStmts =
   let
     (outputStmts, (Ctx _ vars)) = runState (mapM tStat inputStmts) (Ctx 0 [])
@@ -202,7 +203,7 @@ substitute idx op lhs rhs = do
   let
     un   = undefNode
     iden = internalIdent (varBool idx)
-    ivar = EVariable $ CDecl [CTypeSpec (CBoolType un)] [(Just (CDeclr (Just iden) [] Nothing [] un) , Nothing, Nothing)] un 
+    ivar = fvarAuto $ EVariable $ CDecl [CTypeSpec (CBoolType un)] [(Just (CDeclr (Just iden) [] Nothing [] un) , Nothing, Nothing)] un 
     cvar = CVar iden eun
     [lhs_assign, rhs_assign] = map ((\x -> CExpr (Just x) (annotation x)) . (\x -> CAssign CAssignOp cvar ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
     cond = case op of
@@ -236,7 +237,7 @@ next = do
 
 data Ctx = Ctx { -- {{{2
     ctxCount :: Int
-  , ctxVars  :: [Variable]
+  , ctxVars  :: [FunctionVariable]
   }
 
 type S = State Ctx -- {{{2

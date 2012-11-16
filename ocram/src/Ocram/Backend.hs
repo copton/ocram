@@ -13,9 +13,10 @@ import Ocram.Analysis (Analysis(..))
 import Ocram.Backend.EStack
 import Ocram.Backend.ThreadExecutionFunction
 import Ocram.Backend.TStack
+import Ocram.Backend.Utils
 import Ocram.Debug.Enriched (CTranslUnit', CExtDecl', CStat', CDecl', eun, aset, node_start, ENodeInfo(EnWrapper))
 import Ocram.Debug.Types (VarMap')
-import Ocram.Intermediate (Function(..), Variable(..))
+import Ocram.Intermediate (Function(..), Variable(..), FunctionVariable(..))
 import Ocram.Names (tframe)
 import Ocram.Ruab (Variable(StaticVariable))
 import Ocram.Symbols (Symbol, symbol)
@@ -61,7 +62,7 @@ staticVariables :: M.Map Symbol Function -> ([CDecl], VarMap') -- {{{2
 staticVariables = M.fold update ([], [])
   where
     update fun (decls, vm) =
-      let (decl', vm') = unzip $ map create (fun_stVars fun) in
+      let (decl', vm') = unzip $ map (create . fvar_var) (allSVars fun) in
       (concat decl' ++ decls, concat vm' ++ vm)
 
     create (EVariable _) = ([], [])
