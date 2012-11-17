@@ -38,7 +38,7 @@ tstackInstance fun = stack
   where
     name = fun_name fun
     stack =
-      CDecl [CTypeSpec (CTypeDef (ii (tframe name)) un)] [(Just (CDeclr (Just (ii (tstackVar name))) [] Nothing [] un), Nothing, Nothing)] un
+      CDecl [CStorageSpec (CStatic un), CTypeSpec (CTypeDef (ii (tframe name)) un)] [(Just (CDeclr (Just (ii (tstackVar name))) [] Nothing [] un), Nothing, Nothing)] un
 
 tstackFrame :: CallGraph -> (CTypeSpec, [CDerivedDeclr]) -> Symbol -> [CDecl] -> CDecl -- {{{2
 tstackFrame cg returnType name cvars = frame 

@@ -36,7 +36,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -77,7 +77,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     static int ec_static_start_i = 0;
     void ec_thread_0(void * ec_cont)
@@ -121,7 +121,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -173,7 +173,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -226,7 +226,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_c_t c;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -296,8 +296,8 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_c_t c;
                 } ec_frames;
             } ec_tframe_s2_t;
-    ec_tframe_s1_t ec_tstack_s1;
-    ec_tframe_s2_t ec_tstack_s2;
+    static ec_tframe_s1_t ec_tstack_s1;
+    static ec_tframe_s2_t ec_tstack_s2;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -382,7 +382,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -447,7 +447,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_c_t c;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     typedef struct {
                 void ec_crit_1; void ec_crit_0;
             } ec_eframe_c_t;
@@ -542,7 +542,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_c_t c;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     typedef struct {
                 int ec_crit_0;
             } ec_eframe_c_t;
@@ -615,7 +615,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     typedef struct {
                 int i; int k;
             } ec_eframe_start_t;
@@ -665,7 +665,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     typedef struct {
                 int i;
             } ec_eframe_start_t;
@@ -720,7 +720,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {

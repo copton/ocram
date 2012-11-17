@@ -45,7 +45,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
   |])
   , -- 02 - blocking function with parameters {{{2
   ([paste| 
@@ -65,7 +65,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
   |])
   , -- 03 - critical function {{{2
   ([paste| 
@@ -95,7 +95,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
   |])
   , -- 04 - two threads {{{2
   ([paste|
@@ -124,8 +124,8 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_run_t;
 
-    ec_tframe_start_t ec_tstack_start;
-    ec_tframe_run_t ec_tstack_run;
+    static ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_run_t ec_tstack_run;
   |])
   , -- 05 - reentrance {{{2
   ([paste|
@@ -164,8 +164,8 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_run_t;
 
-    ec_tframe_start_t ec_tstack_start;
-    ec_tframe_run_t ec_tstack_run;
+    static ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_run_t ec_tstack_run;
   |])
 
   , --  06 - shadowing {{{2
@@ -193,7 +193,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       int ec_unique_i_0;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
   |])
   , --  07 - function parameter {{{2
   ([paste| 
@@ -226,7 +226,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
   |])
   -- end {{{2
   ]
@@ -659,7 +659,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -696,7 +696,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -733,7 +733,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -772,7 +772,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       int i;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -813,7 +813,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int i;
@@ -860,7 +860,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -905,7 +905,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int j;
@@ -960,7 +960,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         int i;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -1032,7 +1032,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int s1;
@@ -1104,7 +1104,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int ec_crit_0;
@@ -1178,8 +1178,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       int r;
     } ec_tframe_run_t;
 
-    ec_tframe_start_t ec_tstack_start;
-    ec_tframe_run_t ec_tstack_run;
+    static ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_run_t ec_tstack_run;
 
     void block(ec_tframe_block_t *);
 
@@ -1265,8 +1265,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_run_t ec_tstack_run;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_run_t ec_tstack_run;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t *);
 
@@ -1338,7 +1338,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
         int i;
@@ -1387,7 +1387,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int i;
@@ -1461,7 +1461,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t *);
 
@@ -1522,7 +1522,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       struct S s;
@@ -1573,7 +1573,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t *);
 
@@ -1614,7 +1614,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t *);
 
@@ -1678,7 +1678,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       void ec_crit_0;
@@ -1751,7 +1751,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int i;
