@@ -7,12 +7,13 @@ module Ocram.Query
   , function_parameters_fd, function_parameters_cd
   , return_type_fd, return_type_cd, object_type
   , is_blocking_function, is_start_function
+  , rename_decl
 ) where
 
 -- import {{{1
 import Data.Maybe (mapMaybe)
 import Language.C.Data.Node (undefNode)
-import Language.C.Data.Ident (Ident(Ident))
+import Language.C.Data.Ident (Ident(Ident), internalIdent)
 import Language.C.Syntax.AST
 import Ocram.Names (blockingAttr, startAttr)
 import Ocram.Symbols (Symbol, symbol)
@@ -56,6 +57,16 @@ is_function_declaration _ = False
 
 object_type :: CDeclaration a -> CTypeSpecifier a -- {{{1
 object_type (CDecl tss _ _) = extractTypeSpec tss
+
+rename_decl :: Symbol -> CDecl -> CDecl -- {{{1
+rename_decl newName (CDecl x1 [(Just declr, x2, x3)] x4) =
+  CDecl x1 [(Just (renameDeclr newName declr), x2, x3)] x4
+  where
+    renameDeclr newName' (CDeclr (Just _) y1 y2 y3 y4) =
+      CDeclr (Just (internalIdent newName')) y1 y2 y3 y4
+    renameDeclr _ x = $abort $ unexp x
+
+rename_decl _ x = $abort $ unexp x
 
 -- utils {{{1
 

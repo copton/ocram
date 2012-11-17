@@ -79,7 +79,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
             } ec_tframe_start_t;
     ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
-    int ec_static_start_i = 0;
+    static int ec_static_start_i = 0;
     void ec_thread_0(void * ec_cont)
     {
         if (ec_cont)

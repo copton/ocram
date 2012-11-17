@@ -21,7 +21,7 @@ import Ocram.Debug.Enriched (CExpr', eun, CBlockItem', set_thread, CFunDef', ENo
 import Ocram.Debug.Types (VarMap')
 import Ocram.Print (render)
 import Ocram.Ruab (Variable(AutomaticVariable), FQN)
-import Ocram.Names (mangleFun, contLbl, tfunction, contVar, frameUnion, tstackVar, resVar, estackVar)
+import Ocram.Names (mangleFun, contLbl, tfunction, contVar, frameUnion, tstackVar, resVar, estackVar, varStatic)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Util ((?:), fromJust_s, abort, lookup_s)
 import Prelude hiding (last)
@@ -159,7 +159,7 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
     rewriteLocalVariableAccess o@(CVar iden eni)
       | vname `S.member` tvars = tstackAccess callChain (Just vname) eni
       | vname `S.member` evars = estackAccess (fun_name inlinedFunction) vname eni
-      | vname `S.member` svars = staticAccess vname eni
+      | vname `S.member` svars = staticAccess (fun_name inlinedFunction) vname eni
       | otherwise  = o
       where
         vname = symbol iden
@@ -215,8 +215,8 @@ tstackAccess [] _ _ = $abort "called tstackAccess with empty call chain"
 estackAccess :: Symbol -> Symbol -> ENodeInfo -> CExpr' -- {{{2
 estackAccess function variable eni = CMember (CMember (CVar (ii estackVar) eni) (ii function) False eni) (ii variable) False eni
 
-staticAccess :: Symbol -> ENodeInfo -> CExpr' -- {{{2
-staticAccess variable eni = CVar (ii variable) eni
+staticAccess :: Symbol -> Symbol -> ENodeInfo -> CExpr' -- {{{2
+staticAccess function variable eni = CVar (ii (varStatic function variable)) eni
 
 ii :: String -> Ident -- {{{2
 ii = internalIdent

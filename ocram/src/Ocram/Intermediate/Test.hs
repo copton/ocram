@@ -278,13 +278,13 @@ unitTestsCollect = [
   |], ([
     ("start", [
         ("int j", 2, 8, True, False)
-      , ("int ec_static_start_i = 23", 4, 7, False, False)
+      , ("static int i = 23", 4, 7, False, False)
     ])
   ], [paste|
     void start () {
       j = 42;
       {
-        block(ec_static_start_i + j);
+        block(i + j);
       }
     }
   |]))
@@ -302,16 +302,16 @@ unitTestsCollect = [
     }  
   |], ([
     ("start", [
-      ("int ec_static_start_i = 42", 2, 10, False, False)
-    , ("int ec_static_start_ec_unique_i_0 = 23", 4, 8, False, False)
+      ("static int i = 42", 2, 10, False, False)
+    , ("static int ec_unique_i_0 = 23", 4, 8, False, False)
     ])
   ], [paste|
     void start () {
       {
-        block(ec_static_start_ec_unique_i_0);
-        ec_static_start_ec_unique_i_0 = 13;
+        block(ec_unique_i_0);
+        ec_unique_i_0 = 13;
       }
-      ec_static_start_i = 14;
+      i = 14;
     }
   |]))
   , -- 09 - multiple declarations mixed {{{3
@@ -328,7 +328,7 @@ unitTestsCollect = [
 10: }  
   |], ([
     ("start", [
-      ("int ec_static_start_i = 42", 2, 10, False, False)
+      ("static int i = 42", 2, 10, False, False)
     , ("int j", 2, 10, True, False)
     , ("int ec_unique_i_0", 5, 8, True, False)
     ])
@@ -339,7 +339,7 @@ unitTestsCollect = [
         ec_unique_i_0 = 0;
         block(ec_unique_i_0 + j);
       }
-      block(ec_static_start_i + j);
+      block(i + j);
     }
   |]))
   , -- 10 - reuse without shadowing {{{3
@@ -427,11 +427,11 @@ unitTestsCollect = [
 06: }
   |], ([
     ("start", [
-      ("struct Foo ec_static_start_foo = { .i = 23 }", 3, 6, False, False)
+      ("static struct Foo foo = { .i = 23 }", 3, 6, False, False)
     ])
   ], [paste|
     void start () {
-      block(ec_static_start_foo.i);
+      block(foo.i);
     }
   |]))
   -- end {{{3

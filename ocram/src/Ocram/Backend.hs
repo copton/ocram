@@ -16,8 +16,9 @@ import Ocram.Backend.TStack
 import Ocram.Backend.Utils
 import Ocram.Debug.Enriched (CTranslUnit', CExtDecl', CStat', CDecl', eun, aset, node_start, ENodeInfo(EnWrapper))
 import Ocram.Debug.Types (VarMap')
-import Ocram.Intermediate (Function(..), Variable(..), FunctionVariable(..))
-import Ocram.Names (tframe)
+import Ocram.Intermediate (Function(..), fun_name, Variable(..), FunctionVariable(..))
+import Ocram.Names (tframe, varStatic)
+import Ocram.Query (rename_decl)
 import Ocram.Ruab (Variable(StaticVariable))
 import Ocram.Symbols (Symbol, symbol)
 
@@ -62,11 +63,16 @@ staticVariables :: M.Map Symbol Function -> ([CDecl], VarMap') -- {{{2
 staticVariables = M.fold update ([], [])
   where
     update fun (decls, vm) =
-      let (decl', vm') = unzip $ map (create . fvar_var) (allSVars fun) in
+      let (decl', vm') = unzip $ map (create (fun_name fun) . fvar_var) (allSVars fun) in
       (concat decl' ++ decls, concat vm' ++ vm)
 
-    create (EVariable _) = ([], [])
-    create (TVariable tname decl scope) = ([decl], [(StaticVariable tname, scope, symbol decl)])
+    create _ (EVariable _) = ([], [])
+    create fname (TVariable tname decl scope) =
+      let
+        newident = varStatic fname (symbol decl)
+        decl'    = rename_decl newident decl
+      in
+        ([decl'], [(StaticVariable tname, scope, newident)])
 
 setBreakpoints :: CExtDecl  -> CExtDecl' -- {{{2
 setBreakpoints = everywhere (mkT tStat `extT` tInitDecl) . fmap EnWrapper

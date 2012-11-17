@@ -18,8 +18,8 @@ import Language.C.Data.Node (NodeInfo, undefNode, posOfNode, getLastTokenPos)
 import Language.C.Data.Position (posRow)
 import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
-import Ocram.Names (varUnique, varStatic)
-import Ocram.Query (function_parameters_fd, object_type)
+import Ocram.Names (varUnique)
+import Ocram.Query (function_parameters_fd, object_type, rename_decl)
 import Ocram.Ruab (TRow(..))
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Util (abort, unexp)
@@ -96,8 +96,8 @@ trDecl decl = do
     decls = unlistDecl decl
     (staticDecls, autoDecls) = partition isStatic decls
 
-    ids' = foldl (addIdentifier id) ids $ map symbol autoDecls
-    ids'' = foldl (addIdentifier (varStatic fun)) ids' $ map symbol staticDecls
+    ids'  = foldl addIdentifier ids  $ map symbol autoDecls
+    ids'' = foldl addIdentifier ids' $ map symbol staticDecls
 
     newAutoNames   = map (getIdentifier ids'' . symbol) autoDecls
     newStaticNames = map (getIdentifier ids'' . symbol) staticDecls
@@ -105,7 +105,7 @@ trDecl decl = do
     (autoDeclsOnly, autoInits) = unzip $ map split autoDecls
 
     autoVars       = map fvarAuto   $ zipWith (mkVar scope) autoDeclsOnly newAutoNames
-    staticVars     = map fvarStatic $ zipWith (mkVar scope) (map rmStatic staticDecls) newStaticNames
+    staticVars     = map fvarStatic $ zipWith (mkVar scope) staticDecls newStaticNames
 
   autoInitStmt   <- zipWithM mkInit autoInits newAutoNames
   put $ Ctx ids'' scope (vars ++ autoVars ++ staticVars) fun
@@ -125,9 +125,7 @@ trDecl decl = do
     isStaticSpec (CStorageSpec (CStatic _)) = True
     isStaticSpec _                          = False
 
-    rmStatic (CDecl ds x1 x2) = CDecl (filter (not . isStaticSpec) ds) x1 x2
-
-    mkVar scope cd name = TVariable (symbol cd) (renameDecl name cd) (scopeOfNode scope)
+    mkVar scope cd name = TVariable (symbol cd) (rename_decl name cd) (scopeOfNode scope)
 
     mkInit Nothing                          _    = return Nothing
     mkInit (Just (initializer, objectType)) name = case initializer of
@@ -166,20 +164,10 @@ type S a = State Ctx a -- {{{2
 getIdentifier :: Identifiers -> Symbol -> Symbol -- {{{2
 getIdentifier (Identifiers _ rt) name = fromMaybe name $ M.lookup name rt
 
-addIdentifier :: (String -> String) -> Identifiers -> Symbol -> Identifiers -- {{{2
-addIdentifier mangle (Identifiers es rt) identifier = case M.lookup identifier es of
-  Nothing -> Identifiers (M.insert identifier 0 es) (M.insert identifier (mangle identifier) rt)
-  Just count -> Identifiers (M.adjust (+1) identifier es) (M.insert identifier (mangle (varUnique identifier count)) rt)
-
-renameDecl :: Symbol -> CDecl -> CDecl -- {{{2
-renameDecl newName (CDecl x1 [(Just declr, x2, x3)] x4) =
-  CDecl x1 [(Just (renameDeclr newName declr), x2, x3)] x4
-  where
-    renameDeclr newName' (CDeclr (Just _) y1 y2 y3 y4) =
-      CDeclr (Just (internalIdent newName')) y1 y2 y3 y4
-    renameDeclr _ x = $abort $ unexp x
-
-renameDecl _ x = $abort $ unexp x
+addIdentifier :: Identifiers -> Symbol -> Identifiers -- {{{2
+addIdentifier (Identifiers es rt) identifier = case M.lookup identifier es of
+  Nothing -> Identifiers (M.insert identifier 0 es) (M.insert identifier identifier rt)
+  Just count -> Identifiers (M.adjust (+1) identifier es) (M.insert identifier (varUnique identifier count) rt)
 
 scopeOfNode :: NodeInfo -> (TRow, TRow)
 scopeOfNode = (,) <$> TRow . posRow . posOfNode <*> TRow . posRow . fst . getLastTokenPos

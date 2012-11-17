@@ -864,7 +864,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     void block(ec_tframe_block_t*);
 
-    int ec_static_start_i = 0;
+    static int ec_static_start_i = 0;
 
     void ec_thread_0(void* ec_cont)
     {
@@ -1618,7 +1618,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
     void block(ec_tframe_block_t *);
 
-    int ec_static_start_i = 23;
+    static int ec_static_start_i = 23;
 
     void ec_thread_0(void * ec_cont)
     {
