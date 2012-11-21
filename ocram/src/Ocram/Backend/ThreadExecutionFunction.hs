@@ -95,7 +95,8 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
     cFirst :: Node C O -> [CBlockItem']
     cFirst (Label entry) = [CBlockStmt (CLabel (lblIdent entry fname) (CExpr Nothing eun) [] eun)]
 
-    cFirst (Cont lbl (FirstNormalForm _ _ _)) = cFirst (Label lbl)
+    cFirst o@(Cont _ (FirstNormalForm _ _ _)) = $abort $ "invalid case: " ++ show o
+
     cFirst (Cont lbl (SecondNormalForm lhs op callee _ eni)) =
       let 
         callChain' = callChain ++ [callee] 
