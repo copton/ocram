@@ -16,7 +16,7 @@ import Language.C.Syntax.AST
 import Ocram.Analysis.CallGraph (start_functions, is_critical)
 import Ocram.Analysis.Fgl (find_loop, edge_label)
 import Ocram.Analysis.Types (CallGraph(..), Label(lblName))
-import Ocram.Names (ecPrefix)
+import Ocram.Names (ecPrefix, blockingAttr, startAttr)
 import Ocram.Query (is_start_function, is_blocking_function, function_parameters_cd, return_type_fd, function_parameters_fd)
 import Ocram.Symbols (symbol)
 import Ocram.Text (OcramError, new_error)
@@ -32,6 +32,7 @@ data ErrorCode = -- {{{2
   | CaseRange
   | CriticalRecursion
   | Ellipses
+  | GnucAttribute
   | GotoPtr
   | IllFormedSwitch
   | MainFunction
@@ -63,6 +64,8 @@ errorText CriticalRecursion =
   "recursion of critical functions"
 errorText Ellipses =
   "No ellipses for critical functions"
+errorText GnucAttribute =
+  "__attribute__ is a GNU extension and is only allowed to declare thread start functions and blocking functions"
 errorText GotoPtr =
   "Computed gotos are not part of C99 and are thus not supported"
 errorText IllFormedSwitch =
@@ -106,7 +109,7 @@ newError code extraWhat where_ =
 
 
 global_constraints :: CTranslUnit -> Either [OcramError] () -- {{{1
-global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ` scanBlockItem `extQ` scanStorageSpec `extQ` scanIdent) ast
+global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ` scanBlockItem `extQ` scanStorageSpec `extQ` scanIdent `extQ` scanAttribute) ast
   where
     scanExtDecl :: CExtDecl -> [OcramError]
     scanExtDecl (CDeclExt (CDecl _ ds ni))
@@ -133,6 +136,12 @@ global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ`
       | ecPrefix `L.isPrefixOf` symbol ident =
           [newError ReservedPrefix Nothing (Just (nodeInfo ident))]
       | otherwise = []
+
+    scanAttribute :: CAttribute NodeInfo -> [OcramError]
+    scanAttribute (CAttr (Ident name _ _) _ ni)
+      | name `elem` [blockingAttr, startAttr] = []
+      | otherwise =
+          [newError GnucAttribute Nothing (Just ni)]
 
 critical_constraints :: CTranslUnit -> CallGraph -> Either [OcramError] () -- {{{1
 critical_constraints ast cg = failOrPass $
