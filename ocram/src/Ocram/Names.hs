@@ -9,7 +9,7 @@ ecPrefix = "ec_"
 
 -- |The name of the attribute that marks blocking function declaratations
 blockingAttr :: String
-blockingAttr = "tc_api"
+blockingAttr = "tc_block"
 
 -- |The name of the attribute that marks thread start function definitions
 startAttr :: String

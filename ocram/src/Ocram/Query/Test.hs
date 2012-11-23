@@ -29,7 +29,7 @@ funDefTests = enumTestGroup "function_definition" $ map runTest [
 
 blockingTests :: Test
 blockingTests = enumTestGroup "is_blocking_function" $ map runTest [
-    ("__attribute__((tc_api)) void foo();", True)
+    ("__attribute__((tc_block)) void foo();", True)
   , ("void foo();", False)
   ]
   where

@@ -39,7 +39,7 @@ test_cases = [
 -- minimal thread {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_api)) void block();
+			__attribute__((tc_block)) void block();
 			__attribute__((tc_thread)) void start() {
 				block();
 			}
@@ -51,7 +51,7 @@ test_cases = [
 -- minimal thread - complex blocking declratation{{{2
 	,TCase
 		[paste|
-			__attribute__((tc_api)) void* block(struct hemmerned* foo);
+			__attribute__((tc_block)) void* block(struct hemmerned* foo);
 			__attribute__((tc_thread)) void start() {
 				block(0);
 			}
@@ -63,7 +63,7 @@ test_cases = [
 -- additional critical function {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_api)) void block();
+			__attribute__((tc_block)) void block();
 			void critical() {
 				block();
 			}
@@ -78,7 +78,7 @@ test_cases = [
 -- chain of critical functions {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_api)) void block();
+			__attribute__((tc_block)) void block();
 			void c1() { c2(); }
 			void c2() { c3(); }
 			void c3() { c4(); }
@@ -94,7 +94,7 @@ test_cases = [
 -- additional non-critical function {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_api)) void block();
+			__attribute__((tc_block)) void block();
 			void non_critical() { }
 			__attribute__((tc_thread)) void start() {
 				non_critical();
@@ -108,8 +108,8 @@ test_cases = [
 -- only regard actually used blocking functions {{{2
   ,TCase
     [paste|
-      __attribute__((tc_api)) void block_unused();
-      __attribute__((tc_api)) void block_used();
+      __attribute__((tc_block)) void block_unused();
+      __attribute__((tc_block)) void block_used();
       __attribute__((tc_thread)) void start () { block_used(); }
     |]
     [("start", "block_used")]
@@ -119,7 +119,7 @@ test_cases = [
 -- call of functions from external libraries {{{2
   ,TCase
     [paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       int libfun();
       __attribute__((tc_thread)) void start() {
         libfun();
@@ -133,8 +133,8 @@ test_cases = [
 -- two independant threads {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_api)) void block1();
-			__attribute__((tc_api)) void block2();
+			__attribute__((tc_block)) void block1();
+			__attribute__((tc_block)) void block2();
 			__attribute__((tc_thread)) void start1() {
 				block1();
 			}
@@ -149,7 +149,7 @@ test_cases = [
 -- reentrance {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_api)) void block();
+			__attribute__((tc_block)) void block();
 			void critical() {
 				block();
 			}
@@ -167,7 +167,7 @@ test_cases = [
 -- pointer to critical function {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_api)) void block();
+			__attribute__((tc_block)) void block();
 			void f(void*);
 			__attribute__((tc_thread)) void start() {
 				f(&block);
@@ -181,7 +181,7 @@ test_cases = [
 -- cyclic call graph {{{2
 	,TCase
 		[paste|
-			__attribute__((tc_api)) void block();
+			__attribute__((tc_block)) void block();
 			void c2() {
 				block();
 				c1();
@@ -224,7 +224,7 @@ test_cases = [
   ,TCase
     [paste|
       struct Foo { int i; };
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         struct Foo foo = {23};
         int i[] = {4,2};
@@ -240,7 +240,7 @@ test_cases = [
     [paste|
       struct Foo { int i; };
       const char text[] = "it's okay";
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       void foo() {
         struct Foo foo = {23};
         int i[] = {4,2};
@@ -257,7 +257,7 @@ test_cases = [
 -- name-less parameters of blocking functions {{{2
   ,TCase
     [paste|
-      __attribute__((tc_api)) void block(int);
+      __attribute__((tc_block)) void block(int);
       __attribute__((tc_thread)) void start() {
         block(23);
       }
@@ -269,7 +269,7 @@ test_cases = [
 -- no ellipses for critical functions {{{2
    ,TCase
     [paste|
-     __attribute__((tc_api)) void block(int x, ...);
+     __attribute__((tc_block)) void block(int x, ...);
      void non_critical(int x, ...) { }
      void critical(int x, ...) {
        block(x);

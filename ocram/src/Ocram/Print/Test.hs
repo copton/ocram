@@ -23,7 +23,7 @@ test_render_with_log :: Test -- {{{1
 test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   -- , 01 - setup {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() { 
 03:   block(23);
 04: }
@@ -63,7 +63,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 02 - function static variable {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() {
       static int i = 0;
 04:   block(i);
@@ -106,7 +106,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   , -- 03 - global variable {{{2
   ([lpaste|
     int k;
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() {
 04:   k = 23;
 05:   block(k);
@@ -154,7 +154,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
     void f() {
 03:   k = 23; 
     }
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() {
 07:   f();
 08:   block(k);
@@ -203,7 +203,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 05 - critical function call {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     void c(int i) {
 03:   block(i+1);
 04: }
@@ -265,7 +265,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 06 - re-entrance {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     void c(int i) {
 03:   block(i+1);
 04: }
@@ -369,7 +369,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 07 - multiple statements in a row {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() {
 03:   block(23); block(42);
 04: }
@@ -419,7 +419,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 08 - return {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int c(int i) {
 03:   if (i ==0) {
 04:     return block(23);
@@ -519,7 +519,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 09 - while loops {{{2
   ([lpaste|
-      __attribute__((tc_api)) int block(int i);
+      __attribute__((tc_block)) int block(int i);
       void c(int i) {
 03:     while (block(i) != 0);
 04:   }
@@ -598,7 +598,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 10 - declaration with initializer {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int f();
     __attribute__((tc_thread)) void start() {
 04:   int i = 0;
@@ -652,7 +652,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 11 - declaration with critical initializer {{{2
   ([lpaste|
-    __attribute__((tc_api)) int block();
+    __attribute__((tc_block)) int block();
     __attribute__((tc_thread)) void start() {
 03:   int i = block();
 04: }
@@ -698,7 +698,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 12 - declaration in non-critical function {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int f() {
 03:   int i = 0;
 04:   return i;

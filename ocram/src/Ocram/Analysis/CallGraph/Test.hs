@@ -21,14 +21,14 @@ test_call_graph :: Test -- {{{1
 test_call_graph = enumTestGroup "call_graph" $ map runTest [
     -- , 01 - minimal example {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         block();
       }
     |], [("start", "block")])
   ,  -- 02 - with critical function {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       void critical() {
         block();
       }
@@ -38,7 +38,7 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
     |], [("critical", "block"), ("start", "critical")])
   , -- 03 - chain of critical functions {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       void c1() { c2(); }
       void c2() { c3(); }
       void c3() { c4(); }
@@ -49,7 +49,7 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
     |], [("c1", "c2"), ("c2", "c3"), ("c3", "c4"), ("c4", "block"), ("start", "c1")])
   , -- 04 - additional non-critical function {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       void non_critical() { }
       __attribute__((tc_thread)) void start() {
         non_critical();
@@ -58,13 +58,13 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
     |], [("start", "block"), ("start", "non_critical")])
   , -- 05 - ignore unused blocking functions {{{2
     ([paste|
-      __attribute__((tc_api)) void block_unused();
-      __attribute__((tc_api)) void block_used();
+      __attribute__((tc_block)) void block_unused();
+      __attribute__((tc_block)) void block_used();
       __attribute__((tc_thread)) void start () { block_used(); }
     |], [("start", "block_used")])
   , -- 06 - call of functions from external libraries {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       int libfun();
       __attribute__((tc_thread)) void start() {
         libfun();
@@ -73,8 +73,8 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
     |], [("start", "block")])
   , -- 07 - two independant threads {{{2
     ([paste|
-      __attribute__((tc_api)) void block1();
-      __attribute__((tc_api)) void block2();
+      __attribute__((tc_block)) void block1();
+      __attribute__((tc_block)) void block2();
       __attribute__((tc_thread)) void start1() {
         block1();
       }
@@ -84,7 +84,7 @@ test_call_graph = enumTestGroup "call_graph" $ map runTest [
     |], [("start1", "block1"), ("start2", "block2")])
   , -- 08 - reentrance {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       void critical() {
         block();
       }

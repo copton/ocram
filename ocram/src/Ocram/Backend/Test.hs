@@ -30,7 +30,7 @@ test_create_tstacks :: Test  -- {{{1
 test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
   -- , 01 - minimal case {{{2
   ([paste| 
-    __attribute__((tc_api)) void block();
+    __attribute__((tc_block)) void block();
     __attribute__((tc_thread)) void start() {
       block();
     }
@@ -49,7 +49,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
   |])
   , -- 02 - blocking function with parameters {{{2
   ([paste| 
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() {
       block(23);
     }
@@ -69,7 +69,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
   |])
   , -- 03 - critical function {{{2
   ([paste| 
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int crit(int k) { block(k); return k;}
     __attribute__((tc_thread)) void start() {
       crit(23);
@@ -99,7 +99,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
   |])
   , -- 04 - two threads {{{2
   ([paste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() {
       block(23);
     }
@@ -129,7 +129,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
   |])
   , -- 05 - reentrance {{{2
   ([paste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int crit(int k) { block(k); return k; }
     __attribute__((tc_thread)) void start() {
       crit(23);
@@ -170,7 +170,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
 
   , --  06 - shadowing {{{2
   ([paste| 
-    __attribute__((tc_api)) void block();
+    __attribute__((tc_block)) void block();
     __attribute__((tc_thread)) void start() {
       int i = 0;
       {
@@ -197,7 +197,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
   |])
   , --  07 - function parameter {{{2
   ([paste| 
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     void c(int c, int k) {
       block(c+1); 
       block(k);
@@ -249,14 +249,14 @@ test_create_estacks :: Test -- {{{1
 test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
   -- , 01 -  minimal case {{{2
   ([paste|
-    __attribute__((tc_api)) void block();
+    __attribute__((tc_block)) void block();
     __attribute__((tc_thread)) void start() {
       block();
     }
   |], "", [("start", Nothing)])
   , -- 02 - uncritical variable {{{2
   ([paste|
-    __attribute__((tc_api)) void block();
+    __attribute__((tc_block)) void block();
     __attribute__((tc_thread)) void start() {
       int i = 23;
       block(i);
@@ -270,7 +270,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
   ])
   , -- 03 - critical function {{{2
   ([paste| 
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int crit() { int k = 42; block(k);}
     __attribute__((tc_thread)) void start() {
       int i = 23;
@@ -289,7 +289,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
   ]) 
   , -- 04 - two threads {{{2
   ([paste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() {
       int i = 23;
       block(i);
@@ -312,7 +312,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
   ])
   , -- 05 - reentrance {{{2
   ([paste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int crit() { int k = 23; block(k); }
     __attribute__((tc_thread)) void start() {
       int i = 42;
@@ -341,7 +341,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
     
   , -- 06 - shadowing {{{2
   ([paste|
-    __attribute__((tc_api)) void block();
+    __attribute__((tc_block)) void block();
     __attribute__((tc_thread)) void start() {
       int i = 0;
       {
@@ -360,7 +360,7 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
   )
   , --  07 - function parameter {{{2
   ([paste| 
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     void c(int c, int k) {
       block(c+1); 
       block(k);
@@ -393,7 +393,7 @@ test_thread_execution_functions :: Test -- {{{1
 test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ map runTest [
   -- , 01 - minimal case {{{2
   ([paste|
-    __attribute__((tc_api)) void block();
+    __attribute__((tc_block)) void block();
     __attribute__((tc_thread)) void start() {
       block();
     }
@@ -411,7 +411,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   |], [])
   , -- 02 - blocking function with parameter and return value {{{2
   ([lpaste| 
-    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_block)) int block(int i);
 02: __attribute__((tc_thread)) void start() {
       int j = block(23);
 04: }
@@ -441,7 +441,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   ])
   , -- 03 - critical function {{{2
   ([lpaste| 
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
 02: int crit(int k) { block(k); return k;}
     __attribute__((tc_thread)) void start() {
       crit(23);
@@ -473,7 +473,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   ])
   , -- 04 - two threads {{{2
   ([paste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() {
       block(23);
     }
@@ -509,7 +509,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   |], [])
   , -- 05 - reentrance {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
 02: int crit(int k) { block(k); return k; }
     __attribute__((tc_thread)) void start() {
       crit(23);
@@ -567,7 +567,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   ])
   , -- 06 - static variable {{{2
   ([paste|
-    __attribute__((tc_api)) void block(int b);
+    __attribute__((tc_block)) void block(int b);
 
     __attribute__((tc_thread)) void start() { 
         static int s = 23;
@@ -592,7 +592,7 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   |], [])
   , -- 07 - regression test {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int b);
+    __attribute__((tc_block)) void block(int b);
 02: __attribute__((tc_thread)) void start() { 
       int s = 23;
       while (1) {
@@ -643,7 +643,7 @@ test_tcode_2_ecode :: Test -- {{{1
 test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   -- , 01 - setup {{{2
   ([paste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     __attribute__((tc_thread)) void start() { 
       block(23);
     }
@@ -679,7 +679,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   |], [])
   , -- 02 - setup - returning a pointer {{{2
   ([paste|
-    __attribute__((tc_api)) int* block(int i);
+    __attribute__((tc_block)) int* block(int i);
     __attribute__((tc_thread)) void start() { 
       block(23);
     }
@@ -716,7 +716,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   |], [])
   , -- 03 - setup - returning a void pointer {{{2
   ([paste|
-    __attribute__((tc_api)) void* block(int i);
+    __attribute__((tc_block)) void* block(int i);
     __attribute__((tc_thread)) void start() { 
       block(23);
     }
@@ -753,7 +753,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   |], [])
   , -- 04 - local critical variable {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
 02: __attribute__((tc_thread)) void start() {
       int i = 23;
       block(i);
@@ -796,7 +796,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 05 - local non-critical variable {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
 02: __attribute__((tc_thread)) void start() {
       int i = 23;
       block(i);
@@ -843,7 +843,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 06 - function static variable {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
 02: __attribute__((tc_thread)) void start() {
       static int i = 0;
       block(i);
@@ -885,7 +885,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   , -- 07 - global variable {{{2
   ([lpaste|
     int k;
-    __attribute__((tc_api)) void block(int i1, int i2);
+    __attribute__((tc_block)) void block(int i1, int i2);
 03: __attribute__((tc_thread)) void start() {
       int j = 23;
       block(j, k);
@@ -936,7 +936,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 08 - loop {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int j);
+    __attribute__((tc_block)) void block(int j);
 02: __attribute__((tc_thread)) void start() { 
       int i;
       i = 0;
@@ -992,7 +992,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 09 - critical function {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int b);
+    __attribute__((tc_block)) void block(int b);
 
 03: void critical(int c) {
       block(c+1); 
@@ -1073,7 +1073,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 10  - critical function, chained return {{{2
   ([lpaste|
-    __attribute__((tc_api)) int block(int b);
+    __attribute__((tc_block)) int block(int b);
 
 03: int critical(int c) {
       return block(c+1);  
@@ -1144,7 +1144,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 11 - two threads {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int b);
+    __attribute__((tc_block)) void block(int b);
 02: __attribute__((tc_thread)) void start() { 
         int s = 23;
         while (1) {
@@ -1226,7 +1226,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 12 - reentrance {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block(int b);
+    __attribute__((tc_block)) void block(int b);
 
 03: void critical(int c) {
       block(c+1); 
@@ -1319,7 +1319,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 13 - return value {{{2
   ([lpaste|
-    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_block)) int block(int i);
     __attribute__((tc_thread)) void start() 
 03: {
       int i;
@@ -1369,7 +1369,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 14 - multiple declarations with critical initialization {{{2
   ([lpaste|
-    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_block)) int block(int i);
 
 03: __attribute__((tc_thread)) void start() {
       int i, j=block(1) + 3, k=23;
@@ -1425,7 +1425,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 15 - returns {{{2
   ([lpaste|
-    __attribute__((tc_api)) int block(char* c);
+    __attribute__((tc_block)) int block(char* c);
 
 03: int critical(int i) {
       if (i == 0) {
@@ -1499,7 +1499,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
     struct S {
       int i;
     };
-    __attribute__((tc_api)) int block(struct S s);
+    __attribute__((tc_block)) int block(struct S s);
 
 06: __attribute__((tc_thread)) void start() {
       struct S s;
@@ -1553,7 +1553,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   , -- 17 - multiple global declarations {{{2
   ([paste|
     int i, k;
-    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_block)) int block(int i);
 
     __attribute__((tc_thread)) void start() 
     {
@@ -1594,7 +1594,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   |], [])
   , -- 18 - static variable {{{2
   ([lpaste|
-    __attribute__((tc_api)) int block(int i);
+    __attribute__((tc_block)) int block(int i);
 
     __attribute__((tc_thread)) void start() 
 04: {
@@ -1642,8 +1642,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
     int c;
     int next;
 
-    __attribute__((tc_api)) void wait(int* c);
-    __attribute__((tc_api)) void sleep(int t, int* c);
+    __attribute__((tc_block)) void wait(int* c);
+    __attribute__((tc_block)) void sleep(int t, int* c);
     void check();
 
     __attribute__((tc_thread)) void start() {
@@ -1725,7 +1725,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   |], [])
   , -- 20 - regression test - estack access {{{2
   ([lpaste|
-    __attribute__((tc_api)) void block();
+    __attribute__((tc_block)) void block();
 02: void critical() {
       int i = 0;
       block();

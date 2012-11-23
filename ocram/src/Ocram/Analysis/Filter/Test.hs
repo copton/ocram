@@ -23,7 +23,7 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
     |], [NestedFunction])
   , -- 02 nested functions not supported {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         void foo() { }
         block();
@@ -34,7 +34,7 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
     ([paste|
       __thread int i;
 
-      __attribute__((tc_api)) void block(int i);
+      __attribute__((tc_block)) void block(int i);
       __attribute__((tc_thread)) void start() {
         block(i);
       }
@@ -43,7 +43,7 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
     ([paste|
       void main() { }
 
-      __attribute__((tc_api)) void block(int i);
+      __attribute__((tc_block)) void block(int i);
       __attribute__((tc_thread)) void start() {
         block(i);
       }
@@ -52,7 +52,7 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
     ([paste|
       void main();
 
-      __attribute__((tc_api)) void block(int i);
+      __attribute__((tc_block)) void block(int i);
       __attribute__((tc_thread)) void start() {
         block(i);
       }
@@ -62,7 +62,7 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
       void ec_foo();
       void ec_bar() { }
       int ec_j;
-      __attribute__((tc_api)) void ec_blcok(int ec_i);
+      __attribute__((tc_block)) void ec_blcok(int ec_i);
       __attribute__((tc_thread)) void ec_start() {
         block(ec_j);
       }
@@ -84,7 +84,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
   , ("__attribute__((tc_thread)) void start() { };", [ThreadNotBlocking])
   , -- 05 - Ellipses {{{2
     ([paste|
-       __attribute__((tc_api)) void block(int x, ...);
+       __attribute__((tc_block)) void block(int x, ...);
        void non_critical(int x, ...) { }
        void critical(int x, ...) {
          block(x);
@@ -96,7 +96,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
   |], [Ellipses, Ellipses])
   , -- 06 - pointer to critical function {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       void f(void*);
       __attribute__((tc_thread)) void start() {
         f(&block);
@@ -105,7 +105,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [PointerToCriticalFunction])
   , -- 07 - cyclic call graph {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       void c2() {
         block();
         c1();
@@ -120,7 +120,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
   , -- 08 - initializer lists for arrays {{{2
     ([paste|
       struct Foo { int i; };
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         struct Foo foo = {23};
         int i[] = {4,2};
@@ -129,7 +129,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [ArrayInitializerList])
   , -- 09 - inline assembler not supported {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         asm("movl %ebx, %eax");
         block();
@@ -137,7 +137,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [AssemblerCode])
   , -- 10 - case ranges not supported {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         int i;
         switch (i) {
@@ -147,7 +147,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [CaseRange])
   , -- 11 - statement expressions not supported {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
           int a, b;
           int i = ( {int _a = (a), _b = (b); _a > _b ? _a : _b; } );
@@ -156,7 +156,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [StatExpression])
   , -- 12 - computed gotos not supported {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       void crit(void* x) {
         goto *x;
         block();
@@ -167,7 +167,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [GotoPtr])
   , -- 13 - array range designators not supported {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         int widths[] = { [0 ... 9] = 1, [10] = 3 };
         block();
@@ -175,7 +175,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [ArrayInitializerList, RangeDesignator])
   , -- 14 - old-style parameter declaration {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
 
       void c(i, j)
       int i;
@@ -190,7 +190,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [OldStyleParams])
   , -- 15 - switch without body {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         switch (i) ;
         block();
@@ -198,7 +198,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [IllFormedSwitch])
   , -- 16 - switch with preceding statement {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         switch (i) {
           block();
@@ -208,7 +208,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [IllFormedSwitch])
   , -- 17 - switch with preceding declaration {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         switch (i) {
           int j;
@@ -218,7 +218,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [IllFormedSwitch])
   , -- 18 - switch with multiple default statements {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         switch (i) {
           case 0: block();
@@ -229,7 +229,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [IllFormedSwitch])
   , -- 19 - switch with case after default statement {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
       __attribute__((tc_thread)) void start() {
         switch (i) {
           case 0: ;
@@ -240,14 +240,14 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [IllFormedSwitch])
   , -- 20 - blocking function declaration without parameter name {{{2
     ([paste|
-      __attribute__((tc_api)) void block(int);
+      __attribute__((tc_block)) void block(int);
       __attribute__((tc_thread)) void start() {
         block(23);
       }
     |], [NoVarName])
   , -- 21 - function definition without parameter {{{2
     ([paste|
-      __attribute__((tc_api)) void block(int i);
+      __attribute__((tc_block)) void block(int i);
       int c {
         block(23);
       }
@@ -257,14 +257,14 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [NoParameterList])
   , -- 22 - function declaration without return type {{{2
     ([paste|
-      __attribute__((tc_api)) block(int i);
+      __attribute__((tc_block)) block(int i);
       __attribute__((tc_thread)) void start() {
         block(23);
       }
     |], [NoReturnType])
   , -- 23 - function definition without return type {{{2
     ([paste|
-      __attribute__((tc_api)) block(int i);
+      __attribute__((tc_block)) block(int i);
 
       c(int i) {
         block(i+1);
@@ -276,7 +276,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [NoReturnType, NoReturnType])
   , -- 24 - non-void thread start function {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
 
       __attribute__((tc_thread)) int start() {
         block();
@@ -285,7 +285,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [StartFunctionSignature])
   , -- 25 - thread start function with parameters {{{2
     ([paste|
-      __attribute__((tc_api)) void block();
+      __attribute__((tc_block)) void block();
 
       __attribute__((tc_thread)) void start(int i) {
         block();
@@ -294,7 +294,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
 
   , -- 26 - function attributes {{{2
     ([paste|
-      __attribute__((tc_api)) void block(int i);
+      __attribute__((tc_block)) void block(int i);
 
       int square(int n) __attribute__((const));
       
@@ -310,7 +310,7 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
     |], [GnucAttribute, GnucAttribute])
   , -- 27 - critical group {{{2
     ([paste|
-      __attribute__((tc_api)) int block();
+      __attribute__((tc_block)) int block();
 
       int c(), square(int n);
       
