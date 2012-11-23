@@ -67,22 +67,6 @@ test_global_constraints = enumTestGroup "global_constraints" $ map runTest [
         block(ec_j);
       }
     |], replicate 7 ReservedPrefix)
-  , -- 07 - function attributes {{{2
-    ([paste|
-      __attribute__((tc_api)) void block(int i);
-
-      int square(int n) __attribute__((const));
-      
-      void c() __attribute__((noreturn));
-      void c() {
-        block(square(23));
-      }
-
-      __attribute__((tc_thread)) void start() {
-        c();
-      }
-    |], [GnucAttribute, GnucAttribute])
-  
   -- end {{{2
   ]
   where
@@ -308,6 +292,37 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
       }
     |], [StartFunctionSignature])
 
+  , -- 26 - function attributes {{{2
+    ([paste|
+      __attribute__((tc_api)) void block(int i);
+
+      int square(int n) __attribute__((const));
+      
+      void c() __attribute__((noreturn));
+      void c() {
+        int x __attribute__ ((aligned (16))) = 23;
+        block(square(x));
+      }
+
+      __attribute__((tc_thread)) void start() {
+        c();
+      }
+    |], [GnucAttribute, GnucAttribute])
+  , -- 27 - critical group {{{2
+    ([paste|
+      __attribute__((tc_api)) int block();
+
+      int c(), square(int n);
+      
+      int c() {
+        return block() + 1;
+      }
+
+      __attribute__((tc_thread)) void start() {
+        c();
+      }
+    |], [CriticalGroup])
+ 
   -- end {{{2
   ]
   where

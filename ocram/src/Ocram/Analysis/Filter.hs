@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, RankNTypes #-}
 module Ocram.Analysis.Filter
 -- exports {{{1
 (
@@ -8,6 +8,7 @@ module Ocram.Analysis.Filter
 -- imports {{{1
 import Control.Monad (guard)
 import Data.Generics (mkQ, everything, extQ)
+import Data.Data (Data)
 import Data.List (findIndices)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Language.C.Data.Ident (Ident(Ident))
@@ -30,6 +31,7 @@ data ErrorCode = -- {{{2
   | AssemblerCode
   | BuiltinExpr
   | CaseRange
+  | CriticalGroup
   | CriticalRecursion
   | Ellipses
   | GnucAttribute
@@ -60,6 +62,8 @@ errorText BuiltinExpr =
   "GNU C builtin expressions are not supported"
 errorText CaseRange =
   "case ranges are not part of C99 and are thus not supported"
+errorText CriticalGroup =
+  "A declarator of critical function must be contained in its own declaration"
 errorText CriticalRecursion =
   "recursion of critical functions"
 errorText Ellipses =
@@ -109,7 +113,7 @@ newError code extraWhat where_ =
 
 
 global_constraints :: CTranslUnit -> Either [OcramError] () -- {{{1
-global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ` scanBlockItem `extQ` scanStorageSpec `extQ` scanIdent `extQ` scanAttribute) ast
+global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ` scanBlockItem `extQ` scanStorageSpec `extQ` scanIdent) ast
   where
     scanExtDecl :: CExtDecl -> [OcramError]
     scanExtDecl (CDeclExt (CDecl _ ds ni))
@@ -136,12 +140,6 @@ global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ`
       | ecPrefix `L.isPrefixOf` symbol ident =
           [newError ReservedPrefix Nothing (Just (nodeInfo ident))]
       | otherwise = []
-
-    scanAttribute :: CAttribute NodeInfo -> [OcramError]
-    scanAttribute (CAttr (Ident name _ _) _ ni)
-      | name `elem` [blockingAttr, startAttr] = []
-      | otherwise =
-          [newError GnucAttribute Nothing (Just ni)]
 
 critical_constraints :: CTranslUnit -> CallGraph -> Either [OcramError] () -- {{{1
 critical_constraints ast cg = failOrPass $
@@ -195,36 +193,46 @@ checkThreads cg
 checkFeatures :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
 checkFeatures cg (CTranslUnit ds _) = concatMap filt ds
   where
-    filt (CDeclExt cd@(CDecl ts _ ni))
-      | not (is_blocking_function cd) = []
+    filt (CDeclExt cd@(CDecl ts dds ni))
+      | length dds /= 1 = concatMap criticalGroup dds
+      | not (is_critical cg (symbol cd)) = []
       | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
-      | otherwise = noVarNames ++ everything (++) (mkQ [] scanDerivedDeclr) cd
+      | is_blocking_function cd = noVarNames cd ++ blockingFunctionConstraints cd
+      | otherwise = criticalFunctionConstraints cd
       where
-      noVarNames = mapMaybe noVarName $ function_parameters_cd cd
+      noVarNames = mapMaybe noVarName . function_parameters_cd
+
       noVarName p@(CDecl _ [] _) = Just $ newError NoVarName Nothing (Just (nodeInfo p))
       noVarName _                = Nothing
+
+      criticalGroup (Nothing, _, _) = []
+      criticalGroup (Just declr, _, _) = [newError CriticalGroup Nothing (Just ni) | is_critical cg (symbol declr)]
+      
         
     filt (CFDefExt fd@(CFunDef ts (CDeclr _ ps _ _ _) _ _ ni))
       | not (is_critical cg (symbol fd)) = []
-      | null ps = [newError NoParameterList Nothing (Just ni)]
       | not (hasReturnType ts) = [newError NoReturnType Nothing (Just ni)]
-      | otherwise = scan fd
+      | null ps = [newError NoParameterList Nothing (Just ni)]
+      | otherwise = criticalFunctionConstraints fd
 
     filt _ = []
+
+    criticalFunctionConstraints :: forall a. Data a => a -> [OcramError]
+    criticalFunctionConstraints = everything (++) (mkQ [] scanAttribute `extQ` scanDerivedDeclr `extQ` scanDecl `extQ` scanStat `extQ`  scanExpr `extQ` scanPartDesig)
+
+    blockingFunctionConstraints = everything (++) (mkQ [] scanAttribute `extQ` scanDerivedDeclr)
 
     hasReturnType = any isTypeSpec
       where
         isTypeSpec (CTypeSpec _) = True
         isTypeSpec _ = False
 
-    scan :: CFunDef -> [OcramError]
-    scan = everything (++) (mkQ [] 
-                                   scanDerivedDeclr
-                            `extQ` scanDecl
-                            `extQ` scanStat
-                            `extQ` scanExpr
-                            `extQ` scanPartDesig
-                           )
+    scanAttribute :: CAttribute NodeInfo -> [OcramError]
+    scanAttribute (CAttr (Ident name _ _) _ ni)
+      | name `elem` [blockingAttr, startAttr] = []
+      | otherwise =
+          [newError GnucAttribute Nothing (Just ni)]
+
 
     scanDerivedDeclr :: CDerivedDeclr -> [OcramError]
     scanDerivedDeclr x@(CFunDeclr (Right (_, True)) _ _) =

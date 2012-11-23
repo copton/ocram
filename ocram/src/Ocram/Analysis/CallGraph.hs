@@ -93,6 +93,8 @@ is_start :: CallGraph -> Symbol -> Bool -- {{{1
 is_start = functionIs attrStart
 
 is_critical :: CallGraph -> Symbol -> Bool -- {{{1
+-- XXX: in the thesis, critical functions do not include blocking functions.
+-- In contrast, in this implementation they do. I might have to clean this up at some point.
 is_critical = functionIs attrCritical
 
 call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol] -- {{{1
