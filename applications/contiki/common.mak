@@ -6,7 +6,6 @@ ifndef APP
 $(error please specify your app)
 endif
 
-OCRAM_CPP = $(ROOT)/applications/contiki/cpp
 PALGEN = $(ROOT)/applications/pal.py
 VERIFY = $(ROOT)/applications/contiki/$(APP)/verify.py
 export OCRAM_PAL_TEMPLATE = $(ROOT)/applications/contiki/tc/pal.jinja.c
