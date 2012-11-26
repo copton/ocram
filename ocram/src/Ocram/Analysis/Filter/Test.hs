@@ -369,6 +369,19 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
         block();
       }
     |], [PointerToCriticalFunction])
+  , -- implicit function pointer - failing {{{2
+    ([paste|
+      __attribute__((tc_block)) int block();
+
+      void c2() { block(); }
+      void c1() { c2(); }
+
+      __attribute__((tc_thread)) void start() {
+        int c2 = 23;
+        int bar = c2;
+        c1();
+      }
+    |], [PointerToCriticalFunction])
  
   -- end {{{2
   ]
