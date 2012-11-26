@@ -51,6 +51,7 @@ data ErrorCode = -- {{{2
   | StatExpression
   | ThreadLocalStorage
   | ThreadNotBlocking
+  | VolatileQualifier
   deriving (Eq, Enum, Show)
 
 errorText :: ErrorCode -> String -- {{{2
@@ -102,6 +103,8 @@ errorText ThreadLocalStorage =
   "GNU C thread local storage is not supported"
 errorText ThreadNotBlocking =
   "thread does not call any blocking functions"
+errorText VolatileQualifier =
+  "volatile type qualifiers are not supported in critical functions"
 
 newError :: ErrorCode -> Maybe String -> Maybe NodeInfo -> OcramError  -- {{{2
 newError code extraWhat where_ =
@@ -150,12 +153,20 @@ critical_constraints ast cg = failOrPass $
   ++ checkFeatures cg ast
 
 checkFunctionPointer :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
-checkFunctionPointer cg ast = everything (++) (mkQ [] check) ast
+checkFunctionPointer cg ast = everything (++) (mkQ [] checkExpr `extQ` checkInit) ast
   where
-    check (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni)
+    checkExpr (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni)
       | is_critical cg name = [newError PointerToCriticalFunction Nothing (Just ni)]
       | otherwise = []
-    check _ = []
+    checkExpr (CAssign _ _ (CVar (Ident name _ _) _) ni)
+      | is_critical cg name = [newError PointerToCriticalFunction Nothing (Just ni)]
+      | otherwise = []
+    checkExpr _ = []
+
+    checkInit (CInitExpr (CVar (Ident name _ _) _) ni)
+      | is_critical cg name = [newError PointerToCriticalFunction Nothing (Just ni)]
+      | otherwise = []
+    checkInit _ = []
 
 checkRecursion :: CallGraph -> [OcramError] -- {{{2
 checkRecursion cg@(CallGraph gd gi) = mapMaybe (fmap (createRecError cg) . find_loop gd . $lookup_s gi) $ start_functions cg
@@ -218,7 +229,15 @@ checkFeatures cg (CTranslUnit ds _) = concatMap filt ds
     filt _ = []
 
     criticalFunctionConstraints :: forall a. Data a => a -> [OcramError]
-    criticalFunctionConstraints = everything (++) (mkQ [] scanAttribute `extQ` scanDerivedDeclr `extQ` scanDecl `extQ` scanStat `extQ`  scanExpr `extQ` scanPartDesig)
+    criticalFunctionConstraints = everything (++) (mkQ []
+             scanAttribute
+      `extQ` scanDerivedDeclr
+      `extQ` scanDecl
+      `extQ` scanStat
+      `extQ` scanExpr
+      `extQ` scanPartDesig
+      `extQ` scanTypeQualifier
+      )
 
     blockingFunctionConstraints = everything (++) (mkQ [] scanAttribute `extQ` scanDerivedDeclr)
 
@@ -233,6 +252,10 @@ checkFeatures cg (CTranslUnit ds _) = concatMap filt ds
       | otherwise =
           [newError GnucAttribute Nothing (Just ni)]
 
+    scanTypeQualifier :: CTypeQualifier NodeInfo -> [OcramError]
+    scanTypeQualifier (CVolatQual ni) =
+      [newError VolatileQualifier Nothing (Just ni)]
+    scanTypeQualifier _ = []
 
     scanDerivedDeclr :: CDerivedDeclr -> [OcramError]
     scanDerivedDeclr x@(CFunDeclr (Right (_, True)) _ _) =

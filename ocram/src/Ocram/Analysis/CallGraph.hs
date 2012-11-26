@@ -178,12 +178,10 @@ updateLabels :: GraphData -> GraphData -- {{{2
 updateLabels gd = G.gmap update gd
   where
     update o@(ine, gnode, label, oute)
-      | Set.member gnode cn = (ine, gnode, label {lblAttr = Critical : lblAttr label}, oute)
+      | Set.member gnode sg = (ine, gnode, label {lblAttr = Critical : lblAttr label}, oute)
       | otherwise           = o
 
-    cn       = Set.intersection backward forward
-    backward = reachableSubGraph (G.grev gd) $ nodesByAttr gd attrBlocking
-    forward  = reachableSubGraph gd $ nodesByAttr gd attrStart
+    sg = reachableSubGraph (G.grev gd) $ nodesByAttr gd attrBlocking
 
 reachableSubGraph :: GraphData -> [G.Node] -> Set.Set G.Node -- {{{3
 reachableSubGraph gd ns = Set.fromList $ G.bfsn ns gd

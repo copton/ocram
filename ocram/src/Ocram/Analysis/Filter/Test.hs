@@ -323,6 +323,53 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
       }
     |], [CriticalGroup])
  
+  , -- 28 - volatile qualifier {{{2
+    ([paste|
+      __attribute__((tc_block)) int block();
+
+      __attribute__((tc_thread)) void start() {
+        volatile int i;
+        i = block();
+      }
+    |], [VolatileQualifier])
+  , -- dangling critical function {{{2
+    ([paste|
+      __attribute__((tc_block)) int block();
+
+      void foo() { block(); }
+
+      __attribute__((tc_thread)) void start() {
+        void (*x)() = &foo;
+        x();
+        block();
+      }
+    |], [PointerToCriticalFunction])
+  , -- implicit function pointer - assignment {{{2
+    ([paste|
+      __attribute__((tc_block)) int block();
+
+      void foo() { block(); }
+
+      __attribute__((tc_thread)) void start() {
+        void (*x)();
+        x  = foo;
+        x();
+        block();
+      }
+    |], [PointerToCriticalFunction])
+  , -- implicit function pointer - initialization {{{2
+    ([paste|
+      __attribute__((tc_block)) int block();
+
+      void foo() { block(); }
+
+      __attribute__((tc_thread)) void start() {
+        void (*x)() = foo;
+        x();
+        block();
+      }
+    |], [PointerToCriticalFunction])
+ 
   -- end {{{2
   ]
   where
