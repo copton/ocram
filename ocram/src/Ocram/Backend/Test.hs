@@ -216,7 +216,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       union {
         ec_tframe_block_t block;
       } ec_frames;
-      int c;
+      int ec_unique_c_0;
       int k;
     } ec_tframe_c_t;
 

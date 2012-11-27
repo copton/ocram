@@ -41,7 +41,7 @@ type ScopedVariable = ( -- {{{2
   , Int      -- first row of scope
   , Int      -- last row of scope
   , Bool     -- true => automatic storage duration
-  , Bool     -- treu => parameter
+  , Bool     -- true => parameter
   )
   
 type OutputCollectDeclarations = ( -- {{{2
@@ -433,6 +433,52 @@ unitTestsCollect = [
     void start () {
       block(foo.i);
     }
+  |]))
+  , -- 14 - local variable shadows critical function {{{3
+  ([lpaste|
+    __attribute__((tc_block)) void block();
+    void c2() {block();}
+    void c1() {c2();}
+04: __attribute__((tc_thread)) void start() {
+      int c2;
+      c2 = 0;
+      c1();
+08: }
+  |], ([
+      ("start", [("int ec_unique_c2_0", 4, 8, True, False)])
+    , ("c1", [])
+    , ("c2", [])
+  ], [paste|
+    void c1() {c2();}
+    void c2() {block();}
+    void start () {
+      ec_unique_c2_0 = 0;
+      c1();
+    }
+  |]))
+  , -- 15 - parameter shadows critical function {{{3
+  ([lpaste|
+    __attribute__((tc_block)) void block();
+02: void c2(int c1) {
+      c1 = 0;
+      block();
+05: }
+    void c1() {c2();}
+    __attribute__((tc_thread)) void start() {
+      c1();
+    }
+  |], ([
+      ("start", [])
+    , ("c1", [])
+    , ("c2", [("int ec_unique_c1_0", 2, 5, True, True)])
+  ], {- the critical function will be dissolved, so the 'wrong' parameter name is not a problem -}
+     [paste|
+    void c1() { c2(); }
+    void c2(int c1) {
+        ec_unique_c1_0 = 0;
+        block();
+    }
+    void start() { c1(); }
   |]))
   -- end {{{3
   ]
@@ -2493,7 +2539,7 @@ test_collect_declarations :: Input -> OutputCollectDeclarations -> Assertion -- 
 test_collect_declarations inputCode (expectedVars', expectedCode) = do
   let
     ana = analyze inputCode
-    result = pipeline ana collect_declarations
+    result = pipeline ana (collect_declarations (blockingAndCriticalFunctions ana))
 
   let
     items = M.map (map (\(CBlockStmt s) -> s) . fst) result
@@ -2530,7 +2576,7 @@ test_desugar_control_structures inputCode (expectedDecls', expectedCode) = do
     ana = analyze inputCode
     result = pipeline ana (
         desugar_control_structures
-      . collectDeclarations
+      . collectDeclarations ana
       )
 
   let
@@ -2550,7 +2596,7 @@ test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
     result = pipeline ana (
         boolean_short_circuiting (blockingAndCriticalFunctions ana)
       . desugarControlStructures
-      . collectDeclarations
+      . collectDeclarations ana
       )
   
   let
@@ -2571,7 +2617,7 @@ test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
         normalize_critical_calls (returnTypes ana)
       . booleanShortCircuiting ana
       . desugarControlStructures
-      . collectDeclarations
+      . collectDeclarations ana
       )
 
   let
@@ -2593,7 +2639,7 @@ test_build_basic_blocks inputCode expectedIrs' = do
       . normalizeCriticalCalls ana
       . booleanShortCircuiting ana
       . desugarControlStructures
-      . collectDeclarations
+      . collectDeclarations ana
       )
 
   let
@@ -2621,7 +2667,7 @@ test_optimize_ir inputCode expectedIrs' = do
       . normalizeCriticalCalls ana
       . booleanShortCircuiting ana
       . desugarControlStructures
-      . collectDeclarations
+      . collectDeclarations ana
       )
 
   let
@@ -2692,8 +2738,8 @@ printOutputCode ana items =
 pipeline :: Analysis -> (CFunDef -> a) -> M.Map Symbol a -- {{{3
 pipeline ana pipe = M.map pipe (anaCritical ana)
 
-collectDeclarations :: CFunDef -> [CBlockItem] -- {{{4
-collectDeclarations = fst . collect_declarations
+collectDeclarations :: Analysis -> CFunDef -> [CBlockItem] -- {{{4
+collectDeclarations ana = fst . collect_declarations (blockingAndCriticalFunctions ana)
 
 desugarControlStructures :: [CBlockItem] -> [CStat'] -- {{{4
 desugarControlStructures = fst . desugar_control_structures
