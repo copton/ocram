@@ -15,12 +15,13 @@ import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
 import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
+import Ocram.Intermediate.Filter
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.Optimize
 import Ocram.Print (render)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
-import Ocram.Text (show_errors)
+import Ocram.Text (show_errors, OcramError(errCode))
 import Ocram.Util (abort)
 import Ocram.Query (return_type_fd, return_type_cd)
 import Test.Framework (Test, testGroup)
@@ -93,6 +94,9 @@ type OutputCriticalVariables = -- {{{2
     , [TaggedVar] -- variables
   )] 
 
+type OutputFilter =  -- {{{2
+  [ErrorCode]
+
 data TaggedVar -- {{{3
   = C String -- critical
   | U String -- uncritical
@@ -107,6 +111,7 @@ unit_tests = testGroup "unit" [
   , group "basicBlocks" test_build_basic_blocks         unitTestsBasicBlocks
   , group "optimize"    test_optimize_ir                unitTestsOptimize
   , group "critical"    test_critical_variables         unitTestsCritical
+  , group "filter"      test_filter                     unitTestsFilter
   ]
   where
     group name fun cases = enumTestGroup name $ map (uncurry fun) cases
@@ -1768,6 +1773,113 @@ unitTestsCritical = [
   )
   -- end {{{3
   ]
+unitTestsFilter :: [(Input, OutputFilter)] -- {{{2
+unitTestsFilter = [
+  -- , 01 - address operator - expression
+  ([paste|
+    __attribute__((tc_block)) void block();
+    void f(void*);
+    __attribute__((tc_thread)) void start() {
+      f(&block);
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 02 - address operator - assignment
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      void (*f)();
+      f = &block;
+      f();
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 03 - address operator - initializer 
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      void (*f)() = &block;
+      f();
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 04 - implicit addreess - expression
+  ([paste|
+    __attribute__((tc_block)) void block();
+    void f(void*);
+    __attribute__((tc_thread)) void start() {
+      f(block);
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 05 - implicit address - assignment
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      void (*f)();
+      f = block;
+      f();
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 06 - implicit operator - initializer 
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      void (*f)() = &block;
+      f();
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 07 - function call - expression
+  ([paste|
+    __attribute__((tc_block)) int block();
+    void f(int);
+    __attribute__((tc_thread)) void start() {
+      f(block());
+      block();
+    }
+  |], [])
+  , -- 08 - function call - assignment
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      int f;
+      f = block();
+      block();
+    }
+  |], [])
+  , -- 09 - function call - initializer 
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      int f = block();
+      block();
+    }
+  |], [])
+  , -- 10 - dangling critical function
+  ([paste|
+    __attribute__((tc_block)) void block();
+    void foo() {block();}
+    __attribute__((tc_thread)) void start() {
+      void* f = &foo;
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 11 - shadowing
+  ([paste|
+    __attribute__((tc_block)) void block();
+    void c2() {block();}
+    void c1() {c2();}
+    __attribute__((tc_thread)) void start() {
+      int c2;
+      int* x = &c2;
+      c1();
+    }
+  |], [])
+  
+  -- end {{{3
+  ]
 -- integration tests {{{1
 integrationTestCases :: [TestCase] -- {{{2
 integrationTestCases = [
@@ -2713,7 +2825,15 @@ test_critical_variables inputCode expectedVars' = do
 
     failOrPass (Left es) = assertFailure (show_errors "<<test>>" es) >> undefined
     failOrPass (Right x) = return x
-        
+
+test_filter :: Input -> OutputFilter -> Assertion -- {{{2
+test_filter inputCode expectedErrors = do
+  let
+    ana = analyze inputCode
+    result = case ast_2_ir (anaBlocking ana) (anaCritical ana) of
+      Left es -> es
+      Right _ -> []
+  assertEqual ("reported errors: " ++ show expectedErrors) (map fromEnum expectedErrors) (map errCode result)
 -- utils {{{2
 analyze :: String -> Analysis -- {{{3
 analyze code = case analysis (enrich code) of
