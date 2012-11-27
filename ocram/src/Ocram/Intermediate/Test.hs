@@ -25,7 +25,7 @@ import Ocram.Util (abort)
 import Ocram.Query (return_type_fd, return_type_cd)
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit (assertEqual, Assertion)
+import Test.HUnit (assertEqual, Assertion, assertFailure)
 import Text.Printf (printf)
 
 import qualified Data.Map as M
@@ -2689,7 +2689,7 @@ test_critical_variables :: Input -> OutputCriticalVariables -> Assertion -- {{{2
 test_critical_variables inputCode expectedVars' = do
   let
     ana = analyze inputCode
-    funs = ast_2_ir (anaBlocking ana) (anaCritical ana)
+  funs <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
 
   let
     expectedVars = M.fromList expectedVars'
@@ -2710,6 +2710,9 @@ test_critical_variables inputCode expectedVars' = do
 
     varName (C v) = v
     varName (U v) = v
+
+    failOrPass (Left es) = assertFailure (show_errors "<<test>>" es) >> undefined
+    failOrPass (Right x) = return x
         
 -- utils {{{2
 analyze :: String -> Analysis -- {{{3
