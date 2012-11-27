@@ -94,15 +94,6 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
           critical(23);
        }
   |], [Ellipses, Ellipses])
-  , -- 06 - pointer to critical function {{{2
-    ([paste|
-      __attribute__((tc_block)) void block();
-      void f(void*);
-      __attribute__((tc_thread)) void start() {
-        f(&block);
-        block();
-      }
-    |], [PointerToCriticalFunction])
   , -- 07 - cyclic call graph {{{2
     ([paste|
       __attribute__((tc_block)) void block();
@@ -332,63 +323,13 @@ test_critical_constraints = enumTestGroup "critical_constraints" $ map runTest [
         i = block();
       }
     |], [VolatileQualifier])
-  , -- dangling critical function {{{2
-    ([paste|
-      __attribute__((tc_block)) int block();
-
-      void foo() { block(); }
-
-      __attribute__((tc_thread)) void start() {
-        void (*x)() = &foo;
-        x();
-        block();
-      }
-    |], [PointerToCriticalFunction])
-  , -- implicit function pointer - assignment {{{2
-    ([paste|
-      __attribute__((tc_block)) int block();
-
-      void foo() { block(); }
-
-      __attribute__((tc_thread)) void start() {
-        void (*x)();
-        x  = foo;
-        x();
-        block();
-      }
-    |], [PointerToCriticalFunction])
-  , -- implicit function pointer - initialization {{{2
-    ([paste|
-      __attribute__((tc_block)) int block();
-
-      void foo() { block(); }
-
-      __attribute__((tc_thread)) void start() {
-        void (*x)() = foo;
-        x();
-        block();
-      }
-    |], [PointerToCriticalFunction])
-  , -- implicit function pointer - failing {{{2
-    ([paste|
-      __attribute__((tc_block)) int block();
-
-      void c2() { block(); }
-      void c1() { c2(); }
-
-      __attribute__((tc_thread)) void start() {
-        int c2 = 23;
-        int bar = c2;
-        c1();
-      }
-    |], [PointerToCriticalFunction])
- 
   -- end {{{2
   ]
   where
     runTest :: (String, [ErrorCode]) -> Assertion -- {{{2
     runTest (code, expected) = expected @=? errs (enrich code)
 
-    errs ast = case critical_constraints ast (call_graph ast) of
+    errs ast = case critical_constraints (call_graph ast) ast of
         Left es -> enrich $ map errCode es
         Right _ -> []
+

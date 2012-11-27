@@ -116,7 +116,7 @@ readAccess (CVar ident _)                = [symbol ident]
 readAccess (CConst _)                    = []
 readAccess (CCompoundLit _ _ _)          = $abort "TODO"
 readAccess o@(CStatExpr _ _)             = $abort $ unexp o
-readAccess o@(CLabAddrExpr _ _)          = $abort $ unexp o
+readAccess (CLabAddrExpr _ _)            = []
 readAccess o@(CBuiltinExpr _)            = $abort $ unexp o
 
 writeAccess :: CExpr' -> [Symbol] -- {{{1
@@ -140,7 +140,7 @@ writeAccess (CVar _ _)                       = []
 writeAccess (CConst _)                       = []
 writeAccess (CCompoundLit _ _ _)             = $abort "TODO"
 writeAccess o@(CStatExpr _ _)                = $abort $ unexp o
-writeAccess o@(CLabAddrExpr _ _)             = $abort $ unexp o
+writeAccess (CLabAddrExpr _ _)               = []
 writeAccess o@(CBuiltinExpr _)               = $abort $ unexp o
 
 undecidable :: [FunctionVariable] -> Body -> [Symbol] -- {{{1

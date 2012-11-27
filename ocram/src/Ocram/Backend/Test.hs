@@ -12,9 +12,9 @@ import Ocram.Backend
 import Ocram.Intermediate (ast_2_ir)
 import Ocram.Print (render)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, paste, lpaste, TVarMapEntry)
-import Ocram.Text (show_errors)
+import Ocram.Text (show_errors, OcramError)
 import Test.Framework (Test, testGroup)
-import Test.HUnit (Assertion, (@=?), assertEqual)
+import Test.HUnit (Assertion, (@=?), assertEqual, assertFailure)
 
 import qualified Data.Map as M
 
@@ -216,7 +216,7 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       union {
         ec_tframe_block_t block;
       } ec_frames;
-      int c;
+      int ec_unique_c_0;
       int k;
     } ec_tframe_c_t;
 
@@ -232,18 +232,18 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
   ]
   where
     runTest :: (String, String) -> Assertion -- {{{2
-    runTest (inputCode, expectedDecls) =
+    runTest (inputCode, expectedDecls) = do
       let
         ast = enrich inputCode :: CTranslUnit
         ana = case analysis ast of
           Left es -> error $ show_errors "test" es 
           Right x -> x
-        ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
+      ir <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
+      let
         (frames, stacks) = create_tstacks (anaCallgraph ana) (anaBlocking ana) ir
         outputDecls = reduce (CTranslUnit (map CDeclExt (map snd frames ++ stacks)) undefNode) :: String
         expectedDecls' = (reduce (enrich expectedDecls :: CTranslUnit)) :: String
-      in
-        expectedDecls' @=? outputDecls
+      expectedDecls' @=? outputDecls
 
 test_create_estacks :: Test -- {{{1
 test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
@@ -373,20 +373,20 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
   ]
   where
     runTest :: (String, String, [(String, Maybe String)]) -> Assertion -- {{{2
-    runTest (inputCode, expectedFrames, expectedStacks) =
+    runTest (inputCode, expectedFrames, expectedStacks) = do
       let
         ast = enrich inputCode :: CTranslUnit
         ana = case analysis ast of
           Left es -> error $ show_errors "test" es 
           Right x -> x
-        ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
+      ir <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
+      let
         (frames, stacks) = create_estacks (anaCallgraph ana) ir        
         expectedFrames' = reduce (enrich expectedFrames :: CTranslUnit) :: String
         outputFrames = reduce (CTranslUnit (map CDeclExt frames) undefNode) :: String
         outputStacks = M.toList . M.map (fmap render) $ stacks 
-      in do
-        assertEqual "frames" expectedFrames' outputFrames
-        assertEqual "stacks" expectedStacks outputStacks
+      assertEqual "frames" expectedFrames' outputFrames
+      assertEqual "stacks" expectedStacks outputStacks
         
 
 test_thread_execution_functions :: Test -- {{{1
@@ -624,20 +624,20 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   ]
   where
     runTest :: (String, String, [TVarMapEntry]) -> Assertion -- {{{2
-    runTest (inputCode, expectedCode, expectedVarMap) =
+    runTest (inputCode, expectedCode, expectedVarMap) = do
       let
         ast                  = enrich inputCode :: CTranslUnit
         ana                  = case analysis ast of
           Left es           -> error $ show_errors "test" es 
           Right x           -> x
-        ir                   = ast_2_ir (anaBlocking ana) (anaCritical ana)
+      ir <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
+      let
         (frames, stacks)     = create_estacks (anaCallgraph ana) ir
         (funs, outputVarMap) = thread_execution_functions (anaCallgraph ana) (anaBlocking ana) ir stacks
         outputCode           = reduce (CTranslUnit ((map CDeclExt frames) ++ (map (CFDefExt . fmap (const undefNode)) funs)) undefNode) :: String
         expectedCode'        = (reduce (enrich expectedCode :: CTranslUnit) :: String)
-      in do
-        expectedCode'  @=? outputCode
-        expectedVarMap @=? reduce outputVarMap
+      expectedCode'  @=? outputCode
+      expectedVarMap @=? reduce outputVarMap
   
 test_tcode_2_ecode :: Test -- {{{1
 test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
@@ -1790,16 +1790,20 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ]
   where
     runTest :: (String, String, [TVarMapEntry]) -> Assertion -- {{{2
-    runTest (inputCode, expectedCode, expectedVarMap) =
+    runTest (inputCode, expectedCode, expectedVarMap) = do
       let
         tAst                    = enrich inputCode :: CTranslUnit
         ana                     = case analysis tAst of
           Left es              -> error $ show_errors "test" es 
           Right x              -> x
-        ir                      = ast_2_ir (anaBlocking ana) (anaCritical ana)
+      ir <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
+      let
         (eAst, _, outputVarMap) = tcode_2_ecode ana ir
         outputCode              = reduce $ fmap nodeInfo eAst
         expectedCode'           = (reduce (enrich expectedCode :: CTranslUnit) :: String)
-      in do
-        expectedCode'  @=? outputCode
-        expectedVarMap @=? reduce outputVarMap
+      expectedCode'  @=? outputCode
+      expectedVarMap @=? reduce outputVarMap
+
+failOrPass :: Either [OcramError] a -> IO a -- {{{1
+failOrPass (Left es) = assertFailure (show_errors "<<test>>" es) >> undefined
+failOrPass (Right x) = return x

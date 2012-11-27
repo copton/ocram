@@ -44,7 +44,6 @@ data ErrorCode = -- {{{2
   | NoThreads
   | NoVarName
   | OldStyleParams
-  | PointerToCriticalFunction
   | RangeDesignator
   | ReservedPrefix
   | StartFunctionSignature
@@ -89,8 +88,6 @@ errorText NoVarName =
   "Function parameters of blocking functions must have names."
 errorText OldStyleParams =
   "Old style parameter declarations are not supported."
-errorText PointerToCriticalFunction =
-  "taking pointer from critical function"
 errorText RangeDesignator =
   "GNU C array range designators are not supported"
 errorText ReservedPrefix =
@@ -144,29 +141,12 @@ global_constraints ast = failOrPass $ everything (++) (mkQ [] scanExtDecl `extQ`
           [newError ReservedPrefix Nothing (Just (nodeInfo ident))]
       | otherwise = []
 
-critical_constraints :: CTranslUnit -> CallGraph -> Either [OcramError] () -- {{{1
-critical_constraints ast cg = failOrPass $
-     checkFunctionPointer cg ast
-  ++ checkRecursion cg
+critical_constraints :: CallGraph -> CTranslUnit -> Either [OcramError] () -- {{{1
+critical_constraints cg ast = failOrPass $
+     checkRecursion cg
   ++ checkStartFunctions cg ast
   ++ checkThreads cg
   ++ checkFeatures cg ast
-
-checkFunctionPointer :: CallGraph -> CTranslUnit -> [OcramError] -- {{{2
-checkFunctionPointer cg ast = everything (++) (mkQ [] checkExpr `extQ` checkInit) ast
-  where
-    checkExpr (CUnary CAdrOp (CVar (Ident name _ _ ) _ ) ni)
-      | is_critical cg name = [newError PointerToCriticalFunction Nothing (Just ni)]
-      | otherwise = []
-    checkExpr (CAssign _ _ (CVar (Ident name _ _) _) ni)
-      | is_critical cg name = [newError PointerToCriticalFunction Nothing (Just ni)]
-      | otherwise = []
-    checkExpr _ = []
-
-    checkInit (CInitExpr (CVar (Ident name _ _) _) ni)
-      | is_critical cg name = [newError PointerToCriticalFunction Nothing (Just ni)]
-      | otherwise = []
-    checkInit _ = []
 
 checkRecursion :: CallGraph -> [OcramError] -- {{{2
 checkRecursion cg@(CallGraph gd gi) = mapMaybe (fmap (createRecError cg) . find_loop gd . $lookup_s gi) $ start_functions cg

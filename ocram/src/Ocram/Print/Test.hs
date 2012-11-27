@@ -7,10 +7,11 @@ module Ocram.Print.Test
 
 -- import {{{1
 import Data.List (nub)
+import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (analysis, Analysis(..))
 import Ocram.Print (render_with_log)
 import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TBreakpoint)
-import Ocram.Text (show_errors)
+import Ocram.Text (show_errors, OcramError)
 import Ocram.Backend (tcode_2_ecode)
 import Ocram.Intermediate (ast_2_ir)
 import Test.Framework (Test, testGroup)
@@ -751,17 +752,18 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ]
 
 runTest :: (String, String, [TBreakpoint]) -> Assertion -- {{{1
-runTest (inputCode, expectedCode, expectedBps) =
-  let tAst = enrich inputCode in
-  case analysis tAst of
-    Left es -> assertFailure $ show_errors "analysis" es
-    Right ana ->
-      let
-        cfs                     = ast_2_ir  (anaBlocking ana) (anaCritical ana)
-        
-        (eAst, _, _)            = tcode_2_ecode ana cfs
-        (resultCode, resultBps) = render_with_log eAst
-        resultBps'              = reduce $ nub resultBps
-      in do
-        assertEqual "code"          expectedCode resultCode
-        assertEqual "breakpoints: " expectedBps  resultBps'
+runTest (inputCode, expectedCode, expectedBps) = do
+  let tAst = (enrich inputCode :: CTranslUnit)
+  ana <- failOnError $ analysis tAst
+  cfs <- failOnError $ ast_2_ir  (anaBlocking ana) (anaCritical ana)
+  let
+    (eAst, _, _)            = tcode_2_ecode ana cfs
+    (resultCode, resultBps) = render_with_log eAst
+    resultBps'              = reduce $ nub resultBps
+  assertEqual "code"          expectedCode resultCode
+  assertEqual "breakpoints: " expectedBps  resultBps'
+
+  where
+    failOnError :: Either [OcramError] a -> IO a
+    failOnError (Left es) = assertFailure (show_errors "<<test>>" es) >> undefined
+    failOnError (Right x) = return x

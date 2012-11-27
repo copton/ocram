@@ -15,17 +15,18 @@ import Ocram.Intermediate.BooleanShortCircuiting
 import Ocram.Intermediate.BuildBasicBlocks
 import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.DesugarControlStructures
+import Ocram.Intermediate.Filter
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.Optimize
 import Ocram.Print (render)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, lpaste, paste)
-import Ocram.Text (show_errors)
+import Ocram.Text (show_errors, OcramError(errCode))
 import Ocram.Util (abort)
 import Ocram.Query (return_type_fd, return_type_cd)
 import Test.Framework (Test, testGroup)
 import Test.Framework.Providers.HUnit (testCase)
-import Test.HUnit (assertEqual, Assertion)
+import Test.HUnit (assertEqual, Assertion, assertFailure)
 import Text.Printf (printf)
 
 import qualified Data.Map as M
@@ -41,7 +42,7 @@ type ScopedVariable = ( -- {{{2
   , Int      -- first row of scope
   , Int      -- last row of scope
   , Bool     -- true => automatic storage duration
-  , Bool     -- treu => parameter
+  , Bool     -- true => parameter
   )
   
 type OutputCollectDeclarations = ( -- {{{2
@@ -93,6 +94,9 @@ type OutputCriticalVariables = -- {{{2
     , [TaggedVar] -- variables
   )] 
 
+type OutputFilter =  -- {{{2
+  [ErrorCode]
+
 data TaggedVar -- {{{3
   = C String -- critical
   | U String -- uncritical
@@ -107,6 +111,7 @@ unit_tests = testGroup "unit" [
   , group "basicBlocks" test_build_basic_blocks         unitTestsBasicBlocks
   , group "optimize"    test_optimize_ir                unitTestsOptimize
   , group "critical"    test_critical_variables         unitTestsCritical
+  , group "filter"      test_filter                     unitTestsFilter
   ]
   where
     group name fun cases = enumTestGroup name $ map (uncurry fun) cases
@@ -433,6 +438,52 @@ unitTestsCollect = [
     void start () {
       block(foo.i);
     }
+  |]))
+  , -- 14 - local variable shadows critical function {{{3
+  ([lpaste|
+    __attribute__((tc_block)) void block();
+    void c2() {block();}
+    void c1() {c2();}
+04: __attribute__((tc_thread)) void start() {
+      int c2;
+      c2 = 0;
+      c1();
+08: }
+  |], ([
+      ("start", [("int ec_unique_c2_0", 4, 8, True, False)])
+    , ("c1", [])
+    , ("c2", [])
+  ], [paste|
+    void c1() {c2();}
+    void c2() {block();}
+    void start () {
+      ec_unique_c2_0 = 0;
+      c1();
+    }
+  |]))
+  , -- 15 - parameter shadows critical function {{{3
+  ([lpaste|
+    __attribute__((tc_block)) void block();
+02: void c2(int c1) {
+      c1 = 0;
+      block();
+05: }
+    void c1() {c2();}
+    __attribute__((tc_thread)) void start() {
+      c1();
+    }
+  |], ([
+      ("start", [])
+    , ("c1", [])
+    , ("c2", [("int ec_unique_c1_0", 2, 5, True, True)])
+  ], {- the critical function will be dissolved, so the 'wrong' parameter name is not a problem -}
+     [paste|
+    void c1() { c2(); }
+    void c2(int c1) {
+        ec_unique_c1_0 = 0;
+        block();
+    }
+    void start() { c1(); }
   |]))
   -- end {{{3
   ]
@@ -1722,6 +1773,113 @@ unitTestsCritical = [
   )
   -- end {{{3
   ]
+unitTestsFilter :: [(Input, OutputFilter)] -- {{{2
+unitTestsFilter = [
+  -- , 01 - address operator - expression
+  ([paste|
+    __attribute__((tc_block)) void block();
+    void f(void*);
+    __attribute__((tc_thread)) void start() {
+      f(&block);
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 02 - address operator - assignment
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      void (*f)();
+      f = &block;
+      f();
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 03 - address operator - initializer 
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      void (*f)() = &block;
+      f();
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 04 - implicit addreess - expression
+  ([paste|
+    __attribute__((tc_block)) void block();
+    void f(void*);
+    __attribute__((tc_thread)) void start() {
+      f(block);
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 05 - implicit address - assignment
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      void (*f)();
+      f = block;
+      f();
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 06 - implicit operator - initializer 
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      void (*f)() = &block;
+      f();
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 07 - function call - expression
+  ([paste|
+    __attribute__((tc_block)) int block();
+    void f(int);
+    __attribute__((tc_thread)) void start() {
+      f(block());
+      block();
+    }
+  |], [])
+  , -- 08 - function call - assignment
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      int f;
+      f = block();
+      block();
+    }
+  |], [])
+  , -- 09 - function call - initializer 
+  ([paste|
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
+      int f = block();
+      block();
+    }
+  |], [])
+  , -- 10 - dangling critical function
+  ([paste|
+    __attribute__((tc_block)) void block();
+    void foo() {block();}
+    __attribute__((tc_thread)) void start() {
+      void* f = &foo;
+      block();
+    }
+  |], [PointerToCriticalFunction])
+  , -- 11 - shadowing
+  ([paste|
+    __attribute__((tc_block)) void block();
+    void c2() {block();}
+    void c1() {c2();}
+    __attribute__((tc_thread)) void start() {
+      int c2;
+      int* x = &c2;
+      c1();
+    }
+  |], [])
+  
+  -- end {{{3
+  ]
 -- integration tests {{{1
 integrationTestCases :: [TestCase] -- {{{2
 integrationTestCases = [
@@ -2493,7 +2651,7 @@ test_collect_declarations :: Input -> OutputCollectDeclarations -> Assertion -- 
 test_collect_declarations inputCode (expectedVars', expectedCode) = do
   let
     ana = analyze inputCode
-    result = pipeline ana collect_declarations
+    result = pipeline ana (collect_declarations (blockingAndCriticalFunctions ana))
 
   let
     items = M.map (map (\(CBlockStmt s) -> s) . fst) result
@@ -2530,7 +2688,7 @@ test_desugar_control_structures inputCode (expectedDecls', expectedCode) = do
     ana = analyze inputCode
     result = pipeline ana (
         desugar_control_structures
-      . collectDeclarations
+      . collectDeclarations ana
       )
 
   let
@@ -2550,7 +2708,7 @@ test_boolean_short_circuiting inputCode (expectedDecls', expectedCode) = do
     result = pipeline ana (
         boolean_short_circuiting (blockingAndCriticalFunctions ana)
       . desugarControlStructures
-      . collectDeclarations
+      . collectDeclarations ana
       )
   
   let
@@ -2571,7 +2729,7 @@ test_normalize_critical_calls inputCode (expectedDecls', expectedCode) = do
         normalize_critical_calls (returnTypes ana)
       . booleanShortCircuiting ana
       . desugarControlStructures
-      . collectDeclarations
+      . collectDeclarations ana
       )
 
   let
@@ -2593,7 +2751,7 @@ test_build_basic_blocks inputCode expectedIrs' = do
       . normalizeCriticalCalls ana
       . booleanShortCircuiting ana
       . desugarControlStructures
-      . collectDeclarations
+      . collectDeclarations ana
       )
 
   let
@@ -2621,7 +2779,7 @@ test_optimize_ir inputCode expectedIrs' = do
       . normalizeCriticalCalls ana
       . booleanShortCircuiting ana
       . desugarControlStructures
-      . collectDeclarations
+      . collectDeclarations ana
       )
 
   let
@@ -2643,7 +2801,7 @@ test_critical_variables :: Input -> OutputCriticalVariables -> Assertion -- {{{2
 test_critical_variables inputCode expectedVars' = do
   let
     ana = analyze inputCode
-    funs = ast_2_ir (anaBlocking ana) (anaCritical ana)
+  funs <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
 
   let
     expectedVars = M.fromList expectedVars'
@@ -2664,7 +2822,18 @@ test_critical_variables inputCode expectedVars' = do
 
     varName (C v) = v
     varName (U v) = v
-        
+
+    failOrPass (Left es) = assertFailure (show_errors "<<test>>" es) >> undefined
+    failOrPass (Right x) = return x
+
+test_filter :: Input -> OutputFilter -> Assertion -- {{{2
+test_filter inputCode expectedErrors = do
+  let
+    ana = analyze inputCode
+    result = case ast_2_ir (anaBlocking ana) (anaCritical ana) of
+      Left es -> es
+      Right _ -> []
+  assertEqual ("reported errors: " ++ show expectedErrors) (map fromEnum expectedErrors) (map errCode result)
 -- utils {{{2
 analyze :: String -> Analysis -- {{{3
 analyze code = case analysis (enrich code) of
@@ -2692,8 +2861,8 @@ printOutputCode ana items =
 pipeline :: Analysis -> (CFunDef -> a) -> M.Map Symbol a -- {{{3
 pipeline ana pipe = M.map pipe (anaCritical ana)
 
-collectDeclarations :: CFunDef -> [CBlockItem] -- {{{4
-collectDeclarations = fst . collect_declarations
+collectDeclarations :: Analysis -> CFunDef -> [CBlockItem] -- {{{4
+collectDeclarations ana = fst . collect_declarations (blockingAndCriticalFunctions ana)
 
 desugarControlStructures :: [CBlockItem] -> [CStat'] -- {{{4
 desugarControlStructures = fst . desugar_control_structures

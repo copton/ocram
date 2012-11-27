@@ -31,7 +31,7 @@ analysis :: CTranslUnit -> Either [OcramError] Analysis -- {{{1
 analysis ast@(CTranslUnit eds _) = do
   global_constraints ast
   let cg = call_graph ast
-  critical_constraints ast cg
+  critical_constraints cg ast
   return $ populate cg
 
   where

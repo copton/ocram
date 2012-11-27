@@ -25,23 +25,32 @@ import Ocram.Symbols (symbol, Symbol)
 import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 
-collect_declarations :: CFunDef -> ([CBlockItem], [FunctionVariable]) -- {{{1
-collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
+collect_declarations :: S.Set Symbol -> CFunDef -> ([CBlockItem], [FunctionVariable]) -- {{{1
+collect_declarations sf fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
   (body, vars)
   where
-    ps = function_parameters_fd fd
-    initialIdents = Identifiers (M.fromList (map initCnt ps)) (M.fromList (map initRen ps))
-    initCnt x = (symbol x, 0)
-    initRen x = (symbol x, symbol x)
-    initialState  = Ctx initialIdents funScope [] (symbol fd)
+    sf'           = S.elems sf
+    initialIdents = Identifiers (M.fromList (map (\x -> (x, 0)) sf')) (M.fromList (map (\x -> (x, x)) sf'))
+    pdecls        = function_parameters_fd fd 
+    idents        = foldl addIdentifier initialIdents (map symbol pdecls)
+    initialState  = Ctx idents funScope [] (symbol fd)
     (statements, state) = runState (mapM mItem items) initialState
 
-    params = map (\cd -> fvarParameter $ TVariable (symbol cd) cd (scopeOfNode funScope)) ps
-    vars   = ctxVars state ++ params
-    body = concat statements
+    params        = map createParamVar pdecls
+    vars          = ctxVars state ++ params
+    body          = concat statements
 
-collect_declarations x = $abort $ unexp x
+    createParamVar decl =
+      let
+        oldName = symbol decl
+        newName = getIdentifier idents oldName
+        newDecl = rename_decl newName decl
+      in
+        fvarParameter $ TVariable oldName newDecl (scopeOfNode funScope)
+
+collect_declarations _ x = $abort $ unexp x
 
 mItem :: CBlockItem -> S [CBlockItem] -- {{{2
 mItem (CBlockStmt stmt) = do
