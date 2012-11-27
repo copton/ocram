@@ -957,10 +957,9 @@ unitTestsBoolean = [
     void start() {
         ec_bool_0 = !!block();
 
-        if (! ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-        ec_bool_1: ;
+        if (ec_bool_0) goto ec_bool_1;
         ec_bool_0 = !!h();
-        ec_bool_2: ;
+        ec_bool_1: ;
 
         if (ec_bool_0) goto ec_desugar_0; else goto ec_desugar_1;
 
@@ -982,10 +981,9 @@ unitTestsBoolean = [
     void start() {
         ec_bool_0 = !!h();
 
-        if (ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-        ec_bool_1: ;
+        if (! ec_bool_0) goto ec_bool_1;
         ec_bool_0 = !!block();
-        ec_bool_2: ;
+        ec_bool_1: ;
 
         if (ec_bool_0) goto ec_desugar_0; else goto ec_desugar_1;
 
@@ -1007,10 +1005,9 @@ unitTestsBoolean = [
     void start() {
         ec_bool_0 = !!h();
 
-        if (!ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-        ec_bool_1: ;
+        if (ec_bool_0) goto ec_bool_1;
         ec_bool_0 = !!block();
-        ec_bool_2: ;
+        ec_bool_1: ;
 
         ec_bool_0;
     }
@@ -1027,10 +1024,9 @@ unitTestsBoolean = [
     void start() {
         ec_bool_0 = !!block();
 
-        if (ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-        ec_bool_1: ;
+        if (!ec_bool_0) goto ec_bool_1;
         ec_bool_0 = !!h();
-        ec_bool_2: ;
+        ec_bool_1: ;
 
         return ec_bool_0;
     }
@@ -1047,10 +1043,9 @@ unitTestsBoolean = [
     void start() {
         ec_bool_0 = !!block();
 
-        if (ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-        ec_bool_1: ;
+        if (! ec_bool_0) goto ec_bool_1;
         ec_bool_0 = !!h();
-        ec_bool_2: ;
+        ec_bool_1: ;
 
         h(ec_bool_0);
     }
@@ -1067,10 +1062,9 @@ unitTestsBoolean = [
     void start() {
         ec_bool_0 = !!block();
 
-        if (! ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-        ec_bool_1: ;
+        if (ec_bool_0) goto ec_bool_1;
         ec_bool_0 = !!1;
-        ec_bool_2: ;
+        ec_bool_1: ;
 
         i = ec_bool_0 + 3;
     }
@@ -1087,10 +1081,9 @@ unitTestsBoolean = [
     void start() {
         ec_bool_0 = !!(1 + block());
 
-        if (! ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-        ec_bool_1: ;
+        if (ec_bool_0) goto ec_bool_1;
         ec_bool_0 = !!h();
-        ec_bool_2: ;
+        ec_bool_1: ;
 
         i = ec_bool_0;
     }
@@ -1104,34 +1097,31 @@ unitTestsBoolean = [
     }
   |], ([
       ("start", [
-          "_Bool ec_bool_6"
-        , "_Bool ec_bool_3"
+          "_Bool ec_bool_4"
+        , "_Bool ec_bool_2"
         , "_Bool ec_bool_0"
       ])
   ], [paste|
     void start() {
-        ec_bool_0 = !!block1();
+      ec_bool_0 = ! (!block1());
 
-        if (! ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-        ec_bool_1: ;
-        ec_bool_0 = !!h1();
+      if (ec_bool_0) goto ec_bool_1;
+      ec_bool_0 = ! (!h1());
 
-        ec_bool_2: ;
-        ec_bool_6 = !!ec_bool_0;
-        if (ec_bool_6) goto ec_bool_7; else goto ec_bool_8;
+      ec_bool_1: ;
+      ec_bool_4 = ! (!ec_bool_0);
 
-        ec_bool_7: ;
-        ec_bool_3 = !!h2();
-        if (!ec_bool_3) goto ec_bool_4; else goto ec_bool_5;
+      if (!ec_bool_4) goto ec_bool_5;
+      ec_bool_2 = ! (!h2());
 
-        ec_bool_4: ;
-        ec_bool_3 = !!block2();
+      if (ec_bool_2) goto ec_bool_3;
+      ec_bool_2 = ! (!block2());
 
-        ec_bool_5: ;
-        ec_bool_6 = !!ec_bool_3;
-        
-        ec_bool_8: ;
-        i = ec_bool_6;
+      ec_bool_3: ;
+      ec_bool_4 = ! (!ec_bool_2);
+
+      ec_bool_5: ;
+      i = ec_bool_4;
     }
   |]))
   , -- 09 - generic case {{{3
@@ -1143,27 +1133,24 @@ unitTestsBoolean = [
     }
   |], ([
       ("start", [
-          "_Bool ec_bool_3"
+          "_Bool ec_bool_2"
         , "_Bool ec_bool_0"
       ])
   ], [paste|
     void start() {
         ec_bool_0 = !!block();
 
-        if (! ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-        ec_bool_1: ;
+        if (ec_bool_0) goto ec_bool_1;
         ec_bool_0 = !!(i = x(), 1);
 
-        ec_bool_2: ;
-        ec_bool_3 = !!ec_bool_0;
+        ec_bool_1: ;
+        ec_bool_2 = !!ec_bool_0;
 
-        if (ec_bool_3) goto ec_bool_4; else goto ec_bool_5;
-
-        ec_bool_4: ;
-        ec_bool_3 = !!h();
+        if (! ec_bool_2) goto ec_bool_3;
+        ec_bool_2 = !!h();
         
-        ec_bool_5: ;
-        j = ec_bool_3;
+        ec_bool_3: ;
+        j = ec_bool_2;
         return;
     }
   |]))
@@ -1176,22 +1163,22 @@ unitTestsBoolean = [
     }
   |], ([
       ("start", [
-          "_Bool ec_bool_3"
+          "_Bool ec_bool_2"
         , "_Bool ec_bool_0"
       ])
   ], [paste|
     void start() {
       ec_bool_0 = ! (!(i = f(), g()));
-      if (ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
+      if (!ec_bool_0) goto ec_bool_1;
+      ec_bool_0 = ! (!(block() + 1));
+
       ec_bool_1: ;
-      ec_bool_0 = ! (!(block()+1));
-      ec_bool_2: ;
-      ec_bool_3 = ! (!ec_bool_0);
-      if (!ec_bool_3) goto ec_bool_4; else goto ec_bool_5;
-      ec_bool_4: ;
-      ec_bool_3 = ! (!h());
-      ec_bool_5: ;
-      j = ec_bool_3;
+      ec_bool_2 = ! (!ec_bool_0);
+      if (ec_bool_2) goto ec_bool_3;
+      ec_bool_2 = ! (!h());
+
+      ec_bool_3: ;
+      j = ec_bool_2;
       return;
     }
   |]))
@@ -2358,10 +2345,9 @@ integrationTestCases = [
 
           ec_desugar_4: ;
           ec_bool_0 = !!block(i);
-          if (!ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-          ec_bool_1: ;
+          if (ec_bool_0) goto ec_bool_1;
           ec_bool_0 = !!block(i-1);
-          ec_bool_2: ;
+          ec_bool_1: ;
           j = ec_bool_0;
           goto ec_desugar_0;
 
@@ -2402,11 +2388,10 @@ integrationTestCases = [
           ec_desugar_4: ;
           ec_crit_1 = block(i);
           ec_bool_0 = !!ec_crit_1;
-          if (!ec_bool_0) goto ec_bool_1; else goto ec_bool_2;
-          ec_bool_1: ;
+          if (ec_bool_0) goto ec_bool_1;
           ec_crit_2 = block(i-1);
           ec_bool_0 = !!ec_crit_2;
-          ec_bool_2: ;
+          ec_bool_1: ;
           j = ec_bool_0;
           goto ec_desugar_0;
 
@@ -2457,16 +2442,16 @@ integrationTestCases = [
 
           L12: ec_crit_1 = block(i)
           ec_bool_0 = ! (!ec_crit_1);
-          IF !ec_bool_0 THEN L13/ec_bool_1 ELSE L15/ec_bool_2
+          IF ec_bool_0 THEN L15/ec_bool_1 ELSE L13
 
-          L13/ec_bool_1:
+          L13:
           ec_crit_2 = block(i - 1); GOTO L14
 
           L14: ec_crit_2 = block(i - 1)
           ec_bool_0 = ! (!ec_crit_2);
-          GOTO L15/ec_bool_2
+          GOTO L15/ec_bool_1
 
-          L15/ec_bool_2:
+          L15/ec_bool_1:
           j = ec_bool_0;
           GOTO L17/ec_desugar_0
 
@@ -2512,16 +2497,16 @@ integrationTestCases = [
 
           L12: ec_crit_1 = block(i)
           ec_bool_0 = ! (!ec_crit_1);
-          IF !ec_bool_0 THEN L13/ec_bool_1 ELSE L15/ec_bool_2
+          IF ec_bool_0 THEN L15/ec_bool_1 ELSE L13
 
-          L13/ec_bool_1:
+          L13:
           ec_crit_2 = block(i - 1); GOTO L14
 
           L14: ec_crit_2 = block(i - 1)
           ec_bool_0 = ! (!ec_crit_2);
-          GOTO L15/ec_bool_2
+          GOTO L15/ec_bool_1
 
-          L15/ec_bool_2:
+          L15/ec_bool_1:
           j = ec_bool_0;
           GOTO L17/ec_desugar_0
 

@@ -94,9 +94,8 @@ boolean_short_circuiting cf inputStmts =
               let
                 expr = CBinary op (subExpr lhs') (subExpr rhs') ni
                 items = subItems lhs' ++ subItems rhs'
-                crit = subCritical lhs' || subCritical rhs'
               in 
-                return $ Substitution expr items crit
+                return $ Substitution expr items False
       | otherwise = do
           lhs' <- traverse lhs
           rhs' <- traverse rhs
@@ -207,15 +206,14 @@ substitute idx op lhs rhs = do
     cvar = CVar iden eun
     [lhs_assign, rhs_assign] = map ((\x -> CExpr (Just x) (annotation x)) . (\x -> CAssign CAssignOp cvar ((neg . neg) x) (annotation x)) . subExpr) [lhs, rhs]
     cond = case op of
-      CLorOp -> neg cvar
-      CLndOp -> cvar
+      CLorOp -> cvar
+      CLndOp -> neg cvar
       o -> $abort $ unexp' o
-  thenTarget <- next
-  elseTarget <- next
   modify (\ctx -> ctx {ctxVars = ivar : ctxVars ctx})
+  skip <- next
   let
-    if_ = CIf cond (mkGoto thenTarget) (Just (mkGoto elseTarget)) eun
-    items = subItems lhs ++ (lhs_assign : if_ : mkLabel thenTarget : []) ++ subItems rhs ++ (rhs_assign : mkLabel elseTarget : [])
+    if_ = CIf cond (mkGoto skip) Nothing eun
+    items = subItems lhs ++ (lhs_assign : if_ : []) ++ subItems rhs ++ (rhs_assign : mkLabel skip : [])
   return $ Substitution cvar items True
   where
     mkLabel i = CLabel (internalIdent (varBool i)) (CExpr Nothing eun) [] eun
