@@ -106,7 +106,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectStatus [isShutdown] Nothing
       ]
     -- 06 - "step" over critical function call with thread filter {{{3
-    -- due to the thread filter breakpoint 2 is not hit (in contrast to previous test without thread filter)
+    -- due to the thread filter breakpoint 3 is not hit (in contrast to previous test without thread filter)
     , [ ExpectStart $ CmdFilter [0]
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right ResFilter) Nothing
