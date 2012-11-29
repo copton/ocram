@@ -174,7 +174,7 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
     symbol2fqn name =
       render $ rewriteLocalVariableAccess (CVar (internalIdent name) eun)
 
-singleUsageLabels :: Label -> Body -> S.Set H.Label
+singleUsageLabels :: Label -> Body -> S.Set H.Label -- {{{2
 -- | set of labels that are only used by a single goto
 -- | excluding the entry label and continuations
 singleUsageLabels entry body = suls `S.difference` (S.insert (hLabel entry) continuations)
