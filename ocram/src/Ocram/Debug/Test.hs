@@ -6,7 +6,7 @@ import Control.Monad (forM_)
 import Data.Maybe (fromJust, isJust)
 import Ocram.Debug.DebugInfo
 import Ocram.Ruab (TRow(..), PRow(..), t2p_row, p2t_row)
-import Ocram.Test.Lib (enumTestGroup, paste, reduce, TMapTP)
+import Ocram.Test.Lib (enumTestGroup, paste, lpaste, reduce, TMapTP)
 import System.Exit (ExitCode(ExitSuccess))
 import System.IO (hPutStr, hClose)
 import System.Process (createProcess, StdStream(CreatePipe), waitForProcess, proc, std_out, std_in)
@@ -37,6 +37,20 @@ test_t2p_map = enumTestGroup "t2p_map" $ map runTest [
         return 0;
       }
     |], (9, 1110, [(1,4),(3,848),(5,1106)]))
+  , ([lpaste|
+      #include <stdio.h>
+
+      int function() {
+        return 0;
+      }
+
+      #include <stddef.h>
+
+      void print() {
+        printf("%d\n", function());
+      }
+
+    |], (12, 862, [(1,4),(2, 847),(8,858)]))
   ]
   where
     cpp :: String -> IO BS.ByteString
