@@ -243,7 +243,6 @@ handleStop ctx backend stopped state = handle (B.stoppedReason stopped) (stateEx
         efile = (R.fileName . R.diEcode . ctxDebugInfo) ctx
         erow  = (R.ERow . B.frameLine) frame
       in do
-        print frame
         case runningThreads state of
           [thread] ->
             if efile /= $fromJust_s (B.frameFullname frame)
