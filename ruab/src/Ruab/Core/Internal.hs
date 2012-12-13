@@ -1,7 +1,7 @@
 module Ruab.Core.Internal where
 
 -- imports {{{1
-import Data.Generics (everywhereM, mkM)
+import Data.Generics (everywhere, mkT)
 import Data.List (find)
 import Language.C.Data.Node (undefNode)
 import Language.C.Data.Ident (identToString, internalIdent)
@@ -16,34 +16,31 @@ import qualified Ocram.Ruab as R
 t2e_expr :: R.VarMap -> R.ThreadId -> R.PRow -> String -> Either String String  -- {{{1
 t2e_expr vm tid prow tstr = case findScope vm prow of
   Nothing   -> return tstr
-  Just vars -> do
-    texpr <- parseExpression tstr
-    let vars' = filter currentThread vars
-    eexpr <- checkConversion (t2eExpr vars' texpr)
-    return (printExpression eexpr)
+  Just vars -> case parseExpression tstr of
+    Left e -> Left e
+    Right texpr -> 
+      Right . printExpression . t2eExpr (filter currentThread vars) $ texpr
 
   where
-
     currentThread (R.StaticVariable _, _) = True
     currentThread (R.AutomaticVariable tid' _, _) = tid == tid'
 
-    checkConversion Nothing = Left "failed to convert expression"
-    checkConversion (Just x) = Right x
 
 parseExpression :: String -> Either String CExpr -- {{{2
 parseExpression expr = case execParser_ expressionP (inputStreamFromString expr) nopos of
   Left e -> Left (show e)
   Right x -> Right x
 
-t2eExpr :: [(R.Variable, R.FQN)] -> CExpr -> Maybe CExpr -- {{{2
-t2eExpr vars = everywhereM (mkM trans)
+t2eExpr :: [(R.Variable, R.FQN)] -> CExpr -> CExpr -- {{{2
+t2eExpr vars = everywhere (mkT trans)
   where
-  trans :: CExpr -> Maybe CExpr
-  trans (CVar ident _) = do
-    (_, fqn) <- find ((==(identToString ident)) . R.varTName . fst) vars
-    return $ CVar (internalIdent fqn) undefNode
+  trans :: CExpr -> CExpr
+  trans o@(CVar ident _) =
+    case find ((==(identToString ident)) . R.varTName . fst) vars of
+      Nothing -> o
+      Just (_, fqn) -> CVar (internalIdent fqn) undefNode
 
-  trans o = Just o
+  trans o = o
 
 printExpression :: CExpr -> String -- {{{2
 printExpression = show . pretty
