@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 module Ruab.Test.Lib where
 
 -- imports {{{1
