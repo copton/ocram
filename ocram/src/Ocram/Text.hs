@@ -9,20 +9,17 @@ import Language.C.Data.Node (NodeInfo(OnlyPos, NodeInfo), isUndefNode, undefNode
 import Language.C.Data.Position (Position, posRow, posFile)
 import Data.List (intercalate)
 
--- data OcramError = OcramError { {{{1
-data OcramError = OcramError {
+data OcramError = OcramError { -- {{{1
     errCode :: Int
   , errWhat :: String 
   , errWhere :: NodeInfo
 } deriving (Ord, Eq)
 
--- new_error :: Int -> String -> Maybe NodeInfo {{{1
-new_error :: Int -> String -> Maybe NodeInfo -> OcramError
+new_error :: Int -> String -> Maybe NodeInfo -> OcramError -- {{{1
 new_error code what Nothing = OcramError code what undefNode
 new_error code what (Just where_) = OcramError code what where_
 
--- show_errors :: String -> [OcramError] -> String {{{1
-show_errors :: String -> [OcramError] -> String
+show_errors :: String -> [OcramError] -> String -- {{{1
 show_errors module_ es = show (length es) ++ " issue(s) reported by the '" ++ module_ ++ "' module:\n" ++ errors
   where
     errors = intercalate "\n" $ zipWith showError [1..] es

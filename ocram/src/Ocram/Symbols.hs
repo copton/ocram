@@ -2,7 +2,7 @@
 module Ocram.Symbols 
 -- export {{{1
 (
-  Symbol, symbol, reserved_identifier
+  Symbol, reserved_identifier, CSymbol(..)
 ) where
 
 -- import {{{1

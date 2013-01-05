@@ -224,7 +224,7 @@ index 123b542..055847d 100644
  #if !RX_WITH_DMA
  ISR(UART1RX, uart1_rx_interrupt)
  {
-+    ENTER_INTERRUPT();  
++    ENTER_INTERRUPT();
    uint8_t c;
    ENERGEST_ON(ENERGEST_TYPE_IRQ);
  

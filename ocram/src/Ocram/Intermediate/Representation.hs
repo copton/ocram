@@ -8,7 +8,7 @@ import Language.C.Data.Ident (internalIdent)
 import Ocram.Debug.Enriched (CExpr', eun, ENodeInfo(..)) -- avoid dependency cycle
 import Ocram.Print (render)
 import Ocram.Ruab (TRow)
-import Ocram.Symbols (symbol, Symbol)
+import Ocram.Symbols (Symbol, CSymbol(symbol))
 
 import qualified Compiler.Hoopl as H
 
@@ -25,27 +25,63 @@ data Variable -- {{{1
     var_decl   :: CDecl        -- ^the declaration using a unique variable name
   }
 
-var_unique :: Variable -> Symbol
-var_unique = symbol . var_decl
+instance CSymbol Variable where -- {{{2
+  symbol = symbol . var_decl
 
-instance Eq Variable where
-  v1 == v2 = var_unique v1 == var_unique v2
+instance Eq Variable where -- {{{2
+  v1 == v2 = symbol v1 == symbol v2
 
-instance Ord Variable where
-  compare v1 v2 = compare (var_unique v1) (var_unique v2)
+instance Ord Variable where -- {{{2
+  compare v1 v2 = compare (symbol v1) (symbol v2)
 
-instance Show Variable where
-  show = show . var_unique
+instance Show Variable where -- {{{2
+  show = show . symbol
+
+data FunctionVariable = FunctionVariable { -- {{{1
+    fvar_var       :: Variable
+  , fvar_storage   :: VariableStorage
+  , fvar_parameter :: Bool
+  , fvar_critical  :: Bool
+  } deriving (Show)
+
+fvarParameter :: Variable -> FunctionVariable
+fvarParameter var = FunctionVariable var VarAutomatic True True
+
+fvarAuto :: Variable -> FunctionVariable
+fvarAuto var = FunctionVariable var VarAutomatic False True
+
+fvarStatic :: Variable -> FunctionVariable
+fvarStatic var = FunctionVariable var VarStatic False True
+
+fvar_static :: FunctionVariable -> Bool
+fvar_static fvar = case fvar_storage fvar of
+  VarStatic -> True
+  _         -> False
+
+fvar_auto :: FunctionVariable -> Bool
+fvar_auto fvar = case fvar_storage fvar of
+  VarAutomatic -> True
+  _            -> False
+
+data VariableStorage -- {{{2
+  = VarAutomatic
+  | VarStatic
+  deriving Show
+
+instance CSymbol FunctionVariable where
+  symbol = symbol . fvar_var
+
+type VariableCritical = Bool -- {{{2
+
+type VariableParameter = Bool -- {{{2
 
 data Function -- {{{1
   -- |A critical function
   = Function {
-    fun_cVars  :: [Variable] -- ^the function's critical variables
-  , fun_ncVars :: [Variable] -- ^the function's non-critical variables
-  , fun_stVars :: [Variable] -- ^the function's static variables
-  , fun_def    :: CFunDef    -- ^the original AST node
-  , fun_body   :: Body       -- ^the function's body as graph of basic blocks
-  , fun_entry  :: Label      -- ^the entry point to the function
+    fun_vars  :: [FunctionVariable] -- ^the variables declared in the function
+  , fun_def   :: CFunDef            -- ^the original AST node
+  , fun_body  :: Body               -- ^the function's body as graph of basic blocks
+  , fun_entry :: Label              -- ^the entry point to the function
   }
 
 fun_name :: Function -> Symbol -- {{{2
@@ -78,7 +114,7 @@ instance Show CriticalCall where -- {{{2
 data Node e x where -- {{{1
   -- |Constitutes of basic blocks
   Label  :: Label                                 -> Node C O  -- ^'lbl: ;'. Entry point to a basic block
-  Cont   :: Label -> CriticalCall                 -> Node C O  -- ^continuation of a critical call
+  Cont   :: Label -> CriticalCall                 -> Node C O  -- ^continuation of a critical call in second normal form
   Stmt   :: CExpr'                                -> Node O O  -- ^any expression. The only middle parts of basic blocks
   Goto   :: Label                                 -> Node O C  -- ^'goto label;'
   If     :: CExpr' -> Label -> Label -> ENodeInfo -> Node O C  -- ^'if (cond) {goto label1;} else {goto label2;}'

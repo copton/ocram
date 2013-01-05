@@ -106,7 +106,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectStatus [isShutdown] Nothing
       ]
     -- 06 - "step" over critical function call with thread filter {{{3
-    -- due to the thread filter breakpoint 2 is not hit (in contrast to previous test without thread filter)
+    -- due to the thread filter breakpoint 3 is not hit (in contrast to previous test without thread filter)
     , [ ExpectStart $ CmdFilter [0]
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right ResFilter) Nothing
@@ -181,6 +181,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       , ExpectStatus [isShutdown] Nothing
     ]
     -- 11 - step through with filter {{{3
+{-
     , [ExpectStart $ CmdFilter [2]
       , ExpectStatus [isWaiting] Nothing
       , ExpectResponse (Right ResFilter) Nothing
@@ -230,6 +231,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
         ExpectResponse (Right ResShutdown) Nothing
       , ExpectStatus [isShutdown] Nothing
     ]
+-}
     -- 12 - next through with filter {{{3
 {-
     , [ExpectStart $ CmdFilter [2]
@@ -262,14 +264,14 @@ test_integration = enumTestGroup "integration" $ map runTest [
   ]
   where
     -- utils {{{3
-    stepByStep :: StepNextType -> Int -> [Int] -> [Expect]
-    stepByStep snt thread = reverse . concat . zipWith go (True:repeat False) . reverse
-      where
-        go isLast row = reverse [
-            ExpectResponse (Right ResStepNext) Nothing
-          , ExpectStatus [isRunning] Nothing
-          , ExpectStatus [isStopped, threadStopped thread Nothing row] (Just (if isLast then CmdShutdown else CmdStepNext snt))
-          ]
+--     stepByStep :: StepNextType -> Int -> [Int] -> [Expect]
+--     stepByStep snt thread = reverse . concat . zipWith go (True:repeat False) . reverse
+--       where
+--         go isLast row = reverse [
+--             ExpectResponse (Right ResStepNext) Nothing
+--           , ExpectStatus [isRunning] Nothing
+--           , ExpectStatus [isStopped, threadStopped thread Nothing row] (Just (if isLast then CmdShutdown else CmdStepNext snt))
+--           ]
 
     isRunning, isWaiting, isShutdown, isStopped :: Status -> Bool
     isRunning  = exRunning . statusExecution
@@ -311,7 +313,7 @@ test_integration = enumTestGroup "integration" $ map runTest [
       fail ""
 
     step actor fCommand input (count, (expected:rest)) = do
-      putStrLn $ printf "%.2d: %s" count (show input)
+--      putStrLn $ printf "%.2d: %s" count (show input)
       cmd <- handle input expected
       when (isJust cmd) (fCommand (fromJust cmd))
       when (null rest) (quit actor)

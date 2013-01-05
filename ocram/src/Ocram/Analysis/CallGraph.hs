@@ -93,6 +93,8 @@ is_start :: CallGraph -> Symbol -> Bool -- {{{1
 is_start = functionIs attrStart
 
 is_critical :: CallGraph -> Symbol -> Bool -- {{{1
+-- XXX: in the thesis, critical functions do not include blocking functions.
+-- In contrast, in this implementation they do. I might have to clean this up at some point.
 is_critical = functionIs attrCritical
 
 call_chain :: CallGraph -> Symbol -> Symbol -> Maybe [Symbol] -- {{{1
@@ -176,15 +178,13 @@ updateLabels :: GraphData -> GraphData -- {{{2
 updateLabels gd = G.gmap update gd
   where
     update o@(ine, gnode, label, oute)
-      | Set.member gnode cn = (ine, gnode, label {lblAttr = Critical : lblAttr label}, oute)
+      | Set.member gnode sg = (ine, gnode, label {lblAttr = Critical : lblAttr label}, oute)
       | otherwise           = o
 
-    cn       = Set.intersection backward forward
-    backward = reachableSubGraph (G.grev gd) $ nodesByAttr gd attrBlocking
-    forward  = reachableSubGraph gd $ nodesByAttr gd attrStart
+    sg = reachableSubGraph (G.grev gd) $ nodesByAttr gd attrBlocking
 
 reachableSubGraph :: GraphData -> [G.Node] -> Set.Set G.Node -- {{{3
-reachableSubGraph gd ns = Set.fromList $ concatMap (flip G.bfs gd) ns
+reachableSubGraph gd ns = Set.fromList $ G.bfsn ns gd
 
 nodesByAttr :: GraphData -> (Attribute -> Bool) -> [G.Node] -- {{{3
 nodesByAttr g attr = map fst $ filter (any attr . lblAttr . snd) $ G.labNodes g

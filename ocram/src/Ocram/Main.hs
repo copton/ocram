@@ -32,7 +32,7 @@ runCompiler argv = do
   (tcode, pcode, tAst)  <- exitOnError "parser" =<< parse opt
   ana                   <- exitOnError "analysis" $ analysis tAst
 
-  let cfs                = ast_2_ir (anaBlocking ana) (anaCritical ana)
+  cfs                   <- exitOnError "intermediate" $ ast_2_ir (anaBlocking ana) (anaCritical ana)
   let (eAst, pal, vm)    = tcode_2_ecode ana cfs
   let (ecode, bps)       = render_with_log' eAst
   let di                 = encode_debug_info $ create_debug_info opt tcode pcode ana vm bps ecode

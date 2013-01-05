@@ -16,6 +16,7 @@
 /* pal_code */
 
 typedef enum {
+    SYSCALL_none = 0,
 /*{ for syscall in all_syscalls }*/
     SYSCALL_/*syscall*/,
 /*{ endfor }*/
@@ -172,6 +173,7 @@ static char event_handler_thread/*loop.index0*/(struct pt* process_pt, process_e
     } else {
         continuation = event_handler(ev, data);
     }
+    thread->syscall = SYSCALL_none;
     ec_thread_/*loop.index0*/(continuation);
     return PT_YIELDED;
 }

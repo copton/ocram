@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 module Ruab.Test.Lib where
 
 -- imports {{{1
@@ -18,5 +17,5 @@ paste = QuasiQuoter {
 	}
 
 enumTestGroup :: String -> [Assertion] -> Test -- {{{1
-enumTestGroup name assertions = testGroup name $ zipWith (testCase . printf "%.2d") [(1 :: Int)..] assertions
+enumTestGroup name = testGroup name . zipWith (testCase . printf "%.2d") [(1 :: Int)..]
 

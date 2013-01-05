@@ -7,6 +7,7 @@ module Ocram.Intermediate.CollectDeclarations
 
 -- imports {{{1
 import Control.Applicative ((<$>), (<*>))
+import Control.Monad (zipWithM)
 import Control.Monad.State (State, get, gets, put, runState, gets, modify)
 import Data.Data (Data, gmapM)
 import Data.Generics (everywhereM, mkM, extM, mkQ, GenericQ, GenericM)
@@ -17,32 +18,39 @@ import Language.C.Data.Node (NodeInfo, undefNode, posOfNode, getLastTokenPos)
 import Language.C.Data.Position (posRow)
 import Language.C.Syntax.AST
 import Ocram.Intermediate.Representation
-import Ocram.Names (varUnique, varStatic)
-import Ocram.Query (function_parameters_fd)
+import Ocram.Names (varUnique)
+import Ocram.Query (function_parameters_fd, object_type, rename_decl)
 import Ocram.Ruab (TRow(..))
 import Ocram.Symbols (symbol, Symbol)
 import Ocram.Util (abort, unexp)
 
 import qualified Data.Map as M
+import qualified Data.Set as S
 
-collect_declarations :: CFunDef -> ([CBlockItem], [Variable], [Variable]) -- {{{1
-collect_declarations fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
-  (body, autoVars, staticVars)
+collect_declarations :: S.Set Symbol -> CFunDef -> ([CBlockItem], [FunctionVariable]) -- {{{1
+collect_declarations sf fd@(CFunDef _ _ _ (CCompound _ items funScope) _) =
+  (body, vars)
   where
-    ps = function_parameters_fd fd
-    initialIdents = Identifiers (M.fromList (map initCnt ps)) (M.fromList (map initRen ps))
-    initCnt x = (symbol x, 0)
-    initRen x = (symbol x, symbol x)
-    initialState  = Ctx initialIdents funScope [] [] (symbol fd)
+    sf'           = S.elems sf
+    initialIdents = Identifiers (M.fromList (map (\x -> (x, 0)) sf')) (M.fromList (map (\x -> (x, x)) sf'))
+    pdecls        = function_parameters_fd fd 
+    idents        = foldl addIdentifier initialIdents (map symbol pdecls)
+    initialState  = Ctx idents funScope [] (symbol fd)
     (statements, state) = runState (mapM mItem items) initialState
 
-    params = map (\cd -> TVariable (symbol cd) cd (scopeOfNode funScope)) ps
+    params        = map createParamVar pdecls
+    vars          = ctxVars state ++ params
+    body          = concat statements
 
-    body = concat statements
-    autoVars = params ++ ctxAutoVars state
-    staticVars = ctxStaticVars state
+    createParamVar decl =
+      let
+        oldName = symbol decl
+        newName = getIdentifier idents oldName
+        newDecl = rename_decl newName decl
+      in
+        fvarParameter $ TVariable oldName newDecl (scopeOfNode funScope)
 
-collect_declarations x = $abort $ unexp x
+collect_declarations _ x = $abort $ unexp x
 
 mItem :: CBlockItem -> S [CBlockItem] -- {{{2
 mItem (CBlockStmt stmt) = do
@@ -65,9 +73,9 @@ qStmt _                 = False
 tStmt :: CStat -> S CStat -- {{{2
 
 tStmt (CCompound x items' innerScope) = do
-  (Ctx curIds curScope curAutoVars curStaticVars fun) <- get
-  let (statements, Ctx newIds _ newAutoVars newStaticVars _) = runState (mapM mItem items') (Ctx curIds innerScope curAutoVars curStaticVars fun)
-  put $ Ctx (Identifiers (idCnt newIds) (idRen curIds)) curScope newAutoVars newStaticVars fun
+  (Ctx curIds curScope curVars fun) <- get
+  let (statements, Ctx newIds _ newVars _) = runState (mapM mItem items') (Ctx curIds innerScope curVars fun)
+  put $ Ctx (Identifiers (idCnt newIds) (idRen curIds)) curScope newVars fun
   return $ CCompound x (concat statements) innerScope
 
 tStmt (CFor (Right decl) x1 x2 body ni) = do
@@ -92,55 +100,61 @@ tExpr o = return o
 
 trDecl :: CDecl -> S [CStat] -- {{{2
 trDecl decl = do
-  (Ctx ids scope autoVars staticVars fun) <- get
+  (Ctx ids scope vars fun) <- get
   let
     decls = unlistDecl decl
     (staticDecls, autoDecls) = partition isStatic decls
 
-    ids' = foldl (addIdentifier id) ids $ map symbol autoDecls
-    ids'' = foldl (addIdentifier (varStatic fun)) ids' $ map symbol staticDecls
+    ids'  = foldl addIdentifier ids  $ map symbol autoDecls
+    ids'' = foldl addIdentifier ids' $ map symbol staticDecls
 
     newAutoNames   = map (getIdentifier ids'' . symbol) autoDecls
     newStaticNames = map (getIdentifier ids'' . symbol) staticDecls
 
-    (autoDeclsOnly, autoInitExpr) = unzip $ map split autoDecls
+    (autoDeclsOnly, autoInits) = unzip $ map split autoDecls
 
-    autoVars'      = map (mkVar scope) $ zip autoDeclsOnly newAutoNames
-    staticVars'    = map (mkVar scope) $ zip (map rmStatic staticDecls) newStaticNames
+    autoVars       = map fvarAuto   $ zipWith (mkVar scope) autoDeclsOnly newAutoNames
+    staticVars     = map fvarStatic $ zipWith (mkVar scope) staticDecls newStaticNames
 
-  autoInitStmt   <- mapM (uncurry mkInit) $ zip autoInitExpr newAutoNames
-  put $ Ctx ids'' scope (autoVars' ++ autoVars) (staticVars' ++ staticVars) fun
+  autoInitStmt   <- zipWithM mkInit autoInits newAutoNames
+  put $ Ctx ids'' scope (vars ++ autoVars ++ staticVars) fun
   return $ catMaybes autoInitStmt
 
   where
     unlistDecl (CDecl x [] ni) = [CDecl x [] ni] -- struct S { int i; };
     unlistDecl (CDecl s ds ni) = map (\x -> CDecl s [x] ni) ds
 
-    split (CDecl y1 [(Just declr, Just (CInitExpr cexpr _), y2)] y3) =
+    split :: CDeclaration a -> (CDeclaration a, Maybe (CInitializer a, CTypeSpecifier a))
+    split cd@(CDecl y1 [(Just declr, Just cinit, y2)] y3) =
       let declare = (CDecl y1 [(Just declr, Nothing, y2)] y3) in
-      (declare, Just cexpr)
+      (declare, Just (cinit, object_type cd))
     split cdecl = (cdecl, Nothing)
 
     isStatic (CDecl ds _ _) = any isStaticSpec ds
     isStaticSpec (CStorageSpec (CStatic _)) = True
     isStaticSpec _                          = False
 
-    rmStatic (CDecl ds x1 x2) = CDecl (filter (not . isStaticSpec) ds) x1 x2
+    mkVar scope cd name = TVariable (symbol cd) (rename_decl name cd) (scopeOfNode scope)
 
-    mkVar scope (cd, name) = TVariable (symbol cd) (renameDecl name cd) (scopeOfNode scope)
-
-    mkInit Nothing    _    = return Nothing
-    mkInit (Just rhs) name = do
-      rhs' <- everywhereM (mkM tExpr) rhs
-      return $ Just $ CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) ni) rhs' ni)) ni
-      where ni = annotation rhs
+    mkInit Nothing                          _    = return Nothing
+    mkInit (Just (initializer, objectType)) name = case initializer of
+      CInitExpr expr  _ -> newInit expr
+      CInitList initl _ -> 
+        let
+          cd = CDecl [CTypeSpec objectType] [] (annotation initializer)
+          cl = CCompoundLit cd initl (annotation initializer)
+        in newInit cl
+      where
+        newInit rhs = do
+          rhs' <- everywhereM (mkM tExpr) rhs
+          return $ Just $ CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) ni) rhs' ni)) ni
+          where ni = annotation rhs
 
 -- types {{{1
 data Ctx = Ctx { -- {{{2
     ctxIdents     :: Identifiers
   , ctxScope      :: NodeInfo
-  , ctxAutoVars   :: [Variable]
-  , ctxStaticVars :: [Variable]
+  , ctxVars       :: [FunctionVariable]
   , ctxFun        :: Symbol
   }
 
@@ -159,20 +173,10 @@ type S a = State Ctx a -- {{{2
 getIdentifier :: Identifiers -> Symbol -> Symbol -- {{{2
 getIdentifier (Identifiers _ rt) name = fromMaybe name $ M.lookup name rt
 
-addIdentifier :: (String -> String) -> Identifiers -> Symbol -> Identifiers -- {{{2
-addIdentifier mangle (Identifiers es rt) identifier = case M.lookup identifier es of
-  Nothing -> Identifiers (M.insert identifier 0 es) (M.insert identifier (mangle identifier) rt)
-  Just count -> Identifiers (M.adjust (+1) identifier es) (M.insert identifier (mangle (varUnique identifier count)) rt)
-
-renameDecl :: Symbol -> CDecl -> CDecl -- {{{2
-renameDecl newName (CDecl x1 [(Just declr, x2, x3)] x4) =
-  CDecl x1 [(Just (renameDeclr newName declr), x2, x3)] x4
-  where
-    renameDeclr newName' (CDeclr (Just _) y1 y2 y3 y4) =
-      CDeclr (Just (internalIdent newName')) y1 y2 y3 y4
-    renameDeclr _ x = $abort $ unexp x
-
-renameDecl _ x = $abort $ unexp x
+addIdentifier :: Identifiers -> Symbol -> Identifiers -- {{{2
+addIdentifier (Identifiers es rt) identifier = case M.lookup identifier es of
+  Nothing -> Identifiers (M.insert identifier 0 es) (M.insert identifier identifier rt)
+  Just count -> Identifiers (M.adjust (+1) identifier es) (M.insert identifier (varUnique identifier count) rt)
 
 scopeOfNode :: NodeInfo -> (TRow, TRow)
 scopeOfNode = (,) <$> TRow . posRow . posOfNode <*> TRow . posRow . fst . getLastTokenPos

@@ -13,7 +13,7 @@ import Language.C.Syntax.AST
 import Language.C.Data.Ident (internalIdent, Ident)
 import Language.C.Data.Node (undefNode)
 import Ocram.Debug.Enriched (CStat', CExpr', eun, aset)
-import Ocram.Intermediate.Representation (Variable(..))
+import Ocram.Intermediate.Representation
 import Ocram.Names (varCrit)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Util (fromJust_s, abort, unexp)
@@ -21,7 +21,7 @@ import Prelude hiding (init)
 
 import qualified Data.Map as M
 
-normalize_critical_calls :: M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -> [CStat'] -> ([CStat'], [Variable]) -- {{{1
+normalize_critical_calls :: M.Map Symbol (CTypeSpec, [CDerivedDeclr]) -> [CStat'] -> ([CStat'], [FunctionVariable]) -- {{{1
 normalize_critical_calls sf items =
   let (items', Ctx vars _ _) = runState (mapM tStmt items) (Ctx [] 0 [])
   in (concat items', vars)
@@ -51,7 +51,7 @@ normalize_critical_calls sf items =
         then return [s]
         else
           let s' = f es' in
-          return $ map (aset (annotation s)) $ allInits ++ [s']
+          return $ map (aset (annotation s)) $ reverse allInits ++ [s']
 
     isInNormalForm (CCall _ _ _)                 = True -- {{{2
     isInNormalForm (CAssign _ _ (CCall _ _ _) _) = True
@@ -73,7 +73,7 @@ normalize_critical_calls sf items =
             ni         = annotation call
             name       = symbol decl
             init       = CExpr (Just (CAssign CAssignOp (CVar (internalIdent name) eun) call ni)) ni
-            var        = EVariable decl
+            var        = fvarAuto $ EVariable decl
           put $ Ctx (var : vars) (count + 1) (init : inits)
           return $ CVar (internalIdent name) eun
 
@@ -90,7 +90,7 @@ normalize_critical_calls sf items =
         declarator        = CDeclr (Just tmpVar) dds Nothing [] undefNode
 
 data Ctx = Ctx { -- {{{2
-    ctxVars  :: [Variable]
+    ctxVars  :: [FunctionVariable]
   , ctxCount :: Int
   , ctxInits :: [CStat']
   }

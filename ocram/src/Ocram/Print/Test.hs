@@ -7,10 +7,11 @@ module Ocram.Print.Test
 
 -- import {{{1
 import Data.List (nub)
+import Language.C.Syntax.AST (CTranslUnit)
 import Ocram.Analysis (analysis, Analysis(..))
 import Ocram.Print (render_with_log)
 import Ocram.Test.Lib (enumTestGroup, lpaste, enrich, reduce, TBreakpoint)
-import Ocram.Text (show_errors)
+import Ocram.Text (show_errors, OcramError)
 import Ocram.Backend (tcode_2_ecode)
 import Ocram.Intermediate (ast_2_ir)
 import Test.Framework (Test, testGroup)
@@ -23,8 +24,8 @@ test_render_with_log :: Test -- {{{1
 test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   -- , 01 - setup {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() { 
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() { 
 03:   block(23);
 04: }
   |],[lpaste|
@@ -36,7 +37,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -63,8 +64,8 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 02 - function static variable {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       static int i = 0;
 04:   block(i);
 05: }
@@ -77,9 +78,9 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
-    int ec_static_start_i = 0;
+    static int ec_static_start_i = 0;
     void ec_thread_0(void * ec_cont)
     {
         if (ec_cont)
@@ -106,8 +107,8 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   , -- 03 - global variable {{{2
   ([lpaste|
     int k;
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() {
 04:   k = 23;
 05:   block(k);
 06: }
@@ -121,7 +122,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -154,8 +155,8 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
     void f() {
 03:   k = 23; 
     }
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() {
 07:   f();
 08:   block(k);
 09: }
@@ -173,7 +174,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -203,11 +204,11 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 05 - critical function call {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     void c(int i) {
 03:   block(i+1);
 04: }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
 06:   c(23);
 07: }
   |], [lpaste|
@@ -226,7 +227,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_c_t c;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -265,14 +266,14 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 06 - re-entrance {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     void c(int i) {
 03:   block(i+1);
 04: }
-    __attribute__((tc_run_thread)) void s1() {
+    __attribute__((tc_thread)) void s1() {
 06:   c(23);
 07: }
-    __attribute__((tc_run_thread)) void s2() {
+    __attribute__((tc_thread)) void s2() {
 09:   c(42);
 10: }
   |], [lpaste|
@@ -296,8 +297,8 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_c_t c;
                 } ec_frames;
             } ec_tframe_s2_t;
-    ec_tframe_s1_t ec_tstack_s1;
-    ec_tframe_s2_t ec_tstack_s2;
+    static ec_tframe_s1_t ec_tstack_s1;
+    static ec_tframe_s2_t ec_tstack_s2;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -369,8 +370,8 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 07 - multiple statements in a row {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() {
 03:   block(23); block(42);
 04: }
   |], [lpaste|
@@ -382,7 +383,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -419,7 +420,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 08 - return {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int c(int i) {
 03:   if (i ==0) {
 04:     return block(23);
@@ -427,7 +428,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
 06:     return block(42);
       }
     }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
 10:   c(0);
 11: }
   |], [lpaste|
@@ -447,7 +448,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_c_t c;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     typedef struct {
                 void ec_crit_1; void ec_crit_0;
             } ec_eframe_c_t;
@@ -519,11 +520,11 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 09 - while loops {{{2
   ([lpaste|
-      __attribute__((tc_blocking)) int block(int i);
+      __attribute__((tc_block)) int block(int i);
       void c(int i) {
 03:     while (block(i) != 0);
 04:   }
-      __attribute__((tc_run_thread)) void start() {
+      __attribute__((tc_thread)) void start() {
 06:     c(23);
 07:   }
   |], [lpaste|
@@ -542,7 +543,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_c_t c;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     typedef struct {
                 int ec_crit_0;
             } ec_eframe_c_t;
@@ -560,11 +561,11 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
         ;
 32:     ec_tstack_start.ec_frames.c.i = 23;
 33:     ec_tstack_start.ec_frames.c.ec_cont = &&ec_contlbl_L2_start;
-34:     goto ec_ctrlbl_0_c;
+34:     goto ec_desugar_0_c;
     ec_contlbl_L2_start:
         ;
 37:     return;
-    ec_ctrlbl_0_c:
+    ec_desugar_0_c:
         ;
 40:     ec_tstack_start.ec_frames.c.ec_frames.block.i = ec_tstack_start.ec_frames.c.i;
 41:     ec_tstack_start.ec_frames.c.ec_frames.block.ec_cont = &&ec_contlbl_L2_c;
@@ -579,7 +580,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
         }
         else
         {
-53:         goto ec_ctrlbl_0_c;
+53:         goto ec_desugar_0_c;
         }
     }
   |], [
@@ -598,9 +599,9 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 10 - declaration with initializer {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int f();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
 04:   int i = 0;
 05:   int k = f();
 06:   block(i+k); 
@@ -615,9 +616,9 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     typedef struct {
-                int k; int i;
+                int i; int k;
             } ec_eframe_start_t;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
@@ -652,8 +653,8 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 11 - declaration with critical initializer {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) int block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) int block();
+    __attribute__((tc_thread)) void start() {
 03:   int i = block();
 04: }
   |], [lpaste|
@@ -665,7 +666,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     typedef struct {
                 int i;
             } ec_eframe_start_t;
@@ -698,12 +699,12 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ])
   , -- 12 - declaration in non-critical function {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int f() {
 03:   int i = 0;
 04:   return i;
     }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
 07:   block(f());
 08: }
   |], [lpaste|
@@ -720,7 +721,7 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
                     ec_tframe_block_t block;
                 } ec_frames;
             } ec_tframe_start_t;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
     void block(ec_tframe_block_t *);
     void ec_thread_0(void * ec_cont)
     {
@@ -751,17 +752,18 @@ test_render_with_log = enumTestGroup "render_with_log" $ map runTest [
   ]
 
 runTest :: (String, String, [TBreakpoint]) -> Assertion -- {{{1
-runTest (inputCode, expectedCode, expectedBps) =
-  let tAst = enrich inputCode in
-  case analysis tAst of
-    Left es -> assertFailure $ show_errors "analysis" es
-    Right ana ->
-      let
-        cfs                     = ast_2_ir  (anaBlocking ana) (anaCritical ana)
-        
-        (eAst, _, _)            = tcode_2_ecode ana cfs
-        (resultCode, resultBps) = render_with_log eAst
-        resultBps'              = reduce $ nub resultBps
-      in do
-        assertEqual "code"          expectedCode resultCode
-        assertEqual "breakpoints: " expectedBps  resultBps'
+runTest (inputCode, expectedCode, expectedBps) = do
+  let tAst = (enrich inputCode :: CTranslUnit)
+  ana <- failOnError $ analysis tAst
+  cfs <- failOnError $ ast_2_ir  (anaBlocking ana) (anaCritical ana)
+  let
+    (eAst, _, _)            = tcode_2_ecode ana cfs
+    (resultCode, resultBps) = render_with_log eAst
+    resultBps'              = reduce $ nub resultBps
+  assertEqual "code"          expectedCode resultCode
+  assertEqual "breakpoints: " expectedBps  resultBps'
+
+  where
+    failOnError :: Either [OcramError] a -> IO a
+    failOnError (Left es) = assertFailure (show_errors "<<test>>" es) >> undefined
+    failOnError (Right x) = return x

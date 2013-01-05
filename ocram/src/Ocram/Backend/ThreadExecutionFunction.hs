@@ -7,19 +7,21 @@ module Ocram.Backend.ThreadExecutionFunction
 
 -- imports {{{1
 import Compiler.Hoopl (postorder_dfs_from, foldGraphNodes, successors, entryLabel, O, C, mapLookup)
+import Control.Applicative ((<$>), (<*>))
 import Control.Arrow (second)
 import Data.Generics (everywhere, mkT)
 import Data.Maybe (mapMaybe, maybeToList)
 import Language.C.Data.Ident (Ident, internalIdent)
 import Language.C.Syntax.AST
 import Ocram.Analysis (CallGraph, call_order, start_functions, call_chain, is_blocking)
+import Ocram.Backend.Utils (allEVars, allTVars, allSVars)
 import Ocram.Query (function_parameters_fd, function_parameters_cd)
-import Ocram.Intermediate (block_components, Node(..), Function(..), fun_name, Variable(..), var_unique, CriticalCall(..), Block, BlockMap, block_map, Label(..), hLabel, Body)
+import Ocram.Intermediate (block_components, Node(..), Function(..), fun_name, FunctionVariable(..), Variable(..), CriticalCall(..), Block, BlockMap, block_map, Label(..), hLabel, Body)
 import Ocram.Debug.Enriched (CExpr', eun, CBlockItem', set_thread, CFunDef', ENodeInfo(..), aset, set_blocking)
 import Ocram.Debug.Types (VarMap')
 import Ocram.Print (render)
 import Ocram.Ruab (Variable(AutomaticVariable), FQN)
-import Ocram.Names (mangleFun, contLbl, tfunction, contVar, frameUnion, tstackVar, resVar, estackVar)
+import Ocram.Names (mangleFun, contLbl, tfunction, contVar, frameUnion, tstackVar, resVar, estackVar, varStatic)
 import Ocram.Symbols (Symbol, symbol)
 import Ocram.Util ((?:), fromJust_s, abort, lookup_s)
 import Prelude hiding (last)
@@ -64,7 +66,7 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
     suls      = singleUsageLabels (fun_entry inlinedFunction) (fun_body inlinedFunction)
     blocks    = block_map $ fun_body inlinedFunction
 
-    vm = map vmEntry $ filter isTVar $ (fun_cVars inlinedFunction ++ fun_ncVars inlinedFunction)
+    vm = map vmEntry $ filter isTVar $ map fvar_var $ ((++) <$> allTVars <*> allEVars) inlinedFunction
     vmEntry var = (AutomaticVariable tid (var_tname var), var_scope var, symbol2fqn (var_tname var))
 
     isTVar (TVariable _ _ _) = True
@@ -93,7 +95,8 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
     cFirst :: Node C O -> [CBlockItem']
     cFirst (Label entry) = [CBlockStmt (CLabel (lblIdent entry fname) (CExpr Nothing eun) [] eun)]
 
-    cFirst (Cont lbl (FirstNormalForm _ _ _)) = cFirst (Label lbl)
+    cFirst o@(Cont _ (FirstNormalForm _ _ _)) = $abort $ "invalid case: " ++ show o
+
     cFirst (Cont lbl (SecondNormalForm lhs op callee _ eni)) =
       let 
         callChain' = callChain ++ [callee] 
@@ -155,20 +158,23 @@ inlineCriticalFunction cg tid callees entries startFunction inlinedFunction = (c
 
     rewriteLocalVariableAccess :: CExpr' -> CExpr' -- {{{3
     rewriteLocalVariableAccess o@(CVar iden eni)
-      | test fun_cVars  = tstackAccess callChain (Just vname) eni
-      | test fun_ncVars = estackAccess (fun_name inlinedFunction) vname eni
-      | test fun_stVars = staticAccess vname eni
-      | otherwise       = o
+      | vname `S.member` tvars = tstackAccess callChain (Just vname) eni
+      | vname `S.member` evars = estackAccess (fun_name inlinedFunction) vname eni
+      | vname `S.member` svars = staticAccess (fun_name inlinedFunction) vname eni
+      | otherwise  = o
       where
         vname = symbol iden
-        test f = vname `elem` map var_unique (f inlinedFunction)
     rewriteLocalVariableAccess o = o
+
+    tvars = S.fromList . map symbol . allTVars $ inlinedFunction
+    evars = S.fromList . map symbol . allEVars $ inlinedFunction
+    svars = S.fromList . map symbol . allSVars $ inlinedFunction
 
     symbol2fqn :: Symbol -> FQN -- {{{3
     symbol2fqn name =
       render $ rewriteLocalVariableAccess (CVar (internalIdent name) eun)
 
-singleUsageLabels :: Label -> Body -> S.Set H.Label
+singleUsageLabels :: Label -> Body -> S.Set H.Label -- {{{2
 -- | set of labels that are only used by a single goto
 -- | excluding the entry label and continuations
 singleUsageLabels entry body = suls `S.difference` (S.insert (hLabel entry) continuations)
@@ -210,8 +216,8 @@ tstackAccess [] _ _ = $abort "called tstackAccess with empty call chain"
 estackAccess :: Symbol -> Symbol -> ENodeInfo -> CExpr' -- {{{2
 estackAccess function variable eni = CMember (CMember (CVar (ii estackVar) eni) (ii function) False eni) (ii variable) False eni
 
-staticAccess :: Symbol -> ENodeInfo -> CExpr' -- {{{2
-staticAccess variable eni = CVar (ii variable) eni
+staticAccess :: Symbol -> Symbol -> ENodeInfo -> CExpr' -- {{{2
+staticAccess function variable eni = CVar (ii (varStatic function variable)) eni
 
 ii :: String -> Ident -- {{{2
 ii = internalIdent

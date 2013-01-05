@@ -16,17 +16,25 @@ import Ocram.Intermediate.BuildBasicBlocks
 import Ocram.Intermediate.CollectDeclarations
 import Ocram.Intermediate.CriticalVariables
 import Ocram.Intermediate.DesugarControlStructures
+import Ocram.Intermediate.Filter
 import Ocram.Intermediate.NormalizeCriticalCalls
 import Ocram.Intermediate.Optimize
 import Ocram.Intermediate.Representation
 import Ocram.Query (return_type_fd, return_type_cd)
 import Ocram.Symbols (Symbol)
+import Ocram.Text (OcramError)
 
 import qualified Data.Map as M
 import qualified Data.Set as S
 
-ast_2_ir :: M.Map Symbol CDecl -> M.Map Symbol CFunDef -> M.Map Symbol Function -- {{{1
-ast_2_ir bf cf = M.map (critical_variables . convert) cf
+ast_2_ir :: M.Map Symbol CDecl -> M.Map Symbol CFunDef -> Either [OcramError] (M.Map Symbol Function) -- {{{1
+ast_2_ir bf cf = 
+  let
+    funs = M.map (critical_variables . convert) cf
+    fails = map (ir_constraints sf) (M.elems funs)
+  in case partitionEithers fails of
+    ([], _) -> Right funs
+    (es, _) -> Left (concat es)
   where
     sf  = M.keysSet cf `S.union` M.keysSet bf
     sf' = M.map return_type_fd cf `M.union` M.map return_type_cd bf
@@ -35,23 +43,19 @@ ast_2_ir bf cf = M.map (critical_variables . convert) cf
     convert fd =
       let
         (items, vars) = runWriter $ process fd 
-        (autoVars, staticVars) = partitionEithers vars
         (entry, body) = build_basic_blocks sf (node_end fd) items
         (entry', body') = optimize_ir (entry, body)
       in
-        Function autoVars [] staticVars fd body' entry'
+        Function vars fd body' entry'
 
     process fd = 
           return fd
-      >>= wrap'    collect_declarations
-      >>= return . desugar_control_structures
-      >>= wrap     (boolean_short_circuiting sf)
-      >>= wrap     (normalize_critical_calls sf')
+      >>= wrap (collect_declarations sf)
+      >>= wrap desugar_control_structures
+      >>= wrap (boolean_short_circuiting sf)
+      >>= wrap (normalize_critical_calls sf')
 
-    wrap f = wrap' (\x -> let (y, autoVars) = f x in (y, autoVars, []))
-
-    wrap' f x = do
-      let (y, autoVars, staticVars) = f x
-      tell $ map Left autoVars
-      tell $ map Right staticVars
+    wrap f x = do
+      let (y, vars) = f x
+      tell vars
       return y

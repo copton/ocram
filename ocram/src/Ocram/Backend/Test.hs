@@ -12,9 +12,9 @@ import Ocram.Backend
 import Ocram.Intermediate (ast_2_ir)
 import Ocram.Print (render)
 import Ocram.Test.Lib (enumTestGroup, enrich, reduce, paste, lpaste, TVarMapEntry)
-import Ocram.Text (show_errors)
+import Ocram.Text (show_errors, OcramError)
 import Test.Framework (Test, testGroup)
-import Test.HUnit (Assertion, (@=?), assertEqual)
+import Test.HUnit (Assertion, (@=?), assertEqual, assertFailure)
 
 import qualified Data.Map as M
 
@@ -30,8 +30,8 @@ test_create_tstacks :: Test  -- {{{1
 test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
   -- , 01 - minimal case {{{2
   ([paste| 
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
       block();
     }
   |], [paste|
@@ -45,12 +45,12 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
   |])
   , -- 02 - blocking function with parameters {{{2
   ([paste| 
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       block(23);
     }
   |], [paste|
@@ -65,13 +65,13 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
   |])
   , -- 03 - critical function {{{2
   ([paste| 
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int crit(int k) { block(k); return k;}
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       crit(23);
     }
   |], [paste|
@@ -95,15 +95,15 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
   |])
   , -- 04 - two threads {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       block(23);
     }
-    __attribute__((tc_run_thread)) void run() {
+    __attribute__((tc_thread)) void run() {
       block(42);
     }
   |], [paste|
@@ -124,17 +124,17 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_run_t;
 
-    ec_tframe_start_t ec_tstack_start;
-    ec_tframe_run_t ec_tstack_run;
+    static ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_run_t ec_tstack_run;
   |])
   , -- 05 - reentrance {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int crit(int k) { block(k); return k; }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       crit(23);
     }
-    __attribute__((tc_run_thread)) void run() {
+    __attribute__((tc_thread)) void run() {
       crit(42);
     }
   |], [paste|
@@ -164,14 +164,14 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       } ec_frames;
     } ec_tframe_run_t;
 
-    ec_tframe_start_t ec_tstack_start;
-    ec_tframe_run_t ec_tstack_run;
+    static ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_run_t ec_tstack_run;
   |])
 
   , --  06 - shadowing {{{2
   ([paste| 
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = 0;
       {
         int i = 1;
@@ -189,42 +189,75 @@ test_create_tstacks = enumTestGroup "create_tstacks" $ map runTest [
       union {
         ec_tframe_block_t block;
       } ec_frames;
-      int ec_unique_i_0;
       int i;
+      int ec_unique_i_0;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
+  |])
+  , --  07 - function parameter {{{2
+  ([paste| 
+    __attribute__((tc_block)) void block(int i);
+    void c(int c, int k) {
+      block(c+1); 
+      block(k);
+    }
+    __attribute__((tc_thread)) void start() {
+      c(23);
+    }
+  |], [paste|
+    typedef struct {
+      void * ec_cont;
+      int i;
+    } ec_tframe_block_t;
+
+    typedef struct {
+      void * ec_cont;
+      union {
+        ec_tframe_block_t block;
+      } ec_frames;
+      int ec_unique_c_0;
+      int k;
+    } ec_tframe_c_t;
+
+    typedef struct {
+      union {
+        ec_tframe_c_t c;
+      } ec_frames;
+    } ec_tframe_start_t;
+
+    static ec_tframe_start_t ec_tstack_start;
   |])
   -- end {{{2
   ]
   where
     runTest :: (String, String) -> Assertion -- {{{2
-    runTest (inputCode, expectedDecls) =
+    runTest (inputCode, expectedDecls) = do
       let
         ast = enrich inputCode :: CTranslUnit
         ana = case analysis ast of
           Left es -> error $ show_errors "test" es 
           Right x -> x
-        ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
+      ir <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
+      let
         (frames, stacks) = create_tstacks (anaCallgraph ana) (anaBlocking ana) ir
         outputDecls = reduce (CTranslUnit (map CDeclExt (map snd frames ++ stacks)) undefNode) :: String
         expectedDecls' = (reduce (enrich expectedDecls :: CTranslUnit)) :: String
-      in
-        expectedDecls' @=? outputDecls
+      expectedDecls' @=? outputDecls
 
 test_create_estacks :: Test -- {{{1
 test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
   -- , 01 -  minimal case {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
       block();
     }
   |], "", [("start", Nothing)])
   , -- 02 - uncritical variable {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = 23;
       block(i);
     }
@@ -237,9 +270,9 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
   ])
   , -- 03 - critical function {{{2
   ([paste| 
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int crit() { int k = 42; block(k);}
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       int i = 23;
       crit(i);
     }
@@ -256,12 +289,12 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
   ]) 
   , -- 04 - two threads {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       int i = 23;
       block(i);
     }
-    __attribute__((tc_run_thread)) void run() {
+    __attribute__((tc_thread)) void run() {
       int j = 42;
       block(j);
     }
@@ -277,15 +310,15 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
       ("run"  , Just "union {\n    ec_eframe_run_t run;\n} ec_estack")
     , ("start", Just "union {\n    ec_eframe_start_t start;\n} ec_estack")
   ])
-  , -- 04 - reentrance {{{2
+  , -- 05 - reentrance {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
     int crit() { int k = 23; block(k); }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       int i = 42;
       crit(i);
     }
-    __attribute__((tc_run_thread)) void run() {
+    __attribute__((tc_thread)) void run() {
       int j = 0xdeadbeef;
       crit(j);
     }
@@ -306,10 +339,10 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
     , ("start", Just "union {\n    ec_eframe_start_t start; ec_eframe_crit_t crit;\n} ec_estack")
   ])
     
-  , -- 05 - shadowing {{{2
+  , -- 06 - shadowing {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
       int i = 0;
       {
         int i = 1;
@@ -320,38 +353,48 @@ test_create_estacks = enumTestGroup "create_estacks" $ map runTest [
     }
   |], [paste|
     typedef struct {
-      int ec_unique_i_0;
       int i;
+      int ec_unique_i_0;
     } ec_eframe_start_t;
   |], [("start", Just "union {\n    ec_eframe_start_t start;\n} ec_estack")]
   )
-  
+  , --  07 - function parameter {{{2
+  ([paste| 
+    __attribute__((tc_block)) void block(int i);
+    void c(int c, int k) {
+      block(c+1); 
+      block(k);
+    }
+    __attribute__((tc_thread)) void start() {
+      c(23);
+    }
+  |], "", [("start", Nothing)])
   -- end {{{2
   ]
   where
     runTest :: (String, String, [(String, Maybe String)]) -> Assertion -- {{{2
-    runTest (inputCode, expectedFrames, expectedStacks) =
+    runTest (inputCode, expectedFrames, expectedStacks) = do
       let
         ast = enrich inputCode :: CTranslUnit
         ana = case analysis ast of
           Left es -> error $ show_errors "test" es 
           Right x -> x
-        ir = ast_2_ir (anaBlocking ana) (anaCritical ana)
+      ir <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
+      let
         (frames, stacks) = create_estacks (anaCallgraph ana) ir        
         expectedFrames' = reduce (enrich expectedFrames :: CTranslUnit) :: String
         outputFrames = reduce (CTranslUnit (map CDeclExt frames) undefNode) :: String
         outputStacks = M.toList . M.map (fmap render) $ stacks 
-      in do
-        assertEqual "frames" expectedFrames' outputFrames
-        assertEqual "stacks" expectedStacks outputStacks
+      assertEqual "frames" expectedFrames' outputFrames
+      assertEqual "stacks" expectedStacks outputStacks
         
 
 test_thread_execution_functions :: Test -- {{{1
 test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ map runTest [
   -- , 01 - minimal case {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block();
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block();
+    __attribute__((tc_thread)) void start() {
       block();
     }
   |], [paste|
@@ -368,8 +411,8 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   |], [])
   , -- 02 - blocking function with parameter and return value {{{2
   ([lpaste| 
-    __attribute__((tc_blocking)) int block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) int block(int i);
+02: __attribute__((tc_thread)) void start() {
       int j = block(23);
 04: }
   |], [paste|
@@ -398,9 +441,9 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   ])
   , -- 03 - critical function {{{2
   ([lpaste| 
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
 02: int crit(int k) { block(k); return k;}
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       crit(23);
     }
   |], [paste|
@@ -430,11 +473,11 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   ])
   , -- 04 - two threads {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() {
       block(23);
     }
-    __attribute__((tc_run_thread)) void run() {
+    __attribute__((tc_thread)) void run() {
       block(42);
     }
   |], [paste|
@@ -466,12 +509,12 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   |], [])
   , -- 05 - reentrance {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
+    __attribute__((tc_block)) void block(int i);
 02: int crit(int k) { block(k); return k; }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       crit(23);
     }
-    __attribute__((tc_run_thread)) void run() {
+    __attribute__((tc_thread)) void run() {
       crit(42);
     }
   |], [paste|
@@ -524,9 +567,9 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   ])
   , -- 06 - static variable {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block(int b);
+    __attribute__((tc_block)) void block(int b);
 
-    __attribute__((tc_run_thread)) void start() { 
+    __attribute__((tc_thread)) void start() { 
         static int s = 23;
         while (1) {
           block(s);
@@ -536,12 +579,12 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
     void ec_thread_0(void* ec_cont) {
       if (ec_cont) goto *ec_cont;
 
-      ec_ctrlbl_0_start: ;
+      ec_desugar_0_start: ;
       if (!1) {
         return;
       } else {
         ec_tstack_start.ec_frames.block.b = ec_static_start_s;
-        ec_tstack_start.ec_frames.block.ec_cont = &&ec_ctrlbl_0_start;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_desugar_0_start;
         block(&ec_tstack_start.ec_frames.block);
         return;
       }
@@ -549,8 +592,8 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   |], [])
   , -- 07 - regression test {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int b);
-02: __attribute__((tc_run_thread)) void start() { 
+    __attribute__((tc_block)) void block(int b);
+02: __attribute__((tc_thread)) void start() { 
       int s = 23;
       while (1) {
         block(s);
@@ -562,14 +605,14 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
 
       ec_contlbl_L1_start: ;
       ec_tstack_start.s = 23;
-      goto ec_ctrlbl_0_start;
+      goto ec_desugar_0_start;
 
-      ec_ctrlbl_0_start: ;
+      ec_desugar_0_start: ;
       if (!1) {
         return;
       } else {
         ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
-        ec_tstack_start.ec_frames.block.ec_cont = &&ec_ctrlbl_0_start;
+        ec_tstack_start.ec_frames.block.ec_cont = &&ec_desugar_0_start;
         block(&ec_tstack_start.ec_frames.block);
         return;
       }
@@ -581,27 +624,27 @@ test_thread_execution_functions = enumTestGroup "thread_execution_functions" $ m
   ]
   where
     runTest :: (String, String, [TVarMapEntry]) -> Assertion -- {{{2
-    runTest (inputCode, expectedCode, expectedVarMap) =
+    runTest (inputCode, expectedCode, expectedVarMap) = do
       let
         ast                  = enrich inputCode :: CTranslUnit
         ana                  = case analysis ast of
           Left es           -> error $ show_errors "test" es 
           Right x           -> x
-        ir                   = ast_2_ir (anaBlocking ana) (anaCritical ana)
+      ir <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
+      let
         (frames, stacks)     = create_estacks (anaCallgraph ana) ir
         (funs, outputVarMap) = thread_execution_functions (anaCallgraph ana) (anaBlocking ana) ir stacks
         outputCode           = reduce (CTranslUnit ((map CDeclExt frames) ++ (map (CFDefExt . fmap (const undefNode)) funs)) undefNode) :: String
         expectedCode'        = (reduce (enrich expectedCode :: CTranslUnit) :: String)
-      in do
-        expectedCode'  @=? outputCode
-        expectedVarMap @=? reduce outputVarMap
+      expectedCode'  @=? outputCode
+      expectedVarMap @=? reduce outputVarMap
   
 test_tcode_2_ecode :: Test -- {{{1
 test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   -- , 01 - setup {{{2
   ([paste|
-    __attribute__((tc_blocking)) void block(int i);
-    __attribute__((tc_run_thread)) void start() { 
+    __attribute__((tc_block)) void block(int i);
+    __attribute__((tc_thread)) void start() { 
       block(23);
     }
   |],[paste|
@@ -616,7 +659,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -636,8 +679,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   |], [])
   , -- 02 - setup - returning a pointer {{{2
   ([paste|
-    __attribute__((tc_blocking)) int* block(int i);
-    __attribute__((tc_run_thread)) void start() { 
+    __attribute__((tc_block)) int* block(int i);
+    __attribute__((tc_thread)) void start() { 
       block(23);
     }
   |],[paste|
@@ -653,7 +696,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -673,8 +716,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   |], [])
   , -- 03 - setup - returning a void pointer {{{2
   ([paste|
-    __attribute__((tc_blocking)) void* block(int i);
-    __attribute__((tc_run_thread)) void start() { 
+    __attribute__((tc_block)) void* block(int i);
+    __attribute__((tc_thread)) void start() { 
       block(23);
     }
   |],[paste|
@@ -690,7 +733,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -710,8 +753,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   |], [])
   , -- 04 - local critical variable {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+02: __attribute__((tc_thread)) void start() {
       int i = 23;
       block(i);
       i++;
@@ -729,7 +772,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       int i;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -753,8 +796,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 05 - local non-critical variable {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+02: __attribute__((tc_thread)) void start() {
       int i = 23;
       block(i);
 05: }
@@ -770,7 +813,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int i;
@@ -800,8 +843,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 06 - function static variable {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int i);
-02: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i);
+02: __attribute__((tc_thread)) void start() {
       static int i = 0;
       block(i);
 05: }
@@ -817,11 +860,11 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
-    int ec_static_start_i = 0;
+    static int ec_static_start_i = 0;
 
     void ec_thread_0(void* ec_cont)
     {
@@ -842,8 +885,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   , -- 07 - global variable {{{2
   ([lpaste|
     int k;
-    __attribute__((tc_blocking)) void block(int i1, int i2);
-03: __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_block)) void block(int i1, int i2);
+03: __attribute__((tc_thread)) void start() {
       int j = 23;
       block(j, k);
 06: }
@@ -862,7 +905,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int j;
@@ -893,8 +936,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 08 - loop {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int j);
-02: __attribute__((tc_run_thread)) void start() { 
+    __attribute__((tc_block)) void block(int j);
+02: __attribute__((tc_thread)) void start() { 
       int i;
       i = 0;
       while (i<10) {
@@ -917,7 +960,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         int i;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t*);
 
@@ -928,8 +971,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
       ec_contlbl_L1_start: ;
       ec_tstack_start.i = 0;
-      goto ec_ctrlbl_0_start; 
-      ec_ctrlbl_0_start: ;
+      goto ec_desugar_0_start; 
+      ec_desugar_0_start: ;
       if (!(ec_tstack_start.i < 10)) {
         ec_tstack_start.i = 0;
         return; 
@@ -942,14 +985,14 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       }
       ec_contlbl_L4_start: ;
       ec_tstack_start.i++;
-      goto ec_ctrlbl_0_start;
+      goto ec_desugar_0_start;
     }
   |], [
       ("i", 2, 11, Just 0, "ec_tstack_start.i")
   ])
   , -- 09 - critical function {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int b);
+    __attribute__((tc_block)) void block(int b);
 
 03: void critical(int c) {
       block(c+1); 
@@ -959,7 +1002,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       return n+1;
     }
 
-11: __attribute__((tc_run_thread)) void start() { 
+11: __attribute__((tc_thread)) void start() { 
         int s1;
         int s2;
         s2 = non_critical(s1);
@@ -989,11 +1032,11 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
-      int s2;
       int s1;
+      int s2;
     } ec_eframe_start_t;
 
     void block(ec_tframe_block_t*);
@@ -1024,19 +1067,19 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         goto *ec_tstack_start.ec_frames.critical.ec_cont;
     }
   |], [
-      ("s2", 11, 16, Just 0, "ec_estack.start.s2")
-    , ("s1", 11, 16, Just 0, "ec_estack.start.s1")
+      ("s1", 11, 16, Just 0, "ec_estack.start.s1")
+    , ("s2", 11, 16, Just 0, "ec_estack.start.s2")
     , ("c" ,  3,  5, Just 0, "ec_tstack_start.ec_frames.critical.c")
   ])
   , -- 10  - critical function, chained return {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) int block(int b);
+    __attribute__((tc_block)) int block(int b);
 
 03: int critical(int c) {
       return block(c+1);  
 05: }
 
-07: __attribute__((tc_run_thread)) void start() { 
+07: __attribute__((tc_thread)) void start() { 
         critical(23);
 09: }
   |],[paste|
@@ -1061,7 +1104,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         } ec_frames;
     } ec_tframe_start_t;
     
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int ec_crit_0;
@@ -1101,15 +1144,15 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 11 - two threads {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int b);
-02: __attribute__((tc_run_thread)) void start() { 
+    __attribute__((tc_block)) void block(int b);
+02: __attribute__((tc_thread)) void start() { 
         int s = 23;
         while (1) {
           block(s);
         }
 07: }
 
-09: __attribute__((tc_run_thread)) void run() { 
+09: __attribute__((tc_thread)) void run() { 
         int r = 42;
         while (1) {
           block(r);
@@ -1135,8 +1178,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       int r;
     } ec_tframe_run_t;
 
-    ec_tframe_start_t ec_tstack_start;
-    ec_tframe_run_t ec_tstack_run;
+    static ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_run_t ec_tstack_run;
 
     void block(ec_tframe_block_t *);
 
@@ -1146,14 +1189,14 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
       ec_contlbl_L1_start: ;
         ec_tstack_start.s = 23;
-        goto ec_ctrlbl_0_start;
+        goto ec_desugar_0_start;
 
-      ec_ctrlbl_0_start: ;
+      ec_desugar_0_start: ;
         if (!1) {
           return;
         } else {
           ec_tstack_start.ec_frames.block.b = ec_tstack_start.s;
-          ec_tstack_start.ec_frames.block.ec_cont = &&ec_ctrlbl_0_start;
+          ec_tstack_start.ec_frames.block.ec_cont = &&ec_desugar_0_start;
           block(&ec_tstack_start.ec_frames.block);
           return;
         }
@@ -1165,14 +1208,14 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
       ec_contlbl_L1_run: ;
         ec_tstack_run.r = 42;
-        goto ec_ctrlbl_0_run;
+        goto ec_desugar_0_run;
 
-      ec_ctrlbl_0_run: ;
+      ec_desugar_0_run: ;
         if (!1) {
           return;
         } else {
           ec_tstack_run.ec_frames.block.b = ec_tstack_run.r;
-          ec_tstack_run.ec_frames.block.ec_cont = &&ec_ctrlbl_0_run;
+          ec_tstack_run.ec_frames.block.ec_cont = &&ec_desugar_0_run;
           block(&ec_tstack_run.ec_frames.block);
           return;
         }
@@ -1183,17 +1226,17 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 12 - reentrance {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block(int b);
+    __attribute__((tc_block)) void block(int b);
 
 03: void critical(int c) {
       block(c+1); 
 05: }
 
-07: __attribute__((tc_run_thread)) void run() { 
+07: __attribute__((tc_thread)) void run() { 
         critical(1);
 09: }
 
-11: __attribute__((tc_run_thread)) void start() { 
+11: __attribute__((tc_thread)) void start() { 
         critical(2);
 13: }
   |],[paste|
@@ -1222,8 +1265,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_run_t ec_tstack_run;
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_run_t ec_tstack_run;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t *);
 
@@ -1276,8 +1319,8 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 13 - return value {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) int block(int i);
-    __attribute__((tc_run_thread)) void start() 
+    __attribute__((tc_block)) int block(int i);
+    __attribute__((tc_thread)) void start() 
 03: {
       int i;
       i = block(i);
@@ -1295,7 +1338,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
         int i;
@@ -1326,9 +1369,9 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 14 - multiple declarations with critical initialization {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_block)) int block(int i);
 
-03: __attribute__((tc_run_thread)) void start() {
+03: __attribute__((tc_thread)) void start() {
       int i, j=block(1) + 3, k=23;
 05: }
   |],[paste|
@@ -1344,7 +1387,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int i;
@@ -1382,7 +1425,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ])
   , -- 15 - returns {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) int block(char* c);
+    __attribute__((tc_block)) int block(char* c);
 
 03: int critical(int i) {
       if (i == 0) {
@@ -1393,7 +1436,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       }
 10: }
 
-12: __attribute__((tc_run_thread)) void start() {
+12: __attribute__((tc_thread)) void start() {
       critical(23);
 14: }
   |],[paste|
@@ -1418,7 +1461,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t *);
 
@@ -1456,9 +1499,9 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
     struct S {
       int i;
     };
-    __attribute__((tc_blocking)) int block(struct S s);
+    __attribute__((tc_block)) int block(struct S s);
 
-06: __attribute__((tc_run_thread)) void start() {
+06: __attribute__((tc_thread)) void start() {
       struct S s;
       block(s);
 09: }
@@ -1479,7 +1522,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       struct S s;
@@ -1510,9 +1553,9 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   , -- 17 - multiple global declarations {{{2
   ([paste|
     int i, k;
-    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_block)) int block(int i);
 
-    __attribute__((tc_run_thread)) void start() 
+    __attribute__((tc_thread)) void start() 
     {
             i = block(k);
     }
@@ -1530,7 +1573,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t *);
 
@@ -1551,9 +1594,9 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   |], [])
   , -- 18 - static variable {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) int block(int i);
+    __attribute__((tc_block)) int block(int i);
 
-    __attribute__((tc_run_thread)) void start() 
+    __attribute__((tc_thread)) void start() 
 04: {
       static int i = 23;
       i = block(i);
@@ -1571,11 +1614,11 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     void block(ec_tframe_block_t *);
 
-    int ec_static_start_i = 23;
+    static int ec_static_start_i = 23;
 
     void ec_thread_0(void * ec_cont)
     {
@@ -1599,11 +1642,11 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
     int c;
     int next;
 
-    __attribute__((tc_blocking)) void wait(int* c);
-    __attribute__((tc_blocking)) void sleep(int t, int* c);
+    __attribute__((tc_block)) void wait(int* c);
+    __attribute__((tc_block)) void sleep(int t, int* c);
     void check();
 
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       while(1) {
         if (next == -1) {
           wait(&c);
@@ -1635,7 +1678,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       void ec_crit_0;
@@ -1652,13 +1695,13 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
 
         if (ec_cont) goto * ec_cont;
 
-        ec_ctrlbl_0_start: ;
+        ec_desugar_0_start: ;
         if (!1) {
           return;
         } else {
           if (next == -1) {
             ec_tstack_start.ec_frames.wait.c = &c;
-            ec_tstack_start.ec_frames.wait.ec_cont = &&ec_ctrlbl_0_start;
+            ec_tstack_start.ec_frames.wait.ec_cont = &&ec_desugar_0_start;
             wait(&ec_tstack_start.ec_frames.wait);
             return;
           } else {
@@ -1674,20 +1717,20 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
         ec_estack.start.ec_crit_0 = ec_tstack_start.ec_frames.sleep.ec_result;
         if (!ec_estack.start.ec_crit_0) {
           check();
-          goto ec_ctrlbl_0_start;
+          goto ec_desugar_0_start;
         } else {
-          goto ec_ctrlbl_0_start;
+          goto ec_desugar_0_start;
         }
     }
   |], [])
   , -- 20 - regression test - estack access {{{2
   ([lpaste|
-    __attribute__((tc_blocking)) void block();
+    __attribute__((tc_block)) void block();
 02: void critical() {
       int i = 0;
       block();
 05: }
-    __attribute__((tc_run_thread)) void start() {
+    __attribute__((tc_thread)) void start() {
       critical();
     }
   |], [paste|
@@ -1708,7 +1751,7 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
       } ec_frames;
     } ec_tframe_start_t;
 
-    ec_tframe_start_t ec_tstack_start;
+    static ec_tframe_start_t ec_tstack_start;
 
     typedef struct {
       int i;
@@ -1747,16 +1790,20 @@ test_tcode_2_ecode = enumTestGroup "tcode_2_ecode" $ map runTest [
   ]
   where
     runTest :: (String, String, [TVarMapEntry]) -> Assertion -- {{{2
-    runTest (inputCode, expectedCode, expectedVarMap) =
+    runTest (inputCode, expectedCode, expectedVarMap) = do
       let
         tAst                    = enrich inputCode :: CTranslUnit
         ana                     = case analysis tAst of
           Left es              -> error $ show_errors "test" es 
           Right x              -> x
-        ir                      = ast_2_ir (anaBlocking ana) (anaCritical ana)
+      ir <- failOrPass $ ast_2_ir (anaBlocking ana) (anaCritical ana)
+      let
         (eAst, _, outputVarMap) = tcode_2_ecode ana ir
         outputCode              = reduce $ fmap nodeInfo eAst
         expectedCode'           = (reduce (enrich expectedCode :: CTranslUnit) :: String)
-      in do
-        expectedCode'  @=? outputCode
-        expectedVarMap @=? reduce outputVarMap
+      expectedCode'  @=? outputCode
+      expectedVarMap @=? reduce outputVarMap
+
+failOrPass :: Either [OcramError] a -> IO a -- {{{1
+failOrPass (Left es) = assertFailure (show_errors "<<test>>" es) >> undefined
+failOrPass (Right x) = return x
