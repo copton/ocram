@@ -159,7 +159,10 @@ create_network ctx opt fResponse fStatus = do
       when (not (stateHide state') && status /= status') (fStatus status')
       return state'
 
-  backend <- mfix (\backend' -> B.setup opt (B.Callback display (fCore . handleStop ctx backend') display))
+  backend <- mfix (\backend' ->
+      let stoppedHandler = fCore . handleStop ctx backend' in
+      B.setup opt (B.Callback display display (Just (mapM_ stoppedHandler)))
+    )
 
   fStatus (state2status s0)
   fCore (setupBreakpoints ctx backend)
