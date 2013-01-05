@@ -16,14 +16,15 @@ import Control.Monad (when, guard)
 import Prelude hiding (interact)
 import Ruab.Util (abort)
 
-import qualified Ruab.Backend.GDB.Commands as G
-import qualified Ruab.Backend.GDB.IO as G
-import qualified Ruab.Backend.GDB.Responses as G
-import qualified Ruab.Backend.GDB.Representation as G
+import qualified Gdbmi.Commands       as G
+import qualified Gdbmi.IO             as G
+import qualified Gdbmi.Semantics      as G
+import qualified Gdbmi.Representation as G
 
 setup :: Maybe FilePath -> FilePath -> G.Callback -> IO G.Context -- {{{1
 setup logfile binary callback = do
-  ctx <- G.setup logfile callback
+  let config = G.Config (words "schroot -c quantal -p -- gdb") logfile
+  ctx <- G.setup config callback
 
   resp <- G.send_command ctx (G.CLICommand Nothing "tty /dev/null") -- http://sourceware.org/bugzilla/show_bug.cgi?id=8759
   when (G.respClass resp /= G.RCDone)
